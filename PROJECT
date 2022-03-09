@@ -15,4 +15,9 @@ resources:
   kind: ReleaseStrategy
   path: github.com/redhat-appstudio/release-service/api/v1alpha1
   version: v1alpha1
+- controller: true
+  domain: redhat.com
+  group: appstudio
+  kind: Release
+  version: v1alpha1
 version: "3"
