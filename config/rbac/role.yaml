@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releases/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releases/status
+  verbs:
+  - get
+  - patch
+  - update
