@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"github.com/redhat-appstudio/release-service/tekton"
+	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -52,10 +54,11 @@ func (r *ReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager sets up the controller with the Manager which monitors PipelineRuns and filter them
+// using a predicate to filter out everything but just succeeded Build PipelineRuns.
 func (r *ReleaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		// For().
+		For(&tektonv1beta1.PipelineRun{}).
+		WithEventFilter(tekton.BuildPipelineRunSucceededPredicate()).
 		Complete(r)
 }
