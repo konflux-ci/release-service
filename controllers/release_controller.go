@@ -68,7 +68,7 @@ func (r *ReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // getComponent loads from the cluster the Component referenced in the PipelineRun. It the PipelineRun doesn't specify
 // a component or this is not found in the cluster, an error will be returned.
 func (r *ReleaseReconciler) getComponent(ctx context.Context, pipelineRun *tektonv1beta1.PipelineRun) (*hasv1alpha1.Component, error) {
-	if componentName, found := pipelineRun.Annotations["build.appstudio.openshift.io/component"]; found {
+	if componentName, found := pipelineRun.Labels["build.appstudio.openshift.io/component"]; found {
 		component := &hasv1alpha1.Component{}
 		err := r.Get(ctx, types.NamespacedName{
 			Namespace: pipelineRun.Namespace,
