@@ -20,4 +20,5 @@ resources:
 - tekton_role.yaml
 - tekton_role_binding.yaml
 # Application service
-- component_viewer_role.yaml
+- component_role.yaml
+- component_role_binding.yaml
