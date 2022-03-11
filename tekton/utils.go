@@ -11,7 +11,7 @@ import (
 // the Build service or not.
 func isBuildPipelineRun(object client.Object) bool {
 	if pipelineRun, ok := object.(*tektonv1beta1.PipelineRun); ok {
-		return helpers.HasAnnotationWithValue(pipelineRun,
+		return helpers.HasLabelWithValue(pipelineRun,
 			"pipelines.appstudio.openshift.io/type",
 			"build")
 	}
