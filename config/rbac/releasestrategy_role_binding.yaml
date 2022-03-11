@@ -5,7 +5,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: releasestrategy_viewer_role.yaml
+  name: releasestrategy_viewer_role
 subjects:
   - kind: ServiceAccount
     name: controller-manager
