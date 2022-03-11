@@ -110,13 +110,29 @@ func (r *ReleaseReconciler) triggerReleases(ctx context.Context, component *hasv
 	log := r.Log.WithValues("Component.Name", component.Name, "Component.Namespace", component.Namespace)
 
 	log.Info("Fetching release strategies from component")
+	if len(component.Spec.ReleaseStrategies) == 0 {
+		log.Info("Component has not declared any release strategy",
+			"Component.Spec.ReleaseStrategies", component.Spec.ReleaseStrategies)
+		return
+	}
+
 	strategies := r.getReleaseStrategies(ctx, component)
+	if len(strategies) == 0 {
+		log.Info("No release strategy found in the cluster",
+			"Component.Spec.ReleaseStrategies", component.Spec.ReleaseStrategies)
+		return
+	}
+
 	for _, strategy := range strategies {
 		log.Info("Triggering release", "ReleaseStrategy", strategy.Name)
-		err := r.Create(ctx, tekton.CreatePipelineRunFromReleaseStrategy(strategy, component))
+		pipelineRun := tekton.CreatePipelineRunFromReleaseStrategy(strategy, component)
+		err := r.Create(ctx, pipelineRun)
 		if err != nil {
 			log.Error(err, "Unable to trigger a release", "ReleaseStrategy.Name", strategy.Name)
 		}
+		log.Info("Release triggered",
+			"PipelineRun.Name", pipelineRun.Name,
+			"PipelineRun.Namespace", pipelineRun.Namespace)
 	}
 }
 
