@@ -7,7 +7,11 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreatePipelineRunFromReleaseStrategy(strategy *v1alpha1.ReleaseStrategy, component *hasv1alpha1.Component) *tektonv1beta1.PipelineRun {
+// Create a PipelineRun from a given ReleaseStrategy in the specified namespace. Component details are added
+// to the annotation of the new PipelineRun to be able to reference it later on.
+func CreatePipelineRunFromReleaseStrategy(strategy *v1alpha1.ReleaseStrategy,
+	namespace string,
+	component *hasv1alpha1.Component) *tektonv1beta1.PipelineRun {
 	return &tektonv1beta1.PipelineRun{
 		ObjectMeta: v1.ObjectMeta{
 			Annotations: map[string]string{
@@ -16,7 +20,7 @@ func CreatePipelineRunFromReleaseStrategy(strategy *v1alpha1.ReleaseStrategy, co
 				"release.appstudio.openshift.io/project":   component.Namespace,
 			},
 			GenerateName: strategy.Name + "-",
-			Namespace:    "redhat",
+			Namespace:    namespace,
 		},
 		Spec: tektonv1beta1.PipelineRunSpec{
 			PipelineRef: &tektonv1beta1.PipelineRef{

@@ -81,10 +81,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	organizationNamespace := os.Getenv("ORGANIZATION_NAMESPACE")
+	if organizationNamespace == "" {
+		organizationNamespace = "redhat"
+	}
+
 	if err = (&controllers.ReleaseReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Release"),
-		Scheme: mgr.GetScheme(),
+		Client:                mgr.GetClient(),
+		Log:                   ctrl.Log.WithName("controllers").WithName("Release"),
+		Scheme:                mgr.GetScheme(),
+		OrganizationNamespace: organizationNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Release")
 		os.Exit(1)

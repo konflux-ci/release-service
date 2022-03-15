@@ -33,8 +33,9 @@ import (
 // ReleaseReconciler reconciles a Release object
 type ReleaseReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log                   logr.Logger
+	OrganizationNamespace string
+	Scheme                *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=releases,verbs=get;list;watch;create;update;patch;delete
@@ -93,7 +94,7 @@ func (r *ReleaseReconciler) getReleaseStrategies(ctx context.Context, component 
 	for _, strategyName := range component.Spec.ReleaseStrategies {
 		releaseStrategy := &v1alpha1.ReleaseStrategy{}
 		err := r.Get(ctx, types.NamespacedName{
-			Namespace: "redhat",
+			Namespace: r.OrganizationNamespace,
 			Name:      strategyName,
 		}, releaseStrategy)
 
@@ -125,7 +126,7 @@ func (r *ReleaseReconciler) triggerReleases(ctx context.Context, component *hasv
 
 	for _, strategy := range strategies {
 		log.Info("Triggering release", "ReleaseStrategy", strategy.Name)
-		pipelineRun := tekton.CreatePipelineRunFromReleaseStrategy(strategy, component)
+		pipelineRun := tekton.CreatePipelineRunFromReleaseStrategy(strategy, r.OrganizationNamespace, component)
 		err := r.Create(ctx, pipelineRun)
 		if err != nil {
 			log.Error(err, "Unable to trigger a release", "ReleaseStrategy.Name", strategy.Name)
