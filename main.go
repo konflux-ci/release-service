@@ -32,9 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
+	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/controllers"
-	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -87,12 +88,19 @@ func main() {
 	}
 
 	if err = (&controllers.ReleaseReconciler{
-		Client:                mgr.GetClient(),
-		Log:                   ctrl.Log.WithName("controllers").WithName("Release"),
-		Scheme:                mgr.GetScheme(),
-		OrganizationNamespace: organizationNamespace,
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Release"),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Release")
+		os.Exit(1)
+	}
+	if err = (&controllers.PipelineRunReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("PipelineRun"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PipelineRun")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

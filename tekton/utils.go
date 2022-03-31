@@ -7,13 +7,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// isBuildPipelineRun returns a boolean indicating whether the object passed is a PipelineRun from
+// IsBuildPipelineRun returns a boolean indicating whether the object passed is a PipelineRun from
 // the Build service or not.
-func isBuildPipelineRun(object client.Object) bool {
+func IsBuildPipelineRun(object client.Object) bool {
 	if pipelineRun, ok := object.(*tektonv1beta1.PipelineRun); ok {
 		return helpers.HasLabelWithValue(pipelineRun,
 			"pipelines.appstudio.openshift.io/type",
 			"build")
+	}
+
+	return false
+}
+
+// IsReleasePipelineRun returns a boolean indicating whether the object passed is a PipelineRun from
+// the Release service or not.
+func IsReleasePipelineRun(object client.Object) bool {
+	if pipelineRun, ok := object.(*tektonv1beta1.PipelineRun); ok {
+		return helpers.HasLabelWithValue(pipelineRun,
+			"pipelines.appstudio.openshift.io/type",
+			"release")
 	}
 
 	return false

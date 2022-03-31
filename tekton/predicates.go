@@ -1,13 +1,15 @@
 package tekton
 
 import (
+	"github.com/redhat-appstudio/release-service/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-// BuildPipelineRunSucceededPredicate returns a predicate which filters out all objects except
-// PipelineRuns from the Build service which have just succeeded.
-func BuildPipelineRunSucceededPredicate() predicate.Predicate {
+// BuildOrReleasePipelineRunPredicate returns a predicate which filters out all objects except
+// PipelineRuns from the Build service which have just succeeded or PipelineRuns from the Release
+// service which status has changed.
+func BuildOrReleasePipelineRunPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(createEvent event.CreateEvent) bool {
 			return false
@@ -19,8 +21,14 @@ func BuildPipelineRunSucceededPredicate() predicate.Predicate {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return isBuildPipelineRun(e.ObjectNew) &&
-				hasPipelineSucceeded(e.ObjectOld, e.ObjectNew)
+			switch {
+			case IsBuildPipelineRun(e.ObjectNew) && hasPipelineSucceeded(e.ObjectOld, e.ObjectNew):
+				return true
+			case IsReleasePipelineRun(e.ObjectNew) && helpers.HasStatusChanged(e.ObjectOld, e.ObjectNew):
+				return true
+			default:
+				return false
+			}
 		},
 	}
 }

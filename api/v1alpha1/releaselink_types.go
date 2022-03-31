@@ -48,11 +48,11 @@ type ReleaseLinkStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-
 // +kubebuilder:printcolumn:name="Display Name",type=string,priority=1,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Application",type=string,JSONPath=`.spec.application`
 // +kubebuilder:printcolumn:name="Target",type=string,JSONPath=`.spec.target`
 // +kubebuilder:printcolumn:name="Release Strategy",type=string,JSONPath=`.spec.releaseStrategy`
+
 // ReleaseLink is the Schema for the releaselinks API.
 type ReleaseLink struct {
 	metav1.TypeMeta   `json:",inline"`
