@@ -1,0 +1,24 @@
+# permissions for end users to edit releaselinks.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: releaselink-editor-role
+rules:
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releaselinks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releaselinks/status
+  verbs:
+  - get

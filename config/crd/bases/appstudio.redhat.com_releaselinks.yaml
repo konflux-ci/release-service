@@ -1,0 +1,90 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: releaselinks.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: ReleaseLink
+    listKind: ReleaseLinkList
+    plural: releaselinks
+    singular: releaselink
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      priority: 1
+      type: string
+    - jsonPath: .spec.application
+      name: Application
+      type: string
+    - jsonPath: .spec.target
+      name: Target
+      type: string
+    - jsonPath: .spec.releaseStrategy
+      name: Release Strategy
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ReleaseLink is the Schema for the releaselinks API.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ReleaseLinkSpec defines the desired state of ReleaseLink.
+            properties:
+              application:
+                description: Application is a reference to the application to be released
+                  in the managed workspace
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+              displayName:
+                description: DisplayName refers to the name of the ReleaseLink to
+                  link a user and managed workspace together
+                type: string
+              releaseStrategy:
+                description: Release Strategy defines which strategy will be used
+                  to release the application in the managed workspace. This field
+                  has no effect for ReleaseLink resources in unmanaged workspaces
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+              target:
+                description: Target is a reference to the workspace to establish a
+                  link with
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+            required:
+            - application
+            - displayName
+            - target
+            type: object
+          status:
+            description: ReleaseLinkStatus defines the observed state of ReleaseLink.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
