@@ -9,7 +9,6 @@ jobs:
   go:
     name: Check sources
     runs-on: ubuntu-20.04
-    container: fedora:35
     env:
       OPERATOR_SDK_VERSION: v1.18.0
     steps:
@@ -21,8 +20,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Download fedora environment dependencies # Would be nice to cache this somehow
-        run: sudo dnf -y install diffutils findutils gcc wget
       - name: Cache Operator SDK ${{ env.OPERATOR_SDK_VERSION }}
         uses: actions/cache@v2
         id: cache-operator-sdk
@@ -40,6 +37,10 @@ jobs:
           mkdir -p ~/bin
           cp ~/cache/operator-sdk-${OPERATOR_SDK_VERSION} ~/bin/operator-sdk
           echo "$HOME/bin" >> $GITHUB_PATH
+      - name: Regenerate executables with current environment packages
+        run: |
+          rm -f bin/kustomize bin/controller-gen
+          make kustomize controller-gen
       - name: Cache go modules
         id: cache-mod
         uses: actions/cache@v2
@@ -53,37 +54,34 @@ jobs:
         if: steps.cache-mod.outputs.cache-hit != 'true'
       - name: Check go mod status
         run: |
-          time_before=$(date "+%F %T")
           go mod tidy
-          if [[ $(find . -type f -newermt "$time_before") ]]
+          if [[ ! -z $(git status ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen' -s) ]]
           then
             echo "Go mod state is not clean:"
-            find . -type f -newermt "$time_before"
+            git --no-pager diff ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen'
             exit 1
           fi
       - name: Check format
         run: |
-          time_before=$(date "+%F %T")
           make fmt
-          if [[ $(find . -type f -newermt "$time_before") ]]
+          if [[ ! -z $(git status ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen' -s) ]]
           then
             echo "Some files are not properly formatted."
             echo "Please run `go fmt` and amend your commit."
-            find . -type f -newermt "$time_before"
+            git --no-pager diff ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen'
             exit 1
           fi
       - uses: dominikh/staticcheck-action@v1.1.0
         with:
           version: "2021.1.2"
           install-go: false
-      - name: Check manifests # make generate manifests touches files even for no changes
+      - name: Check manifests
         run: |
-          cp -rp ../release-service/ /tmp/release-service/
           make generate manifests
-          if [[ $(diff -r ../release-service /tmp/release-service) ]]
+          if [[ ! -z $(git status ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen' -s) ]]
           then
             echo "generated sources are not up to date:"
-            diff -r ../release-service /tmp/release-service
+            git --no-pager diff ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen'
             exit 1
           fi
       - name: Run Go Tests
