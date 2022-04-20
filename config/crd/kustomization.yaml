@@ -4,6 +4,7 @@
 resources:
 - bases/appstudio.redhat.com_releasestrategies.yaml
 - bases/appstudio.redhat.com_releaselinks.yaml
+- bases/appstudio.redhat.com_releases.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
