@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/tekton"
@@ -74,9 +75,18 @@ func (r *ReleaseReconciler) triggerReleasePipeline(ctx context.Context, release 
 		return ctrl.Result{}, nil
 	}
 
+	_, err = r.getTargetReleaseLink(ctx, releaseLink)
+	if err != nil {
+		log.Error(err, "Failed to find a matching ReleaseLink in target workspace", "ReleaseLink.Target", releaseLink.Spec.Target)
+		release.Status.SetErrorCondition(err)
+
+		return ctrl.Result{}, nil
+	}
+
 	releaseStrategy, err := r.getReleaseStrategy(ctx, releaseLink)
 	if err != nil {
 		log.Error(err, "Failed to get ReleaseStrategy")
+		release.Status.SetErrorCondition(err)
 
 		return ctrl.Result{}, nil
 	}
@@ -127,8 +137,39 @@ func (r *ReleaseReconciler) getReleaseStrategy(ctx context.Context, releaseLink 
 	return releaseStrategy, nil
 }
 
+// getTargetReleaseLink gets a ReleaseLink by following the spec.target field in a given ReleaseLink and returning
+// it only if it targets the passed ReleaseLink and they both reference the same Application.
+func (r *ReleaseReconciler) getTargetReleaseLink(ctx context.Context, releaseLink *v1alpha1.ReleaseLink) (*v1alpha1.ReleaseLink, error) {
+	releaseLinks := &v1alpha1.ReleaseLinkList{}
+	opts := []client.ListOption{
+		client.InNamespace(releaseLink.Spec.Target),
+		client.MatchingFields{"spec.target": releaseLink.Namespace},
+	}
+
+	if err := r.List(ctx, releaseLinks, opts...); err != nil {
+		return nil, err
+	}
+
+	for _, foundReleaseLink := range releaseLinks.Items {
+		if foundReleaseLink.Spec.Application == releaseLink.Spec.Application {
+			return &foundReleaseLink, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no ReleaseLink found in target workspace %s with target %s and application %s",
+		releaseLink.Spec.Target, releaseLink.Namespace, releaseLink.Spec.Application)
+}
+
 // SetupWithManager sets up the controller with the Manager which monitors new Releases and filters out status updates.
 func (r *ReleaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Add a cache to be able to search for ReleaseLinks by target
+	releaseLinkTargetIndexFunc := func(obj client.Object) []string {
+		return []string{obj.(*v1alpha1.ReleaseLink).Spec.Target}
+	}
+	if err := mgr.GetCache().IndexField(context.Background(), &v1alpha1.ReleaseLink{}, "spec.target", releaseLinkTargetIndexFunc); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Release{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).

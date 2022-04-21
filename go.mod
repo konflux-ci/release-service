@@ -8,6 +8,7 @@ require (
 	github.com/onsi/gomega v1.17.0
 	github.com/redhat-appstudio/application-service v0.0.0-20220310134421-5864c77a3d17
 	github.com/tektoncd/pipeline v0.32.2
+	k8s.io/api v0.23.4 // indirect
 	k8s.io/apimachinery v0.23.4
 	k8s.io/client-go v0.23.4
 	knative.dev/pkg v0.0.0-20220104185830-52e42b760b54
@@ -91,7 +92,6 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	k8s.io/api v0.23.4 // indirect
 	k8s.io/apiextensions-apiserver v0.23.0 // indirect
 	k8s.io/component-base v0.23.0 // indirect
 	k8s.io/klog/v2 v2.40.1 // indirect
