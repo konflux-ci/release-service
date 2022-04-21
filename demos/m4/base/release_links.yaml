@@ -16,5 +16,5 @@ metadata:
 spec:
   displayName: Managed Workspace's ReleaseLink
   application: m4-app
-  target: managed
+  target: demo
   releaseStrategy: m4-strategy

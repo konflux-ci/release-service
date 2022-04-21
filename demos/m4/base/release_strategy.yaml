@@ -5,4 +5,4 @@ metadata:
   namespace: managed
 spec:
   pipeline: m4-release-pipeline
-  bundle: quay.io/hacbs-release/hello-world:0.3-alpine
+  bundle: quay.io/hacbs-release/m4:0.1-alpine
