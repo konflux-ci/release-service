@@ -9,7 +9,7 @@ require (
 	github.com/redhat-appstudio/application-service v0.0.0-20220310134421-5864c77a3d17
 	github.com/stretchr/testify v1.7.0
 	github.com/tektoncd/pipeline v0.32.2
-	k8s.io/api v0.23.4 // indirect
+	k8s.io/api v0.23.4
 	k8s.io/apimachinery v0.23.4
 	k8s.io/client-go v0.23.4
 	knative.dev/pkg v0.0.0-20220104185830-52e42b760b54
