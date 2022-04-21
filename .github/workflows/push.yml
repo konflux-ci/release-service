@@ -1,0 +1,60 @@
+name: Container build on pushes
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build-image:
+    name: Build image
+    runs-on: ubuntu-20.04
+    env:
+      OPERATOR_SDK_VERSION: v1.18.0
+      QUAY_ORG: redhat-appstudio
+      QUAY_REPO: release-service
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+      - name: Check out source code
+        uses: actions/checkout@v2
+      - name: Cache Operator SDK ${{ env.OPERATOR_SDK_VERSION }}
+        uses: actions/cache@v2
+        id: cache-operator-sdk
+        with:
+          path: ~/cache
+          key: operator-sdk-${{ env.OPERATOR_SDK_VERSION }}
+      - name: Download Operator SDK ${{ env.OPERATOR_SDK_VERSION }}
+        if: steps.cache-operator-sdk.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/cache
+          wget https://github.com/operator-framework/operator-sdk/releases/download/${OPERATOR_SDK_VERSION}/operator-sdk_linux_amd64 -O ~/cache/operator-sdk-${OPERATOR_SDK_VERSION} > /dev/null -O ~/cache/operator-sdk-${OPERATOR_SDK_VERSION} > /dev/null
+          chmod +x ~/cache/operator-sdk-${OPERATOR_SDK_VERSION}
+      - name: Install Operator SDK ${{ env.OPERATOR_SDK_VERSION }}
+        run: |
+          mkdir -p ~/bin
+          cp ~/cache/operator-sdk-${OPERATOR_SDK_VERSION} ~/bin/operator-sdk
+          echo "$HOME/bin" >> $GITHUB_PATH
+      - name: Regenerate executables with current environment packages
+        run: |
+          rm -f bin/kustomize bin/controller-gen
+          make kustomize controller-gen
+      - name: Make build
+        run: make build
+      - name: Make bundle
+        run: make bundle
+      - name: Login to Quay
+        uses: docker/login-action@v1
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+      - name: Build bundle image and push it to Quay
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          file: bundle.Dockerfile
+          tags: |
+            quay.io/${{ env.QUAY_ORG }}/${{ env.QUAY_REPO }}:next
+            quay.io/${{ env.QUAY_ORG }}/${{ env.QUAY_REPO }}:${{ github.sha }}
