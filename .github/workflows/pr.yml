@@ -85,8 +85,11 @@ jobs:
             exit 1
           fi
       - name: Run Go Tests
-        run: |
-          make test
+        run: make test
+      - name: Ensure make build succeeds
+        run: make build
+      - name: Ensure make bundle succeeds
+        run: make bundle
   docker:
     name: Check docker build
     runs-on: ubuntu-20.04
