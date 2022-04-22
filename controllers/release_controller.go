@@ -71,6 +71,7 @@ func (r *ReleaseReconciler) triggerReleasePipeline(ctx context.Context, release 
 	releaseLink, err := r.getReleaseLink(ctx, release)
 	if err != nil {
 		log.Error(err, "Failed to get ReleaseLink")
+		release.Status.SetErrorCondition(err)
 
 		return ctrl.Result{}, nil
 	}
@@ -98,6 +99,7 @@ func (r *ReleaseReconciler) triggerReleasePipeline(ctx context.Context, release 
 	err = r.Create(ctx, pipelineRun)
 	if err != nil {
 		log.Error(err, "Unable to trigger a Release Pipeline", "ReleaseStrategy.Name", releaseStrategy.Name)
+		release.Status.SetErrorCondition(err)
 
 		return ctrl.Result{}, err
 	}
