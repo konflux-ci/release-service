@@ -1,0 +1,8 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleaseStrategy
+metadata:
+  name: m4-strategy
+  namespace: managed
+spec:
+  pipeline: m4-release-pipeline
+  bundle: quay.io/hacbs-release/hello-world:0.3-alpine
