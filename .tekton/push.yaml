@@ -1,0 +1,29 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: release-service-on-push
+  annotations:
+    pipelinesascode.tekton.dev/on-event: "[push]" 
+    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+    pipelinesascode.tekton.dev/max-keep-runs: "5"
+spec:
+  params:
+    - name: git-url
+      value: "{{ repo_url }}"
+    - name: revision
+      value: "{{ revision }}"
+    - name: output-image
+      value: 'quay.io/redhat-appstudio/release-service:{{ revision }}'
+    - name: path-context
+      value: .
+    - name: dockerfile
+      value: Dockerfile
+  pipelineRef:
+    name: docker-build
+    bundle: quay.io/redhat-appstudio/build-templates-bundle:c135924c0ea4d8c7f5c4c721f866e040d66f14ba
+  workspaces: 
+   - name: workspace 
+     persistentVolumeClaim: 
+        claimName: app-studio-default-workspace 
+     subPath: release-service-push-{{ revision }}
