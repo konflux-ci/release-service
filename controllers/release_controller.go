@@ -75,15 +75,16 @@ func (r *ReleaseReconciler) triggerReleasePipeline(ctx context.Context, release 
 		return ctrl.Result{}, nil
 	}
 
-	_, err = r.getTargetReleaseLink(ctx, releaseLink)
+	targetReleaseLink, err := r.getTargetReleaseLink(ctx, releaseLink)
 	if err != nil {
-		log.Error(err, "Failed to find a matching ReleaseLink in target workspace", "ReleaseLink.Target", releaseLink.Spec.Target)
+		log.Error(err, "Failed to find a matching ReleaseLink in target workspace",
+			"ReleaseLink.Target", releaseLink.Spec.Target)
 		release.Status.SetErrorCondition(err)
 
 		return ctrl.Result{}, nil
 	}
 
-	releaseStrategy, err := r.getReleaseStrategy(ctx, releaseLink)
+	releaseStrategy, err := r.getReleaseStrategy(ctx, targetReleaseLink)
 	if err != nil {
 		log.Error(err, "Failed to get ReleaseStrategy")
 		release.Status.SetErrorCondition(err)
@@ -126,8 +127,8 @@ func (r *ReleaseReconciler) getReleaseLink(ctx context.Context, release *v1alpha
 func (r *ReleaseReconciler) getReleaseStrategy(ctx context.Context, releaseLink *v1alpha1.ReleaseLink) (*v1alpha1.ReleaseStrategy, error) {
 	releaseStrategy := &v1alpha1.ReleaseStrategy{}
 	err := r.Get(ctx, types.NamespacedName{
-		Namespace: releaseLink.Spec.Target,
 		Name:      releaseLink.Spec.ReleaseStrategy,
+		Namespace: releaseLink.Namespace,
 	}, releaseStrategy)
 
 	if err != nil {
@@ -156,7 +157,7 @@ func (r *ReleaseReconciler) getTargetReleaseLink(ctx context.Context, releaseLin
 		}
 	}
 
-	return nil, fmt.Errorf("no ReleaseLink found in target workspace %s with target %s and application %s",
+	return nil, fmt.Errorf("no ReleaseLink found in target workspace '%s' with target '%s' and application '%s'",
 		releaseLink.Spec.Target, releaseLink.Namespace, releaseLink.Spec.Application)
 }
 
