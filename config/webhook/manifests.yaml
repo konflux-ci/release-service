@@ -38,6 +38,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-appstudio-redhat-com-v1alpha1-release
+  failurePolicy: Fail
+  name: vrelease.kb.io
+  rules:
+  - apiGroups:
+    - appstudio.redhat.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - releases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-appstudio-redhat-com-v1alpha1-releaselink
   failurePolicy: Fail
   name: vreleaselink.kb.io
