@@ -106,8 +106,14 @@ func main() {
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		setupLog.Info("setting up webhooks")
+
 		if err = (&appstudiov1alpha1.ReleaseLink{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ReleaseLink")
+			os.Exit(1)
+		}
+
+		if err = (&appstudiov1alpha1.Release{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Release")
 			os.Exit(1)
 		}
 	}
