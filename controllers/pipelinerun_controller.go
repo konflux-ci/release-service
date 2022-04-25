@@ -103,9 +103,10 @@ func (r *PipelineRunReconciler) createRelease(ctx context.Context, pipelineRun *
 		return ctrl.Result{}, err
 	}
 
-	release.Status.Trigger = "automated"
-
-	return helpers.UpdateStatus(r.Client, ctx, release)
+	//release.Status.Trigger = "automated"
+	//
+	//return helpers.UpdateStatus(r.Client, ctx, release)
+	return ctrl.Result{}, nil
 }
 
 // updateReleaseStatus updates the status of the Release referenced in a Release PipelineRun. The new state will

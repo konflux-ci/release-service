@@ -65,7 +65,7 @@ type ReleaseStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.component`
-// +kubebuilder:printcolumn:name="Trigger",type=string,priority=1,JSONPath=`.status.trigger`
+// -kubebuilder:printcolumn:name="Trigger",type=string,priority=1,JSONPath=`.status.trigger`
 // +kubebuilder:printcolumn:name="Succeeded",type=string,JSONPath=`.status.conditions[?(@.type=="Succeeded")].status`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=="Succeeded")].reason`
 // +kubebuilder:printcolumn:name="PipelineRun",type=string,priority=1,JSONPath=`.status.releasePipelineRun`

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/helpers"
 	"github.com/redhat-appstudio/release-service/tekton"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -73,7 +74,7 @@ func (r *ReleaseReconciler) triggerReleasePipeline(ctx context.Context, release 
 		log.Error(err, "Failed to get ReleaseLink")
 		release.Status.SetErrorCondition(err)
 
-		return ctrl.Result{}, nil
+		return helpers.UpdateStatus(r.Client, ctx, release)
 	}
 
 	targetReleaseLink, err := r.getTargetReleaseLink(ctx, releaseLink)
@@ -82,7 +83,7 @@ func (r *ReleaseReconciler) triggerReleasePipeline(ctx context.Context, release 
 			"ReleaseLink.Target", releaseLink.Spec.Target)
 		release.Status.SetErrorCondition(err)
 
-		return ctrl.Result{}, nil
+		return helpers.UpdateStatus(r.Client, ctx, release)
 	}
 
 	releaseStrategy, err := r.getReleaseStrategy(ctx, targetReleaseLink)
@@ -90,7 +91,7 @@ func (r *ReleaseReconciler) triggerReleasePipeline(ctx context.Context, release 
 		log.Error(err, "Failed to get ReleaseStrategy")
 		release.Status.SetErrorCondition(err)
 
-		return ctrl.Result{}, nil
+		return helpers.UpdateStatus(r.Client, ctx, release)
 	}
 
 	log.Info("Triggering release", "ReleaseStrategy", releaseStrategy.Name)
@@ -101,7 +102,7 @@ func (r *ReleaseReconciler) triggerReleasePipeline(ctx context.Context, release 
 		log.Error(err, "Unable to trigger a Release Pipeline", "ReleaseStrategy.Name", releaseStrategy.Name)
 		release.Status.SetErrorCondition(err)
 
-		return ctrl.Result{}, err
+		return helpers.UpdateStatus(r.Client, ctx, release)
 	}
 
 	log.Info("Release triggered",

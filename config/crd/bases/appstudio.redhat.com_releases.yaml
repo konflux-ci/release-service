@@ -19,10 +19,6 @@ spec:
     - jsonPath: .spec.component
       name: Component
       type: string
-    - jsonPath: .status.trigger
-      name: Trigger
-      priority: 1
-      type: string
     - jsonPath: .status.conditions[?(@.type=="Succeeded")].status
       name: Succeeded
       type: string
