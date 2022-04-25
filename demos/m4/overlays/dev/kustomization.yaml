@@ -3,5 +3,4 @@ kind: Kustomization
 resources:
   - ../../base
   - component.yaml
-  - tekton_feature_flags_config_map.yaml
   - pipeline_run.yaml
