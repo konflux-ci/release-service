@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: matching-scenario-user
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: matching-scenario-managed
+---
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleaseLink
+metadata:
+  name: test-releaselink
+  namespace: matching-scenario-user
+spec:
+  displayName: a test user releaselink
+  application: test
+  target: matching-scenario-managed
+---
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Release
+metadata:
+  name: test-release
+  namespace: matching-scenario-user
+spec:
+  releaseLink: test-releaselink
+  component: test

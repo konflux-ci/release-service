@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: releasestrategy-scenario-user
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: releasestrategy-scenario-managed
+---
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleaseLink
+metadata:
+  name: test-releaselink-user
+  namespace: releasestrategy-scenario-user
+spec:
+  displayName: a test user releaselink
+  application: test
+  target: releasestrategy-scenario-managed
+---
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleaseLink
+metadata:
+  name: test-releaselink-managed
+  namespace: releasestrategy-scenario-managed
+spec:
+  displayName: a test managed releaselink
+  application: test
+  target: releasestrategy-scenario-user
+  releaseStrategy: missing-releasestrategy
+---
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Release
+metadata:
+  name: test-release
+  namespace: releasestrategy-scenario-user
+spec:
+  releaseLink: test-releaselink-user
+  component: test
