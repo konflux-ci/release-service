@@ -4,3 +4,4 @@ resources:
   - namespaces.yaml
   - release_strategy.yaml
   - release_links.yaml
+  - tekton_feature_flags_config_map.yaml
