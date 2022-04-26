@@ -30,3 +30,6 @@ spec:
      persistentVolumeClaim: 
         claimName: app-studio-default-workspace 
      subPath: release-service-push-{{ revision }}
+   - name: deploy-key
+     secret:
+        secretName: infra-deployments-deploy-key
