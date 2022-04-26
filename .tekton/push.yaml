@@ -19,9 +19,12 @@ spec:
       value: .
     - name: dockerfile
       value: Dockerfile
+    - name: infra-deployment-update-script
+      value: |
+        sed -i -e 's|\(https://github.com/redhat-appstudio/release-service/config/default?ref=\)\(.*\)|\1{{ revision }}|' -e 's/\(newTag: \).*/\1{{ revision }}/' components/release/kustomization.yaml
   pipelineRef:
     name: docker-build
-    bundle: quay.io/redhat-appstudio/build-templates-bundle:c135924c0ea4d8c7f5c4c721f866e040d66f14ba
+    bundle: quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest
   workspaces: 
    - name: workspace 
      persistentVolumeClaim: 

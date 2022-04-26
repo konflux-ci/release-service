@@ -17,7 +17,7 @@ spec:
       value: 'quay.io/redhat-appstudio/pull-request-builds:release-service-{{ revision }}'
   pipelineRef:
     name: docker-build
-    bundle: quay.io/redhat-appstudio/build-templates-bundle:c135924c0ea4d8c7f5c4c721f866e040d66f14ba
+    bundle: quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest
   serviceAccountName: pipeline
   workspaces:
     - name: workspace
