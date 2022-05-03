@@ -20,17 +20,24 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/helpers"
 	"github.com/redhat-appstudio/release-service/tekton"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+const releaseFinalizer = "appstudio.redhat.com/finalizer"
 
 // ReleaseReconciler reconciles a Release object
 type ReleaseReconciler struct {
@@ -62,12 +69,65 @@ func (r *ReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	return r.triggerReleasePipeline(ctx, release)
+	isReleaseMarkedToBeDeleted := release.GetDeletionTimestamp() != nil
+	if isReleaseMarkedToBeDeleted {
+		if controllerutil.ContainsFinalizer(release, releaseFinalizer) {
+			if err := r.finalizeRelease(ctx, log, release); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			controllerutil.RemoveFinalizer(release, releaseFinalizer)
+			err := r.Update(ctx, release)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
+	if !controllerutil.ContainsFinalizer(release, releaseFinalizer) {
+		controllerutil.AddFinalizer(release, releaseFinalizer)
+		err = r.Update(ctx, release)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if release.Status.StartTime == nil {
+		release.Status.SetCreatedCondition()
+
+		_, err = helpers.UpdateStatus(r.Client, ctx, release)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		log.Info("Created", "Conditions", release.Status.Conditions)
+	}
+
+	pipelineRuns := &v1beta1.PipelineRunList{}
+	opts := []client.ListOption{
+		client.MatchingLabels{
+			"release.appstudio.openshift.io/release":   release.Name,
+			"release.appstudio.openshift.io/workspace": release.Namespace,
+		},
+	}
+
+	err = r.List(ctx, pipelineRuns, opts...)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if len(pipelineRuns.Items) == 0 {
+		return r.createReleasePipelineRun(ctx, release)
+	}
+
+	release.Status.TrackReleasePipelineStatus(&pipelineRuns.Items[0])
+
+	return helpers.UpdateStatus(r.Client, ctx, release)
 }
 
-// triggerReleasePipeline triggers a new Release Pipeline using the information provided in the given Release.
-func (r *ReleaseReconciler) triggerReleasePipeline(ctx context.Context, release *v1alpha1.Release) (ctrl.Result, error) {
-	log := r.Log.WithValues()
+// createReleasePipelineRun triggers a new Release Pipeline using the information provided in the given Release.
+func (r *ReleaseReconciler) createReleasePipelineRun(ctx context.Context, release *v1alpha1.Release) (ctrl.Result, error) {
+	log := r.Log.WithValues("Release.Name", release.Name, "Release.Namespace", release.Namespace)
+
+	log.Info("Creating release pipeline run")
 
 	releaseLink, err := r.getReleaseLink(ctx, release)
 	if err != nil {
@@ -97,6 +157,12 @@ func (r *ReleaseReconciler) triggerReleasePipeline(ctx context.Context, release 
 	log.Info("Triggering release", "ReleaseStrategy", releaseStrategy.Name)
 
 	pipelineRun := tekton.CreatePipelineRunFromReleaseStrategy(releaseStrategy, releaseLink.Spec.Target, release)
+	err = libhandler.SetOwnerAnnotations(release, pipelineRun)
+	if err != nil {
+		log.Error(err, "Failed to set Release Pipeline ownership",
+			"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
+		return ctrl.Result{}, err
+	}
 	err = r.Create(ctx, pipelineRun)
 	if err != nil {
 		log.Error(err, "Unable to trigger a Release Pipeline", "ReleaseStrategy.Name", releaseStrategy.Name)
@@ -164,6 +230,28 @@ func (r *ReleaseReconciler) getTargetReleaseLink(ctx context.Context, releaseLin
 		releaseLink.Spec.Target, releaseLink.Namespace, releaseLink.Spec.Application)
 }
 
+// finalizeRelease removes all the CRs associated with the Release once the release is marked to be deleted.
+func (r *ReleaseReconciler) finalizeRelease(ctx context.Context, log logr.Logger, release *v1alpha1.Release) error {
+	pipelineRuns := &v1beta1.PipelineRunList{}
+	opts := []client.ListOption{
+		client.MatchingLabels{
+			"release.appstudio.openshift.io/release":   release.Name,
+			"release.appstudio.openshift.io/workspace": release.Namespace,
+		},
+	}
+
+	err := r.List(ctx, pipelineRuns, opts...)
+	if err != nil {
+		return err
+	} else if len(pipelineRuns.Items) != 0 {
+		return r.Delete(ctx, &pipelineRuns.Items[0])
+	}
+
+	log.Info("Successfully finalized memcached")
+
+	return nil
+}
+
 // SetupWithManager sets up the controller with the Manager which monitors new Releases and filters out status updates.
 func (r *ReleaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Add a cache to be able to search for ReleaseLinks by target
@@ -175,17 +263,11 @@ func (r *ReleaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.Release{}).
-		WithEventFilter(predicate.GenerationChangedPredicate{}).
-		WithEventFilter(predicate.Funcs{
-			DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
-				return false
-			},
-			GenericFunc: func(genericEvent event.GenericEvent) bool {
-				return false
-			},
-			UpdateFunc: func(updateEvent event.UpdateEvent) bool {
-				return false
+		For(&v1alpha1.Release{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&source.Kind{Type: &v1beta1.PipelineRun{}}, &libhandler.EnqueueRequestForAnnotation{
+			Type: schema.GroupKind{
+				Kind:  "Release",
+				Group: "appstudio.redhat.com",
 			},
 		}).
 		Complete(r)

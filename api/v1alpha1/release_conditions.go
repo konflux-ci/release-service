@@ -53,3 +53,16 @@ func (rs *ReleaseStatus) setStatusCondition(status metav1.ConditionStatus, reaso
 		Message: message,
 	})
 }
+
+func (rs *ReleaseStatus) TrackReleasePipelineStatus(pipelineRun *tektonv1beta1.PipelineRun) {
+	if pipelineRun.IsDone() {
+		condition := pipelineRun.Status.GetCondition(apis.ConditionSucceeded)
+		if condition.IsTrue() {
+			rs.SetSucceededCondition()
+		} else {
+			rs.SetFailedCondition(pipelineRun)
+		}
+	} else if rs.ReleasePipelineRun == "" {
+		rs.SetRunningCondition(pipelineRun)
+	}
+}

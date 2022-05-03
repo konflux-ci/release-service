@@ -56,6 +56,11 @@ type ReleaseStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
 
+	// ContractTaskRun references the TaskRun executed as part of this release to validate the enterprise contract
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	ContractTaskRun string `json:"contractTaskRun,omitempty"`
+
 	// ReleasePipelineRun references the Release PipelineRun executed as part of this release
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional

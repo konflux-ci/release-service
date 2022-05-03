@@ -22,13 +22,11 @@ import (
 	"github.com/go-logr/logr"
 	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/helpers"
 	"github.com/redhat-appstudio/release-service/tekton"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/apis"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -63,13 +61,7 @@ func (r *PipelineRunReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	if tekton.IsBuildPipelineRun(pipelineRun) {
-		return r.createRelease(ctx, pipelineRun)
-	} else if tekton.IsReleasePipelineRun(pipelineRun) {
-		return r.updateReleaseStatus(ctx, pipelineRun)
-	}
-
-	return ctrl.Result{}, nil
+	return r.createRelease(ctx, pipelineRun)
 }
 
 // createRelease creates a new Release by using the information provided in the Build PipelineRun.
@@ -100,42 +92,12 @@ func (r *PipelineRunReconciler) createRelease(ctx context.Context, pipelineRun *
 	if err != nil {
 		log.Error(err, "Failed to create Release")
 
+		// This is the only returned error so idempotency is achieved. If we need to return more errors,
+		// we need to check if the release exists already.
 		return ctrl.Result{}, err
 	}
 
-	//release.Status.Trigger = "automated"
-	//
-	//return helpers.UpdateStatus(r.Client, ctx, release)
 	return ctrl.Result{}, nil
-}
-
-// updateReleaseStatus updates the status of the Release referenced in a Release PipelineRun. The new state will
-// reflect the state of the execution of the Release Pipeline.
-func (r *PipelineRunReconciler) updateReleaseStatus(ctx context.Context, pipelineRun *tektonv1beta1.PipelineRun) (ctrl.Result, error) {
-	log := r.Log.WithValues()
-
-	release, err := r.getRelease(ctx, pipelineRun)
-	if err != nil {
-		log.Error(err, "Failed to update Release")
-		return ctrl.Result{}, nil
-	}
-
-	// This log could be too chatty as the PipelineRun gets frequently updated.
-	log.V(2).Info("Updating existing Release",
-		"Release.Name", release.Name, "Release.Namespace", release.Namespace)
-
-	if pipelineRun.IsDone() {
-		condition := pipelineRun.Status.GetCondition(apis.ConditionSucceeded)
-		if condition.IsTrue() {
-			release.Status.SetSucceededCondition()
-		} else {
-			release.Status.SetFailedCondition(pipelineRun)
-		}
-	} else if release.Status.ReleasePipelineRun == "" {
-		release.Status.SetRunningCondition(pipelineRun)
-	}
-
-	return helpers.UpdateStatus(r.Client, ctx, release)
 }
 
 // getComponent loads from the cluster the Component referenced in the given PipelineRun. If the PipelineRun doesn't specify
@@ -156,28 +118,6 @@ func (r *PipelineRunReconciler) getComponent(ctx context.Context, pipelineRun *t
 	}
 
 	return nil, fmt.Errorf("the pipeline had no component associated with it")
-}
-
-// getRelease loads from the cluster the Release referenced in the given PipelineRun. If the PipelineRun doesn't specify
-// a Release or this is not found in the cluster, an error will be returned.
-func (r *PipelineRunReconciler) getRelease(ctx context.Context, pipelineRun *tektonv1beta1.PipelineRun) (*v1alpha1.Release, error) {
-	if releaseName, found := pipelineRun.Labels["release.appstudio.openshift.io/release"]; found {
-		if workspace, found := pipelineRun.Labels["release.appstudio.openshift.io/workspace"]; found {
-			release := &v1alpha1.Release{}
-			err := r.Get(ctx, types.NamespacedName{
-				Name:      releaseName,
-				Namespace: workspace,
-			}, release)
-
-			if err != nil {
-				return nil, err
-			}
-
-			return release, nil
-		}
-	}
-
-	return nil, fmt.Errorf("the PipelineRun had no Release associated with it")
 }
 
 // getReleaseLink is a dummy implementation of the function to get the ReleaseLink from the object that triggered an
@@ -201,6 +141,6 @@ func (r *PipelineRunReconciler) getReleaseLink(ctx context.Context, component *h
 func (r *PipelineRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tektonv1beta1.PipelineRun{}).
-		WithEventFilter(tekton.BuildOrReleasePipelineRunPredicate()).
+		WithEventFilter(tekton.BuildPipelineRunSucceededPredicate()).
 		Complete(r)
 }

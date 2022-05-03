@@ -152,6 +152,11 @@ spec:
                   - type
                   type: object
                 type: array
+              contractTaskRun:
+                description: ContractTaskRun references the TaskRun executed as part
+                  of this release to validate the enterprise contract
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
               releasePipelineRun:
                 description: ReleasePipelineRun references the Release PipelineRun
                   executed as part of this release
