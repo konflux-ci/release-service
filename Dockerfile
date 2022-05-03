@@ -13,7 +13,6 @@ RUN go mod download
 COPY main.go main.go
 COPY api/ api/
 COPY controllers/ controllers/
-COPY helpers/ helpers/
 COPY tekton/ tekton/
 
 # Build
