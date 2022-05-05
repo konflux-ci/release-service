@@ -14,7 +14,7 @@ This demo can run in two different environments:
 To run the demo's happy path execute the following commands:
 
 ```bash
-$ git clone https://github.com/redhat-appstudio/release-service.git
+$ git clone -b 0.1.0 --depth 1 https://github.com/redhat-appstudio/release-service.git
 $ cd release-service/demo/m4
 $ kubectl apply -k overlays/<environment>
 ```
@@ -48,7 +48,7 @@ Two ReleaseLinks are considered matching if they both specify the same applicati
 This scenario shows the situation where a Release is created in the user workspace with a ReleaseLink to a managed workspace, but there is no matching ReleaseLink in the managed workspace.
 
 ```bash
-$ git clone https://github.com/redhat-appstudio/release-service.git
+$ git clone -b 0.1.0 --depth 1 https://github.com/redhat-appstudio/release-service.git
 $ cd release-service/demo/m4/failures
 $ oc apply -f missing_matching_release_link.yaml
 ```
@@ -89,7 +89,7 @@ For the sake of milestone 4, a namespace is treated as a workspace.
 This failure scenario shows what happens when a user creates a ReleaseLink resource that targets its own namespace.
 
 ```bash
-$ git clone https://github.com/redhat-appstudio/release-service.git
+$ git clone -b 0.1.0 --depth 1 https://github.com/redhat-appstudio/release-service.git
 $ cd release-service/demo/m4/failures
 $ oc apply -f release_link_targets_own_workspace.yaml
 ```
@@ -108,7 +108,7 @@ The Release controller checks for the ReleaseStrategy's existence and will only 
 This scenario is for showing what happens if the ReleaseStrategy does not exist.
 
 ```bash
-$ git clone https://github.com/redhat-appstudio/release-service.git
+$ git clone -b 0.1.0 --depth 1 https://github.com/redhat-appstudio/release-service.git
 $ cd release-service/demo/m4/failures
 $ oc apply -f missing_release_strategy.yaml
 ```
@@ -150,7 +150,7 @@ If all the ReleaseLinks are valid and the referenced ReleaseStrategy exists, the
 This scenario shows a Release resource that fails because the ReleaseStrategy in the ReleaseLink refers to a non-existing pipeline.
 
 ```bash
-$ git clone https://github.com/redhat-appstudio/release-service.git
+$ git clone -b 0.1.0 --depth 1 https://github.com/redhat-appstudio/release-service.git
 $ cd release-service/demo/m4/failures
 $ oc apply -f missing_release_pipeline.yaml
 ```
