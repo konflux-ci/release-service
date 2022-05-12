@@ -74,8 +74,6 @@ spec:
             - releaseLink
             type: object
           status:
-            default:
-              trigger: manual
             description: ReleaseStatus defines the observed state of Release
             properties:
               completionTime:
@@ -153,20 +151,14 @@ spec:
                   type: object
                 type: array
               releasePipelineRun:
-                description: ReleasePipelineRun references the Release PipelineRun
-                  executed as part of this release
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                description: ReleasePipelineRun contains the namespaced name of the
+                  release PipelineRun executed as part of this release
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
               startTime:
                 description: StartTime is the time when the Release PipelineRun was
                   created and set to run
                 format: date-time
-                type: string
-              trigger:
-                description: Trigger reflects whether the Release is manual or automated
-                enum:
-                - automated
-                - manual
                 type: string
             type: object
         type: object

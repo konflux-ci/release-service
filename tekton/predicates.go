@@ -1,15 +1,29 @@
+/*
+Copyright 2022.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package tekton
 
 import (
-	"github.com/redhat-appstudio/release-service/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-// BuildOrReleasePipelineRunPredicate returns a predicate which filters out all objects except
-// PipelineRuns from the Build service which have just succeeded or PipelineRuns from the Release
-// service which status has changed.
-func BuildOrReleasePipelineRunPredicate() predicate.Predicate {
+// ReleasePipelineRunSucceededPredicate returns a predicate which filters out all objects except
+// release PipelineRuns which have just succeeded.
+func ReleasePipelineRunSucceededPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(createEvent event.CreateEvent) bool {
 			return false
@@ -21,14 +35,7 @@ func BuildOrReleasePipelineRunPredicate() predicate.Predicate {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			switch {
-			case IsBuildPipelineRun(e.ObjectNew) && hasPipelineSucceeded(e.ObjectOld, e.ObjectNew):
-				return true
-			case IsReleasePipelineRun(e.ObjectNew) && helpers.HasStatusChanged(e.ObjectOld, e.ObjectNew):
-				return true
-			default:
-				return false
-			}
+			return isReleasePipelineRun(e.ObjectNew) && hasPipelineSucceeded(e.ObjectNew)
 		},
 	}
 }
