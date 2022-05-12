@@ -30,10 +30,10 @@ import (
 var _ = Describe("Release validation webhook", func() {
 	// Define utility constants for object names
 	const (
-		Name        = "test-release-"
-		Namespace   = "default"
-		Component   = "test-component"
-		ReleaseLink = "test-releaselink"
+		Name                = "test-release-"
+		Namespace           = "default"
+		ApplicationSnapshot = "test-snapshot"
+		ReleaseLink         = "test-releaselink"
 	)
 
 	Context("Update Release CR fields", func() {
@@ -50,8 +50,8 @@ var _ = Describe("Release validation webhook", func() {
 					Namespace:    Namespace,
 				},
 				Spec: ReleaseSpec{
-					Component:   Component,
-					ReleaseLink: ReleaseLink,
+					ApplicationSnapshot: ApplicationSnapshot,
+					ReleaseLink:         ReleaseLink,
 				},
 			}
 			Expect(k8sClient.Create(ctx, release)).Should(Succeed())
@@ -64,8 +64,8 @@ var _ = Describe("Release validation webhook", func() {
 				return !reflect.DeepEqual(createdRelease, &Release{})
 			}, timeout, interval).Should(BeTrue())
 
-			// Try to update the Release component
-			createdRelease.Spec.Component = "another-component"
+			// Try to update the Release application snapshot
+			createdRelease.Spec.ApplicationSnapshot = "another-snapshot"
 			err := k8sClient.Update(ctx, createdRelease)
 			Expect(err).Should(HaveOccurred())
 			Expect(err.Error()).Should(ContainSubstring("release resources cannot be updated"))

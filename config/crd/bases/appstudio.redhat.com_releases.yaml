@@ -16,8 +16,8 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.component
-      name: Component
+    - jsonPath: .spec.applicationSnapshot
+      name: Snapshot
       type: string
     - jsonPath: .status.conditions[?(@.type=="Succeeded")].status
       name: Succeeded
@@ -60,17 +60,17 @@ spec:
           spec:
             description: ReleaseSpec defines the desired state of Release
             properties:
-              component:
-                description: Component to be released
+              applicationSnapshot:
+                description: ApplicationSnapshot to be released
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
               releaseLink:
-                description: ReleaseLink referencing the workspace where the component
+                description: ReleaseLink referencing the workspace where the snapshot
                   will be released
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
             required:
-            - component
+            - applicationSnapshot
             - releaseLink
             type: object
           status:

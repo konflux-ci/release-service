@@ -17,19 +17,20 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 // ReleaseSpec defines the desired state of Release
 type ReleaseSpec struct {
-	// Component to be released
+	// ApplicationSnapshot to be released
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
-	Component string `json:"component"`
+	ApplicationSnapshot string `json:"applicationSnapshot"`
 
-	// ReleaseLink referencing the workspace where the component will be released
+	// ReleaseLink referencing the workspace where the snapshot will be released
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
 	ReleaseLink string `json:"releaseLink"`
@@ -122,7 +123,7 @@ func (rs *ReleaseStatus) setStatusConditionWithMessage(status metav1.ConditionSt
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.component`
+// +kubebuilder:printcolumn:name="Snapshot",type=string,JSONPath=`.spec.applicationSnapshot`
 // +kubebuilder:printcolumn:name="Succeeded",type=string,JSONPath=`.status.conditions[?(@.type=="Succeeded")].status`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=="Succeeded")].reason`
 // +kubebuilder:printcolumn:name="PipelineRun",type=string,priority=1,JSONPath=`.status.releasePipelineRun`

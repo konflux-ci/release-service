@@ -16,8 +16,9 @@
 package v1alpha1
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestReleaseCreateValidatingWebhook(t *testing.T) {
@@ -48,8 +49,8 @@ func TestReleaseCreateValidatingWebhook(t *testing.T) {
 func TestReleaseUpdateValidatingWebhook(t *testing.T) {
 	originalRelease := Release{
 		Spec: ReleaseSpec{
-			Component:   "component1",
-			ReleaseLink: "releaselink",
+			ApplicationSnapshot: "snapshot1",
+			ReleaseLink:         "releaselink",
 		},
 	}
 
@@ -63,8 +64,8 @@ func TestReleaseUpdateValidatingWebhook(t *testing.T) {
 			errorMessage: "release resources cannot be updated",
 			release: Release{
 				Spec: ReleaseSpec{
-					Component:   "component2",
-					ReleaseLink: "releaselink",
+					ApplicationSnapshot: "snapshot2",
+					ReleaseLink:         "releaselink",
 				},
 			},
 		},
