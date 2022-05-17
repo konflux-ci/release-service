@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
-	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/controllers/results"
 	"github.com/redhat-appstudio/release-service/tekton"
@@ -160,14 +159,16 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (results.OperationResul
 }
 
 // createReleasePipelineRun creates and returns a new release PipelineRun. The new PipelineRun will include owner
-// annotations, so it triggers Release reconciles whenever it changes.
+// annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
+// will be extracted from the given ReleaseStrategy.
 func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy) (*v1beta1.PipelineRun, error) {
-	pipelineRun := tekton.CreateReleasePipelineRun(a.release, releaseStrategy)
-	err := libhandler.SetOwnerAnnotations(a.release, pipelineRun)
-	if err != nil {
-		return nil, err
-	}
-	err = a.client.Create(a.context, pipelineRun)
+	pipelineRun := tekton.NewReleasePipelineRun(releaseStrategy.Name, releaseStrategy.Namespace).
+		WithOwner(a.release).
+		WithReleaseLabels(a.release.Name, a.release.Namespace).
+		WithReleaseStrategy(releaseStrategy).
+		AsPipelineRun()
+
+	err := a.client.Create(a.context, pipelineRun)
 	if err != nil {
 		return nil, err
 	}
@@ -177,13 +178,13 @@ func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStra
 
 // finalizeRelease will finalize the Release being processed, removing the associated resources.
 func (a *Adapter) finalizeRelease() error {
-	releasePipelineRun, err := a.getReleasePipelineRun()
+	pipelineRun, err := a.getReleasePipelineRun()
 	if err != nil {
 		return err
 	}
 
-	if releasePipelineRun != nil {
-		err = a.client.Delete(a.context, releasePipelineRun)
+	if pipelineRun != nil {
+		err = a.client.Delete(a.context, pipelineRun)
 		if err != nil {
 			return err
 		}

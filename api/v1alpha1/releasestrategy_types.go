@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,22 +25,19 @@ import (
 type ReleaseStrategySpec struct {
 	// Release Tekton Pipeline to execute
 	Pipeline string `json:"pipeline"`
-	// Tekton Bundle where to find the pipeline
+
+	// Bundle is a reference to the Tekton bundle where to find the pipeline
 	Bundle string `json:"bundle,omitempty"`
+
 	// Params to pass to the pipeline
-	Params []PipelineParameter `json:"params,omitempty"`
+	Params []tektonv1beta1.Param `json:"params,omitempty"`
+
 	// Policy to validate before releasing an artifact
 	Policy string `json:"policy,omitempty"`
 }
 
 // ReleaseStrategyStatus defines the observed state of ReleaseStrategy
 type ReleaseStrategyStatus struct {
-}
-
-// PipelineParameter contains the name and values of a Tekton Pipeline parameter
-type PipelineParameter struct {
-	Name  string   `json:"name"`
-	Value []string `json:"value"`
 }
 
 //+kubebuilder:object:root=true
