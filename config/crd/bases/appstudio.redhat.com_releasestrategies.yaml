@@ -36,20 +36,39 @@ spec:
             description: ReleaseStrategySpec defines the desired state of ReleaseStrategy
             properties:
               bundle:
-                description: Tekton Bundle where to find the pipeline
+                description: Bundle is a reference to the Tekton bundle where to find
+                  the pipeline
                 type: string
               params:
                 description: Params to pass to the pipeline
                 items:
-                  description: PipelineParameter contains the name and values of a
-                    Tekton Pipeline parameter
+                  description: Param declares an ArrayOrString to use for the parameter
+                    called name.
                   properties:
                     name:
                       type: string
                     value:
-                      items:
-                        type: string
-                      type: array
+                      description: ArrayOrString is a type that can hold a single
+                        string or string array. Used in JSON unmarshalling so that
+                        a single JSON field can accept either an individual string
+                        or an array of strings.
+                      properties:
+                        arrayVal:
+                          items:
+                            type: string
+                          type: array
+                        stringVal:
+                          type: string
+                        type:
+                          description: ParamType indicates the type of an input parameter;
+                            Used to distinguish between a single string and an array
+                            of strings.
+                          type: string
+                      required:
+                      - arrayVal
+                      - stringVal
+                      - type
+                      type: object
                   required:
                   - name
                   - value
