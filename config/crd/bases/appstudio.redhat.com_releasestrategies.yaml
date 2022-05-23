@@ -42,36 +42,22 @@ spec:
               params:
                 description: Params to pass to the pipeline
                 items:
-                  description: Param declares an ArrayOrString to use for the parameter
-                    called name.
+                  description: Params holds the definition of a parameter that should
+                    be passed to the release Pipeline
                   properties:
                     name:
+                      description: Name is the name of the parameter
                       type: string
                     value:
-                      description: ArrayOrString is a type that can hold a single
-                        string or string array. Used in JSON unmarshalling so that
-                        a single JSON field can accept either an individual string
-                        or an array of strings.
-                      properties:
-                        arrayVal:
-                          items:
-                            type: string
-                          type: array
-                        stringVal:
-                          type: string
-                        type:
-                          description: ParamType indicates the type of an input parameter;
-                            Used to distinguish between a single string and an array
-                            of strings.
-                          type: string
-                      required:
-                      - arrayVal
-                      - stringVal
-                      - type
-                      type: object
+                      description: Value is the string value of the parameter
+                      type: string
+                    values:
+                      description: Values is a list of values for the parameter
+                      items:
+                        type: string
+                      type: array
                   required:
                   - name
-                  - value
                   type: object
                 type: array
               pipeline:

@@ -111,7 +111,16 @@ func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrat
 	}
 
 	for _, param := range strategy.Spec.Params {
-		r.WithExtraParam(param.Name, param.Value)
+		valueType := tektonv1beta1.ParamTypeString
+		if len(param.Values) > 0 {
+			valueType = tektonv1beta1.ParamTypeArray
+		}
+
+		r.WithExtraParam(param.Name, tektonv1beta1.ArrayOrString{
+			Type:      valueType,
+			StringVal: param.Value,
+			ArrayVal:  param.Values,
+		})
 	}
 
 	return r
