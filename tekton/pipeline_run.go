@@ -62,6 +62,7 @@ func NewReleasePipelineRun(prefix, namespace string) *ReleasePipelineRun {
 			GenerateName: prefix + "-",
 			Namespace:    namespace,
 		},
+		Spec: tektonv1beta1.PipelineRunSpec{},
 	}
 
 	return &ReleasePipelineRun{pipelineRun}
@@ -103,11 +104,9 @@ func (r *ReleasePipelineRun) WithReleaseLabels(releaseName, releaseNamespace str
 
 // WithReleaseStrategy adds Pipeline reference and params to the release PipelineRun.
 func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrategy) *ReleasePipelineRun {
-	r.Spec = tektonv1beta1.PipelineRunSpec{
-		PipelineRef: &tektonv1beta1.PipelineRef{
-			Name:   strategy.Spec.Pipeline,
-			Bundle: strategy.Spec.Bundle,
-		},
+	r.Spec.PipelineRef = &tektonv1beta1.PipelineRef{
+		Name:   strategy.Spec.Pipeline,
+		Bundle: strategy.Spec.Bundle,
 	}
 
 	for _, param := range strategy.Spec.Params {
