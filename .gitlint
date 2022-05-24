@@ -1,5 +1,6 @@
 [general]
 contrib=contrib-title-conventional-commits,CC1
+extra-path=.github/gitlint
 ignore=T5
 
 [title-max-length]
