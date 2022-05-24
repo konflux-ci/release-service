@@ -68,7 +68,7 @@ var _ = Describe("Release validation webhook", func() {
 			createdRelease.Spec.ApplicationSnapshot = "another-snapshot"
 			err := k8sClient.Update(ctx, createdRelease)
 			Expect(err).Should(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring("release resources cannot be updated"))
+			Expect(err.Error()).Should(ContainSubstring("release resources spec cannot be updated"))
 
 			// Delete the specified Release resource
 			deleteReleaseCR(releaseLookupKey)

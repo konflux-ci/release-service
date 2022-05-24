@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"fmt"
 	"k8s.io/apimachinery/pkg/runtime"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -46,7 +47,11 @@ func (r *Release) ValidateCreate() error {
 func (r *Release) ValidateUpdate(old runtime.Object) error {
 	releaselog.Info("validate update", "name", r.Name)
 
-	return fmt.Errorf("release resources cannot be updated")
+	if !reflect.DeepEqual(r.Spec, old.(*Release).Spec) {
+		return fmt.Errorf("release resources spec cannot be updated")
+	}
+
+	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
