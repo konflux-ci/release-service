@@ -61,7 +61,7 @@ func TestReleaseUpdateValidatingWebhook(t *testing.T) {
 	}{
 		{
 			name:         "trying to update a release fails",
-			errorMessage: "release resources cannot be updated",
+			errorMessage: "release resources spec cannot be updated",
 			release: Release{
 				Spec: ReleaseSpec{
 					ApplicationSnapshot: "snapshot2",
