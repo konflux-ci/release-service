@@ -1,0 +1,8 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleaseStrategy
+metadata:
+  name: m5-strategy
+  namespace: managed
+spec:
+  pipeline: release-pipeline
+  bundle: quay.io/hacbs-release/demo:m5-alpine
