@@ -19,6 +19,8 @@ package release
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/controllers/results"
@@ -29,7 +31,6 @@ import (
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"time"
 )
 
 // Adapter holds the objects needed to reconcile a Release.
@@ -120,7 +121,13 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (results.OperationResult, err
 			return results.RequeueOnErrorOrStop(a.updateStatus())
 		}
 
-		pipelineRun, err = a.createReleasePipelineRun(releaseStrategy)
+		applicationSnapshot, err := a.getApplicationSnapshot()
+		if err != nil {
+			a.release.Status.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
+			return results.RequeueOnErrorOrStop(a.updateStatus())
+		}
+
+		pipelineRun, err = a.createReleasePipelineRun(releaseStrategy, applicationSnapshot)
 		if err != nil {
 			return results.RequeueWithError(err)
 		}
@@ -160,12 +167,14 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (results.OperationResul
 
 // createReleasePipelineRun creates and returns a new release PipelineRun. The new PipelineRun will include owner
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
-// will be extracted from the given ReleaseStrategy.
-func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy) (*v1beta1.PipelineRun, error) {
+// will be extracted from the given ReleaseStrategy. The Release's ApplicationSnapshot will also be passed to the
+// release PipelineRun.
+func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy, applicationSnapshot *v1alpha1.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun(releaseStrategy.Name, releaseStrategy.Namespace).
 		WithOwner(a.release).
 		WithReleaseLabels(a.release.Name, a.release.Namespace).
 		WithReleaseStrategy(releaseStrategy).
+		WithApplicationSnapshot(applicationSnapshot).
 		AsPipelineRun()
 
 	err := a.client.Create(a.context, pipelineRun)
@@ -193,6 +202,22 @@ func (a *Adapter) finalizeRelease() error {
 	a.logger.Info("Successfully finalized Release")
 
 	return nil
+}
+
+// getApplicationSnapshot returns the ApplicationSnapshot referenced by the Release being processed. If the
+// ApplicationSnapshot is not found or the Get operation failed, an error will be returned.
+func (a *Adapter) getApplicationSnapshot() (*v1alpha1.ApplicationSnapshot, error) {
+	applicationSnapshot := &v1alpha1.ApplicationSnapshot{}
+	err := a.client.Get(a.context, types.NamespacedName{
+		Name:      a.release.Spec.ApplicationSnapshot,
+		Namespace: a.release.Namespace,
+	}, applicationSnapshot)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return applicationSnapshot, nil
 }
 
 // getReleaseLink returns the ReleaseLink referenced by the Release being processed. If the ReleaseLink is not found or
