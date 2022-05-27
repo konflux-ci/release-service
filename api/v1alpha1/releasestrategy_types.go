@@ -22,6 +22,15 @@ import (
 
 // ReleaseStrategySpec defines the desired state of ReleaseStrategy
 type ReleaseStrategySpec struct {
+	// ReleasePipeline is a struct holding information about the release Pipeline
+	ReleasePipeline ReleasePipeline `json:"releasePipeline"`
+
+	// Policy to validate before releasing an artifact
+	Policy string `json:"policy,omitempty"`
+}
+
+// ReleasePipeline holds information about the Pipeline to be executed
+type ReleasePipeline struct {
 	// Release Tekton Pipeline to execute
 	Pipeline string `json:"pipeline"`
 
@@ -30,9 +39,6 @@ type ReleaseStrategySpec struct {
 
 	// Params to pass to the pipeline
 	Params []Params `json:"params,omitempty"`
-
-	// Policy to validate before releasing an artifact
-	Policy string `json:"policy,omitempty"`
 }
 
 // Params holds the definition of a parameter that should be passed to the release Pipeline

@@ -35,39 +35,46 @@ spec:
           spec:
             description: ReleaseStrategySpec defines the desired state of ReleaseStrategy
             properties:
-              bundle:
-                description: Bundle is a reference to the Tekton bundle where to find
-                  the pipeline
-                type: string
-              params:
-                description: Params to pass to the pipeline
-                items:
-                  description: Params holds the definition of a parameter that should
-                    be passed to the release Pipeline
-                  properties:
-                    name:
-                      description: Name is the name of the parameter
-                      type: string
-                    value:
-                      description: Value is the string value of the parameter
-                      type: string
-                    values:
-                      description: Values is a list of values for the parameter
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - name
-                  type: object
-                type: array
-              pipeline:
-                description: Release Tekton Pipeline to execute
-                type: string
               policy:
                 description: Policy to validate before releasing an artifact
                 type: string
+              releasePipeline:
+                description: ReleasePipeline is an struct holding information about
+                  the release Pipeline
+                properties:
+                  bundle:
+                    description: Bundle is a reference to the Tekton bundle where
+                      to find the pipeline
+                    type: string
+                  params:
+                    description: Params to pass to the pipeline
+                    items:
+                      description: Params holds the definition of a parameter that
+                        should be passed to the release Pipeline
+                      properties:
+                        name:
+                          description: Name is the name of the parameter
+                          type: string
+                        value:
+                          description: Value is the string value of the parameter
+                          type: string
+                        values:
+                          description: Values is a list of values for the parameter
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  pipeline:
+                    description: Release Tekton Pipeline to execute
+                    type: string
+                required:
+                - pipeline
+                type: object
             required:
-            - pipeline
+            - releasePipeline
             type: object
           status:
             description: ReleaseStrategyStatus defines the observed state of ReleaseStrategy
