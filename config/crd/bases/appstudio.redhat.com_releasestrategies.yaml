@@ -66,6 +66,11 @@ spec:
               policy:
                 description: Policy to validate before releasing an artifact
                 type: string
+              serviceAccount:
+                description: Service account to use in the release PipelineRun to
+                  gain elevated privileges
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
             required:
             - pipeline
             type: object

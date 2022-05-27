@@ -33,6 +33,11 @@ type ReleaseStrategySpec struct {
 
 	// Policy to validate before releasing an artifact
 	Policy string `json:"policy,omitempty"`
+
+	// Service account to use in the release PipelineRun to gain elevated privileges
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	ServiceAccount string `json:"serviceAccount,omitempty"`
 }
 
 // Params holds the definition of a parameter that should be passed to the release Pipeline
