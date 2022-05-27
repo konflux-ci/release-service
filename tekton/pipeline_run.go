@@ -120,15 +120,23 @@ func (r *ReleasePipelineRun) WithApplicationSnapshot(snapshot *v1alpha1.Applicat
 	return r
 }
 
-// WithReleaseStrategy adds Pipeline reference and params to the release PipelineRun.
+// WithReleaseStrategy adds Pipeline reference, params, and the policy to the release PipelineRun.
 func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrategy) *ReleasePipelineRun {
 	r.Spec.PipelineRef = &tektonv1beta1.PipelineRef{
 		Name:   strategy.Spec.Pipeline,
 		Bundle: strategy.Spec.Bundle,
 	}
 
+	valueType := tektonv1beta1.ParamTypeString
+
+	if strategy.Spec.Policy != "" {
+		r.WithExtraParam("policy", tektonv1beta1.ArrayOrString{
+			Type:      valueType,
+			StringVal: strategy.Spec.Policy,
+		})
+	}
+
 	for _, param := range strategy.Spec.Params {
-		valueType := tektonv1beta1.ParamTypeString
 		if len(param.Values) > 0 {
 			valueType = tektonv1beta1.ParamTypeArray
 		}
