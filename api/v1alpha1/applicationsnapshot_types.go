@@ -33,6 +33,11 @@ type Image struct {
 
 // ApplicationSnapshotSpec defines the desired state of ApplicationSnapshot
 type ApplicationSnapshotSpec struct {
+	// Application is a reference to the application that this ApplicationSnapshot belongs to
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +required
+	Application string `json:"application"`
+
 	// Images is the list of component images that makes up the snapshot
 	// +required
 	Images []Image `json:"images"`
@@ -43,6 +48,7 @@ type ApplicationSnapshotStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Application",type=string,JSONPath=`.spec.application`
 
 // ApplicationSnapshot is the Schema for the applicationsnapshots API
 type ApplicationSnapshot struct {

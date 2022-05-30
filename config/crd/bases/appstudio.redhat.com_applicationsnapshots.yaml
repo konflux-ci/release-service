@@ -15,7 +15,11 @@ spec:
     singular: applicationsnapshot
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.application
+      name: Application
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ApplicationSnapshot is the Schema for the applicationsnapshots
@@ -36,6 +40,11 @@ spec:
           spec:
             description: ApplicationSnapshotSpec defines the desired state of ApplicationSnapshot
             properties:
+              application:
+                description: Application is a reference to the application that this
+                  ApplicationSnapshot belongs to
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
               images:
                 description: Images is the list of component images that makes up
                   the snapshot
@@ -56,6 +65,7 @@ spec:
                   type: object
                 type: array
             required:
+            - application
             - images
             type: object
           status:
