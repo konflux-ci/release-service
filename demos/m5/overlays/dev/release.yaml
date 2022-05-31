@@ -5,4 +5,4 @@ metadata:
   namespace: demo
 spec:
   applicationSnapshot: m5-snapshot
-  releaseLink: demo
+  releaseLink: m5-release-link-demo
