@@ -8,6 +8,12 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
+  - applicationsnapshots
+  verbs:
+  - get
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
   - releases
   verbs:
   - create
