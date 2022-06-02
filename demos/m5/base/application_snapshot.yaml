@@ -4,6 +4,7 @@ metadata:
   name: m5-snapshot
   namespace: demo
 spec:
+  application: m5-app
   images:
     - component: component1
       pullSpec: quay.io/redhat-appstudio/component1@sha256:d5e85e49c89df42b221d972f5b96c6507a8124717a6e42e83fd3caae1031d514
