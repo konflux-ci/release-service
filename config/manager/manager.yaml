@@ -56,12 +56,5 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
-        env:
-        - name: ORGANIZATION_NAMESPACE
-          valueFrom:
-            configMapKeyRef:
-              key: ORGARNIZATION_NAMESPACE
-              name: organization-config
-              optional: true
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
