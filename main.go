@@ -82,11 +82,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	organizationNamespace := os.Getenv("ORGANIZATION_NAMESPACE")
-	if organizationNamespace == "" {
-		organizationNamespace = "redhat"
-	}
-
 	err = controllers.SetupControllers(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to setup controllers")
