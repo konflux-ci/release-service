@@ -148,5 +148,15 @@ func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrat
 		})
 	}
 
+	r.WithServiceAccount(strategy.Spec.ServiceAccount)
+
+	return r
+}
+
+// WithServiceAccount adds a reference to the service account to be used to gain elevated privileges during the
+// execution of the different Pipeline tasks.
+func (r *ReleasePipelineRun) WithServiceAccount(serviceAccount string) *ReleasePipelineRun {
+	r.Spec.ServiceAccountName = serviceAccount
+
 	return r
 }
