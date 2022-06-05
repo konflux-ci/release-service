@@ -60,6 +60,11 @@ spec:
                   - name
                   type: object
                 type: array
+              persistentVolumeClaim:
+                description: PersistentVolumeClaim is the pvc to use in the Release
+                  pipeline workspace
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
               pipeline:
                 description: Release Tekton Pipeline to execute
                 type: string
