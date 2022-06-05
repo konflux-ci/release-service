@@ -19,6 +19,7 @@ package tekton
 import (
 	"encoding/json"
 	"fmt"
+	"unicode"
 
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
@@ -112,7 +113,11 @@ func (r *ReleasePipelineRun) WithApplicationSnapshot(snapshot *v1alpha1.Applicat
 	// add something like a `Complete` function that returns the final object and error.
 	snapshotString, _ := json.Marshal(snapshot.Spec)
 
-	r.WithExtraParam(snapshot.Kind, tektonv1beta1.ArrayOrString{
+	// Get snapshot.Kind runes to make the first letter lowercase
+	snapshotRunes := []rune(snapshot.Kind)
+	snapshotRunes[0] = unicode.ToLower(snapshotRunes[0])
+
+	r.WithExtraParam(string(snapshotRunes), tektonv1beta1.ArrayOrString{
 		Type:      tektonv1beta1.ParamTypeString,
 		StringVal: string(snapshotString),
 	})
