@@ -8,6 +8,12 @@ TAG_NAME ?= next
 CERT_MANAGER_VERSION ?= v1.8.0
 ENABLE_WEBHOOKS ?= true
 
+# DEFAULT_PERSISTENT_VOLUME_CLAIM defines the default PVC to be used in the Release pipeline workspace declaration.
+DEFAULT_RELEASE_PVC ?= release-pvc
+
+# DEFAULT_WORKSPACE_NAME defines the default name for the workspace that will be used in the Release pipeline.
+DEFAULT_RELEASE_WORKSPACE_NAME ?= release-workspace
+
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -150,6 +156,8 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	DEFAULT_RELEASE_PVC=${DEFAULT_RELEASE_PVC} \
+	DEFAULT_RELEASE_WORKSPACE_NAME=${DEFAULT_RELEASE_WORKSPACE_NAME} \
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy

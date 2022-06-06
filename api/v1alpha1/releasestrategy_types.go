@@ -34,6 +34,11 @@ type ReleaseStrategySpec struct {
 	// Policy to validate before releasing an artifact
 	Policy string `json:"policy,omitempty"`
 
+	// PersistentVolumeClaim is the pvc to use in the Release pipeline workspace
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	PersistentVolumeClaim string `json:"persistentVolumeClaim,omitempty"`
+
 	// ServiceAccount is the name of the service account to use in the
 	// release PipelineRun to gain elevated privileges
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$

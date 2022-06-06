@@ -82,6 +82,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Set a default value for the DEFAULT_RELEASE_PVC environment variable
+	if os.Getenv("DEFAULT_RELEASE_PVC") == "" {
+		err := os.Setenv("DEFAULT_RELEASE_PVC", "release-pvc")
+		if err != nil {
+			setupLog.Error(err, "unable to setup DEFAULT_RELEASE_PVC environment variable")
+			os.Exit(1)
+		}
+	}
+
+	// Set a default value for the DEFAULT_RELEASE_WORKSPACE_NAME environment variable
+	if os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME") == "" {
+		err := os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "release-workspace")
+		if err != nil {
+			setupLog.Error(err, "unable to setup DEFAULT_RELEASE_WORKSPACE_NAME environment variable")
+			os.Exit(1)
+		}
+	}
+
 	err = controllers.SetupControllers(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to setup controllers")

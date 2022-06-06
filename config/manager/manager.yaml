@@ -56,5 +56,18 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        env:
+        - name: DEFAULT_RELEASE_PVC
+          valueFrom:
+            configMapKeyRef:
+              key: DEFAULT_RELEASE_PVC
+              name: manager-properties
+              optional: true
+        - name: DEFAULT_RELEASE_WORKSPACE_NAME
+          valueFrom:
+            configMapKeyRef:
+              key: DEFAULT_RELEASE_WORKSPACE_NAME
+              name: manager-properties
+              optional: true
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
