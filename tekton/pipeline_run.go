@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"unicode"
 
+	"k8s.io/apimachinery/pkg/types"
+	"strings"
+
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -94,13 +97,19 @@ func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipeli
 	return r
 }
 
-// WithReleaseLabels adds Release name and namespace as labels to the release PipelineRun.
-func (r *ReleasePipelineRun) WithReleaseLabels(releaseName, releaseNamespace string) *ReleasePipelineRun {
+// WithRelease adds Release name and namespace as labels to the release PipelineRun. It also sets an extra 'release'
+// parameter with the namespaced name of the release.
+func (r *ReleasePipelineRun) WithRelease(release *v1alpha1.Release) *ReleasePipelineRun {
 	r.ObjectMeta.Labels = map[string]string{
 		PipelinesTypeLabel:    PipelineTypeRelease,
-		ReleaseNameLabel:      releaseName,
-		ReleaseWorkspaceLabel: releaseNamespace,
+		ReleaseNameLabel:      release.Name,
+		ReleaseWorkspaceLabel: release.Namespace,
 	}
+
+	r.WithExtraParam(strings.ToLower(release.Kind), tektonv1beta1.ArrayOrString{
+		Type:      tektonv1beta1.ParamTypeString,
+		StringVal: fmt.Sprintf("%s%c%s", release.Namespace, types.Separator, release.Name),
+	})
 
 	return r
 }
