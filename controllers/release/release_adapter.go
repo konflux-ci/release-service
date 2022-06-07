@@ -172,7 +172,7 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (results.OperationResul
 func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy, applicationSnapshot *v1alpha1.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", releaseStrategy.Namespace).
 		WithOwner(a.release).
-		WithRelease(a.release).
+		WithReleaseLabels(a.release.Name, a.release.Namespace).
 		WithReleaseStrategy(releaseStrategy).
 		WithApplicationSnapshot(applicationSnapshot).
 		AsPipelineRun()
