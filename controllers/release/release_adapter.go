@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/controllers/results"
 	"github.com/redhat-appstudio/release-service/tekton"
@@ -169,7 +170,7 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (results.OperationResul
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
 // will be extracted from the given ReleaseStrategy. The Release's ApplicationSnapshot will also be passed to the
 // release PipelineRun.
-func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy, applicationSnapshot *v1alpha1.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
+func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy, applicationSnapshot *appstudioshared.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", releaseStrategy.Namespace).
 		WithOwner(a.release).
 		WithReleaseLabels(a.release.Name, a.release.Namespace).
@@ -206,8 +207,8 @@ func (a *Adapter) finalizeRelease() error {
 
 // getApplicationSnapshot returns the ApplicationSnapshot referenced by the Release being processed. If the
 // ApplicationSnapshot is not found or the Get operation failed, an error will be returned.
-func (a *Adapter) getApplicationSnapshot() (*v1alpha1.ApplicationSnapshot, error) {
-	applicationSnapshot := &v1alpha1.ApplicationSnapshot{}
+func (a *Adapter) getApplicationSnapshot() (*appstudioshared.ApplicationSnapshot, error) {
+	applicationSnapshot := &appstudioshared.ApplicationSnapshot{}
 	err := a.client.Get(a.context, types.NamespacedName{
 		Name:      a.release.Spec.ApplicationSnapshot,
 		Namespace: a.release.Namespace,

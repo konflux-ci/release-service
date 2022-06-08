@@ -19,13 +19,15 @@ package tekton
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"unicode"
+
 	libhandler "github.com/operator-framework/operator-lib/handler"
+	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"unicode"
 )
 
 // PipelineType represents a PipelineRun type within AppStudio
@@ -90,7 +92,7 @@ func (r *ReleasePipelineRun) WithExtraParam(name string, value tektonv1beta1.Arr
 
 // WithApplicationSnapshot adds a param containing the ApplicationSnapshot as a json string
 // to the release PipelineRun.
-func (r *ReleasePipelineRun) WithApplicationSnapshot(snapshot *v1alpha1.ApplicationSnapshot) *ReleasePipelineRun {
+func (r *ReleasePipelineRun) WithApplicationSnapshot(snapshot *appstudioshared.ApplicationSnapshot) *ReleasePipelineRun {
 	// We ignore the error here because none should be raised when marshalling the spec of a CRD.
 	// If we end up deciding it is useful, we will need to pass the errors trough the chain and
 	// add something like a `Complete` function that returns the final object and error.
