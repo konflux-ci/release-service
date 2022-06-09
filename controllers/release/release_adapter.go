@@ -170,7 +170,7 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (results.OperationResul
 // will be extracted from the given ReleaseStrategy. The Release's ApplicationSnapshot will also be passed to the
 // release PipelineRun.
 func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy, applicationSnapshot *v1alpha1.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
-	pipelineRun := tekton.NewReleasePipelineRun(releaseStrategy.Name, releaseStrategy.Namespace).
+	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", releaseStrategy.Namespace).
 		WithOwner(a.release).
 		WithRelease(a.release).
 		WithReleaseStrategy(releaseStrategy).
