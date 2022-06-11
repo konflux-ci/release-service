@@ -248,13 +248,11 @@ func (a *Adapter) getReleasePipelineRun() (*v1beta1.PipelineRun, error) {
 	}
 
 	err := a.client.List(a.context, pipelineRuns, opts...)
-	if err != nil {
-		return nil, err
-	} else if len(pipelineRuns.Items) == 0 {
-		return nil, nil
+	if err == nil && len(pipelineRuns.Items) > 0 {
+		return &pipelineRuns.Items[0], nil
 	}
 
-	return &pipelineRuns.Items[0], nil
+	return nil, err
 }
 
 // getReleaseStrategy returns the ReleaseStrategy referenced by the given ReleaseLink. If the ReleaseStrategy is
