@@ -21,12 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
-
-// log is for logging in this package.
-var releaselog = logf.Log.WithName("release-resource")
 
 func (r *Release) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -45,8 +41,6 @@ func (r *Release) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Release) ValidateUpdate(old runtime.Object) error {
-	releaselog.Info("validate update", "name", r.Name)
-
 	if !reflect.DeepEqual(r.Spec, old.(*Release).Spec) {
 		return fmt.Errorf("release resources spec cannot be updated")
 	}
