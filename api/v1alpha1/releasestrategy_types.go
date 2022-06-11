@@ -23,15 +23,21 @@ import (
 // ReleaseStrategySpec defines the desired state of ReleaseStrategy
 type ReleaseStrategySpec struct {
 	// Release Tekton Pipeline to execute
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +required
 	Pipeline string `json:"pipeline"`
 
 	// Bundle is a reference to the Tekton bundle where to find the pipeline
+	// +optional
 	Bundle string `json:"bundle,omitempty"`
 
 	// Params to pass to the pipeline
+	// +optional
 	Params []Params `json:"params,omitempty"`
 
 	// Policy to validate before releasing an artifact
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +required
 	Policy string `json:"policy,omitempty"`
 
 	// PersistentVolumeClaim is the pvc to use in the Release pipeline workspace
