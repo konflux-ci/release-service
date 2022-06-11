@@ -145,6 +145,11 @@ func (r *Release) HasStarted() bool {
 	return r.Status.StartTime != nil && !r.Status.StartTime.IsZero()
 }
 
+// HasSucceeded checks whether the Release has succeeded or not.
+func (r *Release) HasSucceeded() bool {
+	return !meta.IsStatusConditionTrue(r.Status.Conditions, releaseConditionType)
+}
+
 // IsDone returns true if the Release's status indicates that it is done.
 func (r *Release) IsDone() bool {
 	return !meta.IsStatusConditionPresentAndEqual(r.Status.Conditions, releaseConditionType, metav1.ConditionUnknown)
