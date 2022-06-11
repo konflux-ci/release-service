@@ -241,6 +241,7 @@ func (a *Adapter) getReleaseLink() (*v1alpha1.ReleaseLink, error) {
 func (a *Adapter) getReleasePipelineRun() (*v1beta1.PipelineRun, error) {
 	pipelineRuns := &v1beta1.PipelineRunList{}
 	opts := []client.ListOption{
+		client.Limit(1),
 		client.MatchingLabels{
 			tekton.ReleaseNameLabel:      a.release.Name,
 			tekton.ReleaseWorkspaceLabel: a.release.Namespace,
