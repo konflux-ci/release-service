@@ -38,7 +38,7 @@ type ReleaseStrategySpec struct {
 	// Policy to validate before releasing an artifact
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
-	Policy string `json:"policy,omitempty"`
+	Policy string `json:"policy"`
 
 	// PersistentVolumeClaim is the pvc to use in the Release pipeline workspace
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$

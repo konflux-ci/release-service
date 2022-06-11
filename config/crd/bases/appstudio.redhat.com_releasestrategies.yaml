@@ -80,6 +80,7 @@ spec:
                 type: string
             required:
             - pipeline
+            - policy
             type: object
           status:
             description: ReleaseStrategyStatus defines the observed state of ReleaseStrategy

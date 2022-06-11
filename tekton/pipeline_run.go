@@ -88,24 +88,6 @@ func (r *ReleasePipelineRun) WithExtraParam(name string, value tektonv1beta1.Arr
 	return r
 }
 
-// WithOwner set's owner annotations to the release PipelineRun.
-func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipelineRun {
-	_ = libhandler.SetOwnerAnnotations(release, r)
-
-	return r
-}
-
-// WithReleaseLabels adds Release name and namespace as labels to the release PipelineRun.
-func (r *ReleasePipelineRun) WithReleaseLabels(releaseName, releaseNamespace string) *ReleasePipelineRun {
-	r.ObjectMeta.Labels = map[string]string{
-		PipelinesTypeLabel:    PipelineTypeRelease,
-		ReleaseNameLabel:      releaseName,
-		ReleaseWorkspaceLabel: releaseNamespace,
-	}
-
-	return r
-}
-
 // WithApplicationSnapshot adds a param containing the ApplicationSnapshot as a json string
 // to the release PipelineRun.
 func (r *ReleasePipelineRun) WithApplicationSnapshot(snapshot *v1alpha1.ApplicationSnapshot) *ReleasePipelineRun {
@@ -122,6 +104,24 @@ func (r *ReleasePipelineRun) WithApplicationSnapshot(snapshot *v1alpha1.Applicat
 		Type:      tektonv1beta1.ParamTypeString,
 		StringVal: string(snapshotString),
 	})
+
+	return r
+}
+
+// WithOwner set's owner annotations to the release PipelineRun.
+func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipelineRun {
+	_ = libhandler.SetOwnerAnnotations(release, r)
+
+	return r
+}
+
+// WithReleaseLabels adds Release name and namespace as labels to the release PipelineRun.
+func (r *ReleasePipelineRun) WithReleaseLabels(releaseName, releaseNamespace string) *ReleasePipelineRun {
+	r.ObjectMeta.Labels = map[string]string{
+		PipelinesTypeLabel:    PipelineTypeRelease,
+		ReleaseNameLabel:      releaseName,
+		ReleaseWorkspaceLabel: releaseNamespace,
+	}
 
 	return r
 }
