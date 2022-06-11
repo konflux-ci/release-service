@@ -20,12 +20,8 @@ import (
 	"fmt"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
-
-// log is for logging in this package.
-var releaselinklog = logf.Log.WithName("releaselink-resource")
 
 func (r *ReleaseLink) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -47,15 +43,11 @@ var _ webhook.Validator = &ReleaseLink{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *ReleaseLink) ValidateCreate() error {
-	releaselinklog.Info("validating the create request", "name", r.Name)
-
 	return r.isTargetValid()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *ReleaseLink) ValidateUpdate(old runtime.Object) error {
-	releaselinklog.Info("validating the update request", "name", r.Name)
-
 	return r.isTargetValid()
 }
 
