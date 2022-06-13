@@ -6,3 +6,5 @@ resources:
   - release_strategy.yaml
   - release_links.yaml
   - tekton_feature_flags_config_map.yaml
+  - persistent_volume_claim.yaml
+  - service_account.yaml

@@ -4,11 +4,9 @@ metadata:
   name: m5-snapshot
   namespace: demo
 spec:
-  application: m5-app
+  application: m5-application
   images:
-    - component: component1
-      pullSpec: quay.io/redhat-appstudio/component1@sha256:d5e85e49c89df42b221d972f5b96c6507a8124717a6e42e83fd3caae1031d514
-    - component: component2
-      pullSpec: quay.io/redhat-appstudio/component2@sha256:a01dfd18cf8ca8b68770b09a9b6af0fd7c6d1f8644c7ab97f0e06c34dfc5860e
-    - component: component3
-      pullSpec:  quay.io/redhat-appstudio/component3@sha256:d90a0a33e4c5a1daf5877f8dd989a570bfae4f94211a8143599245e503775b1f
+    - component: component-1
+      pullSpec: quay.io/hacbs-release-tests/build-artifact-1@sha256:4ff3ca91275773af45cb4b0834e12b7eb47d1c18f770a0b151381cd227f4c253
+    - component: component-2
+      pullSpec: quay.io/hacbs-release-tests/build-artifact-2@sha256:aa6c2c047467afc828e77e306041b7fa4a65734fe3449a54aa9c280822b0d87d
