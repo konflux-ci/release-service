@@ -104,7 +104,8 @@ var _ = Describe("PipelineRun", func() {
 	Context("Pipeline Run", func() {
 
 		It("Can create a ReleasePipelineRun", func() {
-			Expect(rplr.ObjectMeta.Name).Should(MatchRegexp("mypipeline-" + `[a-z0-9]{5}`))
+			Expect(rplr.ObjectMeta.Name).
+				Should(MatchRegexp("mypipeline-" + `[a-z0-9]{5}`))
 			Expect(rplr.ObjectMeta.Namespace).To(Equal("default"))
 		})
 
@@ -123,7 +124,7 @@ var _ = Describe("PipelineRun", func() {
 		It("Can add the release Labels to ReleasePipelineRun", func() {
 			rplr.WithRelease(release)
 			Expect(rplr.Labels["release.appstudio.openshift.io/name"]).
-				Should(MatchRegexp(release.GenerateName +`[a-z1-9]{5}`))
+				Should(MatchRegexp(release.GenerateName + `[a-z1-9]{5}`))
 		})
 
 		It("Can cast ReleasePipelineRun type to PipelineRun", func() {
