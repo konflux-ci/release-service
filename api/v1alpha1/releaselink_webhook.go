@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -29,12 +30,19 @@ func (r *ReleaseLink) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1alpha1-releaselink,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releaselinks,verbs=create;update,versions=v1alpha1,name=mreleaselink.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1alpha1-releaselink,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releaselinks,verbs=create,versions=v1alpha1,name=mreleaselink.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &ReleaseLink{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
 func (r *ReleaseLink) Default() {
+	label := "release.appstudio.openshift.io/auto-release"
+	if _, found := r.GetLabels()[label]; !found {
+		if r.Labels == nil {
+			r.Labels = make(map[string]string)
+		}
+		r.Labels[label] = "true"
+	}
 }
 
 // +kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1alpha1-releaselink,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releaselinks,verbs=create;update,versions=v1alpha1,name=vreleaselink.kb.io,admissionReviewVersions=v1
