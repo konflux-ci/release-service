@@ -24,6 +24,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
+const (
+	// autoReleaseLabel is the label name for the auto-release setting. This will probably be moved elsewhere eventually.
+	autoReleaseLabel = "release.appstudio.openshift.io/auto-release"
+)
+
 func (r *ReleaseLink) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
@@ -36,12 +41,12 @@ var _ webhook.Defaulter = &ReleaseLink{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
 func (r *ReleaseLink) Default() {
-	label := "release.appstudio.openshift.io/auto-release"
-	if _, found := r.GetLabels()[label]; !found {
+	if _, found := r.GetLabels()[autoReleaseLabel]; !found {
 		if r.Labels == nil {
-			r.Labels = make(map[string]string)
+			r.Labels = map[string]string{
+				autoReleaseLabel: "true",
+			}
 		}
-		r.Labels[label] = "true"
 	}
 }
 
@@ -51,12 +56,18 @@ var _ webhook.Validator = &ReleaseLink{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *ReleaseLink) ValidateCreate() error {
-	return r.isTargetValid()
+	if err := r.isTargetValid(); err != nil {
+		return err
+	}
+	return r.validateAutoReleaseLabel()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *ReleaseLink) ValidateUpdate(old runtime.Object) error {
-	return r.isTargetValid()
+	if err := r.isTargetValid(); err != nil {
+		return err
+	}
+	return r.validateAutoReleaseLabel()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
@@ -70,5 +81,15 @@ func (r *ReleaseLink) isTargetValid() error {
 		return fmt.Errorf("field spec.target and namespace cannot have the same value")
 	}
 
+	return nil
+}
+
+// validateAutoReleaseLabel throws an error if the auto-release label value is set to anything besides true and false.
+func (r *ReleaseLink) validateAutoReleaseLabel() error {
+	if value, found := r.GetLabels()[autoReleaseLabel]; found {
+		if value != "true" && value != "false" {
+			return fmt.Errorf("%s label can only be set to true or false", autoReleaseLabel)
+		}
+	}
 	return nil
 }
