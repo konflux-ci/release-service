@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -39,30 +40,26 @@ type ReleasePipelineParams struct {
 	Extra     ExtraParams
 }
 
+const (
+	PipelineRunPrefixName = "mypipeline"
+	Namespace             = "default"
+)
+
 var _ = Describe("PipelineRun", func() {
 
-	var params *ReleasePipelineParams
-	var releasePipelineRun *ReleasePipelineRun
-
 	var release *v1alpha1.Release
-	var releaseParams *v1alpha1.ReleaseSpec
+	var extraParams *ExtraParams
+	var releasePipelineRun *ReleasePipelineRun
 
 	BeforeEach(func() {
 
-		params = &ReleasePipelineParams{
-			Prefix:    "mypipeline",
-			Namespace: "default",
-			// @todo: use a valid Pipeline params
-			Extra: ExtraParams{
-				Name:  "ExtraParam",
-				Value: tektonv1beta1.ArrayOrString{Type: tektonv1beta1.ParamTypeString, StringVal: "ExtraValue"},
+		extraParams = &ExtraParams{
+			Name: "extraConfigPath",
+			Value: tektonv1beta1.ArrayOrString{
+				Type:      tektonv1beta1.ParamTypeString,
+				StringVal: "path/to/extra/config.yaml",
 			},
 		}
-		releaseParams = &v1alpha1.ReleaseSpec{
-			ApplicationSnapshot: "mysnapshot",
-			ReleaseLink:         "myreleaselink",
-		}
-
 		release = &v1alpha1.Release{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "appstudio.redhat.com/v1alpha1",
@@ -70,10 +67,12 @@ var _ = Describe("PipelineRun", func() {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "myrelease-",
-				Namespace:    params.Namespace,
-				UID:          "8ba3294a-2e1b-4a13-9b3a-faf3cfe3d31b", // This is an arbitrary random UUID
+				Namespace:    Namespace,
 			},
-			Spec: *releaseParams,
+			Spec: v1alpha1.ReleaseSpec{
+				ApplicationSnapshot: "mysnapshot",
+				ReleaseLink:         "myreleaselink",
+			},
 		}
 
 		ctx := context.Background()
@@ -83,16 +82,17 @@ var _ = Describe("PipelineRun", func() {
 		gvk := v1alpha1.GroupVersion.WithKind(kind)
 		controllerRef := metav1.NewControllerRef(release, gvk)
 
-		// creating a release
+		// Creating a release
 		Expect(k8sClient.Create(ctx, release)).Should(Succeed())
 		release.SetOwnerReferences([]metav1.OwnerReference{*controllerRef})
 
-		// need to set the Kind as it loses it for reasons...
+		// Need to set the Kind and APIVersion as it loses it due to:
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1870
 		release.TypeMeta.APIVersion = "appstudio.redhat.com/v1alpha1"
 		release.TypeMeta.Kind = "Release"
 
 		// Creates the PipelineRun Object
-		releasePipelineRun = NewReleasePipelineRun(params.Prefix, params.Namespace)
+		releasePipelineRun = NewReleasePipelineRun(PipelineRunPrefixName, Namespace)
 		Expect(k8sClient.Create(ctx, releasePipelineRun.AsPipelineRun())).Should(Succeed())
 
 	})
@@ -102,19 +102,18 @@ var _ = Describe("PipelineRun", func() {
 		_ = k8sClient.Delete(ctx, releasePipelineRun.AsPipelineRun())
 	})
 
-	Context("Pipeline Run", func() {
+	Context("Create PipelineRun and modify its attributes", func() {
 
 		It("Can create a ReleasePipelineRun", func() {
 			Expect(releasePipelineRun.ObjectMeta.Name).
-				Should(MatchRegexp("mypipeline-" + `[a-z0-9]{5}`))
-			Expect(releasePipelineRun.ObjectMeta.Namespace).To(Equal("default"))
+				Should(MatchRegexp(PipelineRunPrefixName + `-[a-z0-9]{5}`))
+			Expect(releasePipelineRun.ObjectMeta.Namespace).To(Equal(Namespace))
 		})
 
 		It("Can add extra params to ReleasePipelineRun", func() {
-			releasePipelineRun.WithExtraParam(params.Extra.Name, params.Extra.Value)
-
-			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal("ExtraParam"))
-			Expect(releasePipelineRun.Spec.Params[0].Value.StringVal).To(Equal("ExtraValue"))
+			releasePipelineRun.WithExtraParam(extraParams.Name, extraParams.Value)
+			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal(extraParams.Name))
+			Expect(releasePipelineRun.Spec.Params[0].Value.StringVal).To(Equal(extraParams.Value.StringVal))
 		})
 
 		It("Can add the release Owner annotations to ReleasePipelineRun", func() {
@@ -125,7 +124,7 @@ var _ = Describe("PipelineRun", func() {
 		It("Can add the release Labels to ReleasePipelineRun", func() {
 			releasePipelineRun.WithReleaseLabels(release.Name, release.Namespace)
 			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/name"]).
-				Should(MatchRegexp(release.GenerateName + `[a-z1-9]{5}`))
+				To(Equal(release.Name))
 		})
 
 		It("Can cast ReleasePipelineRun type to PipelineRun", func() {
