@@ -44,6 +44,47 @@ var _ = Describe("ReleaseLink validation webhook", func() {
 		ReleaseStrategy = "test-releasestrategy"
 	)
 
+	Context("Create ReleaseLink CR without auto-release label", func() {
+		It("Should add the label with value true", func() {
+			ctx := context.Background()
+
+			// ReleaseLink without autoReleaseLabel set
+			releaseLink := &ReleaseLink{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "appstudio.redhat.com/v1alpha1",
+					Kind:       "ReleaseLink",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: Name,
+					Namespace:    Namespace,
+				},
+				Spec: ReleaseLinkSpec{
+					DisplayName:     DisplayName,
+					Application:     Application,
+					Target:          Target,
+					ReleaseStrategy: ReleaseStrategy,
+				},
+			}
+
+			err := k8sClient.Create(ctx, releaseLink)
+			Expect(err).Should(BeNil())
+
+			// Look up the ReleaseLink resource that was created
+			releaseLinkLookupKey := types.NamespacedName{Name: releaseLink.Name, Namespace: Namespace}
+			createdReleaseLink := &ReleaseLink{}
+			Eventually(func() bool {
+				k8sClient.Get(ctx, releaseLinkLookupKey, createdReleaseLink)
+				return !reflect.DeepEqual(createdReleaseLink, &ReleaseLink{})
+			}, timeout, interval).Should(BeTrue())
+
+			// Ensure that the label was created and set to true
+			Expect(createdReleaseLink.Labels[autoReleaseLabel]).Should(Equal("true"))
+
+			// Delete the specified ReleaseLink resource
+			deleteReleaseLinkCR(releaseLinkLookupKey)
+		})
+	})
+
 	Context("Create ReleaseLink CR with bad fields", func() {
 		It("Should reject until all the fields are valid", func() {
 			ctx := context.Background()
@@ -57,6 +98,9 @@ var _ = Describe("ReleaseLink validation webhook", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: Name,
 					Namespace:    Namespace,
+					Labels: map[string]string{
+						"release.appstudio.openshift.io/auto-release": "test",
+					},
 				},
 				Spec: ReleaseLinkSpec{
 					DisplayName:     DisplayName,
@@ -78,6 +122,11 @@ var _ = Describe("ReleaseLink validation webhook", func() {
 
 			// Good Target
 			releaseLink.Spec.Target = Target
+			err = k8sClient.Create(ctx, releaseLink)
+			Expect(err.Error()).Should(ContainSubstring("%s label can only be set to true or false", autoReleaseLabel))
+
+			// Good auto-release label
+			releaseLink.Labels[autoReleaseLabel] = "true"
 			err = k8sClient.Create(ctx, releaseLink)
 			Expect(err).Should(BeNil())
 
@@ -106,6 +155,9 @@ var _ = Describe("ReleaseLink validation webhook", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: Name,
 					Namespace:    Namespace,
+					Labels: map[string]string{
+						"release.appstudio.openshift.io/auto-release": "false",
+					},
 				},
 				Spec: ReleaseLinkSpec{
 					DisplayName:     DisplayName,
@@ -134,6 +186,13 @@ var _ = Describe("ReleaseLink validation webhook", func() {
 			err = k8sClient.Update(ctx, createdReleaseLink)
 			Expect(err).Should(HaveOccurred())
 			Expect(err.Error()).Should(ContainSubstring("field spec.target and namespace cannot have the same value"))
+
+			// Update the auto-release label to be invalid
+			createdReleaseLink.Spec.Target = "another-target"
+			createdReleaseLink.Labels[autoReleaseLabel] = "test"
+			err = k8sClient.Update(ctx, createdReleaseLink)
+			Expect(err).Should(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("%s label can only be set to true or false", autoReleaseLabel))
 
 			// Delete the specified ReleaseLink resource
 			deleteReleaseLinkCR(releaseLinkLookupKey)
