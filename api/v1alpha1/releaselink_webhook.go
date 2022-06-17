@@ -56,7 +56,7 @@ var _ webhook.Validator = &ReleaseLink{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *ReleaseLink) ValidateCreate() error {
-	if err := r.isTargetValid(); err != nil {
+	if err := r.validateTarget(); err != nil {
 		return err
 	}
 	return r.validateAutoReleaseLabel()
@@ -64,7 +64,7 @@ func (r *ReleaseLink) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *ReleaseLink) ValidateUpdate(old runtime.Object) error {
-	if err := r.isTargetValid(); err != nil {
+	if err := r.validateTarget(); err != nil {
 		return err
 	}
 	return r.validateAutoReleaseLabel()
@@ -75,8 +75,8 @@ func (r *ReleaseLink) ValidateDelete() error {
 	return nil
 }
 
-// isTargetValid checks that the target namespace defined in the ReleaseLink CR is not the same as the namespace the ReleaseLink CR was created in.
-func (r *ReleaseLink) isTargetValid() error {
+// validateTarget checks that the target namespace defined in the ReleaseLink CR is not the same as the namespace the ReleaseLink CR was created in.
+func (r *ReleaseLink) validateTarget() error {
 	if r.Spec.Target == r.Namespace {
 		return fmt.Errorf("field spec.target and namespace cannot have the same value")
 	}
