@@ -16,11 +16,59 @@
 package v1alpha1
 
 import (
+	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
+func TestReleaseLinkDefaultingWebhook(t *testing.T) {
+	tests := []struct {
+		name        string
+		releaseLink ReleaseLink
+		labelValue  string
+	}{
+		{
+			name:       fmt.Sprintf("valid releaselink without %s label", autoReleaseLabel),
+			labelValue: "true",
+			releaseLink: ReleaseLink{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: "namespace1",
+				},
+				Spec: ReleaseLinkSpec{
+					DisplayName: "releaselink1",
+					Application: "application1",
+					Target:      "target1",
+				},
+			},
+		},
+		{
+			name:       fmt.Sprintf("valid releaselink with %s label set", autoReleaseLabel),
+			labelValue: "false",
+			releaseLink: ReleaseLink{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: "namespace1",
+					Labels: map[string]string{
+						"release.appstudio.openshift.io/auto-release": "false",
+					},
+				},
+				Spec: ReleaseLinkSpec{
+					DisplayName: "releaselink1",
+					Application: "application1",
+					Target:      "target1",
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			test.releaseLink.Default()
+
+			assert.Contains(t, test.releaseLink.Labels[autoReleaseLabel], test.labelValue)
+		})
+	}
+}
 func TestReleaseLinkCreateValidatingWebhook(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -42,10 +90,43 @@ func TestReleaseLinkCreateValidatingWebhook(t *testing.T) {
 			},
 		},
 		{
-			name: "valid releaselink",
+			name:         "releaselink auto-release label must be true or false",
+			errorMessage: fmt.Sprintf("%s label can only be set to true or false", autoReleaseLabel),
 			releaseLink: ReleaseLink{
 				ObjectMeta: v1.ObjectMeta{
 					Namespace: "namespace1",
+					Labels: map[string]string{
+						"release.appstudio.openshift.io/auto-release": "test",
+					},
+				},
+				Spec: ReleaseLinkSpec{
+					DisplayName: "releaselink1",
+					Application: "application1",
+					Target:      "target1",
+				},
+			},
+		},
+		{
+			name: fmt.Sprintf("valid releaselink without %s label", autoReleaseLabel),
+			releaseLink: ReleaseLink{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: "namespace1",
+				},
+				Spec: ReleaseLinkSpec{
+					DisplayName: "releaselink1",
+					Application: "application1",
+					Target:      "target1",
+				},
+			},
+		},
+		{
+			name: fmt.Sprintf("valid releaselink with %s label", autoReleaseLabel),
+			releaseLink: ReleaseLink{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: "namespace1",
+					Labels: map[string]string{
+						"release.appstudio.openshift.io/auto-release": "true",
+					},
 				},
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
@@ -72,6 +153,9 @@ func TestReleaseLinkUpdateValidatingWebhook(t *testing.T) {
 	originalReleaseLink := ReleaseLink{
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: "namespace1",
+			Labels: map[string]string{
+				"release.appstudio.openshift.io/auto-release": "true",
+			},
 		},
 		Spec: ReleaseLinkSpec{
 			DisplayName: "releaselink1",
@@ -91,6 +175,9 @@ func TestReleaseLinkUpdateValidatingWebhook(t *testing.T) {
 			releaseLink: ReleaseLink{
 				ObjectMeta: v1.ObjectMeta{
 					Namespace: "namespace1",
+					Labels: map[string]string{
+						"release.appstudio.openshift.io/auto-release": "true",
+					},
 				},
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
@@ -100,7 +187,56 @@ func TestReleaseLinkUpdateValidatingWebhook(t *testing.T) {
 			},
 		},
 		{
-			name: "valid update",
+			name:         fmt.Sprintf("set %s label to invalid value", autoReleaseLabel),
+			errorMessage: fmt.Sprintf("%s label can only be set to true or false", autoReleaseLabel),
+			releaseLink: ReleaseLink{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: "namespace1",
+					Labels: map[string]string{
+						"release.appstudio.openshift.io/auto-release": "test",
+					},
+				},
+				Spec: ReleaseLinkSpec{
+					DisplayName: "releaselink1",
+					Application: "application1",
+					Target:      "target1",
+				},
+			},
+		},
+		{
+			name: "valid update of target",
+			releaseLink: ReleaseLink{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: "namespace1",
+					Labels: map[string]string{
+						"release.appstudio.openshift.io/auto-release": "true",
+					},
+				},
+				Spec: ReleaseLinkSpec{
+					DisplayName: "releaselink1",
+					Application: "application1",
+					Target:      "target2",
+				},
+			},
+		},
+		{
+			name: fmt.Sprintf("valid update of %s label", autoReleaseLabel),
+			releaseLink: ReleaseLink{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: "namespace1",
+					Labels: map[string]string{
+						"release.appstudio.openshift.io/auto-release": "false",
+					},
+				},
+				Spec: ReleaseLinkSpec{
+					DisplayName: "releaselink1",
+					Application: "application1",
+					Target:      "target2",
+				},
+			},
+		},
+		{
+			name: fmt.Sprintf("valid removal of %s label", autoReleaseLabel),
 			releaseLink: ReleaseLink{
 				ObjectMeta: v1.ObjectMeta{
 					Namespace: "namespace1",
