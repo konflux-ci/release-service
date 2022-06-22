@@ -17,10 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"time"
-
+	"github.com/redhat-appstudio/release-service/metrics"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 // ReleaseSpec defines the desired state of Release
@@ -78,47 +78,16 @@ type ReleaseStatus struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
 	ReleasePipelineRun string `json:"releasePipelineRun,omitempty"`
-}
 
-// MarkFailed registers the completion time and changes the Succeeded condition to False with
-// the provided reason and message.
-func (rs *ReleaseStatus) MarkFailed(reason ReleaseReason, message string) {
-	rs.CompletionTime = &metav1.Time{Time: time.Now()}
-	rs.setStatusConditionWithMessage(metav1.ConditionFalse, reason, message)
-}
+	// ReleaseStrategy contains the namespaced name of the ReleaseStrategy used for this release
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	ReleaseStrategy string `json:"releaseStrategy,omitempty"`
 
-// MarkInvalid changes the Succeeded condition to False with the provided reason and message.
-func (rs *ReleaseStatus) MarkInvalid(reason ReleaseReason, message string) {
-	rs.setStatusConditionWithMessage(metav1.ConditionFalse, reason, message)
-}
-
-// MarkRunning registers the start time and changes the Succeeded condition to Unknown.
-func (rs *ReleaseStatus) MarkRunning() {
-	rs.StartTime = &metav1.Time{Time: time.Now()}
-	rs.setStatusCondition(metav1.ConditionUnknown, ReleaseReasonRunning)
-}
-
-// MarkSucceeded registers the completion time and changes the Succeeded condition to True.
-func (rs *ReleaseStatus) MarkSucceeded() {
-	rs.CompletionTime = &metav1.Time{Time: time.Now()}
-	rs.setStatusCondition(metav1.ConditionTrue, ReleaseReasonSucceeded)
-}
-
-// SetCondition creates a new condition with the given status and reason. Then, it sets this new condition,
-// unsetting previous conditions with the same type as necessary.
-func (rs *ReleaseStatus) setStatusCondition(status metav1.ConditionStatus, reason ReleaseReason) {
-	rs.setStatusConditionWithMessage(status, reason, "")
-}
-
-// SetCondition creates a new condition with the given status, reason and message. Then, it sets this new condition,
-// unsetting previous conditions with the same type as necessary.
-func (rs *ReleaseStatus) setStatusConditionWithMessage(status metav1.ConditionStatus, reason ReleaseReason, message string) {
-	meta.SetStatusCondition(&rs.Conditions, metav1.Condition{
-		Type:    releaseConditionType,
-		Status:  status,
-		Reason:  reason.String(),
-		Message: message,
-	})
+	// TargetWorkspace is the workspace where this release will be released to
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	TargetWorkspace string `json:"targetWorkspace,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -153,6 +122,71 @@ func (r *Release) HasSucceeded() bool {
 // IsDone returns true if the Release's status indicates that it is done.
 func (r *Release) IsDone() bool {
 	return !meta.IsStatusConditionPresentAndEqual(r.Status.Conditions, releaseConditionType, metav1.ConditionUnknown)
+}
+
+// MarkFailed registers the completion time and changes the Succeeded condition to False with
+// the provided reason and message.
+func (r *Release) MarkFailed(reason ReleaseReason, message string) {
+	if r.IsDone() && r.Status.CompletionTime != nil {
+		return
+	}
+
+	r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+	r.setStatusConditionWithMessage(metav1.ConditionFalse, reason, message)
+
+	go metrics.RegisterCompletedRelease(reason.String(), r.Status.StartTime, r.Status.CompletionTime, false)
+}
+
+// MarkInvalid changes the Succeeded condition to False with the provided reason and message.
+func (r *Release) MarkInvalid(reason ReleaseReason, message string) {
+	if r.IsDone() {
+		return
+	}
+
+	r.setStatusConditionWithMessage(metav1.ConditionFalse, reason, message)
+
+	go metrics.RegisterInvalidRelease(reason.String())
+}
+
+// MarkRunning registers the start time and changes the Succeeded condition to Unknown.
+func (r *Release) MarkRunning() {
+	if r.HasStarted() && r.Status.StartTime != nil {
+		return
+	}
+
+	r.Status.StartTime = &metav1.Time{Time: time.Now()}
+	r.setStatusCondition(metav1.ConditionUnknown, ReleaseReasonRunning)
+
+	go metrics.RegisterNewRelease(r.Status.TargetWorkspace, r.GetCreationTimestamp(), r.Status.StartTime)
+}
+
+// MarkSucceeded registers the completion time and changes the Succeeded condition to True.
+func (r *Release) MarkSucceeded() {
+	if r.IsDone() && r.Status.CompletionTime != nil {
+		return
+	}
+
+	r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+	r.setStatusCondition(metav1.ConditionTrue, ReleaseReasonSucceeded)
+
+	go metrics.RegisterCompletedRelease(ReleaseReasonSucceeded.String(), r.Status.StartTime, r.Status.CompletionTime, false)
+}
+
+// SetCondition creates a new condition with the given status and reason. Then, it sets this new condition,
+// unsetting previous conditions with the same type as necessary.
+func (r *Release) setStatusCondition(status metav1.ConditionStatus, reason ReleaseReason) {
+	r.setStatusConditionWithMessage(status, reason, "")
+}
+
+// SetCondition creates a new condition with the given status, reason and message. Then, it sets this new condition,
+// unsetting previous conditions with the same type as necessary.
+func (r *Release) setStatusConditionWithMessage(status metav1.ConditionStatus, reason ReleaseReason, message string) {
+	meta.SetStatusCondition(&r.Status.Conditions, metav1.Condition{
+		Type:    releaseConditionType,
+		Status:  status,
+		Reason:  reason.String(),
+		Message: message,
+	})
 }
 
 // +kubebuilder:object:root=true

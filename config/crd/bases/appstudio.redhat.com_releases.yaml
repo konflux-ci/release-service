@@ -155,10 +155,20 @@ spec:
                   release PipelineRun executed as part of this release
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
+              releaseStrategy:
+                description: ReleaseStrategy contains the namespaced name of the ReleaseStrategy
+                  used for this release
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
               startTime:
                 description: StartTime is the time when the Release PipelineRun was
                   created and set to run
                 format: date-time
+                type: string
+              targetWorkspace:
+                description: TargetWorkspace is the workspace where this release will
+                  be released to
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
             type: object
         type: object
