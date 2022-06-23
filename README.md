@@ -51,3 +51,16 @@ using the following command:
 ```shell
 $ ENABLE_WEBHOOKS=false make run install
 ```
+
+## Metrics
+
+Apart from the [metrics provided by controller-runtime](https://book.kubebuilder.io/reference/metrics-reference.html)
+by default, this operator exports the following custom metrics:
+
+| Metric name                         | Type      | Description                                                                                                  |
+|-------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------|
+| release_attempt_concurrent_requests | Gauge     | Total number of concurrent release attempts.                                                                 |
+| release_attempt_duration_seconds    | Histogram | Release durations from the moment the release PipelineRun was created til the release is marked as finished. |
+| release_attempt_invalid_total       | Counter   | Number of invalid releases.                                                                                  |
+| release_attempt_running_seconds     | Histogram | Release durations from the moment the release resource was created til the release is marked as running.     |
+| release_attempt_total               | Counter   | Total number of releases processed by the operator.                                                          |

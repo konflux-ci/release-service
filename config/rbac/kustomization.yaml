@@ -35,3 +35,6 @@ resources:
 # Application service
 - component_role.yaml
 - component_role_binding.yaml
+# Prometheus
+- prometheus_viewer_role.yaml
+- prometheus_role_binding.yaml

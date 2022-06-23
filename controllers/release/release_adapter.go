@@ -19,6 +19,7 @@ package release
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -105,26 +106,22 @@ func (a *Adapter) EnsureFinalizerIsAdded() (results.OperationResult, error) {
 // being processed exists. Otherwise, it will create a new release PipelineRun.
 func (a *Adapter) EnsureReleasePipelineRunExists() (results.OperationResult, error) {
 	pipelineRun, err := a.getReleasePipelineRun()
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return results.RequeueWithError(err)
 	}
 
-	if pipelineRun == nil {
-		targetReleaseLink, err := a.getTargetReleaseLink()
-		if err != nil {
-			a.release.Status.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-			return results.RequeueOnErrorOrStop(a.updateStatus())
-		}
+	var releaseStrategy *v1alpha1.ReleaseStrategy
 
-		releaseStrategy, err := a.getReleaseStrategy(targetReleaseLink)
+	if pipelineRun == nil {
+		releaseStrategy, err = a.getReleaseStrategyFromRelease()
 		if err != nil {
-			a.release.Status.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
+			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
 			return results.RequeueOnErrorOrStop(a.updateStatus())
 		}
 
 		applicationSnapshot, err := a.getApplicationSnapshot()
 		if err != nil {
-			a.release.Status.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
+			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
 			return results.RequeueOnErrorOrStop(a.updateStatus())
 		}
 
@@ -137,15 +134,7 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (results.OperationResult, err
 			"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
 	}
 
-	if !a.release.HasStarted() {
-		a.release.Status.ReleasePipelineRun = fmt.Sprintf("%s%c%s",
-			pipelineRun.Namespace, types.Separator, pipelineRun.Name)
-		a.release.Status.MarkRunning()
-
-		return results.RequeueOnErrorOrContinue(a.updateStatus())
-	}
-
-	return results.ContinueProcessing()
+	return results.RequeueOnErrorOrContinue(a.registerReleaseStatusData(pipelineRun, releaseStrategy))
 }
 
 // EnsureReleasePipelineStatusIsTracked is an operation that will ensure that the release PipelineRun status is tracked
@@ -273,6 +262,17 @@ func (a *Adapter) getReleaseStrategy(releaseLink *v1alpha1.ReleaseLink) (*v1alph
 	return releaseStrategy, nil
 }
 
+// getReleaseStrategyFromRelease is a utility function to get a ReleaseStrategy from the information contained in the
+// Release. The function will get the target ReleaseLink and then call getReleaseStrategy.
+func (a *Adapter) getReleaseStrategyFromRelease() (*v1alpha1.ReleaseStrategy, error) {
+	targetReleaseLink, err := a.getTargetReleaseLink()
+	if err != nil {
+		return nil, err
+	}
+
+	return a.getReleaseStrategy(targetReleaseLink)
+}
+
 // getTargetReleaseLink returns the ReleaseLink targeted by ReleaseLink in the Release being processed. If a matching
 // ReleaseLink is not found or the List operation fails, an error will be returned.
 func (a *Adapter) getTargetReleaseLink() (*v1alpha1.ReleaseLink, error) {
@@ -311,15 +311,32 @@ func (a *Adapter) registerReleasePipelineRunStatus(pipelineRun *v1beta1.Pipeline
 
 		condition := pipelineRun.Status.GetCondition(apis.ConditionSucceeded)
 		if condition.IsTrue() {
-			a.release.Status.MarkSucceeded()
+			a.release.MarkSucceeded()
 		} else {
-			a.release.Status.MarkFailed(v1alpha1.ReleaseReasonPipelineFailed, condition.Message)
+			a.release.MarkFailed(v1alpha1.ReleaseReasonPipelineFailed, condition.Message)
 		}
 
 		return a.updateStatus()
 	}
 
 	return nil
+}
+
+// registerReleaseStatusData adds all the Release information to its Status.
+func (a *Adapter) registerReleaseStatusData(releasePipelineRun *v1beta1.PipelineRun, releaseStrategy *v1alpha1.ReleaseStrategy) error {
+	if releasePipelineRun == nil || releaseStrategy == nil {
+		return nil
+	}
+
+	a.release.Status.ReleasePipelineRun = fmt.Sprintf("%s%c%s",
+		releasePipelineRun.Namespace, types.Separator, releasePipelineRun.Name)
+	a.release.Status.ReleaseStrategy = fmt.Sprintf("%s%c%s",
+		releaseStrategy.Namespace, types.Separator, releaseStrategy.Name)
+	a.release.Status.TargetWorkspace = releasePipelineRun.Namespace
+
+	a.release.MarkRunning()
+
+	return a.updateStatus()
 }
 
 // updateStatus updates the status of the Release being processed.
