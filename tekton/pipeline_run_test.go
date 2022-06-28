@@ -18,6 +18,7 @@ package tekton
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 
 	. "github.com/onsi/ginkgo"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 
+	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -40,17 +42,23 @@ type ReleasePipelineParams struct {
 	Extra     ExtraParams
 }
 
-const (
-	PipelineRunPrefixName = "mypipeline"
-	Namespace             = "default"
-)
-
 var _ = Describe("PipelineRun", func() {
-
-	var release *v1alpha1.Release
-	var extraParams *ExtraParams
-	var releasePipelineRun *ReleasePipelineRun
-
+	const (
+		pipelineRunPrefixName = "test-pipeline"
+		namespace             = "default"
+		workspace             = "test-workspace"
+		persistentVolumeClaim = "test-pvc"
+		serviceAccountName    = "test-service-account"
+		apiVersion            = "appstudio.redhat.com/v1alpha1"
+	)
+	var (
+		release                            *v1alpha1.Release
+		extraParams                        *ExtraParams
+		releasePipelineRun                 *ReleasePipelineRun
+		snapshot                           *appstudioshared.ApplicationSnapshot
+		strategy                           *v1alpha1.ReleaseStrategy
+		unmarshaledApplicationSnapshotSpec *appstudioshared.ApplicationSnapshotSpec
+	)
 	BeforeEach(func() {
 
 		extraParams = &ExtraParams{
@@ -62,16 +70,40 @@ var _ = Describe("PipelineRun", func() {
 		}
 		release = &v1alpha1.Release{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "appstudio.redhat.com/v1alpha1",
+				APIVersion: apiVersion,
 				Kind:       "Release",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "myrelease-",
-				Namespace:    Namespace,
+				Namespace:    namespace,
 			},
 			Spec: v1alpha1.ReleaseSpec{
-				ApplicationSnapshot: "mysnapshot",
-				ReleaseLink:         "myreleaselink",
+				ApplicationSnapshot: "testsnapshot",
+				ReleaseLink:         "testreleaselink",
+			},
+		}
+		snapshot = &appstudioshared.ApplicationSnapshot{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "testsnapshot-",
+				Namespace:    "default",
+			},
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: apiVersion,
+				Kind:       "ApplicationSnapshot",
+			},
+			Spec: appstudioshared.ApplicationSnapshotSpec{
+				Application: "testapplication",
+				DisplayName: "Test application",
+				Components:  []appstudioshared.ApplicationSnapshotComponent{},
+			},
+		}
+		strategy = &v1alpha1.ReleaseStrategy{
+			Spec: v1alpha1.ReleaseStrategySpec{
+				Pipeline:              "release-pipeline",
+				Bundle:                "testbundle",
+				Policy:                "testpolicy",
+				PersistentVolumeClaim: persistentVolumeClaim,
+				ServiceAccount:        serviceAccountName,
 			},
 		}
 
@@ -88,13 +120,12 @@ var _ = Describe("PipelineRun", func() {
 
 		// Need to set the Kind and APIVersion as it loses it due to:
 		// https://github.com/kubernetes-sigs/controller-runtime/issues/1870
-		release.TypeMeta.APIVersion = "appstudio.redhat.com/v1alpha1"
+		release.TypeMeta.APIVersion = apiVersion
 		release.TypeMeta.Kind = "Release"
 
 		// Creates the PipelineRun Object
-		releasePipelineRun = NewReleasePipelineRun(PipelineRunPrefixName, Namespace)
+		releasePipelineRun = NewReleasePipelineRun(pipelineRunPrefixName, namespace)
 		Expect(k8sClient.Create(ctx, releasePipelineRun.AsPipelineRun())).Should(Succeed())
-
 	})
 
 	AfterEach(func() {
@@ -102,35 +133,70 @@ var _ = Describe("PipelineRun", func() {
 		_ = k8sClient.Delete(ctx, releasePipelineRun.AsPipelineRun())
 	})
 
-	Context("Create PipelineRun and modify its attributes", func() {
+	Context("When managing a new ReleasePipelineRun", func() {
 
-		It("Can create a ReleasePipelineRun", func() {
+		It("can create a ReleasePipelineRun and the returned object name is prefixed with the provided GenerateName", func() {
 			Expect(releasePipelineRun.ObjectMeta.Name).
-				Should(MatchRegexp(PipelineRunPrefixName + `-[a-z0-9]{5}`))
-			Expect(releasePipelineRun.ObjectMeta.Namespace).To(Equal(Namespace))
+				Should(HavePrefix(pipelineRunPrefixName))
+			Expect(releasePipelineRun.ObjectMeta.Namespace).To(Equal(namespace))
 		})
 
-		It("Can add extra params to ReleasePipelineRun", func() {
+		It("can append extra params to ReleasePipelineRun and these parameters are present in the object Specs", func() {
 			releasePipelineRun.WithExtraParam(extraParams.Name, extraParams.Value)
 			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal(extraParams.Name))
-			Expect(releasePipelineRun.Spec.Params[0].Value.StringVal).To(Equal(extraParams.Value.StringVal))
+			Expect(releasePipelineRun.Spec.Params[0].Value.StringVal).
+				To(Equal(extraParams.Value.StringVal))
 		})
 
-		It("Can add the release Owner annotations to ReleasePipelineRun", func() {
+		It("can append owner release information to the object as annotations", func() {
 			releasePipelineRun.WithOwner(release)
 			Expect(releasePipelineRun.Annotations).NotTo(BeNil())
 		})
 
-		It("Can add the release Labels to ReleasePipelineRun", func() {
+		It("can append the release Name and Namespace to a ReleasePipelineRun object and that these label key names match the correct label format", func() {
 			releasePipelineRun.WithReleaseLabels(release.Name, release.Namespace)
 			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/name"]).
 				To(Equal(release.Name))
 		})
 
-		It("Can cast ReleasePipelineRun type to PipelineRun", func() {
+		It("can return a PipelineRun object from a ReleasePipelineRun object", func() {
 			Expect(reflect.TypeOf(releasePipelineRun.AsPipelineRun())).
 				To(Equal(reflect.TypeOf(&tektonv1beta1.PipelineRun{})))
 		})
 
+		It("can add an ApplicationSnapshot object as a json string to the PipelineRun", func() {
+			Expect(k8sClient.Create(ctx, snapshot)).Should(Succeed())
+
+			snapshot.TypeMeta.APIVersion = apiVersion
+			snapshot.TypeMeta.Kind = "ApplicationSnapshot"
+
+			releasePipelineRun.WithApplicationSnapshot(snapshot)
+
+			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal("applicationSnapshot"))
+			Expect(json.Unmarshal(
+				[]byte(releasePipelineRun.Spec.Params[0].Value.StringVal),
+				&unmarshaledApplicationSnapshotSpec)).Should(Succeed())
+
+			// check if the unmarshaled data has what we expect
+			Expect(unmarshaledApplicationSnapshotSpec.Application).To(Equal("testapplication"))
+		})
+
+		It("can add the ReleaseStrategy information to a PipelineRun object and ", func() {
+			releasePipelineRun.WithReleaseStrategy(strategy)
+			Expect(releasePipelineRun.Spec.PipelineRef.Name).
+				To(Equal("release-pipeline"))
+		})
+
+		It("can add the reference to the service account that should be used", func() {
+			releasePipelineRun.WithServiceAccount(serviceAccountName)
+			Expect(releasePipelineRun.Spec.ServiceAccountName).To(Equal(serviceAccountName))
+		})
+
+		It("can add a workspace to the PipelineRun using the given name and PVC", func() {
+			releasePipelineRun.WithWorkspace(workspace, persistentVolumeClaim)
+			Expect(releasePipelineRun.Spec.Workspaces[0].Name).To(Equal(workspace))
+			Expect(releasePipelineRun.Spec.Workspaces[0].PersistentVolumeClaim.ClaimName).
+				To(Equal(persistentVolumeClaim))
+		})
 	})
 })
