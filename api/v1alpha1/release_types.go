@@ -119,9 +119,14 @@ func (r *Release) HasSucceeded() bool {
 	return !meta.IsStatusConditionTrue(r.Status.Conditions, releaseConditionType)
 }
 
-// IsDone returns true if the Release's status indicates that it is done.
+// IsDone returns a boolean indicating whether the Release's status indicates that it is done or not.
 func (r *Release) IsDone() bool {
-	return !meta.IsStatusConditionPresentAndEqual(r.Status.Conditions, releaseConditionType, metav1.ConditionUnknown)
+	condition := meta.FindStatusCondition(r.Status.Conditions, releaseConditionType)
+	if condition != nil {
+		return condition.Status != metav1.ConditionUnknown
+	}
+
+	return false
 }
 
 // MarkFailed registers the completion time and changes the Succeeded condition to False with
