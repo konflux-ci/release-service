@@ -139,7 +139,8 @@ func (r *Release) MarkFailed(reason ReleaseReason, message string) {
 	r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 	r.setStatusConditionWithMessage(metav1.ConditionFalse, reason, message)
 
-	go metrics.RegisterCompletedRelease(reason.String(), r.Status.StartTime, r.Status.CompletionTime, false)
+	go metrics.RegisterCompletedRelease(reason.String(), r.Status.ReleaseStrategy, r.Status.TargetWorkspace,
+		r.Status.StartTime, r.Status.CompletionTime, false)
 }
 
 // MarkInvalid changes the Succeeded condition to False with the provided reason and message.
@@ -162,7 +163,7 @@ func (r *Release) MarkRunning() {
 	r.Status.StartTime = &metav1.Time{Time: time.Now()}
 	r.setStatusCondition(metav1.ConditionUnknown, ReleaseReasonRunning)
 
-	go metrics.RegisterNewRelease(r.Status.TargetWorkspace, r.GetCreationTimestamp(), r.Status.StartTime)
+	go metrics.RegisterNewRelease(r.GetCreationTimestamp(), r.Status.StartTime)
 }
 
 // MarkSucceeded registers the completion time and changes the Succeeded condition to True.
@@ -174,7 +175,8 @@ func (r *Release) MarkSucceeded() {
 	r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 	r.setStatusCondition(metav1.ConditionTrue, ReleaseReasonSucceeded)
 
-	go metrics.RegisterCompletedRelease(ReleaseReasonSucceeded.String(), r.Status.StartTime, r.Status.CompletionTime, false)
+	go metrics.RegisterCompletedRelease(ReleaseReasonSucceeded.String(), r.Status.ReleaseStrategy, r.Status.TargetWorkspace,
+		r.Status.StartTime, r.Status.CompletionTime, false)
 }
 
 // SetCondition creates a new condition with the given status and reason. Then, it sets this new condition,
