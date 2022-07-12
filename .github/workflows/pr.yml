@@ -41,6 +41,11 @@ jobs:
         run: |
           rm -f bin/kustomize bin/controller-gen
           make kustomize controller-gen
+      - name: Install kcp tooling
+        run: |
+          git clone https://github.com/kcp-dev/kcp ~/kcp
+          cd ~/kcp
+          WHAT=./cmd/kubectl-kcp make install
       - name: Cache go modules
         id: cache-mod
         uses: actions/cache@v2
@@ -75,12 +80,21 @@ jobs:
         with:
           version: "2021.1.2"
           install-go: false
-      - name: Check manifests
+      - name: Check kcp manifests
         run: |
-          make generate manifests
+          CONTROL_PLANE=kcp make generate manifests
           if [[ ! -z $(git status ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen' -s) ]]
           then
-            echo "generated sources are not up to date:"
+            echo "generated kcp sources are not up to date:"
+            git --no-pager diff ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen'
+            exit 1
+          fi
+      - name: Check kubernetes manifests
+        run: |
+          CONTROL_PLANE=kubernetes make generate manifests
+          if [[ ! -z $(git status ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen' -s) ]]
+          then
+            echo "generated k8s sources are not up to date:"
             git --no-pager diff ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen'
             exit 1
           fi

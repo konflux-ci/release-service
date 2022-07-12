@@ -1,0 +1,12 @@
+# This file is generated from CRDs by ./hack/generate-kcp-api.sh script.
+# Please do not modify!
+
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIExport
+metadata:
+  name: release
+spec:
+  latestResourceSchemas:
+    - v202206271449.releaselinks.appstudio.redhat.com
+    - v202206271449.releases.appstudio.redhat.com
+    - v202206271449.releasestrategies.appstudio.redhat.com

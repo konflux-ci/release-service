@@ -1,0 +1,351 @@
+# This file is generated from CRDs by ./hack/generate-kcp-api.sh script.
+# Please do not modify!
+
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v202206271449.releaselinks.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: ReleaseLink
+    listKind: ReleaseLinkList
+    plural: releaselinks
+    singular: releaselink
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      priority: 1
+      type: string
+    - jsonPath: .spec.application
+      name: Application
+      type: string
+    - jsonPath: .spec.target
+      name: Target
+      type: string
+    - jsonPath: .spec.releaseStrategy
+      name: Release Strategy
+      type: string
+    name: v1alpha1
+    schema:
+      description: ReleaseLink is the Schema for the releaselinks API.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: ReleaseLinkSpec defines the desired state of ReleaseLink.
+          properties:
+            application:
+              description: Application is a reference to the application to be released
+                in the managed workspace
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+            displayName:
+              description: DisplayName refers to the name of the ReleaseLink to link
+                a user and managed workspace together
+              type: string
+            releaseStrategy:
+              description: Release Strategy defines which strategy will be used to
+                release the application in the managed workspace. This field has no
+                effect for ReleaseLink resources in unmanaged workspaces
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+            target:
+              description: Target is a reference to the workspace to establish a link
+                with
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+          required:
+          - application
+          - displayName
+          - target
+          type: object
+        status:
+          description: ReleaseLinkStatus defines the observed state of ReleaseLink.
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v202206271449.releases.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: Release
+    listKind: ReleaseList
+    plural: releases
+    singular: release
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.applicationSnapshot
+      name: Snapshot
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Succeeded")].status
+      name: Succeeded
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Succeeded")].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.releasePipelineRun
+      name: PipelineRun
+      priority: 1
+      type: string
+    - jsonPath: .status.startTime
+      name: Start Time
+      priority: 1
+      type: date
+    - jsonPath: .status.completionTime
+      name: Completion Time
+      priority: 1
+      type: date
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      description: Release is the Schema for the releases API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: ReleaseSpec defines the desired state of Release
+          properties:
+            applicationSnapshot:
+              description: ApplicationSnapshot to be released
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+            releaseLink:
+              description: ReleaseLink referencing the workspace where the snapshot
+                will be released
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+          required:
+          - applicationSnapshot
+          - releaseLink
+          type: object
+        status:
+          description: ReleaseStatus defines the observed state of Release
+          properties:
+            completionTime:
+              description: CompletionTime is the time the Release PipelineRun completed
+              format: date-time
+              type: string
+            conditions:
+              description: Conditions represent the latest available observations
+                for the release
+              items:
+                description: "Condition contains details for one aspect of the current
+                  state of this API Resource. --- This struct is intended for direct
+                  use as an array at the field path .status.conditions.  For example,
+                  type FooStatus struct{ // Represents the observations of a foo's
+                  current state. // Known .status.conditions.type are: \"Available\",
+                  \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                  // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                  `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                  protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                properties:
+                  lastTransitionTime:
+                    description: lastTransitionTime is the last time the condition
+                      transitioned from one status to another. This should be when
+                      the underlying condition changed.  If that is not known, then
+                      using the time when the API field changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: message is a human readable message indicating details
+                      about the transition. This may be an empty string.
+                    maxLength: 32768
+                    type: string
+                  observedGeneration:
+                    description: observedGeneration represents the .metadata.generation
+                      that the condition was set based upon. For instance, if .metadata.generation
+                      is currently 12, but the .status.conditions[x].observedGeneration
+                      is 9, the condition is out of date with respect to the current
+                      state of the instance.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  reason:
+                    description: reason contains a programmatic identifier indicating
+                      the reason for the condition's last transition. Producers of
+                      specific condition types may define expected values and meanings
+                      for this field, and whether the values are considered a guaranteed
+                      API. The value should be a CamelCase string. This field may
+                      not be empty.
+                    maxLength: 1024
+                    minLength: 1
+                    pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                    type: string
+                  status:
+                    description: status of the condition, one of True, False, Unknown.
+                    enum:
+                    - "True"
+                    - "False"
+                    - Unknown
+                    type: string
+                  type:
+                    description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      --- Many .condition.type values are consistent across resources
+                      like Available, but because arbitrary conditions can be useful
+                      (see .node.status.conditions), the ability to deconflict is
+                      important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                    maxLength: 316
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                    type: string
+                required:
+                - lastTransitionTime
+                - message
+                - reason
+                - status
+                - type
+                type: object
+              type: array
+            releasePipelineRun:
+              description: ReleasePipelineRun contains the namespaced name of the
+                release PipelineRun executed as part of this release
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+            releaseStrategy:
+              description: ReleaseStrategy contains the namespaced name of the ReleaseStrategy
+                used for this release
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+            startTime:
+              description: StartTime is the time when the Release PipelineRun was
+                created and set to run
+              format: date-time
+              type: string
+            targetWorkspace:
+              description: TargetWorkspace is the workspace where this release will
+                be released to
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v202206271449.releasestrategies.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: ReleaseStrategy
+    listKind: ReleaseStrategyList
+    plural: releasestrategies
+    singular: releasestrategy
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      description: ReleaseStrategy is the Schema for the releasestrategies API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: ReleaseStrategySpec defines the desired state of ReleaseStrategy
+          properties:
+            bundle:
+              description: Bundle is a reference to the Tekton bundle where to find
+                the pipeline
+              type: string
+            params:
+              description: Params to pass to the pipeline
+              items:
+                description: Params holds the definition of a parameter that should
+                  be passed to the release Pipeline
+                properties:
+                  name:
+                    description: Name is the name of the parameter
+                    type: string
+                  value:
+                    description: Value is the string value of the parameter
+                    type: string
+                  values:
+                    description: Values is a list of values for the parameter
+                    items:
+                      type: string
+                    type: array
+                required:
+                - name
+                type: object
+              type: array
+            persistentVolumeClaim:
+              description: PersistentVolumeClaim is the pvc to use in the Release
+                pipeline workspace
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+            pipeline:
+              description: Release Tekton Pipeline to execute
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+            policy:
+              description: Policy to validate before releasing an artifact
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+            serviceAccount:
+              description: ServiceAccount is the name of the service account to use
+                in the release PipelineRun to gain elevated privileges
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+          required:
+          - pipeline
+          - policy
+          type: object
+        status:
+          description: ReleaseStrategyStatus defines the observed state of ReleaseStrategy
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
