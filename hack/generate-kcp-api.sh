@@ -27,7 +27,7 @@ EOF
 PREFIX=$( TZ="Etc/UTC" date +%Y%m%d%H%M )
 
 I=0
-for CRD in $( ls ${CRD_DIR} ); do
+for CRD in $( ls ${CRD_DIR} | sort -V ); do
   kubectl-kcp crd snapshot -f "${CRD_DIR}/${CRD}" --prefix v${PREFIX} >> ${KCP_API_SCHEMA_FILE_NEW}
 done
 

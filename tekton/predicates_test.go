@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
@@ -50,6 +51,9 @@ var _ = Describe("Predicates", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "testrelease-",
 				Namespace:    namespace,
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: "test-cluster",
+				},
 			},
 			Spec: v1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "testsnapshot",
@@ -111,7 +115,7 @@ var _ = Describe("Predicates", func() {
 			contextEvent := event.UpdateEvent{
 				ObjectOld: releasePipelineRun.AsPipelineRun(),
 				ObjectNew: releasePipelineRun.WithServiceAccount("test-service-account").
-					WithReleaseLabels(release.Name, release.Namespace).AsPipelineRun(),
+					WithReleaseLabels(release.Name, release.Namespace, release.GetAnnotations()[logicalcluster.AnnotationKey]).AsPipelineRun(),
 			}
 			releasePipelineRun.Status.MarkRunning("Predicate function tests", "Set it to Unknown")
 			Expect(instance.Update(contextEvent)).To(BeFalse())

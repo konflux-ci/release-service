@@ -17,10 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
+	"github.com/redhat-appstudio/release-service/kcp"
 	"github.com/redhat-appstudio/release-service/metrics"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 // ReleaseSpec defines the desired state of Release.
@@ -89,10 +91,9 @@ type ReleaseStatus struct {
 	// +optional
 	ReleaseStrategy string `json:"releaseStrategy,omitempty"`
 
-	// TargetWorkspace is the workspace where this release will be released to
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// Target references where this relesae is intended to be released to
 	// +optional
-	TargetWorkspace string `json:"targetWorkspace,omitempty"`
+	Target kcp.NamespaceReference `json:"target"`
 }
 
 // +kubebuilder:object:root=true
@@ -144,7 +145,7 @@ func (r *Release) MarkFailed(reason ReleaseReason, message string) {
 	r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 	r.setStatusConditionWithMessage(metav1.ConditionFalse, reason, message)
 
-	go metrics.RegisterCompletedRelease(reason.String(), r.Status.ReleaseStrategy, r.Status.TargetWorkspace,
+	go metrics.RegisterCompletedRelease(reason.String(), r.Status.ReleaseStrategy, r.Status.Target,
 		r.Status.StartTime, r.Status.CompletionTime, false)
 }
 
@@ -180,7 +181,7 @@ func (r *Release) MarkSucceeded() {
 	r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 	r.setStatusCondition(metav1.ConditionTrue, ReleaseReasonSucceeded)
 
-	go metrics.RegisterCompletedRelease(ReleaseReasonSucceeded.String(), r.Status.ReleaseStrategy, r.Status.TargetWorkspace,
+	go metrics.RegisterCompletedRelease(ReleaseReasonSucceeded.String(), r.Status.ReleaseStrategy, r.Status.Target,
 		r.Status.StartTime, r.Status.CompletionTime, false)
 }
 

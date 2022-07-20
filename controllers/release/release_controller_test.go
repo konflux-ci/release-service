@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/kcp"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,14 +39,32 @@ import (
 
 var _ = Describe("Release Controller", func() {
 	var (
-		manager    ctrl.Manager
-		release    *appstudiov1alpha1.Release
-		reconciler *Reconciler
-		scheme     runtime.Scheme
-		req        ctrl.Request
+		manager     ctrl.Manager
+		release     *appstudiov1alpha1.Release
+		releasePlan *appstudiov1alpha1.ReleasePlan
+		reconciler  *Reconciler
+		scheme      runtime.Scheme
+		req         ctrl.Request
 	)
 
 	BeforeEach(func() {
+		releasePlan = &appstudiov1alpha1.ReleasePlan{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-releaseplan-",
+				Namespace:    testNamespace,
+				Labels: map[string]string{
+					appstudiov1alpha1.AutoReleaseLabel: "true",
+				},
+			},
+			Spec: appstudiov1alpha1.ReleasePlanSpec{
+				Application: "test-app",
+				Target: kcp.NamespaceReference{
+					Namespace: testNamespace,
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
+
 		release = &appstudiov1alpha1.Release{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: testApiVersion,
@@ -57,7 +76,7 @@ var _ = Describe("Release Controller", func() {
 			},
 			Spec: appstudiov1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "test-snapshot",
-				ReleasePlan:         "test-releaseplan",
+				ReleasePlan:         releasePlan.GetName(),
 			},
 		}
 		Expect(k8sClient.Create(ctx, release)).Should(Succeed())
@@ -86,6 +105,8 @@ var _ = Describe("Release Controller", func() {
 
 	AfterEach(func() {
 		err := k8sClient.Delete(ctx, release)
+		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
+		err = k8sClient.Delete(ctx, releasePlan)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 	})
 
