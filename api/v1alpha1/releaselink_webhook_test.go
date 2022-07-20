@@ -40,7 +40,8 @@ var _ = Describe("ReleaseLink validation webhook", func() {
 		Namespace       = "default"
 		DisplayName     = "example-release-link"
 		Application     = "test-application"
-		Target          = "test-target"
+		TargetNamespace = "test-target-namespace"
+		TargetWorkspace = "test-target-workspace"
 		ReleaseStrategy = "test-releasestrategy"
 	)
 
@@ -59,9 +60,12 @@ var _ = Describe("ReleaseLink validation webhook", func() {
 					Namespace:    Namespace,
 				},
 				Spec: ReleaseLinkSpec{
-					DisplayName:     DisplayName,
-					Application:     Application,
-					Target:          Target,
+					DisplayName: DisplayName,
+					Application: Application,
+					Target: Target{
+						Namespace: TargetNamespace,
+						Workspace: TargetWorkspace,
+					},
 					ReleaseStrategy: ReleaseStrategy,
 				},
 			}
@@ -103,25 +107,28 @@ var _ = Describe("ReleaseLink validation webhook", func() {
 					},
 				},
 				Spec: ReleaseLinkSpec{
-					DisplayName:     DisplayName,
-					Application:     Application,
-					Target:          "",
+					DisplayName: DisplayName,
+					Application: Application,
+					Target: Target{
+						Namespace: "",
+						Workspace: TargetWorkspace,
+					},
 					ReleaseStrategy: ReleaseStrategy,
 				},
 			}
 
 			err := k8sClient.Create(ctx, releaseLink)
 			Expect(err).Should(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring("spec.target in body should match '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'"))
+			Expect(err.Error()).Should(ContainSubstring("spec.target.namespace in body should match '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'"))
 
-			releaseLink.Spec.Target = Namespace
+			releaseLink.Spec.Target.Namespace = Namespace
 
 			err = k8sClient.Create(ctx, releaseLink)
 			Expect(err).Should(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring("field spec.target and namespace cannot have the same value"))
+			Expect(err.Error()).Should(ContainSubstring("field spec.target.namespace and namespace cannot have the same value"))
 
 			// Good Target
-			releaseLink.Spec.Target = Target
+			releaseLink.Spec.Target.Namespace = TargetNamespace
 			err = k8sClient.Create(ctx, releaseLink)
 			Expect(err.Error()).Should(ContainSubstring("%s label can only be set to true or false", autoReleaseLabel))
 
@@ -160,9 +167,12 @@ var _ = Describe("ReleaseLink validation webhook", func() {
 					},
 				},
 				Spec: ReleaseLinkSpec{
-					DisplayName:     DisplayName,
-					Application:     Application,
-					Target:          Target,
+					DisplayName: DisplayName,
+					Application: Application,
+					Target: Target{
+						Namespace: TargetNamespace,
+						Workspace: TargetWorkspace,
+					},
 					ReleaseStrategy: ReleaseStrategy,
 				},
 			}
@@ -176,19 +186,19 @@ var _ = Describe("ReleaseLink validation webhook", func() {
 				return !reflect.DeepEqual(createdReleaseLink, &ReleaseLink{})
 			}, timeout, interval).Should(BeTrue())
 
-			// Update the ReleaseLink target
-			createdReleaseLink.Spec.Target = "another-target"
+			// Update the ReleaseLink namespace target
+			createdReleaseLink.Spec.Target.Namespace = "another-target"
 			err := k8sClient.Update(ctx, createdReleaseLink)
 			Expect(err).Should(BeNil())
 
-			// Update the ReleaseLink target to be invalid
-			createdReleaseLink.Spec.Target = Namespace
+			// Update the ReleaseLink target namespace to be invalid
+			createdReleaseLink.Spec.Target.Namespace = Namespace
 			err = k8sClient.Update(ctx, createdReleaseLink)
 			Expect(err).Should(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring("field spec.target and namespace cannot have the same value"))
+			Expect(err.Error()).Should(ContainSubstring("field spec.target.namespace and namespace cannot have the same value"))
 
 			// Update the auto-release label to be invalid
-			createdReleaseLink.Spec.Target = "another-target"
+			createdReleaseLink.Spec.Target.Namespace = "another-target"
 			createdReleaseLink.Labels[autoReleaseLabel] = "test"
 			err = k8sClient.Update(ctx, createdReleaseLink)
 			Expect(err).Should(HaveOccurred())

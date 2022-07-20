@@ -51,6 +51,9 @@ var (
 	// ReleaseNameLabel is the label used to specify the name of the Release associated with the PipelineRun
 	ReleaseNameLabel = fmt.Sprintf("%s/%s", releaseLabelPrefix, "name")
 
+	// ReleaseNamespaceLabel is the label used to specify the namespace of the Release associated with the PipelineRun
+	ReleaseNamespaceLabel = fmt.Sprintf("%s/%s", releaseLabelPrefix, "namespace")
+
 	// ReleaseWorkspaceLabel is the label used to specify the workspace of the Release associated with the PipelineRun
 	ReleaseWorkspaceLabel = fmt.Sprintf("%s/%s", releaseLabelPrefix, "workspace")
 )
@@ -117,12 +120,13 @@ func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipeli
 	return r
 }
 
-// WithReleaseLabels adds Release name and namespace as labels to the release PipelineRun.
-func (r *ReleasePipelineRun) WithReleaseLabels(releaseName, releaseNamespace string) *ReleasePipelineRun {
+// WithReleaseLabels adds Release name, namespace, and workspace as labels to the release PipelineRun.
+func (r *ReleasePipelineRun) WithReleaseLabels(releaseName, releaseNamespace, releaseWorkspace string) *ReleasePipelineRun {
 	r.ObjectMeta.Labels = map[string]string{
 		PipelinesTypeLabel:    PipelineTypeRelease,
 		ReleaseNameLabel:      releaseName,
-		ReleaseWorkspaceLabel: releaseNamespace,
+		ReleaseNamespaceLabel: releaseNamespace,
+		ReleaseWorkspaceLabel: releaseWorkspace,
 	}
 
 	return r

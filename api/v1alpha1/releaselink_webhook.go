@@ -77,8 +77,8 @@ func (r *ReleaseLink) ValidateDelete() error {
 
 // validateTarget checks that the target namespace defined in the ReleaseLink CR is not the same as the namespace the ReleaseLink CR was created in.
 func (r *ReleaseLink) validateTarget() error {
-	if r.Spec.Target == r.Namespace {
-		return fmt.Errorf("field spec.target and namespace cannot have the same value")
+	if r.Spec.Target.Namespace == r.Namespace {
+		return fmt.Errorf("field spec.target.namespace and namespace cannot have the same value")
 	}
 
 	return nil

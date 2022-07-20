@@ -39,7 +39,10 @@ func TestReleaseLinkDefaultingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "target1",
+					Target: Target{
+						Namespace: "target-namespace1",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},
@@ -56,7 +59,10 @@ func TestReleaseLinkDefaultingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "target1",
+					Target: Target{
+						Namespace: "target-namespace1",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},
@@ -76,8 +82,8 @@ func TestReleaseLinkCreateValidatingWebhook(t *testing.T) {
 		errorMessage string
 	}{
 		{
-			name:         "releaselink namespace cannot be the same as its target",
-			errorMessage: "field spec.target and namespace cannot have the same value",
+			name:         "releaselink namespace cannot be the same as its target namespace",
+			errorMessage: "field spec.target.namespace and namespace cannot have the same value",
 			releaseLink: ReleaseLink{
 				ObjectMeta: v1.ObjectMeta{
 					Namespace: "namespace1",
@@ -85,7 +91,10 @@ func TestReleaseLinkCreateValidatingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "namespace1",
+					Target: Target{
+						Namespace: "namespace1",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},
@@ -102,7 +111,10 @@ func TestReleaseLinkCreateValidatingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "target1",
+					Target: Target{
+						Namespace: "target-namespace1",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},
@@ -115,7 +127,10 @@ func TestReleaseLinkCreateValidatingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "target1",
+					Target: Target{
+						Namespace: "target-namespace1",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},
@@ -131,7 +146,10 @@ func TestReleaseLinkCreateValidatingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "target1",
+					Target: Target{
+						Namespace: "target-namespace1",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},
@@ -160,7 +178,10 @@ func TestReleaseLinkUpdateValidatingWebhook(t *testing.T) {
 		Spec: ReleaseLinkSpec{
 			DisplayName: "releaselink1",
 			Application: "application1",
-			Target:      "target1",
+			Target: Target{
+				Namespace: "target-namespace1",
+				Workspace: "target-workspace",
+			},
 		},
 	}
 
@@ -171,7 +192,7 @@ func TestReleaseLinkUpdateValidatingWebhook(t *testing.T) {
 	}{
 		{
 			name:         "releaselink target cannot be changed to the resource's namespace",
-			errorMessage: "field spec.target and namespace cannot have the same value",
+			errorMessage: "field spec.target.namespace and namespace cannot have the same value",
 			releaseLink: ReleaseLink{
 				ObjectMeta: v1.ObjectMeta{
 					Namespace: "namespace1",
@@ -182,7 +203,10 @@ func TestReleaseLinkUpdateValidatingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "namespace1",
+					Target: Target{
+						Namespace: "namespace1",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},
@@ -199,7 +223,10 @@ func TestReleaseLinkUpdateValidatingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "target1",
+					Target: Target{
+						Namespace: "target-namespace1",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},
@@ -215,7 +242,10 @@ func TestReleaseLinkUpdateValidatingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "target2",
+					Target: Target{
+						Namespace: "target-namespace2",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},
@@ -231,7 +261,10 @@ func TestReleaseLinkUpdateValidatingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "target2",
+					Target: Target{
+						Namespace: "target-namespace2",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},
@@ -244,7 +277,10 @@ func TestReleaseLinkUpdateValidatingWebhook(t *testing.T) {
 				Spec: ReleaseLinkSpec{
 					DisplayName: "releaselink1",
 					Application: "application1",
-					Target:      "target2",
+					Target: Target{
+						Namespace: "target-namespace2",
+						Workspace: "target-workspace",
+					},
 				},
 			},
 		},

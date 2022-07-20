@@ -18,7 +18,9 @@ package release
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
+	"github.com/kcp-dev/logicalcluster/v2"
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/controllers/results"
@@ -57,7 +59,11 @@ func NewReleaseReconciler(client client.Client, logger *logr.Logger, scheme *run
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.Log.WithValues("Release", req.NamespacedName)
+	logger := r.Log.WithValues("Release", req.NamespacedName).WithValues("clusterName", req.ClusterName)
+
+	if req.ClusterName != "" {
+		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
+	}
 
 	release := &v1alpha1.Release{}
 	err := r.Get(ctx, req.NamespacedName, release)
@@ -69,7 +75,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	adapter := NewAdapter(release, logger, r.Client, ctx)
+	adapter := NewAdapter(release, logger, r.Client, ctx, nil)
 
 	return r.ReconcileHandler(adapter)
 }
@@ -80,6 +86,7 @@ type AdapterInterface interface {
 	EnsureFinalizerIsAdded() (results.OperationResult, error)
 	EnsureReleasePipelineRunExists() (results.OperationResult, error)
 	EnsureReleasePipelineStatusIsTracked() (results.OperationResult, error)
+	EnsureTargetContextIsSet() (results.OperationResult, error)
 }
 
 // ReconcileOperation defines the syntax of functions invoked by the ReconcileHandler
@@ -89,6 +96,7 @@ type ReconcileOperation func() (results.OperationResult, error)
 // based on the operations' results.
 func (r *Reconciler) ReconcileHandler(adapter AdapterInterface) (ctrl.Result, error) {
 	operations := []ReconcileOperation{
+		adapter.EnsureTargetContextIsSet,
 		adapter.EnsureFinalizersAreCalled,
 		adapter.EnsureFinalizerIsAdded,
 		adapter.EnsureReleasePipelineRunExists,
@@ -113,14 +121,14 @@ func SetupController(manager ctrl.Manager, log *logr.Logger) error {
 	return setupControllerWithManager(manager, NewReleaseReconciler(manager.GetClient(), log, manager.GetScheme()))
 }
 
-// setupCache adds a new index field to be able to search ReleaseLinks by target.
+// setupCache adds a new index field to be able to search ReleaseLinks by target namespace.
 func setupCache(mgr ctrl.Manager) error {
 	releaseLinkTargetIndexFunc := func(obj client.Object) []string {
-		return []string{obj.(*v1alpha1.ReleaseLink).Spec.Target}
+		return []string{obj.(*v1alpha1.ReleaseLink).Spec.Target.Namespace}
 	}
 
 	return mgr.GetCache().IndexField(context.Background(), &v1alpha1.ReleaseLink{},
-		"spec.target", releaseLinkTargetIndexFunc)
+		"spec.target.namespace", releaseLinkTargetIndexFunc)
 }
 
 // setupControllerWithManager sets up the controller with the Manager which monitors new Releases and filters out

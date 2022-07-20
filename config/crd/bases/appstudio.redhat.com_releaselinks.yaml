@@ -23,8 +23,8 @@ spec:
     - jsonPath: .spec.application
       name: Application
       type: string
-    - jsonPath: .spec.target
-      name: Target
+    - jsonPath: .spec.target.namespace
+      name: Target Namespace
       type: string
     - jsonPath: .spec.releaseStrategy
       name: Release Strategy
@@ -67,8 +67,20 @@ spec:
               target:
                 description: Target is a reference to the workspace to establish a
                   link with
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
+                properties:
+                  namespace:
+                    description: Namespace is a reference to the namespace to establish
+                      a link with
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  workspace:
+                    description: Workspace is a reference to the workspace to establish
+                      a link with in a KCP setup
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - namespace
+                type: object
             required:
             - application
             - displayName

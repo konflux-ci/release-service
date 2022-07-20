@@ -19,10 +19,12 @@ package release
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/go-logr/logr"
+	"github.com/kcp-dev/logicalcluster/v2"
 	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/controllers/results"
@@ -37,22 +39,24 @@ import (
 
 // Adapter holds the objects needed to reconcile a Release.
 type Adapter struct {
-	release *v1alpha1.Release
-	logger  logr.Logger
-	client  client.Client
-	context context.Context
+	release       *v1alpha1.Release
+	logger        logr.Logger
+	client        client.Client
+	context       context.Context
+	targetContext context.Context
 }
 
 // finalizerName is the finalizer name to be added to the Releases
 const finalizerName string = "appstudio.redhat.com/release-finalizer"
 
 // NewAdapter creates and returns an Adapter instance.
-func NewAdapter(release *v1alpha1.Release, logger logr.Logger, client client.Client, context context.Context) *Adapter {
+func NewAdapter(release *v1alpha1.Release, logger logr.Logger, client client.Client, context, targetContext context.Context) *Adapter {
 	return &Adapter{
-		release: release,
-		logger:  logger,
-		client:  client,
-		context: context,
+		release:       release,
+		logger:        logger,
+		client:        client,
+		context:       context,
+		targetContext: targetContext,
 	}
 }
 
@@ -155,6 +159,24 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (results.OperationResul
 	return results.ContinueProcessing()
 }
 
+// EnsureTargetContextIsSet is an operation that will ensure that the targetContext of the adapter is not nil. It will
+// set it to a context from the workspace in the ReleaseLink if one is defined or to its own context if not.
+func (a *Adapter) EnsureTargetContextIsSet() (results.OperationResult, error) {
+	releaseLink, err := a.getReleaseLink()
+	if err != nil {
+		return results.RequeueWithError(err)
+	}
+
+	if a.targetContext == nil {
+		if releaseLink.Spec.Target.Workspace == "" {
+			a.targetContext = a.context
+		} else {
+			a.targetContext = logicalcluster.WithCluster(a.context, logicalcluster.New(releaseLink.Spec.Target.Workspace))
+		}
+	}
+	return results.ContinueProcessing()
+}
+
 // createReleasePipelineRun creates and returns a new release PipelineRun. The new PipelineRun will include owner
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
 // will be extracted from the given ReleaseStrategy. The Release's ApplicationSnapshot will also be passed to the
@@ -162,12 +184,12 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (results.OperationResul
 func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy, applicationSnapshot *appstudioshared.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", releaseStrategy.Namespace).
 		WithOwner(a.release).
-		WithReleaseLabels(a.release.Name, a.release.Namespace).
+		WithReleaseLabels(a.release.Name, a.release.Namespace, a.release.GetAnnotations()["kcp.dev/cluster"]).
 		WithReleaseStrategy(releaseStrategy).
 		WithApplicationSnapshot(applicationSnapshot).
 		AsPipelineRun()
 
-	err := a.client.Create(a.context, pipelineRun)
+	err := a.client.Create(a.targetContext, pipelineRun)
 	if err != nil {
 		return nil, err
 	}
@@ -234,11 +256,12 @@ func (a *Adapter) getReleasePipelineRun() (*v1beta1.PipelineRun, error) {
 		client.Limit(1),
 		client.MatchingLabels{
 			tekton.ReleaseNameLabel:      a.release.Name,
-			tekton.ReleaseWorkspaceLabel: a.release.Namespace,
+			tekton.ReleaseNamespaceLabel: a.release.Namespace,
+			tekton.ReleaseWorkspaceLabel: a.release.GetAnnotations()["ClusterName"],
 		},
 	}
 
-	err := a.client.List(a.context, pipelineRuns, opts...)
+	err := a.client.List(a.targetContext, pipelineRuns, opts...)
 	if err == nil && len(pipelineRuns.Items) > 0 {
 		return &pipelineRuns.Items[0], nil
 	}
@@ -250,7 +273,7 @@ func (a *Adapter) getReleasePipelineRun() (*v1beta1.PipelineRun, error) {
 // not found or the Get operation fails, an error will be returned.
 func (a *Adapter) getReleaseStrategy(releaseLink *v1alpha1.ReleaseLink) (*v1alpha1.ReleaseStrategy, error) {
 	releaseStrategy := &v1alpha1.ReleaseStrategy{}
-	err := a.client.Get(a.context, types.NamespacedName{
+	err := a.client.Get(a.targetContext, types.NamespacedName{
 		Name:      releaseLink.Spec.ReleaseStrategy,
 		Namespace: releaseLink.Namespace,
 	}, releaseStrategy)
@@ -283,11 +306,11 @@ func (a *Adapter) getTargetReleaseLink() (*v1alpha1.ReleaseLink, error) {
 
 	releaseLinks := &v1alpha1.ReleaseLinkList{}
 	opts := []client.ListOption{
-		client.InNamespace(releaseLink.Spec.Target),
-		client.MatchingFields{"spec.target": releaseLink.Namespace},
+		client.InNamespace(releaseLink.Spec.Target.Namespace),
+		client.MatchingFields{"spec.target.namespace": releaseLink.Namespace},
 	}
 
-	err = a.client.List(a.context, releaseLinks, opts...)
+	err = a.client.List(a.targetContext, releaseLinks, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -298,8 +321,8 @@ func (a *Adapter) getTargetReleaseLink() (*v1alpha1.ReleaseLink, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("no ReleaseLink found in target workspace '%s' with target '%s' and application '%s'",
-		releaseLink.Spec.Target, releaseLink.Namespace, releaseLink.Spec.Application)
+	return nil, fmt.Errorf("no ReleaseLink found in namespace '%s' of target workspace '%s' with target '%s' and application '%s'",
+		releaseLink.Spec.Target.Namespace, releaseLink.Spec.Target.Workspace, releaseLink.Namespace, releaseLink.Spec.Application)
 }
 
 // registerReleasePipelineRunStatus updates the status of the Release being processed by monitoring the status of the
@@ -332,7 +355,8 @@ func (a *Adapter) registerReleaseStatusData(releasePipelineRun *v1beta1.Pipeline
 		releasePipelineRun.Namespace, types.Separator, releasePipelineRun.Name)
 	a.release.Status.ReleaseStrategy = fmt.Sprintf("%s%c%s",
 		releaseStrategy.Namespace, types.Separator, releaseStrategy.Name)
-	a.release.Status.TargetWorkspace = releasePipelineRun.Namespace
+	a.release.Status.TargetNamespace = releasePipelineRun.Namespace
+	a.release.Status.TargetWorkspace = releasePipelineRun.GetAnnotations()["kcp.dev/cluster"]
 
 	a.release.MarkRunning()
 

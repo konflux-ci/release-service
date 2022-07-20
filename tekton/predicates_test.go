@@ -50,6 +50,7 @@ var _ = Describe("Predicates", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "testrelease-",
 				Namespace:    namespace,
+				ClusterName:  "test-cluster",
 			},
 			Spec: v1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "testsnapshot",
@@ -111,7 +112,7 @@ var _ = Describe("Predicates", func() {
 			contextEvent := event.UpdateEvent{
 				ObjectOld: releasePipelineRun.AsPipelineRun(),
 				ObjectNew: releasePipelineRun.WithServiceAccount("test-service-account").
-					WithReleaseLabels(release.Name, release.Namespace).AsPipelineRun(),
+					WithReleaseLabels(release.Name, release.Namespace, release.ClusterName).AsPipelineRun(),
 			}
 			releasePipelineRun.Status.MarkRunning("Predicate function tests", "Set it to Unknown")
 			Expect(instance.Update(contextEvent)).To(BeFalse())

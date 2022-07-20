@@ -20,6 +20,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// TargetSpec holds the namespace and workspace that the ReleaseLink hopes to link to
+type Target struct {
+	// Namespace is a reference to the namespace to establish a link with
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +required
+	Namespace string `json:"namespace"`
+
+	// Workspace is a reference to the workspace to establish a link with in a KCP setup
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	Workspace string `json:"workspace,omitempty"`
+}
+
 // ReleaseLinkSpec defines the desired state of ReleaseLink.
 type ReleaseLinkSpec struct {
 	// DisplayName refers to the name of the ReleaseLink to link a user and managed workspace together
@@ -32,9 +45,8 @@ type ReleaseLinkSpec struct {
 	Application string `json:"application"`
 
 	// Target is a reference to the workspace to establish a link with
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
-	Target string `json:"target"`
+	Target Target `json:"target"`
 
 	// Release Strategy defines which strategy will be used to release the application in the managed workspace. This field has no effect for ReleaseLink resources in unmanaged workspaces
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -50,7 +62,7 @@ type ReleaseLinkStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Display Name",type=string,priority=1,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Application",type=string,JSONPath=`.spec.application`
-// +kubebuilder:printcolumn:name="Target",type=string,JSONPath=`.spec.target`
+// +kubebuilder:printcolumn:name="Target Namespace",type=string,JSONPath=`.spec.target.namespace`
 // +kubebuilder:printcolumn:name="Release Strategy",type=string,JSONPath=`.spec.releaseStrategy`
 
 // ReleaseLink is the Schema for the releaselinks API.

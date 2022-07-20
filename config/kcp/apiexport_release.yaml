@@ -7,6 +7,6 @@ metadata:
   name: release
 spec:
   latestResourceSchemas:
-    - v202206271449.releaselinks.appstudio.redhat.com
-    - v202206271449.releases.appstudio.redhat.com
-    - v202206271449.releasestrategies.appstudio.redhat.com
+    - v202207251353.releaselinks.appstudio.redhat.com
+    - v202207251353.releases.appstudio.redhat.com
+    - v202207251353.releasestrategies.appstudio.redhat.com

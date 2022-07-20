@@ -76,6 +76,7 @@ var _ = Describe("PipelineRun", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "myrelease-",
 				Namespace:    namespace,
+				ClusterName:  "test-cluster",
 			},
 			Spec: v1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "testsnapshot",
@@ -153,10 +154,14 @@ var _ = Describe("PipelineRun", func() {
 			Expect(releasePipelineRun.Annotations).NotTo(BeNil())
 		})
 
-		It("can append the release Name and Namespace to a ReleasePipelineRun object and that these label key names match the correct label format", func() {
-			releasePipelineRun.WithReleaseLabels(release.Name, release.Namespace)
+		It("can append the release Name, Namespace, and Workspace to a ReleasePipelineRun object and that these label key names match the correct label format", func() {
+			releasePipelineRun.WithReleaseLabels(release.Name, release.Namespace, release.ClusterName)
 			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/name"]).
 				To(Equal(release.Name))
+			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/namespace"]).
+				To(Equal(release.Namespace))
+			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/workspace"]).
+				To(Equal(release.ClusterName))
 		})
 
 		It("can return a PipelineRun object from a ReleasePipelineRun object", func() {

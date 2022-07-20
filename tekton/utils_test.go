@@ -49,6 +49,7 @@ var _ = Describe("Utils", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "testrelease-",
 				Namespace:    namespace,
+				ClusterName:  "test-cluster",
 			},
 			Spec: v1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "testsnapshot",
@@ -84,7 +85,7 @@ var _ = Describe("Utils", func() {
 	Context("when using utility functions on PipelineRun objects", func() {
 		It("is a PipelineRun object and contains the required labels that identifies it as one", func() {
 			Expect(isReleasePipelineRun(releasePipelineRun.
-				WithReleaseLabels(release.Name, release.Namespace).
+				WithReleaseLabels(release.Name, release.Namespace, release.ClusterName).
 				AsPipelineRun())).To(Equal(true))
 		})
 

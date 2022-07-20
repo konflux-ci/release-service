@@ -17,10 +17,11 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	"github.com/redhat-appstudio/release-service/metrics"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 // ReleaseSpec defines the desired state of Release
@@ -83,6 +84,11 @@ type ReleaseStatus struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
 	ReleaseStrategy string `json:"releaseStrategy,omitempty"`
+
+	// TargetNamespace is the namespace where this release will be released to
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	TargetNamespace string `json:"targetNamespace,omitempty"`
 
 	// TargetWorkspace is the workspace where this release will be released to
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
