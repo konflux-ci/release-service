@@ -19,8 +19,9 @@ package release
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
 	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
@@ -196,6 +197,47 @@ func (a *Adapter) finalizeRelease() error {
 	return nil
 }
 
+// getActiveTargetReleaseLink returns the ReleaseLink targeted by ReleaseLink in the Release being processed.
+// Only ReleaseLinks with the auto-release label set to true (or missing the label, which is treated the same as
+// having the label and it being set to true) will be searched for. If a matching ReleaseLink is not found or
+// the List operation fails, an error will be returned.
+func (a *Adapter) getActiveTargetReleaseLink() (*v1alpha1.ReleaseLink, error) {
+	releaseLink, err := a.getReleaseLink()
+	if err != nil {
+		return nil, err
+	}
+
+	releaseLinks := &v1alpha1.ReleaseLinkList{}
+	opts := []client.ListOption{
+		client.InNamespace(releaseLink.Spec.Target),
+		client.MatchingFields{"spec.target": releaseLink.Namespace},
+	}
+
+	err = a.client.List(a.context, releaseLinks, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	containsValidReleaseLink := false
+
+	for _, foundReleaseLink := range releaseLinks.Items {
+		if foundReleaseLink.Spec.Application == releaseLink.Spec.Application {
+			labelValue, found := foundReleaseLink.GetLabels()["release.appstudio.openshift.io/auto-release"]
+			if found && labelValue == "false" {
+				return nil, fmt.Errorf("found ReleaseLink '%s' with auto-release label set to false", releaseLink.Name)
+			}
+			containsValidReleaseLink = true
+		}
+	}
+
+	if !containsValidReleaseLink {
+		return nil, fmt.Errorf("no ReleaseLink found in target workspace '%s' with target '%s' and application '%s'",
+			releaseLink.Spec.Target, releaseLink.Namespace, releaseLink.Spec.Application)
+	}
+
+	return &releaseLinks.Items[0], nil
+}
+
 // getApplicationSnapshot returns the ApplicationSnapshot referenced by the Release being processed. If the
 // ApplicationSnapshot is not found or the Get operation failed, an error will be returned.
 func (a *Adapter) getApplicationSnapshot() (*appstudioshared.ApplicationSnapshot, error) {
@@ -267,41 +309,12 @@ func (a *Adapter) getReleaseStrategy(releaseLink *v1alpha1.ReleaseLink) (*v1alph
 // getReleaseStrategyFromRelease is a utility function to get a ReleaseStrategy from the information contained in the
 // Release. The function will get the target ReleaseLink and then call getReleaseStrategy.
 func (a *Adapter) getReleaseStrategyFromRelease() (*v1alpha1.ReleaseStrategy, error) {
-	targetReleaseLink, err := a.getTargetReleaseLink()
+	targetReleaseLink, err := a.getActiveTargetReleaseLink()
 	if err != nil {
 		return nil, err
 	}
 
 	return a.getReleaseStrategy(targetReleaseLink)
-}
-
-// getTargetReleaseLink returns the ReleaseLink targeted by ReleaseLink in the Release being processed. If a matching
-// ReleaseLink is not found or the List operation fails, an error will be returned.
-func (a *Adapter) getTargetReleaseLink() (*v1alpha1.ReleaseLink, error) {
-	releaseLink, err := a.getReleaseLink()
-	if err != nil {
-		return nil, err
-	}
-
-	releaseLinks := &v1alpha1.ReleaseLinkList{}
-	opts := []client.ListOption{
-		client.InNamespace(releaseLink.Spec.Target),
-		client.MatchingFields{"spec.target": releaseLink.Namespace},
-	}
-
-	err = a.client.List(a.context, releaseLinks, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, foundReleaseLink := range releaseLinks.Items {
-		if foundReleaseLink.Spec.Application == releaseLink.Spec.Application {
-			return &foundReleaseLink, nil
-		}
-	}
-
-	return nil, fmt.Errorf("no ReleaseLink found in target workspace '%s' with target '%s' and application '%s'",
-		releaseLink.Spec.Target, releaseLink.Namespace, releaseLink.Spec.Application)
 }
 
 // registerReleasePipelineRunStatus updates the status of the Release being processed by monitoring the status of the

@@ -18,6 +18,7 @@ package release
 
 import (
 	"reflect"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -64,22 +65,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, releaseStrategy)).Should(Succeed())
 
-		releaseLink = &appstudiov1alpha1.ReleaseLink{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-releaselink-",
-				Namespace:    testNamespace,
-				Labels: map[string]string{
-					"release.appstudio.openshift.io/auto-release": "false",
-				},
-			},
-			Spec: appstudiov1alpha1.ReleaseLinkSpec{
-				Application:     "test-app",
-				Target:          "default",
-				ReleaseStrategy: releaseStrategy.GetName(),
-			},
-		}
-		Expect(k8sClient.Create(ctx, releaseLink)).Should(Succeed())
-
 		applicationSnapshot = &appstudioshared.ApplicationSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-snapshot-",
@@ -94,6 +79,22 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	BeforeEach(func() {
+		releaseLink = &appstudiov1alpha1.ReleaseLink{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-releaselink-",
+				Namespace:    testNamespace,
+				Labels: map[string]string{
+					"release.appstudio.openshift.io/auto-release": "true",
+				},
+			},
+			Spec: appstudiov1alpha1.ReleaseLinkSpec{
+				Application:     "test-app",
+				Target:          testNamespace, // only possible because webhooks aren't turned on here
+				ReleaseStrategy: releaseStrategy.GetName(),
+			},
+		}
+		Expect(k8sClient.Create(ctx, releaseLink)).Should(Succeed())
+
 		release = &appstudiov1alpha1.Release{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-release-",
@@ -311,11 +312,34 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	It("can return the target ReleaseLink from a given ReleaseLink", func() {
-		link, _ := adapter.getTargetReleaseLink()
+		link, _ := adapter.getActiveTargetReleaseLink()
 		Expect(reflect.TypeOf(link)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleaseLink{})))
 		Expect(link.Spec.Application).To(Equal("test-app"))
 		Expect(link.Spec.ReleaseStrategy).To(Equal(releaseStrategy.Name))
 		Expect(link.Namespace).Should(Equal(releaseLink.Spec.Target))
+
+		// It should return nil if the ReleaseLink has auto-release set to false
+		patch := client.MergeFrom(link.DeepCopy())
+		link.SetLabels(map[string]string{
+			"release.appstudio.openshift.io/auto-release": "false",
+		})
+		Expect(k8sClient.Patch(ctx, link, patch)).Should(Succeed())
+		Eventually(func() bool {
+			targetReleaseLink, err := adapter.getActiveTargetReleaseLink()
+			return targetReleaseLink == nil && err != nil &&
+				strings.Contains(err.Error(), "with auto-release label set to false")
+		}, time.Second*10).Should(BeTrue())
+	})
+
+	It("fails to find the target ReleaseLink when target does not match", func() {
+		patch := client.MergeFrom(releaseLink.DeepCopy())
+		releaseLink.Spec.Target = "foo"
+		Expect(k8sClient.Patch(ctx, releaseLink, patch)).Should(Succeed())
+		Eventually(func() bool {
+			targetReleaseLink, err := adapter.getActiveTargetReleaseLink()
+			return targetReleaseLink == nil && err != nil &&
+				strings.Contains(err.Error(), "no ReleaseLink found in target workspace")
+		}, time.Second*10).Should(BeTrue())
 	})
 
 	It("can mark the status for a given Release according to the pipelineRun status", func() {
