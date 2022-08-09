@@ -186,7 +186,7 @@ func (a *Adapter) finalizeRelease() error {
 
 	if pipelineRun != nil {
 		err = a.client.Delete(a.context, pipelineRun)
-		if err != nil {
+		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}
