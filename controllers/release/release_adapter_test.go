@@ -112,7 +112,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Namespace: testNamespace,
 			}, release)
 			return err
-		}).ShouldNot(HaveOccurred())
+		}, time.Second*10).ShouldNot(HaveOccurred())
 
 		adapter = NewAdapter(release, ctrl.Log, k8sClient, ctx)
 		Expect(reflect.TypeOf(adapter)).To(Equal(reflect.TypeOf(&Adapter{})))
@@ -350,7 +350,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Namespace: testNamespace,
 			}, release)
 			return err == nil && release.Status.ReleasePipelineRun == "foo/test"
-		}).Should(BeTrue())
+		}, time.Second*10).Should(BeTrue())
 	})
 
 	It("can get an existing ApplicationSnapshot", func() {
