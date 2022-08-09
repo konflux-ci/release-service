@@ -150,7 +150,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	It("ensures a PipelineRun object exists", func() {
 		Eventually(func() bool {
 			result, err := adapter.EnsureReleasePipelineRunExists()
-			return (!result.CancelRequest && err == nil)
+			return !result.CancelRequest && err == nil
 		}, time.Second*10).Should(BeTrue())
 
 		pipelineRun, err := adapter.getReleasePipelineRun()
