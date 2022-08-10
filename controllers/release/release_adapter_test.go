@@ -236,6 +236,21 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}, time.Second*10).Should(BeTrue())
 	})
 
+	It("can finalize a Release", func() {
+		// Release should be properly finalized if there is no ReleasePipelineRun
+		Expect(adapter.finalizeRelease()).To(Succeed())
+
+		// It should finalize properly as well when there's a ReleasePipelineRun
+		result, err := adapter.EnsureReleasePipelineRunExists()
+		Expect(result.CancelRequest).To(BeFalse())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(adapter.finalizeRelease()).To(Succeed())
+		Eventually(func() bool {
+			pipelineRun, _ := adapter.getReleasePipelineRun()
+			return pipelineRun == nil
+		}, time.Second*10).Should(BeTrue())
+	})
+
 	It("can create a ReleasePipelineRun", func() {
 		applicationSnapshot.TypeMeta.Kind = "applicationSnapshot"
 		Expect(k8sClient.Update(ctx, applicationSnapshot)).Should(Succeed())
