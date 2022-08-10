@@ -33,7 +33,6 @@ Once it’s filed:
 * A team member will try to reproduce the issue with your provided steps. If there are no reproduction steps or no obvious way to reproduce the issue, the team will ask you for those steps and mark the issue as `needs-reproducer`. Bugs with this tag will not be addressed until they are reproduced.
 * If the team is able to reproduce the issue, it will be marked `needs-fix` and left to be implemented by someone. Other labels can be used in addition to better describe the issue or its criticality.
 
-
 ## Requesting a feature
 
 Enhancement suggestions are tracked as [GitHub issues](/issues).
@@ -55,11 +54,11 @@ The commit message should contain an overall explanation about the change and th
 
 A well formatted commit would look something like this:
 
- ```
+```
 feat(issue-id): what this commit does
- 
+
 Overall explanation of what this commit is achieving and the motivation behind it.
- 
+
 Signed-off-by: Your Name <your-name@your-email.com>
 ```
 
@@ -82,3 +81,29 @@ Before a pull request can be merged:
 * The feature branch must be rebased so it contains the latest changes from the target branch
 * The CI has to pass successfully
 * Every comment has to be addressed and resolved
+
+## Testing
+
+Tests are written using the *[Ginkgo](https://onsi.github.io/ginkgo/)* framework. Here are some general advices when writing tests:
+
+* When the global `Describe` doesn't add enough context to the tests, use a nested `Describe` or a `Context` to specify what this test alludes to. Contexts should always start with _When_ (ie. "_When calling the function Foo_")
+* Start the descriptions of `It` blocks in lowercase and try to be as descriptive as possible
+* Avoid ignoring errors. In other words, make sure all of them are caught and tested
+* Files ending with `_suite_test.go` are meant to store the code that is common for tests in the same directory and that will be executed before them. Use these files only if your test setup is big enough to justify it (ie. the suite file has more than the test suite name and the teardown)
+* When required, remember to add the `CRD`'s during the `envtest` setup, for instance: [release-service/release_suite_test.go at main · redhat-appstudio/release-service · GitHub](https://github.com/redhat-appstudio/release-service/blob/main/controllers/release/release_suite_test.go#L65) - remembering this saves a lot of time
+* After `Create()` or `Update()` objects, use `Get()` before making assurances as the object might be outdated. It is useful after `Delete()` to check if the client returns `errors.IsNotFound`
+* Some assurances are likely to require usage of `Eventually` blocks instead of or in addition to `Expect` blocks
+
+### Useful links:
+
+Links that may be used as a starting point:
+
+* [Getting started with Ginkgo](https://onsi.github.io/ginkgo/#getting-started)
+* [Gomega reference doc](https://pkg.go.dev/github.com/onsi/gomega#section-readme)
+* [Writing controller tests](https://book.kubebuilder.io/cronjob-tutorial/writing-tests.html)
+* [Testing your Operator project](https://master.sdk.operatorframework.io/docs/building-operators/golang/testing/)
+
+Unofficial (but useful) links:
+
+* [Ginkgo and Gomega gotchas](https://medium.com/@william.la.martin/ginkgotchas-yeh-also-gomega-13e39185ec96)
+* [Effective Ginkgo/Gomega](https://medium.com/swlh/effective-ginkgo-gomega-b6c28d476a09)
