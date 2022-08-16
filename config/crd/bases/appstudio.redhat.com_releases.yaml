@@ -58,23 +58,22 @@ spec:
           metadata:
             type: object
           spec:
-            description: ReleaseSpec defines the desired state of Release
+            description: ReleaseSpec defines the desired state of Release.
             properties:
               applicationSnapshot:
                 description: ApplicationSnapshot to be released
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
-              releaseLink:
-                description: ReleaseLink referencing the workspace where the snapshot
-                  will be released
+              releasePlan:
+                description: ReleasePlan to use for this particular Release
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
             required:
             - applicationSnapshot
-            - releaseLink
+            - releasePlan
             type: object
           status:
-            description: ReleaseStatus defines the observed state of Release
+            description: ReleaseStatus defines the observed state of Release.
             properties:
               completionTime:
                 description: CompletionTime is the time the Release PipelineRun completed

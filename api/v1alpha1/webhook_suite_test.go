@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -34,7 +34,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -49,11 +48,13 @@ var cancel context.CancelFunc
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Webhook Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "Release Webhook Suite")
 }
+
+const (
+	// Timeout for Eventually blocks
+	timeout = time.Second * 10
+)
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
@@ -74,16 +75,8 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	scheme := runtime.NewScheme()
-	err = AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = admissionv1beta1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = admissionv1beta1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	//+kubebuilder:scaffold:scheme
+	Expect(AddToScheme(scheme)).To(Succeed())
+	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -101,11 +94,9 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&ReleaseLink{}).SetupWebhookWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&Release{}).SetupWebhookWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
+	Expect((&Release{}).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect((&ReleasePlanAdmission{}).SetupWebhookWithManager(mgr)).To(Succeed())
+	Expect((&ReleasePlan{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook
 
@@ -127,7 +118,7 @@ var _ = BeforeSuite(func() {
 		return nil
 	}).Should(Succeed())
 
-}, 60)
+})
 
 var _ = AfterSuite(func() {
 	cancel()

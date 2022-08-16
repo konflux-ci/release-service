@@ -11,9 +11,9 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-appstudio-redhat-com-v1alpha1-releaselink
+      path: /mutate-appstudio-redhat-com-v1alpha1-releaseplan
   failurePolicy: Fail
-  name: mreleaselink.kb.io
+  name: mreleaseplan.kb.io
   rules:
   - apiGroups:
     - appstudio.redhat.com
@@ -22,7 +22,26 @@ webhooks:
     operations:
     - CREATE
     resources:
-    - releaselinks
+    - releaseplans
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-appstudio-redhat-com-v1alpha1-releaseplanadmission
+  failurePolicy: Fail
+  name: mreleaseplanadmission.kb.io
+  rules:
+  - apiGroups:
+    - appstudio.redhat.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    resources:
+    - releaseplanadmissions
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
@@ -57,9 +76,9 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-appstudio-redhat-com-v1alpha1-releaselink
+      path: /validate-appstudio-redhat-com-v1alpha1-releaseplan
   failurePolicy: Fail
-  name: vreleaselink.kb.io
+  name: vreleaseplan.kb.io
   rules:
   - apiGroups:
     - appstudio.redhat.com
@@ -69,5 +88,25 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - releaselinks
+    - releaseplans
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-appstudio-redhat-com-v1alpha1-releaseplanadmission
+  failurePolicy: Fail
+  name: vreleaseplanadmission.kb.io
+  rules:
+  - apiGroups:
+    - appstudio.redhat.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - releaseplanadmissions
   sideEffects: None

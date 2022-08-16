@@ -113,14 +113,14 @@ func SetupController(manager ctrl.Manager, log *logr.Logger) error {
 	return setupControllerWithManager(manager, NewReleaseReconciler(manager.GetClient(), log, manager.GetScheme()))
 }
 
-// setupCache adds a new index field to be able to search ReleaseLinks by target.
+// setupCache adds a new index field to be able to search ReleasePlanAdmissions by origin namespace.
 func setupCache(mgr ctrl.Manager) error {
-	releaseLinkTargetIndexFunc := func(obj client.Object) []string {
-		return []string{obj.(*v1alpha1.ReleaseLink).Spec.Target}
+	releasePlanAdmissionIndexFunc := func(obj client.Object) []string {
+		return []string{obj.(*v1alpha1.ReleasePlanAdmission).Spec.Origin.Namespace}
 	}
 
-	return mgr.GetCache().IndexField(context.Background(), &v1alpha1.ReleaseLink{},
-		"spec.target", releaseLinkTargetIndexFunc)
+	return mgr.GetCache().IndexField(context.Background(), &v1alpha1.ReleasePlanAdmission{},
+		"spec.origin.namespace", releasePlanAdmissionIndexFunc)
 }
 
 // setupControllerWithManager sets up the controller with the Manager which monitors new Releases and filters out

@@ -23,20 +23,20 @@ import (
 	"time"
 )
 
-// ReleaseSpec defines the desired state of Release
+// ReleaseSpec defines the desired state of Release.
 type ReleaseSpec struct {
 	// ApplicationSnapshot to be released
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
 	ApplicationSnapshot string `json:"applicationSnapshot"`
 
-	// ReleaseLink referencing the workspace where the snapshot will be released
+	// ReleasePlan to use for this particular Release
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
-	ReleaseLink string `json:"releaseLink"`
+	ReleasePlan string `json:"releasePlan"`
 }
 
-// ReleaseReason represents a reason for the release "Succeeded" condition
+// ReleaseReason represents a reason for the release "Succeeded" condition.
 type ReleaseReason string
 
 const (
@@ -60,7 +60,12 @@ func (rr ReleaseReason) String() string {
 	return string(rr)
 }
 
-// ReleaseStatus defines the observed state of Release
+const (
+	// AutoReleaseLabel is the label name for the auto-release setting
+	AutoReleaseLabel = "release.appstudio.openshift.io/auto-release"
+)
+
+// ReleaseStatus defines the observed state of Release.
 type ReleaseStatus struct {
 	// StartTime is the time when the Release PipelineRun was created and set to run
 	// +optional

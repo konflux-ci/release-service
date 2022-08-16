@@ -57,7 +57,7 @@ var _ = Describe("Release Controller", func() {
 			},
 			Spec: appstudiov1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "test-snapshot",
-				ReleaseLink:         "test-releaselink",
+				ReleasePlan:         "test-releaseplan",
 			},
 		}
 		Expect(k8sClient.Create(ctx, release)).Should(Succeed())
@@ -114,7 +114,7 @@ var _ = Describe("Release Controller", func() {
 		Expect(err).To(BeNil())
 	})
 
-	It("can setup the cache by adding a new index field to search for ReleaseLinks", func() {
+	It("can setup the cache by adding a new index field to search for ReleasePlanAdmissions", func() {
 		err := setupCache(manager)
 		Expect(err).ToNot(HaveOccurred())
 	})

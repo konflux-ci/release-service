@@ -17,6 +17,7 @@ limitations under the License.
 package release
 
 import (
+	"github.com/redhat-appstudio/release-service/kcp"
 	"reflect"
 	"strings"
 	"time"
@@ -43,10 +44,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	var (
 		adapter *Adapter
 
-		release             *appstudiov1alpha1.Release
-		releaseStrategy     *appstudiov1alpha1.ReleaseStrategy
-		releaseLink         *appstudiov1alpha1.ReleaseLink
-		applicationSnapshot *appstudioshared.ApplicationSnapshot
+		applicationSnapshot  *appstudioshared.ApplicationSnapshot
+		release              *appstudiov1alpha1.Release
+		releaseStrategy      *appstudiov1alpha1.ReleaseStrategy
+		releasePlan          *appstudiov1alpha1.ReleasePlan
+		releasePlanAdmission *appstudiov1alpha1.ReleasePlanAdmission
 	)
 
 	BeforeAll(func() {
@@ -79,21 +81,41 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	BeforeEach(func() {
-		releaseLink = &appstudiov1alpha1.ReleaseLink{
+		releasePlanAdmission = &appstudiov1alpha1.ReleasePlanAdmission{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-releaselink-",
+				GenerateName: "test-releaseplanadmission-",
 				Namespace:    testNamespace,
 				Labels: map[string]string{
-					"release.appstudio.openshift.io/auto-release": "true",
+					appstudiov1alpha1.AutoReleaseLabel: "true",
 				},
 			},
-			Spec: appstudiov1alpha1.ReleaseLinkSpec{
-				Application:     "test-app",
-				Target:          testNamespace, // only possible because webhooks aren't turned on here
+			Spec: appstudiov1alpha1.ReleasePlanAdmissionSpec{
+				Application: "test-app",
+				Origin: kcp.NamespaceReference{
+					Namespace: testNamespace,
+				},
+				Environment:     "test-environment",
 				ReleaseStrategy: releaseStrategy.GetName(),
 			},
 		}
-		Expect(k8sClient.Create(ctx, releaseLink)).Should(Succeed())
+		Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
+
+		releasePlan = &appstudiov1alpha1.ReleasePlan{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-releaseplan-",
+				Namespace:    testNamespace,
+				Labels: map[string]string{
+					appstudiov1alpha1.AutoReleaseLabel: "true",
+				},
+			},
+			Spec: appstudiov1alpha1.ReleasePlanSpec{
+				Application: "test-app",
+				Target: kcp.NamespaceReference{
+					Namespace: testNamespace,
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
 
 		release = &appstudiov1alpha1.Release{
 			ObjectMeta: metav1.ObjectMeta{
@@ -102,7 +124,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			},
 			Spec: appstudiov1alpha1.ReleaseSpec{
 				ApplicationSnapshot: applicationSnapshot.GetName(),
-				ReleaseLink:         releaseLink.GetName(),
+				ReleasePlan:         releasePlan.GetName(),
 			},
 		}
 		Expect(k8sClient.Create(ctx, release)).Should(Succeed())
@@ -125,7 +147,10 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		err := k8sClient.Delete(ctx, releaseLink)
+		err := k8sClient.Delete(ctx, releasePlanAdmission)
+		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
+
+		err = k8sClient.Delete(ctx, releasePlan)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 
 		err = k8sClient.Delete(ctx, applicationSnapshot)
@@ -299,46 +324,45 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	It("can return the releaseStrategy", func() {
 		strategy, _ := adapter.getReleaseStrategyFromRelease()
-		link, _ := adapter.getReleaseLink()
 
 		Expect(reflect.TypeOf(strategy)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleaseStrategy{})))
-		Expect(strategy.Namespace).To(Equal(link.Spec.Target))
+		Expect(strategy.Namespace).To(Equal(releasePlan.Spec.Target.Namespace))
 	})
 
-	It("can return the releaseStrategy referenced in a given releaseLink", func() {
-		strategy, err := adapter.getReleaseStrategy(releaseLink)
+	It("can return the releaseStrategy referenced in a given ReleasePlanAdmission", func() {
+		strategy, err := adapter.getReleaseStrategy(releasePlanAdmission)
 		Expect(err).Should(Succeed())
 		Expect(reflect.TypeOf(strategy)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleaseStrategy{})))
 	})
 
-	It("can return the target ReleaseLink from a given ReleaseLink", func() {
-		link, _ := adapter.getActiveTargetReleaseLink()
-		Expect(reflect.TypeOf(link)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleaseLink{})))
+	It("can return the ReleasePlanAdmission targeted from a given ReleasePlan", func() {
+		link, _ := adapter.getActiveReleasePlanAdmission()
+		Expect(reflect.TypeOf(link)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleasePlanAdmission{})))
 		Expect(link.Spec.Application).To(Equal("test-app"))
 		Expect(link.Spec.ReleaseStrategy).To(Equal(releaseStrategy.Name))
-		Expect(link.Namespace).Should(Equal(releaseLink.Spec.Target))
+		Expect(link.Namespace).Should(Equal(releasePlan.Spec.Target.Namespace))
 
-		// It should return nil if the ReleaseLink has auto-release set to false
+		// It should return nil if the ReleasePlanAdmission has auto-release set to false
 		patch := client.MergeFrom(link.DeepCopy())
 		link.SetLabels(map[string]string{
-			"release.appstudio.openshift.io/auto-release": "false",
+			appstudiov1alpha1.AutoReleaseLabel: "false",
 		})
 		Expect(k8sClient.Patch(ctx, link, patch)).Should(Succeed())
 		Eventually(func() bool {
-			targetReleaseLink, err := adapter.getActiveTargetReleaseLink()
-			return targetReleaseLink == nil && err != nil &&
+			activeReleasePlanAdmission, err := adapter.getActiveReleasePlanAdmission()
+			return activeReleasePlanAdmission == nil && err != nil &&
 				strings.Contains(err.Error(), "with auto-release label set to false")
 		}, time.Second*10).Should(BeTrue())
 	})
 
-	It("fails to find the target ReleaseLink when target does not match", func() {
-		patch := client.MergeFrom(releaseLink.DeepCopy())
-		releaseLink.Spec.Target = "foo"
-		Expect(k8sClient.Patch(ctx, releaseLink, patch)).Should(Succeed())
+	It("fails to find the target ReleasePlanAdmission when target namespace does not match", func() {
+		patch := client.MergeFrom(releasePlan.DeepCopy())
+		releasePlan.Spec.Target.Namespace = "foo"
+		Expect(k8sClient.Patch(ctx, releasePlan, patch)).Should(Succeed())
 		Eventually(func() bool {
-			targetReleaseLink, err := adapter.getActiveTargetReleaseLink()
-			return targetReleaseLink == nil && err != nil &&
-				strings.Contains(err.Error(), "no ReleaseLink found in target workspace")
+			activeReleasePlanAdmission, err := adapter.getActiveReleasePlanAdmission()
+			return activeReleasePlanAdmission == nil && err != nil &&
+				strings.Contains(err.Error(), "no ReleasePlanAdmission found in the target")
 		}, time.Second*10).Should(BeTrue())
 	})
 
@@ -404,16 +428,16 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}, time.Second*10).Should(BeTrue())
 	})
 
-	It("can return the releaseLink from the release", func() {
-		link, err := adapter.getReleaseLink()
+	It("can return the ReleasePlan from the release", func() {
+		link, err := adapter.getReleasePlan()
 		Expect(err).Should(Succeed())
-		Expect(reflect.TypeOf(link)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleaseLink{})))
+		Expect(reflect.TypeOf(link)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleasePlan{})))
 
-		// It should err when releaseLink does not exist
-		Expect(k8sClient.Delete(ctx, releaseLink)).Should(Succeed())
+		// It should err when the ReleasePlan does not exist
+		Expect(k8sClient.Delete(ctx, releasePlan)).Should(Succeed())
 
 		Eventually(func() bool {
-			_, err = adapter.getReleaseLink()
+			_, err = adapter.getReleasePlan()
 			return errors.IsNotFound(err)
 		}, time.Second*10).Should(BeTrue())
 	})

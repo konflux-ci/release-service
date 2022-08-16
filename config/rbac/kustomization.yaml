@@ -16,9 +16,12 @@ resources:
 - release_editor_role.yaml
 - release_role_binding.yaml
 - release_viewer_role.yaml
-- releaselink_editor_role.yaml
-- releaselink_role_binding.yaml
-- releaselink_viewer_role.yaml
+- releaseplanadmission_editor_role.yaml
+- releaseplanadmission_role_binding.yaml
+- releaseplanadmission_viewer_role.yaml
+- releaseplan_editor_role.yaml
+- releaseplan_role_binding.yaml
+- releaseplan_viewer_role.yaml
 - releasestrategy_editor_role.yaml
 - releasestrategy_role_binding.yaml
 - releasestrategy_viewer_role.yaml

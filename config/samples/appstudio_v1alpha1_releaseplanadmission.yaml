@@ -1,6 +1,6 @@
 apiVersion: appstudio.redhat.com/v1alpha1
-kind: ReleaseLink
+kind: ReleasePlanAdmission
 metadata:
-  name: releaselink-sample
+  name: releaseplanadmission-sample
 spec:
   # TODO(user): Add fields here

@@ -12,6 +12,7 @@ RUN go mod download
 COPY main.go main.go
 COPY api/ api/
 COPY controllers/ controllers/
+COPY kcp/ kcp/
 COPY metrics/ metrics/
 COPY tekton/ tekton/
 

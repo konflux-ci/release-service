@@ -5,14 +5,14 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202206271449.releaselinks.appstudio.redhat.com
+  name: v202208221842.releaseplanadmissions.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
-    kind: ReleaseLink
-    listKind: ReleaseLinkList
-    plural: releaselinks
-    singular: releaselink
+    kind: ReleasePlanAdmission
+    listKind: ReleasePlanAdmissionList
+    plural: releaseplanadmissions
+    singular: releaseplanadmission
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -23,15 +23,24 @@ spec:
     - jsonPath: .spec.application
       name: Application
       type: string
-    - jsonPath: .spec.target
-      name: Target
+    - jsonPath: .spec.environment
+      name: Environment
       type: string
-    - jsonPath: .spec.releaseStrategy
-      name: Release Strategy
+    - jsonPath: .spec.strategy
+      name: Strategy
+      type: string
+    - jsonPath: .spec.origin.namespace
+      name: Origin Namespace
+      priority: 1
+      type: string
+    - jsonPath: .spec.origin.workspace
+      name: Origin Workspace
+      priority: 1
       type: string
     name: v1alpha1
     schema:
-      description: ReleaseLink is the Schema for the releaselinks API.
+      description: ReleasePlanAdmission is the Schema for the ReleasePlanAdmissions
+        API.
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -46,7 +55,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: ReleaseLinkSpec defines the desired state of ReleaseLink.
+          description: ReleasePlanAdmissionSpec defines the desired state of ReleasePlanAdmission.
           properties:
             application:
               description: Application is a reference to the application to be released
@@ -54,27 +63,40 @@ spec:
               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
               type: string
             displayName:
-              description: DisplayName refers to the name of the ReleaseLink to link
-                a user and managed workspace together
+              description: DisplayName is the long name of the ReleasePlanAdmission
               type: string
-            releaseStrategy:
-              description: Release Strategy defines which strategy will be used to
-                release the application in the managed workspace. This field has no
-                effect for ReleaseLink resources in unmanaged workspaces
+            environment:
+              description: Environment defines which Environment will be used to release
+                the application
               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
               type: string
-            target:
-              description: Target is a reference to the workspace to establish a link
-                with
+            origin:
+              description: Origin references where the release requests should come
+                from
+              properties:
+                namespace:
+                  description: Namespace references a namespace within the cluster
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                  type: string
+                workspace:
+                  description: Workspace references a KCP workspace within the cluster
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])(:[a-z0-9]([-a-z0-9]*[a-z0-9]))*$
+                  type: string
+              required:
+              - namespace
+              type: object
+            releaseStrategy:
+              description: Release Strategy defines which strategy will be used to
+                release the application
               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
               type: string
           required:
           - application
-          - displayName
-          - target
+          - origin
+          - releaseStrategy
           type: object
         status:
-          description: ReleaseLinkStatus defines the observed state of ReleaseLink.
+          description: ReleasePlanAdmissionStatus defines the observed state of ReleasePlanAdmission.
           type: object
       type: object
     served: true
@@ -87,7 +109,92 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202206271449.releases.appstudio.redhat.com
+  name: v202208221842.releaseplans.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: ReleasePlan
+    listKind: ReleasePlanList
+    plural: releaseplans
+    singular: releaseplan
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      priority: 1
+      type: string
+    - jsonPath: .spec.application
+      name: Application
+      type: string
+    - jsonPath: .spec.target.namespace
+      name: Target Namespace
+      priority: 1
+      type: string
+    - jsonPath: .spec.target.workspace
+      name: Target Workspace
+      priority: 1
+      type: string
+    name: v1alpha1
+    schema:
+      description: ReleasePlan is the Schema for the ReleasePlans API.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: ReleasePlanSpec defines the desired state of ReleasePlan.
+          properties:
+            application:
+              description: Application is a reference to the application to be released
+                in the managed workspace
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
+            displayName:
+              description: DisplayName is the long name of the ReleasePlan
+              type: string
+            target:
+              description: Target references where to send the release requests
+              properties:
+                namespace:
+                  description: Namespace references a namespace within the cluster
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                  type: string
+                workspace:
+                  description: Workspace references a KCP workspace within the cluster
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])(:[a-z0-9]([-a-z0-9]*[a-z0-9]))*$
+                  type: string
+              required:
+              - namespace
+              type: object
+          required:
+          - application
+          - target
+          type: object
+        status:
+          description: ReleasePlanStatus defines the observed state of ReleasePlan.
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIResourceSchema
+metadata:
+  creationTimestamp: null
+  name: v202208221842.releases.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -139,23 +246,22 @@ spec:
         metadata:
           type: object
         spec:
-          description: ReleaseSpec defines the desired state of Release
+          description: ReleaseSpec defines the desired state of Release.
           properties:
             applicationSnapshot:
               description: ApplicationSnapshot to be released
               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
               type: string
-            releaseLink:
-              description: ReleaseLink referencing the workspace where the snapshot
-                will be released
+            releasePlan:
+              description: ReleasePlan to use for this particular Release
               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
               type: string
           required:
           - applicationSnapshot
-          - releaseLink
+          - releasePlan
           type: object
         status:
-          description: ReleaseStatus defines the observed state of Release
+          description: ReleaseStatus defines the observed state of Release.
           properties:
             completionTime:
               description: CompletionTime is the time the Release PipelineRun completed
@@ -263,7 +369,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202206271449.releasestrategies.appstudio.redhat.com
+  name: v202208221842.releasestrategies.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:

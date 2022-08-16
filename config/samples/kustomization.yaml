@@ -2,5 +2,6 @@
 resources:
 - appstudio_v1alpha1_releasestrategy.yaml
 - appstudio_v1alpha1_release.yaml
-- appstudio_v1alpha1_releaselink.yaml
+- appstudio_v1alpha1_releaseplan.yaml
+- appstudio_v1alpha1_releaseplanadmission.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

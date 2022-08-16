@@ -197,45 +197,46 @@ func (a *Adapter) finalizeRelease() error {
 	return nil
 }
 
-// getActiveTargetReleaseLink returns the ReleaseLink targeted by ReleaseLink in the Release being processed.
-// Only ReleaseLinks with the auto-release label set to true (or missing the label, which is treated the same as
-// having the label and it being set to true) will be searched for. If a matching ReleaseLink is not found or
-// the List operation fails, an error will be returned.
-func (a *Adapter) getActiveTargetReleaseLink() (*v1alpha1.ReleaseLink, error) {
-	releaseLink, err := a.getReleaseLink()
+// getActiveReleasePlanAdmission returns the ReleasePlanAdmission targeted by the ReleasePlan in the Release being
+// processed. Only ReleasePlanAdmissions with the 'auto-release' label set to true (or missing the label, which is
+// treated the same as having the label and it being set to true) will be searched for. If a matching
+// ReleasePlanAdmission is not found or the List operation fails, an error will be returned.
+func (a *Adapter) getActiveReleasePlanAdmission() (*v1alpha1.ReleasePlanAdmission, error) {
+	releasePlan, err := a.getReleasePlan()
 	if err != nil {
 		return nil, err
 	}
 
-	releaseLinks := &v1alpha1.ReleaseLinkList{}
+	releasePlanAdmissions := &v1alpha1.ReleasePlanAdmissionList{}
 	opts := []client.ListOption{
-		client.InNamespace(releaseLink.Spec.Target),
-		client.MatchingFields{"spec.target": releaseLink.Namespace},
+		client.InNamespace(releasePlan.Spec.Target.Namespace),
+		client.MatchingFields{"spec.origin.namespace": releasePlan.Namespace},
 	}
 
-	err = a.client.List(a.context, releaseLinks, opts...)
+	err = a.client.List(a.context, releasePlanAdmissions, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	containsValidReleaseLink := false
+	activeReleasePlanAdmissionFound := false
 
-	for _, foundReleaseLink := range releaseLinks.Items {
-		if foundReleaseLink.Spec.Application == releaseLink.Spec.Application {
-			labelValue, found := foundReleaseLink.GetLabels()["release.appstudio.openshift.io/auto-release"]
+	for _, releasePlanAdmission := range releasePlanAdmissions.Items {
+		if releasePlanAdmission.Spec.Application == releasePlan.Spec.Application {
+			labelValue, found := releasePlanAdmission.GetLabels()[v1alpha1.AutoReleaseLabel]
 			if found && labelValue == "false" {
-				return nil, fmt.Errorf("found ReleaseLink '%s' with auto-release label set to false", releaseLink.Name)
+				return nil, fmt.Errorf("found ReleasePlanAdmission '%s' with auto-release label set to false",
+					releasePlanAdmission.Name)
 			}
-			containsValidReleaseLink = true
+			activeReleasePlanAdmissionFound = true
 		}
 	}
 
-	if !containsValidReleaseLink {
-		return nil, fmt.Errorf("no ReleaseLink found in target workspace '%s' with target '%s' and application '%s'",
-			releaseLink.Spec.Target, releaseLink.Namespace, releaseLink.Spec.Application)
+	if !activeReleasePlanAdmissionFound {
+		return nil, fmt.Errorf("no ReleasePlanAdmission found in the target (%+v) for application '%s'",
+			releasePlan.Spec.Target, releasePlan.Spec.Application)
 	}
 
-	return &releaseLinks.Items[0], nil
+	return &releasePlanAdmissions.Items[0], nil
 }
 
 // getApplicationSnapshot returns the ApplicationSnapshot referenced by the Release being processed. If the
@@ -254,20 +255,20 @@ func (a *Adapter) getApplicationSnapshot() (*appstudioshared.ApplicationSnapshot
 	return applicationSnapshot, nil
 }
 
-// getReleaseLink returns the ReleaseLink referenced by the Release being processed. If the ReleaseLink is not found or
-// the Get operation failed, an error will be returned.
-func (a *Adapter) getReleaseLink() (*v1alpha1.ReleaseLink, error) {
-	releaseLink := &v1alpha1.ReleaseLink{}
+// getReleasePlan returns the ReleasePlan referenced by the Release being processed. If the ReleasePlan is not found or
+// the Get operation fails, an error will be returned.
+func (a *Adapter) getReleasePlan() (*v1alpha1.ReleasePlan, error) {
+	releasePlan := &v1alpha1.ReleasePlan{}
 	err := a.client.Get(a.context, types.NamespacedName{
 		Namespace: a.release.Namespace,
-		Name:      a.release.Spec.ReleaseLink,
-	}, releaseLink)
+		Name:      a.release.Spec.ReleasePlan,
+	}, releasePlan)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return releaseLink, nil
+	return releasePlan, nil
 }
 
 // getReleasePipelineRun returns the PipelineRun referenced by the Release being processed or nil if it's not found.
@@ -290,13 +291,13 @@ func (a *Adapter) getReleasePipelineRun() (*v1beta1.PipelineRun, error) {
 	return nil, err
 }
 
-// getReleaseStrategy returns the ReleaseStrategy referenced by the given ReleaseLink. If the ReleaseStrategy is
-// not found or the Get operation fails, an error will be returned.
-func (a *Adapter) getReleaseStrategy(releaseLink *v1alpha1.ReleaseLink) (*v1alpha1.ReleaseStrategy, error) {
+// getReleaseStrategy returns the ReleaseStrategy referenced by the given ReleasePlanAdmission. If the ReleaseStrategy
+// is not found or the Get operation fails, an error will be returned.
+func (a *Adapter) getReleaseStrategy(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleaseStrategy, error) {
 	releaseStrategy := &v1alpha1.ReleaseStrategy{}
 	err := a.client.Get(a.context, types.NamespacedName{
-		Name:      releaseLink.Spec.ReleaseStrategy,
-		Namespace: releaseLink.Namespace,
+		Name:      releasePlanAdmission.Spec.ReleaseStrategy,
+		Namespace: releasePlanAdmission.Namespace,
 	}, releaseStrategy)
 
 	if err != nil {
@@ -307,14 +308,14 @@ func (a *Adapter) getReleaseStrategy(releaseLink *v1alpha1.ReleaseLink) (*v1alph
 }
 
 // getReleaseStrategyFromRelease is a utility function to get a ReleaseStrategy from the information contained in the
-// Release. The function will get the target ReleaseLink and then call getReleaseStrategy.
+// Release. The function will get the ReleasePlanAdmission targeted by the ReleasePlan and then call getReleaseStrategy.
 func (a *Adapter) getReleaseStrategyFromRelease() (*v1alpha1.ReleaseStrategy, error) {
-	targetReleaseLink, err := a.getActiveTargetReleaseLink()
+	releasePlanAdmission, err := a.getActiveReleasePlanAdmission()
 	if err != nil {
 		return nil, err
 	}
 
-	return a.getReleaseStrategy(targetReleaseLink)
+	return a.getReleaseStrategy(releasePlanAdmission)
 }
 
 // registerReleasePipelineRunStatus updates the status of the Release being processed by monitoring the status of the

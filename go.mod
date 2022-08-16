@@ -9,7 +9,6 @@ require (
 	github.com/onsi/gomega v1.19.0
 	github.com/operator-framework/operator-lib v0.10.0
 	github.com/redhat-appstudio/application-service v0.0.0-20220310134421-5864c77a3d17
-	github.com/stretchr/testify v1.7.1
 	github.com/tektoncd/pipeline v0.32.2
 	k8s.io/api v0.23.5
 	k8s.io/apimachinery v0.23.5
@@ -73,7 +72,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.12.1
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
