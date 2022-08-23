@@ -1,0 +1,24 @@
+# permissions for end users to edit releaseplanadmissions.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: releaseplanadmission-editor-role
+rules:
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releaseplanadmissions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releaseplanadmissions/status
+  verbs:
+  - get

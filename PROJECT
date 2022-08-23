@@ -37,7 +37,19 @@ resources:
     namespaced: true
   domain: redhat.com
   group: appstudio
-  kind: ReleaseLink
+  kind: ReleasePlan
+  path: github.com/redhat-appstudio/release-service/api/v1alpha1
+  version: v1alpha1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: redhat.com
+  group: appstudio
+  kind: ReleasePlanAdmission
   path: github.com/redhat-appstudio/release-service/api/v1alpha1
   version: v1alpha1
   webhooks:

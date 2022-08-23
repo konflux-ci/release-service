@@ -52,7 +52,7 @@ var _ = Describe("Utils", func() {
 			},
 			Spec: v1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "testsnapshot",
-				ReleaseLink:         "testreleaselink",
+				ReleasePlan:         "testreleaseplan",
 			},
 		}
 		ctx := context.Background()

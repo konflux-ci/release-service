@@ -1,0 +1,24 @@
+# permissions for end users to edit releaseplans.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: releaseplan-editor-role
+rules:
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releaseplans
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releaseplans/status
+  verbs:
+  - get

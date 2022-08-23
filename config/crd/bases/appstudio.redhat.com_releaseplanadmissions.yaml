@@ -1,0 +1,113 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: releaseplanadmissions.appstudio.redhat.com
+spec:
+  group: appstudio.redhat.com
+  names:
+    kind: ReleasePlanAdmission
+    listKind: ReleasePlanAdmissionList
+    plural: releaseplanadmissions
+    singular: releaseplanadmission
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      priority: 1
+      type: string
+    - jsonPath: .spec.application
+      name: Application
+      type: string
+    - jsonPath: .spec.environment
+      name: Environment
+      type: string
+    - jsonPath: .spec.strategy
+      name: Strategy
+      type: string
+    - jsonPath: .spec.origin.namespace
+      name: Origin Namespace
+      priority: 1
+      type: string
+    - jsonPath: .spec.origin.workspace
+      name: Origin Workspace
+      priority: 1
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ReleasePlanAdmission is the Schema for the ReleasePlanAdmissions
+          API.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ReleasePlanAdmissionSpec defines the desired state of ReleasePlanAdmission.
+            properties:
+              application:
+                description: Application is a reference to the application to be released
+                  in the managed workspace
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+              displayName:
+                description: DisplayName is the long name of the ReleasePlanAdmission
+                type: string
+              environment:
+                description: Environment defines which Environment will be used to
+                  release the application
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+              origin:
+                description: Origin references where the release requests should come
+                  from
+                properties:
+                  namespace:
+                    description: Namespace references a namespace within the cluster
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  workspace:
+                    description: Workspace references a KCP workspace within the cluster
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])(:[a-z0-9]([-a-z0-9]*[a-z0-9]))*$
+                    type: string
+                required:
+                - namespace
+                type: object
+              releaseStrategy:
+                description: Release Strategy defines which strategy will be used
+                  to release the application
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+            required:
+            - application
+            - origin
+            - releaseStrategy
+            type: object
+          status:
+            description: ReleasePlanAdmissionStatus defines the observed state of
+              ReleasePlanAdmission.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

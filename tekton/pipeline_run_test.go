@@ -79,7 +79,7 @@ var _ = Describe("PipelineRun", func() {
 			},
 			Spec: v1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "testsnapshot",
-				ReleaseLink:         "testreleaselink",
+				ReleasePlan:         "testreleaseplan",
 			},
 		}
 		snapshot = &appstudioshared.ApplicationSnapshot{

@@ -17,13 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/redhat-appstudio/release-service/kcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ReleaseLinkSpec defines the desired state of ReleaseLink.
-type ReleaseLinkSpec struct {
-	// DisplayName refers to the name of the ReleaseLink to link a user and managed workspace together
-	// +required
+// ReleasePlanSpec defines the desired state of ReleasePlan.
+type ReleasePlanSpec struct {
+	// DisplayName is the long name of the ReleasePlan
+	// +optional
 	DisplayName string `json:"displayName"`
 
 	// Application is a reference to the application to be released in the managed workspace
@@ -31,46 +32,40 @@ type ReleaseLinkSpec struct {
 	// +required
 	Application string `json:"application"`
 
-	// Target is a reference to the workspace to establish a link with
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// Target references where to send the release requests
 	// +required
-	Target string `json:"target"`
-
-	// Release Strategy defines which strategy will be used to release the application in the managed workspace. This field has no effect for ReleaseLink resources in unmanaged workspaces
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-	// +optional
-	ReleaseStrategy string `json:"releaseStrategy,omitempty"`
+	Target kcp.NamespaceReference `json:"target"`
 }
 
-// ReleaseLinkStatus defines the observed state of ReleaseLink.
-type ReleaseLinkStatus struct {
+// ReleasePlanStatus defines the observed state of ReleasePlan.
+type ReleasePlanStatus struct {
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Display Name",type=string,priority=1,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Application",type=string,JSONPath=`.spec.application`
-// +kubebuilder:printcolumn:name="Target",type=string,JSONPath=`.spec.target`
-// +kubebuilder:printcolumn:name="Release Strategy",type=string,JSONPath=`.spec.releaseStrategy`
+// +kubebuilder:printcolumn:name="Target Namespace",type=string,priority=1,JSONPath=`.spec.target.namespace`
+// +kubebuilder:printcolumn:name="Target Workspace",type=string,priority=1,JSONPath=`.spec.target.workspace`
 
-// ReleaseLink is the Schema for the releaselinks API.
-type ReleaseLink struct {
+// ReleasePlan is the Schema for the ReleasePlans API.
+type ReleasePlan struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ReleaseLinkSpec   `json:"spec,omitempty"`
-	Status ReleaseLinkStatus `json:"status,omitempty"`
+	Spec   ReleasePlanSpec   `json:"spec,omitempty"`
+	Status ReleasePlanStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// ReleaseLinkList contains a list of ReleaseLink.
-type ReleaseLinkList struct {
+// ReleasePlanList contains a list of ReleasePlan.
+type ReleasePlanList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ReleaseLink `json:"items"`
+	Items           []ReleasePlan `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ReleaseLink{}, &ReleaseLinkList{})
+	SchemeBuilder.Register(&ReleasePlan{}, &ReleasePlanList{})
 }

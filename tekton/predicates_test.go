@@ -53,7 +53,7 @@ var _ = Describe("Predicates", func() {
 			},
 			Spec: v1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "testsnapshot",
-				ReleaseLink:         "testreleaselink",
+				ReleasePlan:         "testreleaseplan",
 			},
 		}
 		ctx := context.Background()
