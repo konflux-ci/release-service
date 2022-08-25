@@ -164,11 +164,21 @@ spec:
                   created and set to run
                 format: date-time
                 type: string
-              targetWorkspace:
-                description: TargetWorkspace is the workspace where this release will
-                  be released to
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
+              target:
+                description: Target references where this relesae is intended to be
+                  released to
+                properties:
+                  namespace:
+                    description: Namespace references a namespace within the cluster
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  workspace:
+                    description: Workspace references a KCP workspace within the cluster
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])(:[a-z0-9]([-a-z0-9]*[a-z0-9]))*$
+                    type: string
+                required:
+                - namespace
+                type: object
             type: object
         type: object
     served: true

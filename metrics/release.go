@@ -1,10 +1,12 @@
 package metrics
 
 import (
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/release-service/kcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
-	"strconv"
 )
 
 var (
@@ -21,7 +23,7 @@ var (
 			Help:    "Release durations from the moment the release PipelineRun was created til the release is marked as finished",
 			Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
 		},
-		[]string{"reason", "strategy", "succeeded", "target_workspace"},
+		[]string{"reason", "strategy", "succeeded", "target_namespace", "target_workspace"},
 	)
 
 	ReleaseAttemptInvalidTotal = prometheus.NewCounterVec(
@@ -45,19 +47,20 @@ var (
 			Name: "release_attempt_total",
 			Help: "Total number of releases processed by the operator",
 		},
-		[]string{"reason", "strategy", "succeeded", "target_workspace"},
+		[]string{"reason", "strategy", "succeeded", "target_namespace", "target_workspace"},
 	)
 )
 
 // RegisterCompletedRelease decrements the 'release_attempt_concurrent_total' metric, increments `release_attempt_total`
 // and registers a new observation for 'release_attempt_duration_seconds' with the elapsed time from the moment the
 // Release attempt started (Release marked as 'Running').
-func RegisterCompletedRelease(reason, strategy, targetWorkspace string, startTime, completionTime *metav1.Time, succeeded bool) {
+func RegisterCompletedRelease(reason, strategy string, target kcp.NamespaceReference, startTime, completionTime *metav1.Time, succeeded bool) {
 	labels := prometheus.Labels{
 		"reason":           reason,
 		"strategy":         strategy,
 		"succeeded":        strconv.FormatBool(succeeded),
-		"target_workspace": targetWorkspace,
+		"target_namespace": target.Namespace,
+		"target_workspace": target.Workspace,
 	}
 
 	ReleaseAttemptConcurrentTotal.Dec()
@@ -72,6 +75,7 @@ func RegisterInvalidRelease(reason string) {
 		"reason":           reason,
 		"strategy":         "",
 		"succeeded":        "false",
+		"target_namespace": "",
 		"target_workspace": "",
 	}).Inc()
 }

@@ -17,10 +17,12 @@ limitations under the License.
 package release
 
 import (
-	"github.com/redhat-appstudio/release-service/kcp"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/kcp-dev/logicalcluster/v2"
+	"github.com/redhat-appstudio/release-service/kcp"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -138,22 +140,23 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}, time.Second*10).ShouldNot(HaveOccurred())
 
 		adapter = NewAdapter(release, ctrl.Log, k8sClient, ctx)
+		adapter.targetContext = adapter.context
 		Expect(reflect.TypeOf(adapter)).To(Equal(reflect.TypeOf(&Adapter{})))
 	})
 
 	AfterEach(func() {
 		err := k8sClient.Delete(ctx, release)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
-	})
-
-	AfterAll(func() {
-		err := k8sClient.Delete(ctx, releasePlanAdmission)
-		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 
 		err = k8sClient.Delete(ctx, releasePlan)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 
-		err = k8sClient.Delete(ctx, applicationSnapshot)
+		err = k8sClient.Delete(ctx, releasePlanAdmission)
+		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
+	})
+
+	AfterAll(func() {
+		err := k8sClient.Delete(ctx, applicationSnapshot)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 
 		Expect(k8sClient.Delete(ctx, releaseStrategy)).Should(Succeed())
@@ -218,6 +221,61 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		}, time.Second*10).Should(BeTrue())
 		Expect(k8sClient.Delete(ctx, pipelineRun)).Should(Succeed())
+	})
+
+	It("ensures the target context is set when a workspace is targeted by releaseplan", func() {
+		// Set the targetContext to nil to check if the EnsureTargetContext sets its value
+		adapter.targetContext = nil
+
+		// Add a target workspace to the ReleasePlan
+		patch := client.MergeFrom(releasePlan.DeepCopy())
+		releasePlan.Spec.Target.Workspace = "test-workspace"
+		Expect(k8sClient.Patch(ctx, releasePlan, patch)).Should(Succeed())
+
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      releasePlan.Name,
+				Namespace: releasePlan.Namespace,
+			}, releasePlan)
+			return err == nil && releasePlan.Spec.Target.Workspace == "test-workspace"
+		}, time.Second*10).Should(BeTrue())
+
+		result, err := adapter.EnsureTargetContextIsSet()
+		clusterName, _ := logicalcluster.ClusterFromContext(adapter.targetContext)
+		Expect(!result.RequeueRequest).To(BeTrue())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(clusterName.String()).To(Equal("test-workspace"))
+
+		// Restore original targetContext value
+		adapter.targetContext = adapter.context
+	})
+
+	It("ensures the target context is set to default context when releaseplan does not contain a target workspace", func() {
+		result, err := adapter.EnsureTargetContextIsSet()
+		Expect(!result.RequeueRequest && err == nil).To(BeTrue())
+		Expect(adapter.targetContext).To(Equal(adapter.context))
+	})
+
+	It("ensures the target context returns an error when no releaseplan exists", func() {
+		// Delete the ReleasePlan
+		Expect(k8sClient.Delete(ctx, releasePlan)).Should(Succeed())
+
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      releasePlan.Name,
+				Namespace: releasePlan.Namespace,
+			}, releasePlan)
+			return err != nil && errors.IsNotFound(err)
+		}, time.Second*10).Should(BeTrue())
+
+		// Set the targetContext to nil to check if the EnsureTargetContext sets its value
+		adapter.targetContext = nil
+
+		result, err := adapter.EnsureTargetContextIsSet()
+		Expect(result.RequeueRequest && err != nil).To(BeTrue())
+
+		// Restore original targetContext value
+		adapter.targetContext = adapter.context
 	})
 
 	It("ensures finalizers are called when a release is deleted", func() {
@@ -296,7 +354,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		// WithReleaseLabels()
 		Expect(pipelineRun.GetLabels()[tekton.PipelinesTypeLabel]).To(Equal("release"))
 		Expect(pipelineRun.GetLabels()[tekton.ReleaseNameLabel]).To(Equal(release.Name))
-		Expect(pipelineRun.GetLabels()[tekton.ReleaseWorkspaceLabel]).To(Equal(testNamespace))
+		Expect(pipelineRun.GetLabels()[tekton.ReleaseNamespaceLabel]).To(Equal(testNamespace))
+		Expect(pipelineRun.GetLabels()[tekton.ReleaseWorkspaceLabel]).To(Equal(""))
 
 		// WithReleaseStrategy()
 		Expect(pipelineRun.Spec.PipelineRef.Name).To(Equal(releaseStrategy.Spec.Pipeline))

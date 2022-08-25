@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 
 	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
@@ -76,6 +77,9 @@ var _ = Describe("PipelineRun", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "myrelease-",
 				Namespace:    namespace,
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: "kcp:test-cluster:dev",
+				},
 			},
 			Spec: v1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "testsnapshot",
@@ -153,10 +157,14 @@ var _ = Describe("PipelineRun", func() {
 			Expect(releasePipelineRun.Annotations).NotTo(BeNil())
 		})
 
-		It("can append the release Name and Namespace to a ReleasePipelineRun object and that these label key names match the correct label format", func() {
-			releasePipelineRun.WithReleaseLabels(release.Name, release.Namespace)
+		It("can append the release Name, Namespace, and Workspace to a ReleasePipelineRun object and that these label key names match the correct label format", func() {
+			releasePipelineRun.WithReleaseLabels(release.Name, release.Namespace, release.GetAnnotations()[logicalcluster.AnnotationKey])
 			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/name"]).
 				To(Equal(release.Name))
+			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/namespace"]).
+				To(Equal(release.Namespace))
+			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/workspace"]).
+				To(Equal("kcp__test-cluster__dev"))
 		})
 
 		It("can return a PipelineRun object from a ReleasePipelineRun object", func() {

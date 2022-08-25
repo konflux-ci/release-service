@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,6 +50,9 @@ var _ = Describe("Utils", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "testrelease-",
 				Namespace:    namespace,
+				Annotations: map[string]string{
+					logicalcluster.AnnotationKey: "test-cluster",
+				},
 			},
 			Spec: v1alpha1.ReleaseSpec{
 				ApplicationSnapshot: "testsnapshot",
@@ -84,7 +88,7 @@ var _ = Describe("Utils", func() {
 	Context("when using utility functions on PipelineRun objects", func() {
 		It("is a PipelineRun object and contains the required labels that identifies it as one", func() {
 			Expect(isReleasePipelineRun(releasePipelineRun.
-				WithReleaseLabels(release.Name, release.Namespace).
+				WithReleaseLabels(release.Name, release.Namespace, release.GetAnnotations()[logicalcluster.AnnotationKey]).
 				AsPipelineRun())).To(Equal(true))
 		})
 
