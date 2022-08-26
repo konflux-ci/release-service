@@ -18,6 +18,7 @@ package release
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 	libhandler "github.com/operator-framework/operator-lib/handler"
@@ -85,6 +86,7 @@ type AdapterInterface interface {
 	EnsureFinalizerIsAdded() (results.OperationResult, error)
 	EnsureReleasePipelineRunExists() (results.OperationResult, error)
 	EnsureReleasePipelineStatusIsTracked() (results.OperationResult, error)
+	EnsureReleasePlanAdmissionEnabled() (results.OperationResult, error)
 	EnsureSnapshotEnvironmentBindingIsCreated() (results.OperationResult, error)
 	EnsureTargetContextIsSet() (results.OperationResult, error)
 }
@@ -97,6 +99,7 @@ type ReconcileOperation func() (results.OperationResult, error)
 func (r *Reconciler) ReconcileHandler(adapter AdapterInterface) (ctrl.Result, error) {
 	operations := []ReconcileOperation{
 		adapter.EnsureTargetContextIsSet,
+		adapter.EnsureReleasePlanAdmissionEnabled,
 		adapter.EnsureFinalizersAreCalled,
 		adapter.EnsureFinalizerIsAdded,
 		adapter.EnsureReleasePipelineRunExists,

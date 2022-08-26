@@ -179,6 +179,33 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(!result.CancelRequest && err == nil).To(BeTrue())
 	})
 
+	It("ensures the ReleasePlanAdmission is checked to be enabled", func() {
+		result, err := adapter.EnsureReleasePlanAdmissionEnabled()
+		Expect(!result.RequeueRequest && !result.CancelRequest && err == nil).To(BeTrue())
+	})
+
+	It("ensures processing stops if the ReleasePlanAdmission is found to be disabled", func() {
+		// Disable the ReleasePlanAdmission
+		patch := client.MergeFrom(releasePlanAdmission.DeepCopy())
+		releasePlanAdmission.SetLabels(map[string]string{
+			appstudiov1alpha1.AutoReleaseLabel: "false",
+		})
+		Expect(k8sClient.Patch(ctx, releasePlanAdmission, patch)).Should(Succeed())
+
+		Eventually(func() bool {
+			result, _ := adapter.EnsureReleasePlanAdmissionEnabled()
+			return !result.RequeueRequest && result.CancelRequest &&
+				release.Status.Conditions[0].Reason == string(appstudiov1alpha1.ReleaseReasonTargetDisabledError)
+		})
+
+		// Reenable the ReleasePlanAdmission
+		patch = client.MergeFrom(releasePlanAdmission.DeepCopy())
+		releasePlanAdmission.SetLabels(map[string]string{
+			appstudiov1alpha1.AutoReleaseLabel: "true",
+		})
+		Expect(k8sClient.Patch(ctx, releasePlanAdmission, patch)).Should(Succeed())
+	})
+
 	It("ensures a PipelineRun object exists", func() {
 		Eventually(func() bool {
 			result, err := adapter.EnsureReleasePipelineRunExists()
@@ -362,13 +389,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1beta1.PipelineRun{})))
 	})
 
-	It("can return the releaseStrategy", func() {
-		strategy, _ := adapter.getReleaseStrategyFromRelease()
-
-		Expect(reflect.TypeOf(strategy)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleaseStrategy{})))
-		Expect(strategy.Namespace).To(Equal(releasePlan.Spec.Target.Namespace))
-	})
-
 	It("can return the releaseStrategy referenced in a given ReleasePlanAdmission", func() {
 		strategy, err := adapter.getReleaseStrategy(releasePlanAdmission)
 		Expect(err).Should(Succeed())
@@ -490,7 +510,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		adapter.targetContext = nil
 
 		result, err := adapter.EnsureTargetContextIsSet()
-		Expect(result.RequeueRequest && err != nil).To(BeTrue())
+		Expect(!result.RequeueRequest && result.CancelRequest && err == nil).To(BeTrue())
 
 		// Restore original targetContext value
 		adapter.targetContext = adapter.context
