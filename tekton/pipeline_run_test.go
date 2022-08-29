@@ -51,6 +51,7 @@ var _ = Describe("PipelineRun", func() {
 		persistentVolumeClaim = "test-pvc"
 		serviceAccountName    = "test-service-account"
 		apiVersion            = "appstudio.redhat.com/v1alpha1"
+		applicationName       = "test-application"
 	)
 	var (
 		release                            *v1alpha1.Release
@@ -96,7 +97,7 @@ var _ = Describe("PipelineRun", func() {
 				Kind:       "ApplicationSnapshot",
 			},
 			Spec: appstudioshared.ApplicationSnapshotSpec{
-				Application: "testapplication",
+				Application: applicationName,
 				DisplayName: "Test application",
 				Components:  []appstudioshared.ApplicationSnapshotComponent{},
 			},
@@ -158,13 +159,19 @@ var _ = Describe("PipelineRun", func() {
 		})
 
 		It("can append the release Name, Namespace, and Workspace to a ReleasePipelineRun object and that these label key names match the correct label format", func() {
-			releasePipelineRun.WithReleaseLabels(release.Name, release.Namespace, release.GetAnnotations()[logicalcluster.AnnotationKey])
+			releasePipelineRun.WithReleaseAndApplicationLabels(
+				release.Name,
+				release.Namespace,
+				release.GetAnnotations()[logicalcluster.AnnotationKey],
+				applicationName)
 			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/name"]).
 				To(Equal(release.Name))
 			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/namespace"]).
 				To(Equal(release.Namespace))
 			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/workspace"]).
 				To(Equal("kcp__test-cluster__dev"))
+			Expect(releasePipelineRun.Labels["appstudio.openshift.io/application"]).
+				To(Equal(applicationName))
 		})
 
 		It("can return a PipelineRun object from a ReleasePipelineRun object", func() {
@@ -186,7 +193,7 @@ var _ = Describe("PipelineRun", func() {
 				&unmarshaledApplicationSnapshotSpec)).Should(Succeed())
 
 			// check if the unmarshaled data has what we expect
-			Expect(unmarshaledApplicationSnapshotSpec.Application).To(Equal("testapplication"))
+			Expect(unmarshaledApplicationSnapshotSpec.Application).To(Equal(applicationName))
 		})
 
 		It("can add the ReleaseStrategy information to a PipelineRun object and ", func() {

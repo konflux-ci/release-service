@@ -34,6 +34,7 @@ var _ = Describe("Predicates", func() {
 
 	const (
 		pipelineRunPrefixName = "test-pipeline"
+		applicationName       = "test-application"
 		apiVersion            = "appstudio.redhat.com/v1alpha1"
 		namespace             = "default"
 	)
@@ -115,7 +116,8 @@ var _ = Describe("Predicates", func() {
 			contextEvent := event.UpdateEvent{
 				ObjectOld: releasePipelineRun.AsPipelineRun(),
 				ObjectNew: releasePipelineRun.WithServiceAccount("test-service-account").
-					WithReleaseLabels(release.Name, release.Namespace, release.GetAnnotations()[logicalcluster.AnnotationKey]).AsPipelineRun(),
+					WithReleaseAndApplicationLabels(release.Name, release.Namespace, release.GetAnnotations()[logicalcluster.AnnotationKey], applicationName).
+					AsPipelineRun(),
 			}
 			releasePipelineRun.Status.MarkRunning("Predicate function tests", "Set it to Unknown")
 			Expect(instance.Update(contextEvent)).To(BeFalse())

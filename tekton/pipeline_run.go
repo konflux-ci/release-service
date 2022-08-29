@@ -35,6 +35,9 @@ import (
 type PipelineType string
 
 const (
+	// appstudioLabelPrefix is the prefix of the application label
+	appstudioLabelPrefix = "appstudio.openshift.io"
+
 	// pipelinesLabelPrefix is the prefix of the pipelines label
 	pipelinesLabelPrefix = "pipelines.appstudio.openshift.io"
 
@@ -46,6 +49,9 @@ const (
 )
 
 var (
+	// ApplicationNameLabel is the label used to specify the application associated with the PipelineRun
+	ApplicationNameLabel = fmt.Sprintf("%s/%s", appstudioLabelPrefix, "application")
+
 	// PipelinesTypeLabel is the label used to describe the type of pipeline
 	PipelinesTypeLabel = fmt.Sprintf("%s/%s", pipelinesLabelPrefix, "type")
 
@@ -122,13 +128,14 @@ func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipeli
 }
 
 // WithReleaseLabels adds Release name, namespace, and workspace as labels to the release PipelineRun.
-func (r *ReleasePipelineRun) WithReleaseLabels(releaseName, releaseNamespace, releaseWorkspace string) *ReleasePipelineRun {
+func (r *ReleasePipelineRun) WithReleaseAndApplicationLabels(releaseName, releaseNamespace, releaseWorkspace string, applicationName string) *ReleasePipelineRun {
 	r.ObjectMeta.Labels = map[string]string{
 		PipelinesTypeLabel:    PipelineTypeRelease,
 		ReleaseNameLabel:      releaseName,
 		ReleaseNamespaceLabel: releaseNamespace,
 		// PipelineRun does not allow labels with : in the value, which KCP workspaces have
 		ReleaseWorkspaceLabel: strings.ReplaceAll(releaseWorkspace, ":", "__"),
+		ApplicationNameLabel:  applicationName,
 	}
 
 	return r
