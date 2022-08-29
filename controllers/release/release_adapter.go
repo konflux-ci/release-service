@@ -19,6 +19,9 @@ package release
 import (
 	"context"
 	"fmt"
+	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/gitops"
+	"github.com/redhat-appstudio/release-service/syncer"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -43,6 +46,7 @@ type Adapter struct {
 	logger        logr.Logger
 	client        client.Client
 	context       context.Context
+	syncer        *syncer.Syncer
 	targetContext context.Context
 }
 
@@ -56,6 +60,7 @@ func NewAdapter(release *v1alpha1.Release, logger logr.Logger, client client.Cli
 		logger:  logger,
 		client:  client,
 		context: context,
+		syncer:  syncer.NewSyncerWithContext(client, logger, context),
 	}
 }
 
@@ -160,6 +165,37 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (results.OperationResul
 	return results.ContinueProcessing()
 }
 
+// EnsureSnapshotEnvironmentBindingIsCreated is an operation that will ensure that a SnapshotEnvironmentBinding is created
+// or updated for the current Release.
+func (a *Adapter) EnsureSnapshotEnvironmentBindingIsCreated() (results.OperationResult, error) {
+	if !a.release.HasSucceeded() || a.release.HasBeenDeployed() {
+		return results.ContinueProcessing()
+	}
+
+	err := a.syncResources()
+	if err != nil {
+		return results.RequeueWithError(err)
+	}
+
+	releasePlanAdmission, err := a.getActiveReleasePlanAdmission()
+	if err != nil {
+		return results.RequeueWithError(err)
+	}
+
+	binding, err := a.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
+	if err != nil {
+		return results.RequeueWithError(err)
+	}
+
+	a.logger.Info("Created/updated SnapshotEnvironmentBinding",
+		"SnapshotEnvironmentBinding.Name", binding.Name, "SnapshotEnvironmentBinding.Namespace", binding.Namespace)
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+	a.release.Status.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", binding.Namespace, types.Separator, binding.Name)
+
+	return results.RequeueOnErrorOrContinue(a.client.Status().Patch(a.context, a.release, patch))
+}
+
 // EnsureTargetContextIsSet is an operation that will ensure that the targetContext of the adapter is not nil. It will
 // set it to a context from the workspace in the ReleasePlan if one is defined or to its own context if not.
 func (a *Adapter) EnsureTargetContextIsSet() (results.OperationResult, error) {
@@ -176,8 +212,36 @@ func (a *Adapter) EnsureTargetContextIsSet() (results.OperationResult, error) {
 			a.logger.Info("Running in a KCP environment")
 			a.targetContext = logicalcluster.WithCluster(a.context, logicalcluster.New(releasePlan.Spec.Target.Workspace))
 		}
+
+		a.syncer.SetContext(a.targetContext)
 	}
 	return results.ContinueProcessing()
+}
+
+// createOrUpdateSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being
+// processed.
+func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*appstudioshared.ApplicationSnapshotEnvironmentBinding, error) {
+	components, snapshot, environment, err := a.getSnapshotEnvironmentResources(releasePlanAdmission)
+	if err != nil {
+		return nil, err
+	}
+
+	// The binding information would need to be updated no matter if it already exists or not
+	binding := gitops.NewSnapshotEnvironmentBinding(components, snapshot, environment)
+
+	// Search for an existing binding
+	existingBinding, err := a.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+
+	if existingBinding != nil {
+		patch := client.MergeFrom(existingBinding.DeepCopy())
+		existingBinding.Spec = binding.Spec
+		return existingBinding, a.client.Patch(a.targetContext, existingBinding, patch)
+	} else {
+		return binding, a.client.Create(a.targetContext, binding)
+	}
 }
 
 // createReleasePipelineRun creates and returns a new release PipelineRun. The new PipelineRun will include owner
@@ -261,6 +325,38 @@ func (a *Adapter) getActiveReleasePlanAdmission() (*v1alpha1.ReleasePlanAdmissio
 	return &releasePlanAdmissions.Items[0], nil
 }
 
+// getApplication returns the Application referenced by the ReleasePlanAdmission. If the Application is not found or
+// the Get operation failed, an error will be returned.
+func (a *Adapter) getApplication(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*hasv1alpha1.Application, error) {
+	application := &hasv1alpha1.Application{}
+	err := a.client.Get(a.context, types.NamespacedName{
+		Name:      releasePlanAdmission.Spec.Application,
+		Namespace: releasePlanAdmission.Namespace,
+	}, application)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return application, nil
+}
+
+// getApplicationSnapshot returns a list of all the Components associated with the given Application.
+func (a *Adapter) getApplicationComponents(application *hasv1alpha1.Application) ([]hasv1alpha1.Component, error) {
+	applicationComponents := &hasv1alpha1.ComponentList{}
+	opts := []client.ListOption{
+		client.InNamespace(application.Namespace),
+		client.MatchingFields{"spec.application": application.Name},
+	}
+
+	err := a.client.List(a.context, applicationComponents, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return applicationComponents.Items, nil
+}
+
 // getApplicationSnapshot returns the ApplicationSnapshot referenced by the Release being processed. If the
 // ApplicationSnapshot is not found or the Get operation failed, an error will be returned.
 func (a *Adapter) getApplicationSnapshot() (*appstudioshared.ApplicationSnapshot, error) {
@@ -275,6 +371,22 @@ func (a *Adapter) getApplicationSnapshot() (*appstudioshared.ApplicationSnapshot
 	}
 
 	return applicationSnapshot, nil
+}
+
+// getEnvironment returns the Environment referenced by the ReleasePlanAdmission used during this release. If the
+// Environment is not found or the Get operation fails, an error will be returned.
+func (a *Adapter) getEnvironment(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*appstudioshared.Environment, error) {
+	environment := &appstudioshared.Environment{}
+	err := a.client.Get(a.targetContext, types.NamespacedName{
+		Name:      releasePlanAdmission.Spec.Environment,
+		Namespace: releasePlanAdmission.Namespace,
+	}, environment)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return environment, nil
 }
 
 // getReleasePlan returns the ReleasePlan referenced by the Release being processed. If the ReleasePlan is not found or
@@ -341,6 +453,58 @@ func (a *Adapter) getReleaseStrategyFromRelease() (*v1alpha1.ReleaseStrategy, er
 	return a.getReleaseStrategy(releasePlanAdmission)
 }
 
+// getSnapshotEnvironmentBinding returns the SnapshotEnvironmentBinding associated with the Release being processed.
+// That association is defined by matching Environment and Application as seen in the ReleasePlanAdmission.
+// If the SnapshotEnvironmentBinding is not found or the Get operation fails, an error will be returned.
+func (a *Adapter) getSnapshotEnvironmentBinding(environment *appstudioshared.Environment,
+	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*appstudioshared.ApplicationSnapshotEnvironmentBinding, error) {
+	bindingList := &appstudioshared.ApplicationSnapshotEnvironmentBindingList{}
+	opts := []client.ListOption{
+		client.InNamespace(environment.Namespace),
+		client.MatchingFields{"spec.environment": environment.Name},
+	}
+
+	err := a.client.List(a.context, bindingList, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, binding := range bindingList.Items {
+		if binding.Spec.Application == releasePlanAdmission.Spec.Application {
+			return &binding, nil
+		}
+	}
+
+	return nil, nil
+}
+
+// getSnapshotEnvironmentResources returns all the resources required to create a SnapshotEnvironmentBinding. If any of
+// those resources cannot be retrieved from the cluster, an error will be returned.
+func (a *Adapter) getSnapshotEnvironmentResources(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) ([]hasv1alpha1.Component,
+	*appstudioshared.ApplicationSnapshot, *appstudioshared.Environment, error) {
+	environment, err := a.getEnvironment(releasePlanAdmission)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	application, err := a.getApplication(releasePlanAdmission)
+	if err != nil {
+		return nil, nil, environment, err
+	}
+
+	components, err := a.getApplicationComponents(application)
+	if err != nil {
+		return nil, nil, environment, err
+	}
+
+	snapshot, err := a.getApplicationSnapshot()
+	if err != nil {
+		return components, nil, environment, err
+	}
+
+	return components, snapshot, environment, err
+}
+
 // registerReleasePipelineRunStatus updates the status of the Release being processed by monitoring the status of the
 // associated release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
@@ -381,4 +545,19 @@ func (a *Adapter) registerReleaseStatusData(releasePipelineRun *v1beta1.Pipeline
 	a.release.MarkRunning()
 
 	return a.client.Status().Patch(a.context, a.release, patch)
+}
+
+// syncResources sync all the resources needed to trigger the deployment of the Release being processed.
+func (a *Adapter) syncResources() error {
+	releasePlanAdmission, err := a.getActiveReleasePlanAdmission()
+	if err != nil {
+		return err
+	}
+
+	snapshot, err := a.getApplicationSnapshot()
+	if err != nil {
+		return err
+	}
+
+	return a.syncer.SyncSnapshot(snapshot, releasePlanAdmission.Namespace)
 }

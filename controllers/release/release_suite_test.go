@@ -18,6 +18,7 @@ package release
 
 import (
 	"context"
+	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
 	"go/build"
 	"path/filepath"
 	"testing"
@@ -72,6 +73,11 @@ var _ = BeforeSuite(func() {
 			),
 			filepath.Join(
 				build.Default.GOPATH,
+				"pkg", "mod", "github.com", "redhat-appstudio",
+				"application-service@v0.0.0-20220310134421-5864c77a3d17", "config", "crd", "bases",
+			),
+			filepath.Join(
+				build.Default.GOPATH,
 				"pkg", "mod", "github.com", "redhat-appstudio", "managed-gitops",
 				"appstudio-shared@v0.0.0-20220603115212-1fb4d804a8c2", "config", "crd", "bases",
 			),
@@ -86,6 +92,7 @@ var _ = BeforeSuite(func() {
 
 	Expect(appstudiov1alpha1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
 	Expect(tektonv1beta1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
+	Expect(hasv1alpha1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
 	Expect(appstudioshared.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
 
 	k8sManager, _ := ctrl.NewManager(cfg, ctrl.Options{

@@ -5,7 +5,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208221842.releaseplanadmissions.appstudio.redhat.com
+  name: v202208301555.releaseplanadmissions.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -109,7 +109,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208221842.releaseplans.appstudio.redhat.com
+  name: v202208301555.releaseplans.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -194,7 +194,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208221842.releases.appstudio.redhat.com
+  name: v202208301555.releases.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -347,6 +347,11 @@ spec:
                 used for this release
               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
               type: string
+            snapshotEnvironmentBinding:
+              description: SnapshotEnvironmentBinding contains the namespaced name
+                of the SnapshotEnvironmentBinding created as part of this release
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+              type: string
             startTime:
               description: StartTime is the time when the Release PipelineRun was
                 created and set to run
@@ -379,7 +384,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208221842.releasestrategies.appstudio.redhat.com
+  name: v202208301555.releasestrategies.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:

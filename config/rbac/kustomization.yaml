@@ -10,9 +10,15 @@ resources:
 - leader_election_role.yaml
 - leader_election_role_binding.yaml
 # Aggregating roles which are otherwise done by OLM
+- application_role.yaml
+- applicatoin_role_binding.yaml
 - applicationsnapshot_editor_role.yaml
 - applicationsnapshot_role_binding.yaml
 - applicationsnapshot_viewer_role.yaml
+- applicationsnapshotenvironmentbinding_editor_role.yaml
+- applicationsnapshotenvironmentbinding_role_binding.yaml
+- environment_viewer_role.yaml
+- environment_role_binding.yaml
 - release_editor_role.yaml
 - release_role_binding.yaml
 - release_viewer_role.yaml

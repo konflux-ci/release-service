@@ -18,7 +18,6 @@ package release
 
 import (
 	"context"
-
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
 	libhandler "github.com/operator-framework/operator-lib/handler"
@@ -86,6 +85,7 @@ type AdapterInterface interface {
 	EnsureFinalizerIsAdded() (results.OperationResult, error)
 	EnsureReleasePipelineRunExists() (results.OperationResult, error)
 	EnsureReleasePipelineStatusIsTracked() (results.OperationResult, error)
+	EnsureSnapshotEnvironmentBindingIsCreated() (results.OperationResult, error)
 	EnsureTargetContextIsSet() (results.OperationResult, error)
 }
 
@@ -101,6 +101,7 @@ func (r *Reconciler) ReconcileHandler(adapter AdapterInterface) (ctrl.Result, er
 		adapter.EnsureFinalizerIsAdded,
 		adapter.EnsureReleasePipelineRunExists,
 		adapter.EnsureReleasePipelineStatusIsTracked,
+		adapter.EnsureSnapshotEnvironmentBindingIsCreated,
 	}
 
 	for _, operation := range operations {
@@ -121,14 +122,18 @@ func SetupController(manager ctrl.Manager, log *logr.Logger) error {
 	return setupControllerWithManager(manager, NewReleaseReconciler(manager.GetClient(), log, manager.GetScheme()))
 }
 
-// setupCache adds a new index field to be able to search ReleasePlanAdmissions by origin namespace.
+// setupCache indexes fields for each of the resources used in the release adapter in those cases where filtering by
+// field is required.
 func setupCache(mgr ctrl.Manager) error {
-	releasePlanAdmissionIndexFunc := func(obj client.Object) []string {
-		return []string{obj.(*v1alpha1.ReleasePlanAdmission).Spec.Origin.Namespace}
+	if err := SetupComponentCache(mgr); err != nil {
+		return err
 	}
 
-	return mgr.GetCache().IndexField(context.Background(), &v1alpha1.ReleasePlanAdmission{},
-		"spec.origin.namespace", releasePlanAdmissionIndexFunc)
+	if err := SetupReleasePlanAdmissionCache(mgr); err != nil {
+		return err
+	}
+
+	return SetupSnapshotEnvironmentBindingCache(mgr)
 }
 
 // setupControllerWithManager sets up the controller with the Manager which monitors new Releases and filters out
