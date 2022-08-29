@@ -18,11 +18,10 @@ package release
 
 import (
 	"context"
+	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
 	"go/build"
 	"path/filepath"
 	"testing"
-
-	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
 
 	"k8s.io/client-go/rest"
 

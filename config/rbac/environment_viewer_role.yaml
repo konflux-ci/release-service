@@ -1,4 +1,4 @@
-# permissions for end users to view applicationsnapshots.
+# permissions for end users to view environments.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
