@@ -159,6 +159,11 @@ spec:
                   used for this release
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
+              snapshotEnvironmentBinding:
+                description: SnapshotEnvironmentBinding contains the namespaced name
+                  of the SnapshotEnvironmentBinding created as part of this release
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
               startTime:
                 description: StartTime is the time when the Release PipelineRun was
                   created and set to run

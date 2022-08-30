@@ -12,8 +12,10 @@ RUN go mod download
 COPY main.go main.go
 COPY api/ api/
 COPY controllers/ controllers/
+COPY gitops/ gitops/
 COPY kcp/ kcp/
 COPY metrics/ metrics/
+COPY syncer/ syncer/
 COPY tekton/ tekton/
 
 # Build

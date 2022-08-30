@@ -81,6 +81,12 @@ type ReleaseStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
 
+	// SnapshotEnvironmentBinding contains the namespaced name of the SnapshotEnvironmentBinding created as part of
+	// this release
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	SnapshotEnvironmentBinding string `json:"snapshotEnvironmentBinding,omitempty"`
+
 	// ReleasePipelineRun contains the namespaced name of the release PipelineRun executed as part of this release
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
@@ -113,6 +119,11 @@ type Release struct {
 
 	Spec   ReleaseSpec   `json:"spec,omitempty"`
 	Status ReleaseStatus `json:"status,omitempty"`
+}
+
+// HasBeenDeployed checks whether the Release has an associated SnapshotEnvironmentBinding.
+func (r *Release) HasBeenDeployed() bool {
+	return r.Status.SnapshotEnvironmentBinding != ""
 }
 
 // HasStarted checks whether the Release has a valid start time set in its status.
