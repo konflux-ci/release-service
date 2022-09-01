@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kcp-syncer-omitted
+  namespace: kcp-syncer-omitted
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: kcp-syncer-omitted
+  template:
+    metadata:
+      labels:
+        app: kcp-syncer-omitted
+    spec:
+      containers:
+      - name: kcp-syncer
+        command:
+        - /ko-app/syncer
+        args:
+        - --from-kubeconfig=/kcp/kubeconfig
+        - --sync-target-name=computercluster
+        - --sync-target-uid=omitted
+        - --from-cluster=root:users:someuser:dev
+        - --resources=configmaps
+        - --resources=deployments.apps
+        - --resources=secrets
+        - --resources=serviceaccounts
+        - --resources=pipelineruns.tekton.dev
+        - --resources=applicationsnapshots.appstudio.redhat.com
+        - --resources=releases.appstudio.redhat.com
+        - --resources=releaseplans.appstudio.redhat.com
+        - --resources=releaseplanadmissions.appstudio.redhat.com
+        - --resources=releasestrategies.appstudio.redhat.com
+        - --qps=30
+        - --burst=20
+        image: ghcr.io/kcp-dev/kcp/syncer:v0.7.10
+        imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - name: kcp-config
+          mountPath: /kcp/
+          readOnly: true
+      serviceAccountName: omitted
+      volumes:
+        - name: kcp-config
+          secret:
+            secretName: omitted
+            optional: false

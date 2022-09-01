@@ -1,0 +1,12 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleasePlanAdmission
+metadata:
+  name: managed
+  namespace: managed
+spec:
+  displayName: Managed Workspace's ReleasePlanAdmission
+  application: app
+  origin:
+    namespace: default
+    workspace: root:users:someuser:dev
+  releaseStrategy: strategy

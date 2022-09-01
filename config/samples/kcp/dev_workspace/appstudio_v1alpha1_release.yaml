@@ -1,0 +1,8 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: Release
+metadata:
+  name: release
+  namespace: default
+spec:
+  releasePlan: default
+  applicationSnapshot: snapshot
