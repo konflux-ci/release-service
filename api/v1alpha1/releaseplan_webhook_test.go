@@ -124,4 +124,11 @@ var _ = Describe("ReleasePlan webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("'%s' label can only be set to true or false", AutoReleaseLabel))
 		})
 	})
+
+	Describe("When ValidateDelete method is called", func() {
+		It("should return nil", func() {
+			releaseplan := &ReleasePlan{}
+			Expect(releaseplan.ValidateDelete()).To(BeNil())
+		})
+	})
 })
