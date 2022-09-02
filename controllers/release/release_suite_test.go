@@ -18,10 +18,11 @@ package release
 
 import (
 	"context"
-	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
 	"go/build"
 	"path/filepath"
 	"testing"
+
+	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
 
 	"k8s.io/client-go/rest"
 
@@ -34,6 +35,7 @@ import (
 
 	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
+	appstudiotest "github.com/redhat-appstudio/release-service/test"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -73,13 +75,11 @@ var _ = BeforeSuite(func() {
 			),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", "github.com", "redhat-appstudio",
-				"application-service@v0.0.0-20220310134421-5864c77a3d17", "config", "crd", "bases",
+				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("application-service"), "config", "crd", "bases",
 			),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", "github.com", "redhat-appstudio", "managed-gitops",
-				"appstudio-shared@v0.0.0-20220603115212-1fb4d804a8c2", "config", "crd", "bases",
+				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("appstudio-shared"), "config", "crd", "bases",
 			),
 		},
 		ErrorIfCRDPathMissing: true,

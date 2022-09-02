@@ -32,6 +32,7 @@ import (
 
 	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
+	appstudiotest "github.com/redhat-appstudio/release-service/test"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 
@@ -68,8 +69,7 @@ var _ = BeforeSuite(func() {
 			),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", "github.com", "redhat-appstudio", "managed-gitops",
-				"appstudio-shared@v0.0.0-20220603115212-1fb4d804a8c2", "config", "crd", "bases",
+				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("appstudio-shared"), "config", "crd", "bases",
 			),
 		},
 		ErrorIfCRDPathMissing: true,
