@@ -33,6 +33,7 @@ var _ = Describe("Utils", func() {
 
 	const (
 		pipelineRunPrefixName = "test-pipeline"
+		applicationName       = "test-application"
 		apiVersion            = "appstudio.redhat.com/v1alpha1"
 		namespace             = "default"
 	)
@@ -88,7 +89,7 @@ var _ = Describe("Utils", func() {
 	Context("when using utility functions on PipelineRun objects", func() {
 		It("is a PipelineRun object and contains the required labels that identifies it as one", func() {
 			Expect(isReleasePipelineRun(releasePipelineRun.
-				WithReleaseLabels(release.Name, release.Namespace, release.GetAnnotations()[logicalcluster.AnnotationKey]).
+				WithReleaseAndApplicationLabels(release.Name, release.Namespace, release.GetAnnotations()[logicalcluster.AnnotationKey], applicationName).
 				AsPipelineRun())).To(Equal(true))
 		})
 
