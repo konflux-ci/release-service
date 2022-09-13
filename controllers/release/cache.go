@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// SetupComponentCache adds a new index field to be able to search Component by application.
+// SetupComponentCache adds a new index field to be able to search Components by application.
 func SetupComponentCache(mgr ctrl.Manager) error {
 	releasePlanAdmissionIndexFunc := func(obj client.Object) []string {
 		return []string{obj.(*hasv1alpha1.Component).Spec.Application}
@@ -45,7 +45,7 @@ func SetupReleasePlanAdmissionCache(mgr ctrl.Manager) error {
 		"spec.origin.namespace", releasePlanAdmissionIndexFunc)
 }
 
-// SetupSnapshotEnvironmentBindingCache adds a new index field to be able to search SnapshotEnvironmentBinding by environment.
+// SetupSnapshotEnvironmentBindingCache adds a new index field to be able to search SnapshotEnvironmentBindings by environment.
 func SetupSnapshotEnvironmentBindingCache(mgr ctrl.Manager) error {
 	releasePlanAdmissionIndexFunc := func(obj client.Object) []string {
 		return []string{obj.(*appstudioshared.ApplicationSnapshotEnvironmentBinding).Spec.Environment}

@@ -12,7 +12,6 @@ require (
 	github.com/operator-framework/operator-lib v0.10.0
 	github.com/redhat-appstudio/application-service v0.0.0-20220310134421-5864c77a3d17
 	github.com/redhat-appstudio/managed-gitops/appstudio-shared v0.0.0-20220826075641-33705d2bf7fa
-	github.com/redhat-appstudio/managed-gitops/backend-shared v0.0.0-20220826075641-33705d2bf7fa
 	github.com/tektoncd/pipeline v0.32.2
 	k8s.io/api v0.24.3
 	k8s.io/apimachinery v0.24.3

@@ -226,7 +226,7 @@ func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission 
 		return nil, err
 	}
 
-	// The binding information would need to be updated no matter if it already exists or not
+	// The binding information needs to be updated no matter if it already exists or not
 	binding := gitops.NewSnapshotEnvironmentBinding(components, snapshot, environment)
 
 	// Search for an existing binding
@@ -341,7 +341,7 @@ func (a *Adapter) getApplication(releasePlanAdmission *v1alpha1.ReleasePlanAdmis
 	return application, nil
 }
 
-// getApplicationSnapshot returns a list of all the Components associated with the given Application.
+// getApplicationComponents returns a list of all the Components associated with the given Application.
 func (a *Adapter) getApplicationComponents(application *hasv1alpha1.Application) ([]hasv1alpha1.Component, error) {
 	applicationComponents := &hasv1alpha1.ComponentList{}
 	opts := []client.ListOption{
@@ -454,8 +454,8 @@ func (a *Adapter) getReleaseStrategyFromRelease() (*v1alpha1.ReleaseStrategy, er
 }
 
 // getSnapshotEnvironmentBinding returns the SnapshotEnvironmentBinding associated with the Release being processed.
-// That association is defined by matching Environment and Application as seen in the ReleasePlanAdmission.
-// If the SnapshotEnvironmentBinding is not found or the Get operation fails, an error will be returned.
+// That association is defined by both the Environment and Application matching between the ReleasePlanAdmission and
+// the SnapshotEnvironmentBinding. If the Get operation fails, an error will be returned.
 func (a *Adapter) getSnapshotEnvironmentBinding(environment *appstudioshared.Environment,
 	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*appstudioshared.ApplicationSnapshotEnvironmentBinding, error) {
 	bindingList := &appstudioshared.ApplicationSnapshotEnvironmentBindingList{}
@@ -464,7 +464,7 @@ func (a *Adapter) getSnapshotEnvironmentBinding(environment *appstudioshared.Env
 		client.MatchingFields{"spec.environment": environment.Name},
 	}
 
-	err := a.client.List(a.context, bindingList, opts...)
+	err := a.client.List(a.targetContext, bindingList, opts...)
 	if err != nil {
 		return nil, err
 	}
