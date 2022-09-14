@@ -80,9 +80,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, applicationSnapshot)).Should(Succeed())
-	})
 
-	BeforeEach(func() {
 		releasePlanAdmission = &appstudiov1alpha1.ReleasePlanAdmission{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-releaseplanadmission-",
@@ -119,6 +117,10 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
 
+	})
+
+	BeforeEach(func() {
+
 		release = &appstudiov1alpha1.Release{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-release-",
@@ -148,11 +150,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		err := k8sClient.Delete(ctx, release)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 
-		err = k8sClient.Delete(ctx, releasePlan)
-		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
-
-		err = k8sClient.Delete(ctx, releasePlanAdmission)
-		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 	})
 
 	AfterAll(func() {
@@ -160,6 +157,12 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 
 		Expect(k8sClient.Delete(ctx, releaseStrategy)).Should(Succeed())
+
+		err = k8sClient.Delete(ctx, releasePlan)
+		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
+
+		err = k8sClient.Delete(ctx, releasePlanAdmission)
+		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 	})
 
 	It("can create a new Adapter instance", func() {
@@ -254,28 +257,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		result, err := adapter.EnsureTargetContextIsSet()
 		Expect(!result.RequeueRequest && err == nil).To(BeTrue())
 		Expect(adapter.targetContext).To(Equal(adapter.context))
-	})
-
-	It("ensures the target context returns an error when no releaseplan exists", func() {
-		// Delete the ReleasePlan
-		Expect(k8sClient.Delete(ctx, releasePlan)).Should(Succeed())
-
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      releasePlan.Name,
-				Namespace: releasePlan.Namespace,
-			}, releasePlan)
-			return err != nil && errors.IsNotFound(err)
-		}, time.Second*10).Should(BeTrue())
-
-		// Set the targetContext to nil to check if the EnsureTargetContext sets its value
-		adapter.targetContext = nil
-
-		result, err := adapter.EnsureTargetContextIsSet()
-		Expect(result.RequeueRequest && err != nil).To(BeTrue())
-
-		// Restore original targetContext value
-		adapter.targetContext = adapter.context
 	})
 
 	It("ensures finalizers are called when a release is deleted", func() {
@@ -491,13 +472,27 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		link, err := adapter.getReleasePlan()
 		Expect(err).Should(Succeed())
 		Expect(reflect.TypeOf(link)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleasePlan{})))
+	})
 
-		// It should err when the ReleasePlan does not exist
+	It("ensure an error is returned when setting the target context with a missing releaseplan", func() {
+		// Delete the ReleasePlan
 		Expect(k8sClient.Delete(ctx, releasePlan)).Should(Succeed())
 
 		Eventually(func() bool {
-			_, err = adapter.getReleasePlan()
-			return errors.IsNotFound(err)
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      releasePlan.Name,
+				Namespace: releasePlan.Namespace,
+			}, releasePlan)
+			return err != nil && errors.IsNotFound(err)
 		}, time.Second*10).Should(BeTrue())
+
+		// Set the targetContext to nil to check if the EnsureTargetContext sets its value
+		adapter.targetContext = nil
+
+		result, err := adapter.EnsureTargetContextIsSet()
+		Expect(result.RequeueRequest && err != nil).To(BeTrue())
+
+		// Restore original targetContext value
+		adapter.targetContext = adapter.context
 	})
 })
