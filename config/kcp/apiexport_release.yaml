@@ -3,6 +3,27 @@ kind: APIExport
 metadata:
   name: release
 spec:
+  # The identityHash values should be populated with proper values at
+  # deployment time.
+  permissionClaims:
+  - resource: "applications"
+    group: "appstudio.redhat.com"
+    identityHash: "APPLICATION_API_IDENTITY_HASH_PLACEHOLDER"
+  - resource: "components"
+    group: "appstudio.redhat.com"
+    identityHash: "APPLICATION_API_IDENTITY_HASH_PLACEHOLDER"
+  - resource: "applicationsnapshots"
+    group: "appstudio.redhat.com"
+    identityHash: "APPLICATION_API_IDENTITY_HASH_PLACEHOLDER"
+  - resource: "environments"
+    group: "appstudio.redhat.com"
+    identityHash: "APPLICATION_API_IDENTITY_HASH_PLACEHOLDER"
+  - resource: "applicationsnapshotenvironmentbindings"
+    group: "appstudio.redhat.com"
+    identityHash: "APPLICATION_API_IDENTITY_HASH_PLACEHOLDER"
+  - resource: "pipelineruns"
+    group: "tekton.dev"
+    identityHash: null
   latestResourceSchemas:
     - md5-06f1498b5778196e58c2bc1fc88108b8.releaseplanadmissions.appstudio.redhat.com
     - md5-9959e22acaaf6d162a03980c75b93dfe.releaseplans.appstudio.redhat.com
