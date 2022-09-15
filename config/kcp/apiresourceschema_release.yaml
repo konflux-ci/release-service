@@ -1,11 +1,8 @@
-# This file is generated from CRDs by ./hack/generate-kcp-api.sh script.
-# Please do not modify!
-
 apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208301555.releaseplanadmissions.appstudio.redhat.com
+  name: md5-06f1498b5778196e58c2bc1fc88108b8.releaseplanadmissions.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -109,7 +106,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208301555.releaseplans.appstudio.redhat.com
+  name: md5-9959e22acaaf6d162a03980c75b93dfe.releaseplans.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -194,7 +191,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208301555.releases.appstudio.redhat.com
+  name: md5-e3f55fb6efb4bca5c1b68c9813fe9a90.releases.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:
@@ -384,7 +381,7 @@ apiVersion: apis.kcp.dev/v1alpha1
 kind: APIResourceSchema
 metadata:
   creationTimestamp: null
-  name: v202208301555.releasestrategies.appstudio.redhat.com
+  name: md5-a1a202cb4819f0c40034030c40f8526f.releasestrategies.appstudio.redhat.com
 spec:
   group: appstudio.redhat.com
   names:

@@ -1,3 +1,3 @@
 resources:
-  - apiexport_release.yaml
-  - apiresourceschema_release.yaml
+  - api_export.yaml
+  - api_resource_schemas.yaml
