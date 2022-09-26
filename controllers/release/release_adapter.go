@@ -19,10 +19,12 @@ package release
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/syncer"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -110,6 +112,18 @@ func (a *Adapter) EnsureFinalizerIsAdded() (results.OperationResult, error) {
 	return results.ContinueProcessing()
 }
 
+// EnsureReleasePlanAdmissionEnabled is an operation that will ensure that the ReleasePlanAdmission is enabled.
+// If it is not, no further operations will occur for this Release.
+func (a *Adapter) EnsureReleasePlanAdmissionEnabled() (results.OperationResult, error) {
+	_, err := a.getActiveReleasePlanAdmission()
+	if err != nil && strings.Contains(err.Error(), "auto-release label set to false") {
+		patch := client.MergeFrom(a.release.DeepCopy())
+		a.release.MarkInvalid(v1alpha1.ReleaseReasonTargetDisabledError, err.Error())
+		return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+	}
+	return results.ContinueProcessing()
+}
+
 // EnsureReleasePipelineRunExists is an operation that will ensure that a release PipelineRun associated to the Release
 // being processed exists. Otherwise, it will create a new release PipelineRun.
 func (a *Adapter) EnsureReleasePipelineRunExists() (results.OperationResult, error) {
@@ -118,10 +132,19 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (results.OperationResult, err
 		return results.RequeueWithError(err)
 	}
 
-	var releaseStrategy *v1alpha1.ReleaseStrategy
+	var (
+		releasePlanAdmission *v1alpha1.ReleasePlanAdmission
+		releaseStrategy      *v1alpha1.ReleaseStrategy
+	)
 
 	if pipelineRun == nil {
-		releaseStrategy, err = a.getReleaseStrategyFromRelease()
+		releasePlanAdmission, err = a.getActiveReleasePlanAdmission()
+		if err != nil {
+			patch := client.MergeFrom(a.release.DeepCopy())
+			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, err.Error())
+			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+		}
+		releaseStrategy, err = a.getReleaseStrategy(releasePlanAdmission)
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
@@ -202,7 +225,9 @@ func (a *Adapter) EnsureTargetContextIsSet() (results.OperationResult, error) {
 	if a.targetContext == nil {
 		releasePlan, err := a.getReleasePlan()
 		if err != nil {
-			return results.RequeueWithError(err)
+			patch := client.MergeFrom(a.release.DeepCopy())
+			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, err.Error())
+			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
 
 		if releasePlan.Spec.Target.Workspace == "" {
@@ -440,17 +465,6 @@ func (a *Adapter) getReleaseStrategy(releasePlanAdmission *v1alpha1.ReleasePlanA
 	}
 
 	return releaseStrategy, nil
-}
-
-// getReleaseStrategyFromRelease is a utility function to get a ReleaseStrategy from the information contained in the
-// Release. The function will get the ReleasePlanAdmission targeted by the ReleasePlan and then call getReleaseStrategy.
-func (a *Adapter) getReleaseStrategyFromRelease() (*v1alpha1.ReleaseStrategy, error) {
-	releasePlanAdmission, err := a.getActiveReleasePlanAdmission()
-	if err != nil {
-		return nil, err
-	}
-
-	return a.getReleaseStrategy(releasePlanAdmission)
 }
 
 // getSnapshotEnvironmentBinding returns the SnapshotEnvironmentBinding associated with the Release being processed.

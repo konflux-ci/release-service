@@ -51,6 +51,12 @@ const (
 	// ReleaseReasonPipelineFailed is the reason set when the release PipelineRun failed
 	ReleaseReasonPipelineFailed ReleaseReason = "ReleasePipelineFailed"
 
+	// ReleaseReasonTargetDisabledError is the reason set when there is a validation error with the ReleasePlan
+	ReleaseReasonReleasePlanValidationError ReleaseReason = "ReleasePlanValidationError"
+
+	// ReleaseReasonTargetDisabledError is the reason set when releases to the target are disabled
+	ReleaseReasonTargetDisabledError ReleaseReason = "ReleaseTargetDisabledError"
+
 	// ReleaseReasonRunning is the reason set when the release PipelineRun starts running
 	ReleaseReasonRunning ReleaseReason = "Running"
 
