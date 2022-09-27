@@ -1,0 +1,21 @@
+# The intent of this file is to show what the APIBinding looks like if you run
+# a setup using permission claims instead of all the APIs provided by one APIExport.
+apiVersion: apis.kcp.dev/v1alpha1
+kind: APIBinding
+metadata:
+  name: managed
+spec:
+  reference:
+    workspace:
+      path: root:users:someuser:dev
+      exportName: release
+  permissionClaims:
+  - group: "tekton.dev"
+    identityHash: null # Must be set before applying, but value depends on APIExport
+    resource: "pipelineruns"
+    state: "Accepted"
+  - group: "appstudio.redhat.com"
+    identityHash: null # Must be set before applying, but value depends on APIExport
+    resource: "applicationsnapshots"
+    state: "Accepted"
+---
