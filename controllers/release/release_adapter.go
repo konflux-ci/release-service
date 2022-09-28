@@ -195,12 +195,17 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingIsCreated() (results.Operation
 		return results.ContinueProcessing()
 	}
 
-	err := a.syncResources()
+	releasePlanAdmission, err := a.getActiveReleasePlanAdmission()
 	if err != nil {
 		return results.RequeueWithError(err)
 	}
 
-	releasePlanAdmission, err := a.getActiveReleasePlanAdmission()
+	// If no environment is set in the ReleasePlanAdmission, skip the Binding creation
+	if releasePlanAdmission.Spec.Environment == "" {
+		return results.ContinueProcessing()
+	}
+
+	err = a.syncResources()
 	if err != nil {
 		return results.RequeueWithError(err)
 	}
