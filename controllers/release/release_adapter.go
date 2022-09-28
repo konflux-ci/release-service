@@ -25,6 +25,7 @@ import (
 	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/syncer"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -251,7 +252,7 @@ func (a *Adapter) EnsureTargetContextIsSet() (results.OperationResult, error) {
 // createOrUpdateSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being
 // processed.
 func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*appstudioshared.ApplicationSnapshotEnvironmentBinding, error) {
-	components, snapshot, environment, err := a.getSnapshotEnvironmentResources(releasePlanAdmission)
+	application, components, snapshot, environment, err := a.getSnapshotEnvironmentResources(releasePlanAdmission)
 	if err != nil {
 		return nil, err
 	}
@@ -265,12 +266,17 @@ func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission 
 		return nil, err
 	}
 
-	if existingBinding != nil {
+	if existingBinding == nil {
+		err = ctrl.SetControllerReference(application, binding, a.client.Scheme())
+		if err != nil {
+			return nil, err
+		}
+		return binding, a.client.Create(a.targetContext, binding)
+	} else {
+		// We create the binding so if the owner reference is not already present, there must be a good reason for that
 		patch := client.MergeFrom(existingBinding.DeepCopy())
 		existingBinding.Spec = binding.Spec
-		return existingBinding, a.client.Patch(a.targetContext, existingBinding, patch)
-	} else {
-		return binding, a.client.Create(a.targetContext, binding)
+		return existingBinding, a.client.Patch(a.targetContext, binding, patch)
 	}
 }
 
@@ -499,29 +505,31 @@ func (a *Adapter) getSnapshotEnvironmentBinding(environment *appstudioshared.Env
 
 // getSnapshotEnvironmentResources returns all the resources required to create a SnapshotEnvironmentBinding. If any of
 // those resources cannot be retrieved from the cluster, an error will be returned.
-func (a *Adapter) getSnapshotEnvironmentResources(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) ([]hasv1alpha1.Component,
-	*appstudioshared.ApplicationSnapshot, *appstudioshared.Environment, error) {
+func (a *Adapter) getSnapshotEnvironmentResources(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (
+	*hasv1alpha1.Application, []hasv1alpha1.Component,
+	*appstudioshared.ApplicationSnapshot, *appstudioshared.Environment, error,
+) {
 	environment, err := a.getEnvironment(releasePlanAdmission)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	application, err := a.getApplication(releasePlanAdmission)
 	if err != nil {
-		return nil, nil, environment, err
+		return application, nil, nil, environment, err
 	}
 
 	components, err := a.getApplicationComponents(application)
 	if err != nil {
-		return nil, nil, environment, err
+		return application, nil, nil, environment, err
 	}
 
 	snapshot, err := a.getApplicationSnapshot()
 	if err != nil {
-		return components, nil, environment, err
+		return application, components, nil, environment, err
 	}
 
-	return components, snapshot, environment, err
+	return application, components, snapshot, environment, err
 }
 
 // registerReleasePipelineRunStatus updates the status of the Release being processed by monitoring the status of the
