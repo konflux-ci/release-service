@@ -354,7 +354,7 @@ func (a *Adapter) getActiveReleasePlanAdmission() (*v1alpha1.ReleasePlanAdmissio
 // the Get operation failed, an error will be returned.
 func (a *Adapter) getApplication(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*hasv1alpha1.Application, error) {
 	application := &hasv1alpha1.Application{}
-	err := a.client.Get(a.context, types.NamespacedName{
+	err := a.client.Get(a.targetContext, types.NamespacedName{
 		Name:      releasePlanAdmission.Spec.Application,
 		Namespace: releasePlanAdmission.Namespace,
 	}, application)
@@ -374,7 +374,7 @@ func (a *Adapter) getApplicationComponents(application *hasv1alpha1.Application)
 		client.MatchingFields{"spec.application": application.Name},
 	}
 
-	err := a.client.List(a.context, applicationComponents, opts...)
+	err := a.client.List(a.targetContext, applicationComponents, opts...)
 	if err != nil {
 		return nil, err
 	}
