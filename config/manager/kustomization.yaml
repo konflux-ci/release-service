@@ -1,3 +1,5 @@
+namePrefix: release-service-
+
 resources:
 - manager.yaml
 
