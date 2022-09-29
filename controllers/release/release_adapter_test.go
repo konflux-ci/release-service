@@ -640,6 +640,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		// Add a target workspace to the ReleasePlan
 		patch := client.MergeFrom(releasePlan.DeepCopy())
+		originalWorkspace := releasePlan.Spec.Target.Workspace
 		releasePlan.Spec.Target.Workspace = "test-workspace"
 		Expect(k8sClient.Patch(ctx, releasePlan, patch)).Should(Succeed())
 
@@ -657,8 +658,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(clusterName.String()).To(Equal("test-workspace"))
 
-		// Restore original targetContext value
+		// Restore original values
 		adapter.targetContext = adapter.context
+		patch = client.MergeFrom(releasePlan.DeepCopy())
+		releasePlan.Spec.Target.Workspace = originalWorkspace
+		Expect(k8sClient.Patch(ctx, releasePlan, patch)).Should(Succeed())
 	})
 
 	It("ensures the target context is set to default context when releaseplan does not contain a target workspace", func() {
