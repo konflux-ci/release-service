@@ -17,6 +17,8 @@ limitations under the License.
 package release
 
 import (
+	"github.com/redhat-appstudio/application-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/gitops"
 	"reflect"
 	"strings"
 	"time"
@@ -46,7 +48,10 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	var (
 		adapter *Adapter
 
+		application          *v1alpha1.Application
 		applicationSnapshot  *appstudioshared.ApplicationSnapshot
+		component            *v1alpha1.Component
+		environment          *appstudioshared.Environment
 		release              *appstudiov1alpha1.Release
 		releaseStrategy      *appstudiov1alpha1.ReleaseStrategy
 		releasePlan          *appstudiov1alpha1.ReleasePlan
@@ -75,11 +80,57 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Namespace:    "default",
 			},
 			Spec: appstudioshared.ApplicationSnapshotSpec{
-				Application: "testapplication",
+				Application: "test-app",
 				Components:  []appstudioshared.ApplicationSnapshotComponent{},
 			},
 		}
 		Expect(k8sClient.Create(ctx, applicationSnapshot)).Should(Succeed())
+
+		application = &v1alpha1.Application{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-app",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.ApplicationSpec{
+				DisplayName: "app",
+			},
+		}
+		Expect(k8sClient.Create(ctx, application)).Should(Succeed())
+
+		component = &v1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-component",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.ComponentSpec{
+				Application:   "test-app",
+				ComponentName: "test-component",
+				Source: v1alpha1.ComponentSource{
+					ComponentSourceUnion: v1alpha1.ComponentSourceUnion{
+						GitSource: &v1alpha1.GitSource{
+							URL: "https://foo",
+						},
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, component)).Should(Succeed())
+
+		environment = &appstudioshared.Environment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-environment",
+				Namespace: "default",
+			},
+			Spec: appstudioshared.EnvironmentSpec{
+				DeploymentStrategy: appstudioshared.DeploymentStrategy_Manual,
+				DisplayName:        "production",
+				Type:               appstudioshared.EnvironmentType_POC,
+				Configuration: appstudioshared.EnvironmentConfiguration{
+					Env: []appstudioshared.EnvVarPair{},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, environment)).Should(Succeed())
 
 		releasePlanAdmission = &appstudiov1alpha1.ReleasePlanAdmission{
 			ObjectMeta: metav1.ObjectMeta{
@@ -120,7 +171,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	BeforeEach(func() {
-
 		release = &appstudiov1alpha1.Release{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-release-",
@@ -149,7 +199,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	AfterEach(func() {
 		err := k8sClient.Delete(ctx, release)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
-
 	})
 
 	AfterAll(func() {
@@ -251,6 +300,338 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		}, time.Second*10).Should(BeTrue())
 		Expect(k8sClient.Delete(ctx, pipelineRun)).Should(Succeed())
+	})
+
+	Context("When calling EnsureSnapshotEnvironmentBindingIsCreated", func() {
+		It("skips the operation if the release has not succeeded yet", func() {
+			result, err := adapter.EnsureSnapshotEnvironmentBindingIsCreated()
+			Expect(result.RequeueRequest).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("skips the operation if the release has already being deployed", func() {
+			release.MarkRunning()
+			release.MarkSucceeded()
+			release.Status.SnapshotEnvironmentBinding = "foo"
+			result, err := adapter.EnsureSnapshotEnvironmentBindingIsCreated()
+			Expect(result.RequeueRequest).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("skips the operation if no environment is set in the ReleasePlanAdmission", func() {
+			release.MarkRunning()
+			release.MarkSucceeded()
+
+			environmentBeforeUpdate := releasePlanAdmission.Spec.Environment
+
+			// Remove the Environment from the ReleasePlanAdmission
+			patch := client.MergeFrom(releasePlanAdmission.DeepCopy())
+			releasePlanAdmission.Spec.Environment = ""
+			Expect(k8sClient.Patch(ctx, releasePlanAdmission, patch)).Should(Succeed())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      releasePlanAdmission.Name,
+					Namespace: releasePlanAdmission.Namespace,
+				}, releasePlanAdmission)
+
+				return err == nil && releasePlanAdmission.Spec.Environment == ""
+			}, time.Second*10).Should(BeTrue())
+
+			result, err := adapter.EnsureSnapshotEnvironmentBindingIsCreated()
+			Expect(result.RequeueRequest).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Blocking for 5 seconds to ensure that no binding is created
+			Consistently(func() bool {
+				binding, err := adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+
+				return err == nil && binding == nil
+			}, time.Second*5).Should(BeTrue())
+
+			// Restore the Environment value
+			patch = client.MergeFrom(releasePlanAdmission.DeepCopy())
+			releasePlanAdmission.Spec.Environment = environmentBeforeUpdate
+			Expect(k8sClient.Patch(ctx, releasePlanAdmission, patch)).Should(Succeed())
+		})
+
+		It("fails when the required resources are not present", func() {
+			release.MarkRunning()
+			release.MarkSucceeded()
+
+			// Delete the application which is one of the required resources
+			Expect(k8sClient.Delete(ctx, application)).Should(Succeed())
+			Eventually(func() bool {
+				_, err := adapter.getApplication(releasePlanAdmission)
+
+				return err != nil
+			}, time.Second*10).Should(BeTrue())
+
+			result, err := adapter.EnsureSnapshotEnvironmentBindingIsCreated()
+			Expect(result.RequeueRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not found"))
+
+			// Recreate the application
+			application.ObjectMeta.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, application)).Should(Succeed())
+		})
+
+		It("creates or updates a binding and updates the release status", func() {
+			release.MarkRunning()
+			release.MarkSucceeded()
+			result, err := adapter.EnsureSnapshotEnvironmentBindingIsCreated()
+			Expect(result.RequeueRequest).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+
+			binding, err := adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(binding).ToNot(BeNil())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      release.Name,
+					Namespace: release.Namespace,
+				}, release)
+
+				return err == nil && release.Status.SnapshotEnvironmentBinding != ""
+			}, time.Second*10).Should(BeTrue())
+
+			// Delete binding to clean up
+			Expect(k8sClient.Delete(ctx, binding)).Should(Succeed())
+		})
+	})
+
+	Context("When calling createOrUpdateSnapshotEnvironmentBinding", func() {
+		It("fails when the required resources are not present", func() {
+			// Delete the application which is one of the required resources
+			Expect(k8sClient.Delete(ctx, application)).Should(Succeed())
+			Eventually(func() bool {
+				_, err := adapter.getApplication(releasePlanAdmission)
+
+				return err != nil
+			}, time.Second*10).Should(BeTrue())
+
+			_, err := adapter.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not found"))
+
+			// Recreate the application
+			application.ObjectMeta.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, application)).Should(Succeed())
+		})
+
+		It("creates a new binding if a previous one didn't exist", func() {
+			Eventually(func() bool {
+				binding, err := adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+
+				return err == nil && binding == nil
+			}, time.Second*10).Should(BeTrue())
+
+			binding, err := adapter.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(binding).ToNot(BeNil())
+
+			Eventually(func() bool {
+				binding, err = adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+				return err == nil && binding != nil
+			}, time.Second*10).Should(BeTrue())
+
+			// Owner reference should be set on creation
+			Expect(len(binding.OwnerReferences)).To(Equal(1))
+
+			// Delete binding to clean up
+			Expect(k8sClient.Delete(ctx, binding)).Should(Succeed())
+		})
+
+		It("updates the binding if it exists", func() {
+			binding, err := adapter.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(binding).ToNot(BeNil())
+
+			Eventually(func() bool {
+				binding, err = adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+				return err == nil && binding != nil
+			}, time.Second*10).Should(BeTrue())
+
+			// Trigger an update by creating a new component that will produce a change in the binding spec
+			componentsBeforeUpdate, err := adapter.getApplicationComponents(application)
+			Expect(err).NotTo(HaveOccurred())
+
+			newComponent := component.DeepCopy()
+			newComponent.ObjectMeta = metav1.ObjectMeta{
+				Name:      "test-component2",
+				Namespace: "default",
+			}
+			Expect(k8sClient.Create(ctx, newComponent)).Should(Succeed())
+
+			// Wait for the application to keep track of the new component
+			Eventually(func() bool {
+				components, err := adapter.getApplicationComponents(application)
+				return err == nil && len(components) == len(componentsBeforeUpdate)+1
+			}, time.Second*10).Should(BeTrue())
+
+			versionBeforeUpdate := binding.ResourceVersion
+
+			binding, err = adapter.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(binding).ToNot(BeNil())
+
+			Eventually(func() bool {
+				binding, err = adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+
+				// Binding should exist and its version should have increased
+				return err == nil && binding != nil && versionBeforeUpdate < binding.ResourceVersion
+			}, time.Second*10).Should(BeTrue())
+
+			// Owner reference should be kept on update
+			Expect(len(binding.OwnerReferences)).To(Equal(1))
+
+			// Delete binding and component to clean up
+			Expect(k8sClient.Delete(ctx, binding)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, newComponent)).Should(Succeed())
+		})
+	})
+
+	Context("When calling getSnapshotEnvironmentResources", func() {
+		It("should return all the resources", func() {
+			application, components, snapshot, environment, err := adapter.getSnapshotEnvironmentResources(releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(application).ToNot(BeNil())
+			Expect(components).ToNot(BeNil())
+			Expect(snapshot).ToNot(BeNil())
+			Expect(environment).ToNot(BeNil())
+		})
+
+		It("should fail when any of the resources is not present", func() {
+			Expect(k8sClient.Delete(ctx, application)).Should(Succeed())
+			Eventually(func() bool {
+				_, err := adapter.getApplication(releasePlanAdmission)
+
+				return err != nil
+			}, time.Second*10).Should(BeTrue())
+
+			retrievedApplication, _, _, _, err := adapter.getSnapshotEnvironmentResources(releasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not found"))
+			Expect(retrievedApplication).To(BeNil())
+
+			// Recreate the application
+			application.ObjectMeta.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, application)).Should(Succeed())
+		})
+	})
+
+	Context("When calling getApplication", func() {
+		It("should return the Application if it exists", func() {
+			application, err := adapter.getApplication(releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(application).ToNot(BeNil())
+		})
+
+		It("should fail if the Application doesn't exist", func() {
+			Expect(k8sClient.Delete(ctx, application)).Should(Succeed())
+			Eventually(func() bool {
+				_, err := adapter.getApplication(releasePlanAdmission)
+
+				return err != nil
+			}, time.Second*10).Should(BeTrue())
+
+			retrievedApplication, err := adapter.getApplication(releasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+			Expect(retrievedApplication).To(BeNil())
+
+			// Recreate the application
+			application.ObjectMeta.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, application)).Should(Succeed())
+		})
+	})
+
+	Context("When calling getApplicationComponents", func() {
+		It("should return the list of components", func() {
+			components, err := adapter.getApplicationComponents(application)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(components) > 0).To(BeTrue())
+		})
+	})
+
+	Context("When calling getEnvironment", func() {
+		It("should return the Environment if it exists", func() {
+			application, err := adapter.getEnvironment(releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(application).ToNot(BeNil())
+		})
+
+		It("should fail if the Environment doesn't exist", func() {
+			Expect(k8sClient.Delete(ctx, environment)).Should(Succeed())
+			Eventually(func() bool {
+				_, err := adapter.getEnvironment(releasePlanAdmission)
+
+				return err != nil
+			}, time.Second*10).Should(BeTrue())
+
+			retrievedEnvironment, err := adapter.getEnvironment(releasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+			Expect(retrievedEnvironment).To(BeNil())
+
+			// Recreate the environment
+			environment.ObjectMeta.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, environment)).Should(Succeed())
+		})
+	})
+
+	Context("When calling getSnapshotEnvironmentBinding", func() {
+		It("should return the SnapshotEnvironmentBinding if it exists", func() {
+			_, components, snapshot, environment, err := adapter.getSnapshotEnvironmentResources(releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			binding := gitops.NewSnapshotEnvironmentBinding(components, snapshot, environment)
+			Expect(k8sClient.Create(ctx, binding)).Should(Succeed())
+
+			Eventually(func() bool {
+				binding, err := adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+
+				return err == nil && binding != nil
+			}, time.Second*10).Should(BeTrue())
+
+			// Delete binding to clean up
+			Expect(k8sClient.Delete(ctx, binding)).Should(Succeed())
+		})
+	})
+
+	Context("When calling syncResources", func() {
+		It("should fail if there's no active ReleasePlanAdmission", func() {
+			Expect(k8sClient.Delete(ctx, releasePlanAdmission)).Should(Succeed())
+			Eventually(func() bool {
+				_, err := adapter.getActiveReleasePlanAdmission()
+
+				return err != nil
+			}, time.Second*10).Should(BeTrue())
+
+			Expect(adapter.syncResources()).ToNot(Succeed())
+
+			// Recreate the ReleasePlanAdmission
+			releasePlanAdmission.ObjectMeta.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
+		})
+
+		It("should fail if there's no Snapshot", func() {
+			Expect(k8sClient.Delete(ctx, applicationSnapshot)).Should(Succeed())
+			Eventually(func() bool {
+				_, err := adapter.getApplicationSnapshot()
+
+				return err != nil
+			}, time.Second*10).Should(BeTrue())
+
+			Expect(adapter.syncResources()).ToNot(Succeed())
+
+			// Recreate the Snapshot
+			applicationSnapshot.ObjectMeta.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, applicationSnapshot)).Should(Succeed())
+		})
+
+		It("should sync resources properly", func() {
+			Expect(adapter.syncResources()).To(Succeed())
+		})
 	})
 
 	It("ensures the target context is set when a workspace is targeted by releaseplan", func() {

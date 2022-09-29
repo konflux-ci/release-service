@@ -276,7 +276,7 @@ func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission 
 		// We create the binding so if the owner reference is not already present, there must be a good reason for that
 		patch := client.MergeFrom(existingBinding.DeepCopy())
 		existingBinding.Spec = binding.Spec
-		return existingBinding, a.client.Patch(a.targetContext, binding, patch)
+		return existingBinding, a.client.Patch(a.targetContext, existingBinding, patch)
 	}
 }
 
