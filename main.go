@@ -24,6 +24,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -32,8 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/kcp"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
@@ -50,8 +49,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(appstudiov1alpha1.AddToScheme(scheme))
-	utilruntime.Must(appstudioshared.AddToScheme(scheme))
-	utilruntime.Must(hasv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(applicationapiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(tektonv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }

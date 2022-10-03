@@ -18,7 +18,7 @@ package release
 
 import (
 	"context"
-	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"go/build"
 	"path/filepath"
 	"testing"
@@ -32,7 +32,6 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	appstudiotest "github.com/redhat-appstudio/release-service/test"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -69,16 +68,11 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "config", "crd", "bases"),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", "github.com", "tektoncd",
-				"pipeline@v0.32.2", "config",
+				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("tektoncd/pipeline"), "config",
 			),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("application-service"), "config", "crd", "bases",
-			),
-			filepath.Join(
-				build.Default.GOPATH,
-				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("appstudio-shared"), "config", "crd", "bases",
+				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
 			),
 		},
 		ErrorIfCRDPathMissing: true,
@@ -91,8 +85,7 @@ var _ = BeforeSuite(func() {
 
 	Expect(appstudiov1alpha1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
 	Expect(tektonv1beta1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
-	Expect(hasv1alpha1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
-	Expect(appstudioshared.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
+	Expect(applicationapiv1alpha1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
 
 	k8sManager, _ := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             clientsetscheme.Scheme,

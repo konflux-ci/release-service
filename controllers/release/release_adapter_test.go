@@ -17,7 +17,6 @@ limitations under the License.
 package release
 
 import (
-	"github.com/redhat-appstudio/application-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/gitops"
 	"reflect"
 	"strings"
@@ -36,7 +35,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/tekton"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -48,10 +47,10 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	var (
 		adapter *Adapter
 
-		application          *v1alpha1.Application
-		applicationSnapshot  *appstudioshared.ApplicationSnapshot
-		component            *v1alpha1.Component
-		environment          *appstudioshared.Environment
+		application          *applicationapiv1alpha1.Application
+		applicationSnapshot  *applicationapiv1alpha1.ApplicationSnapshot
+		component            *applicationapiv1alpha1.Component
+		environment          *applicationapiv1alpha1.Environment
 		release              *appstudiov1alpha1.Release
 		releaseStrategy      *appstudiov1alpha1.ReleaseStrategy
 		releasePlan          *appstudiov1alpha1.ReleasePlan
@@ -74,40 +73,40 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, releaseStrategy)).Should(Succeed())
 
-		applicationSnapshot = &appstudioshared.ApplicationSnapshot{
+		applicationSnapshot = &applicationapiv1alpha1.ApplicationSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-snapshot-",
 				Namespace:    "default",
 			},
-			Spec: appstudioshared.ApplicationSnapshotSpec{
+			Spec: applicationapiv1alpha1.ApplicationSnapshotSpec{
 				Application: "test-app",
-				Components:  []appstudioshared.ApplicationSnapshotComponent{},
+				Components:  []applicationapiv1alpha1.ApplicationSnapshotComponent{},
 			},
 		}
 		Expect(k8sClient.Create(ctx, applicationSnapshot)).Should(Succeed())
 
-		application = &v1alpha1.Application{
+		application = &applicationapiv1alpha1.Application{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-app",
 				Namespace: "default",
 			},
-			Spec: v1alpha1.ApplicationSpec{
+			Spec: applicationapiv1alpha1.ApplicationSpec{
 				DisplayName: "app",
 			},
 		}
 		Expect(k8sClient.Create(ctx, application)).Should(Succeed())
 
-		component = &v1alpha1.Component{
+		component = &applicationapiv1alpha1.Component{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-component",
 				Namespace: "default",
 			},
-			Spec: v1alpha1.ComponentSpec{
+			Spec: applicationapiv1alpha1.ComponentSpec{
 				Application:   "test-app",
 				ComponentName: "test-component",
-				Source: v1alpha1.ComponentSource{
-					ComponentSourceUnion: v1alpha1.ComponentSourceUnion{
-						GitSource: &v1alpha1.GitSource{
+				Source: applicationapiv1alpha1.ComponentSource{
+					ComponentSourceUnion: applicationapiv1alpha1.ComponentSourceUnion{
+						GitSource: &applicationapiv1alpha1.GitSource{
 							URL: "https://foo",
 						},
 					},
@@ -116,17 +115,17 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, component)).Should(Succeed())
 
-		environment = &appstudioshared.Environment{
+		environment = &applicationapiv1alpha1.Environment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-environment",
 				Namespace: "default",
 			},
-			Spec: appstudioshared.EnvironmentSpec{
-				DeploymentStrategy: appstudioshared.DeploymentStrategy_Manual,
+			Spec: applicationapiv1alpha1.EnvironmentSpec{
+				DeploymentStrategy: applicationapiv1alpha1.DeploymentStrategy_Manual,
 				DisplayName:        "production",
-				Type:               appstudioshared.EnvironmentType_POC,
-				Configuration: appstudioshared.EnvironmentConfiguration{
-					Env: []appstudioshared.EnvVarPair{},
+				Type:               applicationapiv1alpha1.EnvironmentType_POC,
+				Configuration: applicationapiv1alpha1.EnvironmentConfiguration{
+					Env: []applicationapiv1alpha1.EnvVarPair{},
 				},
 			},
 		}
@@ -864,7 +863,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	It("can get an existing ApplicationSnapshot", func() {
 		snapshot, err := adapter.getApplicationSnapshot()
 		Expect(err).Should(Succeed())
-		Expect(reflect.TypeOf(snapshot)).To(Equal(reflect.TypeOf(&appstudioshared.ApplicationSnapshot{})))
+		Expect(reflect.TypeOf(snapshot)).To(Equal(reflect.TypeOf(&applicationapiv1alpha1.ApplicationSnapshot{})))
 
 		Expect(k8sClient.Delete(ctx, snapshot)).Should(Succeed())
 		Eventually(func() bool {

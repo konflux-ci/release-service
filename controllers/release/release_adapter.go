@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/syncer"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,7 +31,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kcp-dev/logicalcluster/v2"
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/controllers/results"
 	"github.com/redhat-appstudio/release-service/tekton"
@@ -251,7 +250,7 @@ func (a *Adapter) EnsureTargetContextIsSet() (results.OperationResult, error) {
 
 // createOrUpdateSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being
 // processed.
-func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*appstudioshared.ApplicationSnapshotEnvironmentBinding, error) {
+func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding, error) {
 	application, components, snapshot, environment, err := a.getSnapshotEnvironmentResources(releasePlanAdmission)
 	if err != nil {
 		return nil, err
@@ -284,7 +283,7 @@ func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission 
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
 // will be extracted from the given ReleaseStrategy. The Release's ApplicationSnapshot will also be passed to the
 // release PipelineRun.
-func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy, applicationSnapshot *appstudioshared.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
+func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy, applicationSnapshot *applicationapiv1alpha1.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", releaseStrategy.Namespace).
 		WithOwner(a.release).
 		WithReleaseAndApplicationLabels(a.release.Name, a.release.Namespace, a.release.GetAnnotations()[logicalcluster.AnnotationKey], applicationSnapshot.Spec.Application).
@@ -363,8 +362,8 @@ func (a *Adapter) getActiveReleasePlanAdmission() (*v1alpha1.ReleasePlanAdmissio
 
 // getApplication returns the Application referenced by the ReleasePlanAdmission. If the Application is not found or
 // the Get operation failed, an error will be returned.
-func (a *Adapter) getApplication(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*hasv1alpha1.Application, error) {
-	application := &hasv1alpha1.Application{}
+func (a *Adapter) getApplication(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error) {
+	application := &applicationapiv1alpha1.Application{}
 	err := a.client.Get(a.targetContext, types.NamespacedName{
 		Name:      releasePlanAdmission.Spec.Application,
 		Namespace: releasePlanAdmission.Namespace,
@@ -378,8 +377,8 @@ func (a *Adapter) getApplication(releasePlanAdmission *v1alpha1.ReleasePlanAdmis
 }
 
 // getApplicationComponents returns a list of all the Components associated with the given Application.
-func (a *Adapter) getApplicationComponents(application *hasv1alpha1.Application) ([]hasv1alpha1.Component, error) {
-	applicationComponents := &hasv1alpha1.ComponentList{}
+func (a *Adapter) getApplicationComponents(application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error) {
+	applicationComponents := &applicationapiv1alpha1.ComponentList{}
 	opts := []client.ListOption{
 		client.InNamespace(application.Namespace),
 		client.MatchingFields{"spec.application": application.Name},
@@ -395,8 +394,8 @@ func (a *Adapter) getApplicationComponents(application *hasv1alpha1.Application)
 
 // getApplicationSnapshot returns the ApplicationSnapshot referenced by the Release being processed. If the
 // ApplicationSnapshot is not found or the Get operation failed, an error will be returned.
-func (a *Adapter) getApplicationSnapshot() (*appstudioshared.ApplicationSnapshot, error) {
-	applicationSnapshot := &appstudioshared.ApplicationSnapshot{}
+func (a *Adapter) getApplicationSnapshot() (*applicationapiv1alpha1.ApplicationSnapshot, error) {
+	applicationSnapshot := &applicationapiv1alpha1.ApplicationSnapshot{}
 	err := a.client.Get(a.context, types.NamespacedName{
 		Name:      a.release.Spec.ApplicationSnapshot,
 		Namespace: a.release.Namespace,
@@ -411,8 +410,8 @@ func (a *Adapter) getApplicationSnapshot() (*appstudioshared.ApplicationSnapshot
 
 // getEnvironment returns the Environment referenced by the ReleasePlanAdmission used during this release. If the
 // Environment is not found or the Get operation fails, an error will be returned.
-func (a *Adapter) getEnvironment(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*appstudioshared.Environment, error) {
-	environment := &appstudioshared.Environment{}
+func (a *Adapter) getEnvironment(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Environment, error) {
+	environment := &applicationapiv1alpha1.Environment{}
 	err := a.client.Get(a.targetContext, types.NamespacedName{
 		Name:      releasePlanAdmission.Spec.Environment,
 		Namespace: releasePlanAdmission.Namespace,
@@ -481,9 +480,9 @@ func (a *Adapter) getReleaseStrategy(releasePlanAdmission *v1alpha1.ReleasePlanA
 // getSnapshotEnvironmentBinding returns the SnapshotEnvironmentBinding associated with the Release being processed.
 // That association is defined by both the Environment and Application matching between the ReleasePlanAdmission and
 // the SnapshotEnvironmentBinding. If the Get operation fails, an error will be returned.
-func (a *Adapter) getSnapshotEnvironmentBinding(environment *appstudioshared.Environment,
-	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*appstudioshared.ApplicationSnapshotEnvironmentBinding, error) {
-	bindingList := &appstudioshared.ApplicationSnapshotEnvironmentBindingList{}
+func (a *Adapter) getSnapshotEnvironmentBinding(environment *applicationapiv1alpha1.Environment,
+	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding, error) {
+	bindingList := &applicationapiv1alpha1.ApplicationSnapshotEnvironmentBindingList{}
 	opts := []client.ListOption{
 		client.InNamespace(environment.Namespace),
 		client.MatchingFields{"spec.environment": environment.Name},
@@ -506,8 +505,8 @@ func (a *Adapter) getSnapshotEnvironmentBinding(environment *appstudioshared.Env
 // getSnapshotEnvironmentResources returns all the resources required to create a SnapshotEnvironmentBinding. If any of
 // those resources cannot be retrieved from the cluster, an error will be returned.
 func (a *Adapter) getSnapshotEnvironmentResources(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (
-	*hasv1alpha1.Application, []hasv1alpha1.Component,
-	*appstudioshared.ApplicationSnapshot, *appstudioshared.Environment, error,
+	*applicationapiv1alpha1.Application, []applicationapiv1alpha1.Component,
+	*applicationapiv1alpha1.ApplicationSnapshot, *applicationapiv1alpha1.Environment, error,
 ) {
 	environment, err := a.getEnvironment(releasePlanAdmission)
 	if err != nil {

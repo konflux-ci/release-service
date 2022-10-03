@@ -18,6 +18,7 @@ package syncer
 
 import (
 	"context"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"go/build"
 	"path/filepath"
 	"testing"
@@ -30,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	appstudiotest "github.com/redhat-appstudio/release-service/test"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
@@ -62,7 +62,7 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "config", "crd", "bases"),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("appstudio-shared"), "config", "crd", "bases",
+				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
 			),
 		},
 		ErrorIfCRDPathMissing: true,
@@ -76,7 +76,7 @@ var _ = BeforeSuite(func() {
 	err = appstudiov1alpha1.AddToScheme(clientsetscheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = appstudioshared.AddToScheme(clientsetscheme.Scheme)
+	err = applicationapiv1alpha1.AddToScheme(clientsetscheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme

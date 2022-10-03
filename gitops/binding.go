@@ -17,20 +17,19 @@ limitations under the License.
 package gitops
 
 import (
-	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math"
 )
 
 // NewSnapshotEnvironmentBinding creates a new SnapshotEnvironmentBinding.
-func NewSnapshotEnvironmentBinding(components []hasv1alpha1.Component, snapshot *appstudioshared.ApplicationSnapshot, environment *appstudioshared.Environment) *appstudioshared.ApplicationSnapshotEnvironmentBinding {
-	return &appstudioshared.ApplicationSnapshotEnvironmentBinding{
+func NewSnapshotEnvironmentBinding(components []applicationapiv1alpha1.Component, snapshot *applicationapiv1alpha1.ApplicationSnapshot, environment *applicationapiv1alpha1.Environment) *applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding {
+	return &applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: environment.Name + "-",
 			Namespace:    environment.Namespace,
 		},
-		Spec: appstudioshared.ApplicationSnapshotEnvironmentBindingSpec{
+		Spec: applicationapiv1alpha1.ApplicationSnapshotEnvironmentBindingSpec{
 			Application: snapshot.Spec.Application,
 			Environment: environment.Name,
 			Snapshot:    snapshot.Name,
@@ -40,13 +39,13 @@ func NewSnapshotEnvironmentBinding(components []hasv1alpha1.Component, snapshot 
 }
 
 // getComponentBindings returns a list of BindingComponents created by using the information of the given Components.
-func getComponentBindings(components []hasv1alpha1.Component) []appstudioshared.BindingComponent {
-	var bindingComponents []appstudioshared.BindingComponent
+func getComponentBindings(components []applicationapiv1alpha1.Component) []applicationapiv1alpha1.BindingComponent {
+	var bindingComponents []applicationapiv1alpha1.BindingComponent
 
 	for _, component := range components {
-		bindingComponents = append(bindingComponents, appstudioshared.BindingComponent{
+		bindingComponents = append(bindingComponents, applicationapiv1alpha1.BindingComponent{
 			Name: component.Name,
-			Configuration: appstudioshared.BindingComponentConfiguration{
+			Configuration: applicationapiv1alpha1.BindingComponentConfiguration{
 				Replicas: int(math.Max(1, float64(component.Spec.Replicas))),
 			},
 		})
