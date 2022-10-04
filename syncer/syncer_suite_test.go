@@ -87,7 +87,9 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: clientsetscheme.Scheme,
+		Scheme:             clientsetscheme.Scheme,
+		MetricsBindAddress: "0", // this disables metrics
+		LeaderElection:     false,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
