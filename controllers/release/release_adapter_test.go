@@ -693,7 +693,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Name:      release.Name,
 				Namespace: release.Namespace,
 			}, release)
-			return err == nil && release.GetDeletionTimestamp() != nil
+			return err == nil && release.GetDeletionTimestamp() != nil && release.Status.ReleasePipelineRun != ""
 		}, time.Second*10).Should(BeTrue())
 
 		result, err = adapter.EnsureFinalizersAreCalled()
