@@ -127,7 +127,7 @@ func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipeli
 	return r
 }
 
-// WithReleaseLabels adds Release name, namespace, and workspace as labels to the release PipelineRun.
+// WithReleaseAndApplicationLabels adds Release and Application labels to the release PipelineRun.
 func (r *ReleasePipelineRun) WithReleaseAndApplicationLabels(releaseName, releaseNamespace, releaseWorkspace string, applicationName string) *ReleasePipelineRun {
 	r.ObjectMeta.Labels = map[string]string{
 		PipelinesTypeLabel:    PipelineTypeRelease,
