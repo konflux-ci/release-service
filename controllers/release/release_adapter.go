@@ -81,8 +81,9 @@ func (a *Adapter) EnsureFinalizersAreCalled() (results.OperationResult, error) {
 			return results.RequeueWithError(err)
 		}
 
+		patch := client.MergeFrom(a.release.DeepCopy())
 		controllerutil.RemoveFinalizer(a.release, finalizerName)
-		err := a.client.Update(a.context, a.release)
+		err := a.client.Patch(a.context, a.release, patch)
 		if err != nil {
 			return results.RequeueWithError(err)
 		}
@@ -103,8 +104,9 @@ func (a *Adapter) EnsureFinalizerIsAdded() (results.OperationResult, error) {
 
 	if !finalizerFound {
 		a.logger.Info("Adding Finalizer to the Release")
+		patch := client.MergeFrom(a.release.DeepCopy())
 		controllerutil.AddFinalizer(a.release, finalizerName)
-		err := a.client.Update(a.context, a.release)
+		err := a.client.Patch(a.context, a.release, patch)
 
 		return results.RequeueOnErrorOrContinue(err)
 	}
