@@ -18,6 +18,7 @@ package tekton
 
 import (
 	"context"
+	"github.com/tektoncd/pipeline/pkg/clock"
 	"reflect"
 
 	. "github.com/onsi/ginkgo"
@@ -112,7 +113,7 @@ var _ = Describe("Predicates", func() {
 		})
 
 		It("should return true when an updated event is received for a succeeded release PipelineRun", func() {
-			releasePipelineRun.AsPipelineRun().Status.InitializeConditions()
+			releasePipelineRun.AsPipelineRun().Status.InitializeConditions(clock.RealClock{})
 			contextEvent := event.UpdateEvent{
 				ObjectOld: releasePipelineRun.AsPipelineRun(),
 				ObjectNew: releasePipelineRun.WithServiceAccount("test-service-account").

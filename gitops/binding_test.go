@@ -20,22 +20,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/redhat-appstudio/application-service/api/v1alpha1"
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math"
 	"reflect"
 )
 
 var _ = Describe("Binding", func() {
-	components := []v1alpha1.Component{
+	components := []applicationapiv1alpha1.Component{
 		{
-			Spec: v1alpha1.ComponentSpec{
+			Spec: applicationapiv1alpha1.ComponentSpec{
 				Application:   "app",
 				ComponentName: "foo",
-				Source: v1alpha1.ComponentSource{
-					ComponentSourceUnion: v1alpha1.ComponentSourceUnion{
-						GitSource: &v1alpha1.GitSource{
+				Source: applicationapiv1alpha1.ComponentSource{
+					ComponentSourceUnion: applicationapiv1alpha1.ComponentSourceUnion{
+						GitSource: &applicationapiv1alpha1.GitSource{
 							URL: "https://foo",
 						},
 					},
@@ -43,13 +42,13 @@ var _ = Describe("Binding", func() {
 			},
 		},
 		{
-			Spec: v1alpha1.ComponentSpec{
+			Spec: applicationapiv1alpha1.ComponentSpec{
 				Application:   "app",
 				ComponentName: "bar",
 				Replicas:      2,
-				Source: v1alpha1.ComponentSource{
-					ComponentSourceUnion: v1alpha1.ComponentSourceUnion{
-						GitSource: &v1alpha1.GitSource{
+				Source: applicationapiv1alpha1.ComponentSource{
+					ComponentSourceUnion: applicationapiv1alpha1.ComponentSourceUnion{
+						GitSource: &applicationapiv1alpha1.GitSource{
 							URL: "https://foo",
 						},
 					},
@@ -58,26 +57,26 @@ var _ = Describe("Binding", func() {
 		},
 	}
 
-	environment := &appstudioshared.Environment{
+	environment := &applicationapiv1alpha1.Environment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "environment",
 			Namespace: "default",
 		},
-		Spec: appstudioshared.EnvironmentSpec{
-			DeploymentStrategy: appstudioshared.DeploymentStrategy_Manual,
+		Spec: applicationapiv1alpha1.EnvironmentSpec{
+			DeploymentStrategy: applicationapiv1alpha1.DeploymentStrategy_Manual,
 			DisplayName:        "production",
-			Type:               appstudioshared.EnvironmentType_POC,
+			Type:               applicationapiv1alpha1.EnvironmentType_POC,
 		},
 	}
 
-	snapshot := &appstudioshared.ApplicationSnapshot{
+	snapshot := &applicationapiv1alpha1.ApplicationSnapshot{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: "snapshot-",
 			Namespace:    "default",
 		},
-		Spec: appstudioshared.ApplicationSnapshotSpec{
+		Spec: applicationapiv1alpha1.ApplicationSnapshotSpec{
 			Application: "app",
-			Components:  []appstudioshared.ApplicationSnapshotComponent{},
+			Components:  []applicationapiv1alpha1.ApplicationSnapshotComponent{},
 		},
 	}
 
@@ -85,7 +84,7 @@ var _ = Describe("Binding", func() {
 		bindingComponents := getComponentBindings(components)
 
 		It("can create and return a new BindingComponent slice", func() {
-			Expect(reflect.TypeOf(bindingComponents)).To(Equal(reflect.TypeOf([]appstudioshared.BindingComponent{})))
+			Expect(reflect.TypeOf(bindingComponents)).To(Equal(reflect.TypeOf([]applicationapiv1alpha1.BindingComponent{})))
 			Expect(len(bindingComponents)).To(Equal(len(components)))
 		})
 
@@ -101,7 +100,7 @@ var _ = Describe("Binding", func() {
 	Context("When calling NewSnapshotEnvironmentBinding", func() {
 		It("can create and return a new SnapshotEnvironmentBinding", func() {
 			binding := NewSnapshotEnvironmentBinding(components, snapshot, environment)
-			Expect(reflect.TypeOf(binding)).To(Equal(reflect.TypeOf(&appstudioshared.ApplicationSnapshotEnvironmentBinding{})))
+			Expect(reflect.TypeOf(binding)).To(Equal(reflect.TypeOf(&applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding{})))
 			Expect(*binding).To(MatchFields(IgnoreExtras, Fields{
 				"ObjectMeta": MatchFields(IgnoreExtras, Fields{
 					"GenerateName": Equal(environment.Name + "-"),

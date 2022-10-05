@@ -18,6 +18,7 @@ package tekton
 
 import (
 	"context"
+	"github.com/tektoncd/pipeline/pkg/clock"
 	"reflect"
 
 	. "github.com/onsi/ginkgo"
@@ -94,7 +95,7 @@ var _ = Describe("Utils", func() {
 		})
 
 		It("returns true when ReleasePipelineRun.Status is `Succeeded` or false otherwise", func() {
-			releasePipelineRun.AsPipelineRun().Status.InitializeConditions()
+			releasePipelineRun.AsPipelineRun().Status.InitializeConditions(clock.RealClock{})
 			// MarkRunning sets Status to Unknown
 			releasePipelineRun.Status.MarkRunning("PipelineRun Tests", "sets it to Unknown")
 			Expect(hasPipelineSucceeded(releasePipelineRun.AsPipelineRun())).Should(BeFalse())

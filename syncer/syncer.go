@@ -19,7 +19,7 @@ package syncer
 import (
 	"context"
 	"github.com/go-logr/logr"
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,7 +51,7 @@ func (s *Syncer) SetContext(ctx context.Context) {
 }
 
 // SyncSnapshot syncs a Snapshot into the given namespace. If an exiting one is found, no operations will be taken.
-func (s *Syncer) SyncSnapshot(snapshot *appstudioshared.ApplicationSnapshot, namespace string) error {
+func (s *Syncer) SyncSnapshot(snapshot *applicationapiv1alpha1.ApplicationSnapshot, namespace string) error {
 	syncedSnapshot := snapshot.DeepCopy()
 	syncedSnapshot.ObjectMeta = v1.ObjectMeta{
 		Name:        snapshot.Name,

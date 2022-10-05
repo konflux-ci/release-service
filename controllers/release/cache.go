@@ -18,8 +18,7 @@ package release
 
 import (
 	"context"
-	hasv1alpha1 "github.com/redhat-appstudio/application-service/api/v1alpha1"
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,10 +27,10 @@ import (
 // SetupComponentCache adds a new index field to be able to search Components by application.
 func SetupComponentCache(mgr ctrl.Manager) error {
 	releasePlanAdmissionIndexFunc := func(obj client.Object) []string {
-		return []string{obj.(*hasv1alpha1.Component).Spec.Application}
+		return []string{obj.(*applicationapiv1alpha1.Component).Spec.Application}
 	}
 
-	return mgr.GetCache().IndexField(context.Background(), &hasv1alpha1.Component{},
+	return mgr.GetCache().IndexField(context.Background(), &applicationapiv1alpha1.Component{},
 		"spec.application", releasePlanAdmissionIndexFunc)
 }
 
@@ -48,9 +47,9 @@ func SetupReleasePlanAdmissionCache(mgr ctrl.Manager) error {
 // SetupSnapshotEnvironmentBindingCache adds a new index field to be able to search SnapshotEnvironmentBindings by environment.
 func SetupSnapshotEnvironmentBindingCache(mgr ctrl.Manager) error {
 	releasePlanAdmissionIndexFunc := func(obj client.Object) []string {
-		return []string{obj.(*appstudioshared.ApplicationSnapshotEnvironmentBinding).Spec.Environment}
+		return []string{obj.(*applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding).Spec.Environment}
 	}
 
-	return mgr.GetCache().IndexField(context.Background(), &appstudioshared.ApplicationSnapshotEnvironmentBinding{},
+	return mgr.GetCache().IndexField(context.Background(), &applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding{},
 		"spec.environment", releasePlanAdmissionIndexFunc)
 }

@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,7 +38,7 @@ const (
 var _ = Describe("Syncer", Ordered, func() {
 	const targetNamespace string = "syncer"
 
-	snapshot := &appstudioshared.ApplicationSnapshot{
+	snapshot := &applicationapiv1alpha1.ApplicationSnapshot{
 		ObjectMeta: v1.ObjectMeta{
 			Annotations: map[string]string{
 				"foo": "bar",
@@ -49,9 +49,9 @@ var _ = Describe("Syncer", Ordered, func() {
 			},
 			Namespace: "default",
 		},
-		Spec: appstudioshared.ApplicationSnapshotSpec{
+		Spec: applicationapiv1alpha1.ApplicationSnapshotSpec{
 			Application: "app",
-			Components: []appstudioshared.ApplicationSnapshotComponent{
+			Components: []applicationapiv1alpha1.ApplicationSnapshotComponent{
 				{
 					Name:           "foo",
 					ContainerImage: "quay.io/foo",
@@ -97,7 +97,7 @@ var _ = Describe("Syncer", Ordered, func() {
 
 		Expect(syncer.SyncSnapshot(snapshot, targetNamespace)).To(Succeed())
 
-		syncedSnapshot := &appstudioshared.ApplicationSnapshot{}
+		syncedSnapshot := &applicationapiv1alpha1.ApplicationSnapshot{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{
 			Name:      snapshot.Name,
 			Namespace: targetNamespace,

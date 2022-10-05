@@ -32,8 +32,8 @@ func TestUtilTest(t *testing.T) {
 var _ = Describe("Test utilities", func() {
 	Context("When GetRelativeDependencyPath is called", func() {
 		It("returns the module path of a given pseudo versioned dependent module", func() {
-			moduleRelativePath := GetRelativeDependencyPath("appstudio-shared")
-			Expect(moduleRelativePath).Should(ContainSubstring("appstudio-shared@v0.0.0"))
+			moduleRelativePath := GetRelativeDependencyPath("application-api")
+			Expect(moduleRelativePath).Should(ContainSubstring("application-api@v"))
 		})
 
 		It("returns an empty string when the given dependent module is not found", func() {
@@ -53,13 +53,16 @@ var _ = Describe("Test utilities", func() {
 		It("returns an empty string and an error when go.mod is not found", func() {
 			goModFilepath, err := FindGoModFilepath("/var/tmp")
 			Expect(goModFilepath).Should(BeEmpty())
-			Expect(err).Should(And(HaveOccurred()), Equal("go.mod file not found"))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("go.mod file not found"))
 		})
 
 		It("return an empty string and an error when the given directory does not exist", func() {
 			goModFilepath, err := FindGoModFilepath("/nonexistent/dir")
 			Expect(goModFilepath).Should(BeEmpty())
-			Expect(err).Should(And(HaveOccurred()), Equal("go.mod file not found"))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("go.mod file not found"))
+
 		})
 	})
 })

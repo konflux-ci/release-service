@@ -19,6 +19,7 @@ package tekton
 import (
 	"context"
 	"encoding/json"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"reflect"
 
 	. "github.com/onsi/ginkgo"
@@ -27,7 +28,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 
-	appstudioshared "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -57,9 +57,9 @@ var _ = Describe("PipelineRun", func() {
 		release                            *v1alpha1.Release
 		extraParams                        *ExtraParams
 		releasePipelineRun                 *ReleasePipelineRun
-		snapshot                           *appstudioshared.ApplicationSnapshot
+		snapshot                           *applicationapiv1alpha1.ApplicationSnapshot
 		strategy                           *v1alpha1.ReleaseStrategy
-		unmarshaledApplicationSnapshotSpec *appstudioshared.ApplicationSnapshotSpec
+		unmarshaledApplicationSnapshotSpec *applicationapiv1alpha1.ApplicationSnapshotSpec
 	)
 	BeforeEach(func() {
 
@@ -87,7 +87,7 @@ var _ = Describe("PipelineRun", func() {
 				ReleasePlan:         "testreleaseplan",
 			},
 		}
-		snapshot = &appstudioshared.ApplicationSnapshot{
+		snapshot = &applicationapiv1alpha1.ApplicationSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "testsnapshot-",
 				Namespace:    "default",
@@ -96,10 +96,10 @@ var _ = Describe("PipelineRun", func() {
 				APIVersion: apiVersion,
 				Kind:       "ApplicationSnapshot",
 			},
-			Spec: appstudioshared.ApplicationSnapshotSpec{
+			Spec: applicationapiv1alpha1.ApplicationSnapshotSpec{
 				Application: applicationName,
 				DisplayName: "Test application",
-				Components:  []appstudioshared.ApplicationSnapshotComponent{},
+				Components:  []applicationapiv1alpha1.ApplicationSnapshotComponent{},
 			},
 		}
 		strategy = &v1alpha1.ReleaseStrategy{
