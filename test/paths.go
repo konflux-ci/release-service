@@ -48,7 +48,7 @@ func GetRelativeDependencyPath(moduleName string) string {
 	scanner := bufio.NewScanner(goModReadFile)
 	for scanner.Scan() {
 		if strings.Contains(scanner.Text(), moduleName) {
-			crdPath = strings.Trim(string(scanner.Text()), "\t")
+			crdPath = strings.Trim(scanner.Text(), "\t")
 			break
 		}
 	}
