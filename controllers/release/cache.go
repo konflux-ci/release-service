@@ -26,12 +26,12 @@ import (
 
 // SetupComponentCache adds a new index field to be able to search Components by application.
 func SetupComponentCache(mgr ctrl.Manager) error {
-	releasePlanAdmissionIndexFunc := func(obj client.Object) []string {
+	componentIndexFunc := func(obj client.Object) []string {
 		return []string{obj.(*applicationapiv1alpha1.Component).Spec.Application}
 	}
 
 	return mgr.GetCache().IndexField(context.Background(), &applicationapiv1alpha1.Component{},
-		"spec.application", releasePlanAdmissionIndexFunc)
+		"spec.application", componentIndexFunc)
 }
 
 // SetupReleasePlanAdmissionCache adds a new index field to be able to search ReleasePlanAdmissions by origin namespace.
@@ -46,10 +46,10 @@ func SetupReleasePlanAdmissionCache(mgr ctrl.Manager) error {
 
 // SetupSnapshotEnvironmentBindingCache adds a new index field to be able to search SnapshotEnvironmentBindings by environment.
 func SetupSnapshotEnvironmentBindingCache(mgr ctrl.Manager) error {
-	releasePlanAdmissionIndexFunc := func(obj client.Object) []string {
+	snapshotEnvironmentBindingIndexFunc := func(obj client.Object) []string {
 		return []string{obj.(*applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding).Spec.Environment}
 	}
 
 	return mgr.GetCache().IndexField(context.Background(), &applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding{},
-		"spec.environment", releasePlanAdmissionIndexFunc)
+		"spec.environment", snapshotEnvironmentBindingIndexFunc)
 }
