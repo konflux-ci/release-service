@@ -170,6 +170,14 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
+LOCAL_CERT_DIR := /tmp/k8s-webhook-server/serving-certs
+.PHONY: create-local-certs
+create-local-certs: ## Create the local certs required for running the operator manually
+	mkdir -p $(LOCAL_CERT_DIR)
+	openssl genrsa -out $(LOCAL_CERT_DIR)/tls.key
+	openssl req -key $(LOCAL_CERT_DIR)/tls.key -new -out $(LOCAL_CERT_DIR)/tls.csr -subj "/C=XX/L=Default City/O=Red Hat"
+	openssl x509 -signkey $(LOCAL_CERT_DIR)/tls.key -in $(LOCAL_CERT_DIR)/tls.csr -req -days 365 -out $(LOCAL_CERT_DIR)/tls.crt
+
 ##@ Build Dependencies
 
 ## Location to install dependencies to
