@@ -8,29 +8,29 @@ KCP_API_EXPORT_HEADER="$(cat << EOF
 apiVersion: apis.kcp.dev/v1alpha1
 kind: APIExport
 metadata:
-  name: release
+  name: release-service
 spec:
   # The identityHash values should be populated with proper values at
   # deployment time.
   permissionClaims:
   - resource: "applications"
     group: "appstudio.redhat.com"
-    identityHash: "APPLICATION_API_IDENTITY_HASH_PLACEHOLDER"
+    identityHash: application-api
   - resource: "components"
     group: "appstudio.redhat.com"
-    identityHash: "APPLICATION_API_IDENTITY_HASH_PLACEHOLDER"
+    identityHash: application-api
   - resource: "applicationsnapshots"
     group: "appstudio.redhat.com"
-    identityHash: "APPLICATION_API_IDENTITY_HASH_PLACEHOLDER"
+    identityHash: application-api
   - resource: "environments"
     group: "appstudio.redhat.com"
-    identityHash: "APPLICATION_API_IDENTITY_HASH_PLACEHOLDER"
+    identityHash: application-api
   - resource: "applicationsnapshotenvironmentbindings"
     group: "appstudio.redhat.com"
-    identityHash: "APPLICATION_API_IDENTITY_HASH_PLACEHOLDER"
+    identityHash: application-api
   - resource: "pipelineruns"
     group: "tekton.dev"
-    identityHash: null
+    identityHash: pipeline-service
   latestResourceSchemas:
 EOF
 )"
