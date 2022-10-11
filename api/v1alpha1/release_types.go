@@ -105,7 +105,7 @@ type ReleaseStatus struct {
 
 	// Target references where this relesae is intended to be released to
 	// +optional
-	Target kcp.NamespaceReference `json:"target"`
+	Target kcp.NamespaceReference `json:"target,omitempty"`
 }
 
 // +kubebuilder:object:root=true

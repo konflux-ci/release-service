@@ -24,6 +24,7 @@ import (
 
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/gitops"
+	"github.com/redhat-appstudio/release-service/kcp"
 	"github.com/redhat-appstudio/release-service/syncer"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -229,24 +230,40 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingIsCreated() (results.Operation
 // EnsureTargetContextIsSet is an operation that will ensure that the targetContext of the adapter is not nil. It will
 // set it to a context from the workspace in the ReleasePlan if one is defined or to its own context if not.
 func (a *Adapter) EnsureTargetContextIsSet() (results.OperationResult, error) {
-	if a.targetContext == nil {
+	if a.release.Status.Target == (kcp.NamespaceReference{}) {
+		patch := client.MergeFrom(a.release.DeepCopy())
 		releasePlan, err := a.getReleasePlan()
 		if err != nil {
-			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, err.Error())
 			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
 
-		if releasePlan.Spec.Target.Workspace == "" {
-			a.logger.Info("Running in a traditional kubernetes environment")
-			a.targetContext = a.context
-		} else {
+		if _, ok := logicalcluster.ClusterFromContext(a.context); ok {
 			a.logger.Info("Running in a KCP environment")
-			a.targetContext = logicalcluster.WithCluster(a.context, logicalcluster.New(releasePlan.Spec.Target.Workspace))
+
+			if releasePlan.Spec.Target.Workspace == "" {
+				a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, "ReleasePlan Workspace is not set while running on KCP")
+				return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+			}
+		} else if releasePlan.Spec.Target.Workspace != "" {
+			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, "ReleasePlan Workspace is set while not running on KCP")
+			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
 
+		a.release.Status.Target = releasePlan.Spec.Target
+		err = a.client.Status().Patch(a.context, a.release, patch)
+		if err != nil {
+			return results.RequeueWithError(err)
+		}
+	}
+
+	if a.release.Status.Target.Workspace == "" {
+		a.targetContext = a.context
+	} else {
+		a.targetContext = logicalcluster.WithCluster(a.context, logicalcluster.New(a.release.Status.Target.Workspace))
 		a.syncer.SetContext(a.targetContext)
 	}
+
 	return results.ContinueProcessing()
 }
 
@@ -434,7 +451,6 @@ func (a *Adapter) getReleasePlan() (*v1alpha1.ReleasePlan, error) {
 		Namespace: a.release.Namespace,
 		Name:      a.release.Spec.ReleasePlan,
 	}, releasePlan)
-
 	if err != nil {
 		return nil, err
 	}
