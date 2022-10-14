@@ -18,10 +18,11 @@ package release
 
 import (
 	"context"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"go/build"
 	"path/filepath"
 	"testing"
+
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
 	"k8s.io/client-go/rest"
 
@@ -32,6 +33,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	ecapiv1alpha1 "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	appstudiotest "github.com/redhat-appstudio/release-service/test"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -74,6 +76,10 @@ var _ = BeforeSuite(func() {
 				build.Default.GOPATH,
 				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
 			),
+			filepath.Join(
+				build.Default.GOPATH,
+				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("enterprise-contract-controller"), "config", "crd", "bases",
+			),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -85,6 +91,7 @@ var _ = BeforeSuite(func() {
 
 	Expect(appstudiov1alpha1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
 	Expect(tektonv1beta1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
+	Expect(ecapiv1alpha1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
 	Expect(applicationapiv1alpha1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
 
 	k8sManager, _ := ctrl.NewManager(cfg, ctrl.Options{

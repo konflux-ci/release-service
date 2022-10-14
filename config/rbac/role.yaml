@@ -28,6 +28,20 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
+  - enterprisecontractpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - enterprisecontractpolicies/status
+  verbs:
+  - get
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
   - releases
   verbs:
   - create

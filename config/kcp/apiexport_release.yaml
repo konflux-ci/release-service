@@ -24,6 +24,9 @@ spec:
   - resource: "pipelineruns"
     group: "tekton.dev"
     identityHash: pipeline-service
+  - resource: "enterprisecontractpolicies"
+    group: "appstudio.redhat.com"
+    identityHash: enterprisecontract
   latestResourceSchemas:
     - md5-06f1498b5778196e58c2bc1fc88108b8.releaseplanadmissions.appstudio.redhat.com
     - md5-9959e22acaaf6d162a03980c75b93dfe.releaseplans.appstudio.redhat.com

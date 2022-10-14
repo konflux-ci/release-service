@@ -17,6 +17,7 @@ limitations under the License.
 package release
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"time"
@@ -37,8 +38,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	ecapiv1alpha1 "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
+
 	"github.com/redhat-appstudio/release-service/tekton"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 
@@ -49,17 +52,43 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	var (
 		adapter *Adapter
 
-		application          *applicationapiv1alpha1.Application
-		applicationSnapshot  *applicationapiv1alpha1.ApplicationSnapshot
-		component            *applicationapiv1alpha1.Component
-		environment          *applicationapiv1alpha1.Environment
-		release              *appstudiov1alpha1.Release
-		releaseStrategy      *appstudiov1alpha1.ReleaseStrategy
-		releasePlan          *appstudiov1alpha1.ReleasePlan
-		releasePlanAdmission *appstudiov1alpha1.ReleasePlanAdmission
+		application              *applicationapiv1alpha1.Application
+		applicationSnapshot      *applicationapiv1alpha1.ApplicationSnapshot
+		component                *applicationapiv1alpha1.Component
+		environment              *applicationapiv1alpha1.Environment
+		release                  *appstudiov1alpha1.Release
+		releaseStrategy          *appstudiov1alpha1.ReleaseStrategy
+		releasePlan              *appstudiov1alpha1.ReleasePlan
+		releasePlanAdmission     *appstudiov1alpha1.ReleasePlanAdmission
+		enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy
 	)
 
 	BeforeAll(func() {
+		ecPolicy := ecapiv1alpha1.PolicySource{
+			GitRepository: &ecapiv1alpha1.GitPolicySource{
+				Repository: "https://github.com/",
+				Revision:   "main",
+			},
+		}
+
+		enterpriseContractPolicy = &ecapiv1alpha1.EnterpriseContractPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-policy-",
+				Namespace:    testNamespace,
+			},
+			Spec: ecapiv1alpha1.EnterpriseContractPolicySpec{
+				Description: "test-policy-description",
+				Sources:     []ecapiv1alpha1.PolicySource{ecPolicy},
+			},
+		}
+		Expect(k8sClient.Create(ctx, enterpriseContractPolicy)).Should(Succeed())
+
+		err := k8sClient.Get(ctx, types.NamespacedName{
+			Name:      enterpriseContractPolicy.Name,
+			Namespace: enterpriseContractPolicy.Namespace,
+		}, enterpriseContractPolicy)
+		Expect(err).ShouldNot(HaveOccurred())
+
 		releaseStrategy = &appstudiov1alpha1.ReleaseStrategy{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-releasestrategy-",
@@ -68,7 +97,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Spec: appstudiov1alpha1.ReleaseStrategySpec{
 				Pipeline:              "release-pipeline",
 				Bundle:                "test-bundle",
-				Policy:                "test-policy",
+				Policy:                enterpriseContractPolicy.Name,
 				PersistentVolumeClaim: "test-pvc",
 				ServiceAccount:        "test-account",
 			},
@@ -650,8 +679,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		result, err = adapter.EnsureReleasePipelineRunExists()
 		Expect(result.CancelRequest).To(BeFalse())
 		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Delete(ctx, release)).ToNot(HaveOccurred())
 
-		Expect(k8sClient.Delete(ctx, release)).NotTo(HaveOccurred())
 		Eventually(func() bool {
 			err = k8sClient.Get(ctx, types.NamespacedName{
 				Name:      release.Name,
@@ -661,15 +690,10 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}, time.Second*10).Should(BeTrue())
 
 		result, err = adapter.EnsureFinalizersAreCalled()
-		Expect(result.RequeueRequest).To(BeTrue())
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err == nil || errors.IsNotFound(err)).Should(BeTrue())
 
-		Eventually(func() error {
-			return k8sClient.Get(ctx, types.NamespacedName{
-				Name:      release.Name,
-				Namespace: release.Namespace,
-			}, release)
-		}, time.Second*10).Should(HaveOccurred())
+		Expect(result.RequeueRequest).Should(BeTrue())
 
 		Eventually(func() bool {
 			pipelineRun, _ := adapter.getReleasePipelineRun()
@@ -692,40 +716,64 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}, time.Second*10).Should(BeTrue())
 	})
 
-	It("can create a ReleasePipelineRun", func() {
-		applicationSnapshot.TypeMeta.Kind = "applicationSnapshot"
-		Expect(k8sClient.Update(ctx, applicationSnapshot)).Should(Succeed())
+	Context("When createReleasePipelineRun is called", func() {
 
-		pipelineRun, err := adapter.createReleasePipelineRun(
-			releaseStrategy,
-			applicationSnapshot)
-		Expect(err).ShouldNot(HaveOccurred())
+		BeforeEach(func() {
+			applicationSnapshot.TypeMeta.Kind = "applicationSnapshot"
+			Expect(k8sClient.Update(ctx, applicationSnapshot)).Should(Succeed())
+		})
 
-		// AsPipelineRun()
-		Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1beta1.PipelineRun{})))
+		It("is a PipelineRun type as AsPipelineRun was implicitly called", func() {
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1beta1.PipelineRun{})))
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
 
-		// WithOwner()
-		Expect(pipelineRun.GetAnnotations()[handler.NamespacedNameAnnotation]).To(ContainSubstring(release.Name))
-		Expect(pipelineRun.GetAnnotations()[handler.TypeAnnotation]).To(ContainSubstring("Release"))
+		It("has the owner annotation as WithOwner was implicitly called", func() {
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pipelineRun.GetAnnotations()[handler.NamespacedNameAnnotation]).To(ContainSubstring(release.Name))
+			Expect(pipelineRun.GetAnnotations()[handler.TypeAnnotation]).To(ContainSubstring("Release"))
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
 
-		// WithReleaseLabels()
-		Expect(pipelineRun.GetLabels()[tekton.PipelinesTypeLabel]).To(Equal("release"))
-		Expect(pipelineRun.GetLabels()[tekton.ReleaseNameLabel]).To(Equal(release.Name))
-		Expect(pipelineRun.GetLabels()[tekton.ReleaseNamespaceLabel]).To(Equal(testNamespace))
-		Expect(pipelineRun.GetLabels()[tekton.ReleaseWorkspaceLabel]).To(Equal(""))
+		It("contains the release labels as WithReleaseLabels was implicitly called", func() {
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pipelineRun.GetLabels()[tekton.PipelinesTypeLabel]).To(Equal("release"))
+			Expect(pipelineRun.GetLabels()[tekton.ReleaseNameLabel]).To(Equal(release.Name))
+			Expect(pipelineRun.GetLabels()[tekton.ReleaseNamespaceLabel]).To(Equal(testNamespace))
+			Expect(pipelineRun.GetLabels()[tekton.ReleaseWorkspaceLabel]).To(Equal(""))
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
 
-		// WithReleaseStrategy()
-		Expect(pipelineRun.Spec.PipelineRef.Name).To(Equal(releaseStrategy.Spec.Pipeline))
-		Expect(pipelineRun.Spec.PipelineRef.Bundle).To(Equal(releaseStrategy.Spec.Bundle))
-		Expect(pipelineRun.Spec.Params[0].Name).To(Equal("policy"))
-		Expect(pipelineRun.Spec.Params[0].Value.StringVal).Should(ContainSubstring(releaseStrategy.Spec.Policy))
-		Expect(pipelineRun.Spec.ServiceAccountName).Should(ContainSubstring("test-account"))
+		It("contains the release strategy as WithReleaseStrategy was implicitly called", func() {
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pipelineRun.Spec.PipelineRef.Name).To(Equal(releaseStrategy.Spec.Pipeline))
+			Expect(pipelineRun.Spec.PipelineRef.Bundle).To(Equal(releaseStrategy.Spec.Bundle))
+			Expect(pipelineRun.Spec.ServiceAccountName).Should(ContainSubstring("test-account"))
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
 
-		// WithApplicationSnapshot()
-		Expect(pipelineRun.Spec.Params[1].Name).To(Equal("applicationSnapshot"))
-		Expect(pipelineRun.Spec.Params[1].Value.StringVal).To(ContainSubstring(applicationSnapshot.Spec.Application))
+		It("contains a json representation of the enterprise contract policy as WithEnterpriseContractPolicy was called", func() {
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			Expect(err).NotTo(HaveOccurred())
+			enterpriseContractPolicy, err := adapter.getEnterpriseContractPolicy(releaseStrategy)
+			Expect(err).ShouldNot(HaveOccurred())
 
-		Expect(k8sClient.Delete(ctx, pipelineRun)).Should(Succeed())
+			enterpriseContractPolicyJsonSpec, _ := json.Marshal(enterpriseContractPolicy.Spec)
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(enterpriseContractPolicyJsonSpec)))))
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("has the application snapshot application name as WithApplicationSnapshot was implicitly called", func() {
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", ContainSubstring(applicationSnapshot.Spec.Application))))
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
 	})
 
 	It("can return the pipelineRun from the release", func() {
@@ -835,6 +883,23 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			_, err = adapter.getApplicationSnapshot()
 			return errors.IsNotFound(err)
 		}, time.Second*10).Should(BeTrue())
+	})
+
+	It("can retrieve an existing EnterpriseContractPolicy from a release strategy", func() {
+		ecpolicy, err := adapter.getEnterpriseContractPolicy(releaseStrategy)
+		Expect(err).Should(Succeed())
+		Expect(reflect.TypeOf(ecpolicy)).To(Equal(reflect.TypeOf(&ecapiv1alpha1.EnterpriseContractPolicy{})))
+	})
+
+	It("returns an IsNotFound error if the EnterpriseContractPolicy does not exist", func() {
+		Expect(k8sClient.Delete(ctx, enterpriseContractPolicy)).Should(Succeed())
+		Eventually(func() bool {
+			_, err := adapter.getEnterpriseContractPolicy(releaseStrategy)
+			return errors.IsNotFound(err)
+		}, time.Second*10).Should(BeTrue())
+
+		enterpriseContractPolicy.ResourceVersion = ""
+		Expect(k8sClient.Create(ctx, enterpriseContractPolicy)).Should(Succeed())
 	})
 
 	It("can return the ReleasePlan from the release", func() {

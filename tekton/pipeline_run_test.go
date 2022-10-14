@@ -19,8 +19,10 @@ package tekton
 import (
 	"context"
 	"encoding/json"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"reflect"
+
+	ecapiv1alpha1 "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -59,6 +61,7 @@ var _ = Describe("PipelineRun", func() {
 		releasePipelineRun                 *ReleasePipelineRun
 		snapshot                           *applicationapiv1alpha1.ApplicationSnapshot
 		strategy                           *v1alpha1.ReleaseStrategy
+		enterpriseContractPolicy           *ecapiv1alpha1.EnterpriseContractPolicy
 		unmarshaledApplicationSnapshotSpec *applicationapiv1alpha1.ApplicationSnapshotSpec
 	)
 	BeforeEach(func() {
@@ -102,6 +105,25 @@ var _ = Describe("PipelineRun", func() {
 				Components:  []applicationapiv1alpha1.ApplicationSnapshotComponent{},
 			},
 		}
+		enterpriseContractPolicy = &ecapiv1alpha1.EnterpriseContractPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "testpolicy",
+			},
+			TypeMeta: metav1.TypeMeta{
+				Kind: "EnterpriseContractPolicy",
+			},
+			Spec: ecapiv1alpha1.EnterpriseContractPolicySpec{
+				Description: "test-policy-description",
+				Sources: []ecapiv1alpha1.PolicySource{
+					ecapiv1alpha1.PolicySource{
+						GitRepository: &ecapiv1alpha1.GitPolicySource{
+							Repository: "https://github.com/",
+							Revision:   "main",
+						},
+					},
+				},
+			},
+		}
 		strategy = &v1alpha1.ReleaseStrategy{
 			Spec: v1alpha1.ReleaseStrategySpec{
 				Pipeline:              "release-pipeline",
@@ -109,6 +131,12 @@ var _ = Describe("PipelineRun", func() {
 				Policy:                "testpolicy",
 				PersistentVolumeClaim: persistentVolumeClaim,
 				ServiceAccount:        serviceAccountName,
+				Params: []v1alpha1.Params{
+					v1alpha1.Params{
+						Name:   "testparam1",
+						Values: []string{"val1", "val2"},
+					},
+				},
 			},
 		}
 
@@ -209,9 +237,14 @@ var _ = Describe("PipelineRun", func() {
 
 		It("can add a workspace to the PipelineRun using the given name and PVC", func() {
 			releasePipelineRun.WithWorkspace(workspace, persistentVolumeClaim)
-			Expect(releasePipelineRun.Spec.Workspaces[0].Name).To(Equal(workspace))
-			Expect(releasePipelineRun.Spec.Workspaces[0].PersistentVolumeClaim.ClaimName).
-				To(Equal(persistentVolumeClaim))
+			Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("Name", Equal(workspace))))
+			Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("PersistentVolumeClaim.ClaimName", Equal(persistentVolumeClaim))))
+		})
+
+		It("can add an EnterpriseContractPolicy to the PipelineRun", func() {
+			releasePipelineRun.WithEnterpriseContractPolicy(enterpriseContractPolicy)
+			jsonSpec, _ := json.Marshal(enterpriseContractPolicy.Spec)
+			Expect(releasePipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(jsonSpec)))))
 		})
 	})
 })
