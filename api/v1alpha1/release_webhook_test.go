@@ -17,6 +17,7 @@ package v1alpha1
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -73,6 +74,13 @@ var _ = Describe("Release validation webhook", func() {
 			}
 
 			Expect(k8sClient.Update(ctx, release)).ShouldNot(HaveOccurred())
+		})
+	})
+
+	Describe("When ValidateDelete method is called", func() {
+		It("should return nil", func() {
+			release := &Release{}
+			Expect(release.ValidateDelete()).To(BeNil())
 		})
 	})
 })
