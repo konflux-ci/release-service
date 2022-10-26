@@ -18,10 +18,10 @@ package tekton
 
 import (
 	"context"
-	"github.com/tektoncd/pipeline/pkg/clock"
+	"k8s.io/utils/clock"
 	"reflect"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -90,7 +90,7 @@ var _ = Describe("Utils", func() {
 	Context("when using utility functions on PipelineRun objects", func() {
 		It("is a PipelineRun object and contains the required labels that identifies it as one", func() {
 			Expect(isReleasePipelineRun(releasePipelineRun.
-				WithReleaseAndApplicationLabels(release.Name, release.Namespace, release.GetAnnotations()[logicalcluster.AnnotationKey], applicationName).
+				WithReleaseAndApplicationMetadata(release, applicationName).
 				AsPipelineRun())).To(Equal(true))
 		})
 

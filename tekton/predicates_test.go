@@ -18,10 +18,10 @@ package tekton
 
 import (
 	"context"
-	"github.com/tektoncd/pipeline/pkg/clock"
+	"k8s.io/utils/clock"
 	"reflect"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -117,7 +117,7 @@ var _ = Describe("Predicates", func() {
 			contextEvent := event.UpdateEvent{
 				ObjectOld: releasePipelineRun.AsPipelineRun(),
 				ObjectNew: releasePipelineRun.WithServiceAccount("test-service-account").
-					WithReleaseAndApplicationLabels(release.Name, release.Namespace, release.GetAnnotations()[logicalcluster.AnnotationKey], applicationName).
+					WithReleaseAndApplicationMetadata(release, applicationName).
 					AsPipelineRun(),
 			}
 			releasePipelineRun.Status.MarkRunning("Predicate function tests", "Set it to Unknown")
