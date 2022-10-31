@@ -31,6 +31,9 @@ spec:
   - resource: "pipelineruns"
     group: "tekton.dev"
     identityHash: pipeline-service
+  - resource: "enterprisecontractpolicies"
+    group: "appstudio.redhat.com"
+    identityHash: enterprisecontract
   latestResourceSchemas:
 EOF
 )"

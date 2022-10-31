@@ -19,10 +19,12 @@ package tekton
 import (
 	"encoding/json"
 	"fmt"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"os"
 	"strings"
 	"unicode"
+
+	ecapiv1alpha1 "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
@@ -120,6 +122,19 @@ func (r *ReleasePipelineRun) WithApplicationSnapshot(snapshot *applicationapiv1a
 	return r
 }
 
+//  WithEnterpriseContractPolicy adds a param containing the EnterpriseContractPolicy Spec as a json string to the release PipelineRun.
+func (r *ReleasePipelineRun) WithEnterpriseContractPolicy(enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy) *ReleasePipelineRun {
+	policyJson, _ := json.Marshal(enterpriseContractPolicy.Spec)
+	policyKind := strings.ToLower(string(enterpriseContractPolicy.Kind))
+
+	r.WithExtraParam(policyKind, tektonv1beta1.ArrayOrString{
+		Type:      tektonv1beta1.ParamTypeString,
+		StringVal: string(policyJson),
+	})
+
+	return r
+}
+
 // WithOwner set's owner annotations to the release PipelineRun.
 func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipelineRun {
 	_ = libhandler.SetOwnerAnnotations(release, r)
@@ -141,7 +156,7 @@ func (r *ReleasePipelineRun) WithReleaseAndApplicationLabels(releaseName, releas
 	return r
 }
 
-// WithReleaseStrategy adds Pipeline reference, params, and the policy to the release PipelineRun.
+// WithReleaseStrategy adds Pipeline reference and parameters to the release PipelineRun.
 func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrategy) *ReleasePipelineRun {
 	r.Spec.PipelineRef = &tektonv1beta1.PipelineRef{
 		Name:   strategy.Spec.Pipeline,
@@ -149,13 +164,6 @@ func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrat
 	}
 
 	valueType := tektonv1beta1.ParamTypeString
-
-	if strategy.Spec.Policy != "" {
-		r.WithExtraParam("policy", tektonv1beta1.ArrayOrString{
-			Type:      valueType,
-			StringVal: strategy.Spec.Policy,
-		})
-	}
 
 	for _, param := range strategy.Spec.Params {
 		if len(param.Values) > 0 {

@@ -22,7 +22,9 @@ import (
 	"strings"
 	"time"
 
+	ecapiv1alpha1 "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+
 	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/kcp"
 	"github.com/redhat-appstudio/release-service/syncer"
@@ -153,6 +155,12 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (results.OperationResult, err
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
 			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
+		enterpriseContractPolicy, err := a.getEnterpriseContractPolicy(releaseStrategy)
+		if err != nil {
+			patch := client.MergeFrom(a.release.DeepCopy())
+			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
+			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+		}
 
 		applicationSnapshot, err := a.getApplicationSnapshot()
 		if err != nil {
@@ -161,7 +169,7 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (results.OperationResult, err
 			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
 
-		pipelineRun, err = a.createReleasePipelineRun(releaseStrategy, applicationSnapshot)
+		pipelineRun, err = a.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
 		if err != nil {
 			return results.RequeueWithError(err)
 		}
@@ -302,11 +310,14 @@ func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission 
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
 // will be extracted from the given ReleaseStrategy. The Release's ApplicationSnapshot will also be passed to the
 // release PipelineRun.
-func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy, applicationSnapshot *applicationapiv1alpha1.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
+func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy,
+	enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy,
+	applicationSnapshot *applicationapiv1alpha1.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", releaseStrategy.Namespace).
 		WithOwner(a.release).
 		WithReleaseAndApplicationLabels(a.release.Name, a.release.Namespace, a.release.GetAnnotations()[logicalcluster.AnnotationKey], applicationSnapshot.Spec.Application).
 		WithReleaseStrategy(releaseStrategy).
+		WithEnterpriseContractPolicy(enterpriseContractPolicy).
 		WithApplicationSnapshot(applicationSnapshot).
 		AsPipelineRun()
 
@@ -493,6 +504,21 @@ func (a *Adapter) getReleaseStrategy(releasePlanAdmission *v1alpha1.ReleasePlanA
 	}
 
 	return releaseStrategy, nil
+}
+
+// getEnterpriseContractPolicy return the EnterpriseContractPolicy referenced by the given ReleaseStrategy.
+func (a *Adapter) getEnterpriseContractPolicy(releaseStrategy *v1alpha1.ReleaseStrategy) (*ecapiv1alpha1.EnterpriseContractPolicy, error) {
+	enterpriseContractPolicy := &ecapiv1alpha1.EnterpriseContractPolicy{}
+	err := a.client.Get(a.targetContext, types.NamespacedName{
+		Name:      releaseStrategy.Spec.Policy,
+		Namespace: releaseStrategy.Namespace,
+	}, enterpriseContractPolicy)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return enterpriseContractPolicy, nil
 }
 
 // getSnapshotEnvironmentBinding returns the SnapshotEnvironmentBinding associated with the Release being processed.
