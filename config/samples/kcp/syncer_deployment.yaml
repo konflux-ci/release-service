@@ -29,7 +29,7 @@ spec:
         - --resources=secrets
         - --resources=serviceaccounts
         - --resources=pipelineruns.tekton.dev
-        - --resources=applicationsnapshots.appstudio.redhat.com
+        - --resources=snapshots.appstudio.redhat.com
         - --resources=releases.appstudio.redhat.com
         - --resources=releaseplans.appstudio.redhat.com
         - --resources=releaseplanadmissions.appstudio.redhat.com

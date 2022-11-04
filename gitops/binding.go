@@ -23,13 +23,13 @@ import (
 )
 
 // NewSnapshotEnvironmentBinding creates a new SnapshotEnvironmentBinding.
-func NewSnapshotEnvironmentBinding(components []applicationapiv1alpha1.Component, snapshot *applicationapiv1alpha1.ApplicationSnapshot, environment *applicationapiv1alpha1.Environment) *applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding {
-	return &applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding{
+func NewSnapshotEnvironmentBinding(components []applicationapiv1alpha1.Component, snapshot *applicationapiv1alpha1.Snapshot, environment *applicationapiv1alpha1.Environment) *applicationapiv1alpha1.SnapshotEnvironmentBinding {
+	return &applicationapiv1alpha1.SnapshotEnvironmentBinding{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: environment.Name + "-",
 			Namespace:    environment.Namespace,
 		},
-		Spec: applicationapiv1alpha1.ApplicationSnapshotEnvironmentBindingSpec{
+		Spec: applicationapiv1alpha1.SnapshotEnvironmentBindingSpec{
 			Application: snapshot.Spec.Application,
 			Environment: environment.Name,
 			Snapshot:    snapshot.Name,

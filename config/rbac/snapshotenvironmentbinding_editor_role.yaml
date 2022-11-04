@@ -2,12 +2,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: applicationsnapshotenvironmentbinding-editor-role
+  name: snapshotenvironmentbinding-editor-role
 rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - applicationsnapshotenvironmentbindings
+  - snapshotenvironmentbindings
   verbs:
   - create
   - delete
@@ -19,6 +19,6 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - applicationsnapshotenvironmentbindings/status
+  - snapshotenvironmentbindings/status
   verbs:
   - get

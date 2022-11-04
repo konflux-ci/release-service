@@ -75,8 +75,8 @@ var _ = Describe("Release Controller", func() {
 				Namespace:    testNamespace,
 			},
 			Spec: appstudiov1alpha1.ReleaseSpec{
-				ApplicationSnapshot: "test-snapshot",
-				ReleasePlan:         releasePlan.GetName(),
+				Snapshot:    "test-snapshot",
+				ReleasePlan: releasePlan.GetName(),
 			},
 		}
 		Expect(k8sClient.Create(ctx, release)).Should(Succeed())

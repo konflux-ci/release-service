@@ -57,8 +57,8 @@ var _ = Describe("Utils", func() {
 				},
 			},
 			Spec: v1alpha1.ReleaseSpec{
-				ApplicationSnapshot: "testsnapshot",
-				ReleasePlan:         "testreleaseplan",
+				Snapshot:    "testsnapshot",
+				ReleasePlan: "testreleaseplan",
 			},
 		}
 		ctx := context.Background()

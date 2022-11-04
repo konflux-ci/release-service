@@ -56,13 +56,13 @@ var _ = Describe("PipelineRun", func() {
 		applicationName       = "test-application"
 	)
 	var (
-		release                            *v1alpha1.Release
-		extraParams                        *ExtraParams
-		releasePipelineRun                 *ReleasePipelineRun
-		snapshot                           *applicationapiv1alpha1.ApplicationSnapshot
-		strategy                           *v1alpha1.ReleaseStrategy
-		enterpriseContractPolicy           *ecapiv1alpha1.EnterpriseContractPolicy
-		unmarshaledApplicationSnapshotSpec *applicationapiv1alpha1.ApplicationSnapshotSpec
+		release                  *v1alpha1.Release
+		extraParams              *ExtraParams
+		releasePipelineRun       *ReleasePipelineRun
+		snapshot                 *applicationapiv1alpha1.Snapshot
+		strategy                 *v1alpha1.ReleaseStrategy
+		enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy
+		unmarshaledSnapshotSpec  *applicationapiv1alpha1.SnapshotSpec
 	)
 	BeforeEach(func() {
 
@@ -86,23 +86,23 @@ var _ = Describe("PipelineRun", func() {
 				},
 			},
 			Spec: v1alpha1.ReleaseSpec{
-				ApplicationSnapshot: "testsnapshot",
-				ReleasePlan:         "testreleaseplan",
+				Snapshot:    "testsnapshot",
+				ReleasePlan: "testreleaseplan",
 			},
 		}
-		snapshot = &applicationapiv1alpha1.ApplicationSnapshot{
+		snapshot = &applicationapiv1alpha1.Snapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "testsnapshot-",
 				Namespace:    "default",
 			},
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: apiVersion,
-				Kind:       "ApplicationSnapshot",
+				Kind:       "Snapshot",
 			},
-			Spec: applicationapiv1alpha1.ApplicationSnapshotSpec{
+			Spec: applicationapiv1alpha1.SnapshotSpec{
 				Application: applicationName,
 				DisplayName: "Test application",
-				Components:  []applicationapiv1alpha1.ApplicationSnapshotComponent{},
+				Components:  []applicationapiv1alpha1.SnapshotComponent{},
 			},
 		}
 		enterpriseContractPolicy = &ecapiv1alpha1.EnterpriseContractPolicy{
@@ -207,21 +207,21 @@ var _ = Describe("PipelineRun", func() {
 				To(Equal(reflect.TypeOf(&tektonv1beta1.PipelineRun{})))
 		})
 
-		It("can add an ApplicationSnapshot object as a json string to the PipelineRun", func() {
+		It("can add an Snapshot object as a json string to the PipelineRun", func() {
 			Expect(k8sClient.Create(ctx, snapshot)).Should(Succeed())
 
 			snapshot.TypeMeta.APIVersion = apiVersion
-			snapshot.TypeMeta.Kind = "ApplicationSnapshot"
+			snapshot.TypeMeta.Kind = "Snapshot"
 
-			releasePipelineRun.WithApplicationSnapshot(snapshot)
+			releasePipelineRun.WithSnapshot(snapshot)
 
-			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal("applicationSnapshot"))
+			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal("snapshot"))
 			Expect(json.Unmarshal(
 				[]byte(releasePipelineRun.Spec.Params[0].Value.StringVal),
-				&unmarshaledApplicationSnapshotSpec)).Should(Succeed())
+				&unmarshaledSnapshotSpec)).Should(Succeed())
 
 			// check if the unmarshaled data has what we expect
-			Expect(unmarshaledApplicationSnapshotSpec.Application).To(Equal(applicationName))
+			Expect(unmarshaledSnapshotSpec.Application).To(Equal(applicationName))
 		})
 
 		It("can add the ReleaseStrategy information to a PipelineRun object and ", func() {

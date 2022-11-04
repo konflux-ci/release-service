@@ -5,7 +5,7 @@ metadata:
 spec:
   latestResourceSchemas:
     - rev-1492075.releaseplanadmissions.appstudio.redhat.com
-    - rev-1492080.applicationsnapshots.appstudio.redhat.com
+    - rev-1492080.snapshots.appstudio.redhat.com
     - rev-1492087.pipelineruns.tekton.dev
     - rev-1492107.releases.appstudio.redhat.com
     - rev-1492112.releaseplans.appstudio.redhat.com

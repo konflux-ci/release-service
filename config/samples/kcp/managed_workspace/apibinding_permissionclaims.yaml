@@ -16,6 +16,6 @@ spec:
     state: "Accepted"
   - group: "appstudio.redhat.com"
     identityHash: null # Must be set before applying, but value depends on APIExport
-    resource: "applicationsnapshots"
+    resource: "snapshots"
     state: "Accepted"
 ---

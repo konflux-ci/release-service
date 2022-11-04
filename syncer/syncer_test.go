@@ -38,7 +38,7 @@ const (
 var _ = Describe("Syncer", Ordered, func() {
 	const targetNamespace string = "syncer"
 
-	snapshot := &applicationapiv1alpha1.ApplicationSnapshot{
+	snapshot := &applicationapiv1alpha1.Snapshot{
 		ObjectMeta: v1.ObjectMeta{
 			Annotations: map[string]string{
 				"foo": "bar",
@@ -49,9 +49,9 @@ var _ = Describe("Syncer", Ordered, func() {
 			},
 			Namespace: "default",
 		},
-		Spec: applicationapiv1alpha1.ApplicationSnapshotSpec{
+		Spec: applicationapiv1alpha1.SnapshotSpec{
 			Application: "app",
-			Components: []applicationapiv1alpha1.ApplicationSnapshotComponent{
+			Components: []applicationapiv1alpha1.SnapshotComponent{
 				{
 					Name:           "foo",
 					ContainerImage: "quay.io/foo",
@@ -97,7 +97,7 @@ var _ = Describe("Syncer", Ordered, func() {
 
 		Expect(syncer.SyncSnapshot(snapshot, targetNamespace)).To(Succeed())
 
-		syncedSnapshot := &applicationapiv1alpha1.ApplicationSnapshot{}
+		syncedSnapshot := &applicationapiv1alpha1.Snapshot{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{
 			Name:      snapshot.Name,
 			Namespace: targetNamespace,

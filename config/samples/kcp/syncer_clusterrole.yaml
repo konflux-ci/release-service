@@ -45,7 +45,7 @@ rules:
 - apiGroups:
   - "appstudio.redhat.com"
   resources:
-  - applicationsnapshots
+  - snapshots
   - releases
   - releaseplans
   - releaseplanadmissions
