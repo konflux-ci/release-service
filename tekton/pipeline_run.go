@@ -125,9 +125,11 @@ func (r *ReleasePipelineRun) WithApplicationSnapshot(snapshot *applicationapiv1a
 //  WithEnterpriseContractPolicy adds a param containing the EnterpriseContractPolicy Spec as a json string to the release PipelineRun.
 func (r *ReleasePipelineRun) WithEnterpriseContractPolicy(enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy) *ReleasePipelineRun {
 	policyJson, _ := json.Marshal(enterpriseContractPolicy.Spec)
-	policyKind := strings.ToLower(string(enterpriseContractPolicy.Kind))
 
-	r.WithExtraParam(policyKind, tektonv1beta1.ArrayOrString{
+	policyKindRunes := []rune(enterpriseContractPolicy.Kind)
+	policyKindRunes[0] = unicode.ToLower(policyKindRunes[0])
+
+	r.WithExtraParam(string(policyKindRunes), tektonv1beta1.ArrayOrString{
 		Type:      tektonv1beta1.ParamTypeString,
 		StringVal: string(policyJson),
 	})
