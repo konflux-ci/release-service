@@ -11,7 +11,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.20.1
 	github.com/operator-framework/operator-lib v0.10.0
-	github.com/redhat-appstudio/application-api v0.0.0-20220923190445-5c53addc1b7f
+	github.com/redhat-appstudio/application-api v0.0.0-20221108172336-c9e003808d1f
 	github.com/tektoncd/pipeline v0.33.0
 	k8s.io/api v0.24.3
 	k8s.io/apimachinery v0.24.3

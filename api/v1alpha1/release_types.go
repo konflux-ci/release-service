@@ -27,10 +27,10 @@ import (
 
 // ReleaseSpec defines the desired state of Release.
 type ReleaseSpec struct {
-	// ApplicationSnapshot to be released
+	// Snapshot to be released
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
-	ApplicationSnapshot string `json:"applicationSnapshot"`
+	Snapshot string `json:"snapshot"`
 
 	// ReleasePlan to use for this particular Release
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -110,7 +110,7 @@ type ReleaseStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Snapshot",type=string,JSONPath=`.spec.applicationSnapshot`
+// +kubebuilder:printcolumn:name="Snapshot",type=string,JSONPath=`.spec.snapshot`
 // +kubebuilder:printcolumn:name="Succeeded",type=string,JSONPath=`.status.conditions[?(@.type=="Succeeded")].status`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=="Succeeded")].reason`
 // +kubebuilder:printcolumn:name="PipelineRun",type=string,priority=1,JSONPath=`.status.releasePipelineRun`

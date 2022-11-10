@@ -51,7 +51,7 @@ func (s *Syncer) SetContext(ctx context.Context) {
 }
 
 // SyncSnapshot syncs a Snapshot into the given namespace. If an exiting one is found, no operations will be taken.
-func (s *Syncer) SyncSnapshot(snapshot *applicationapiv1alpha1.ApplicationSnapshot, namespace string) error {
+func (s *Syncer) SyncSnapshot(snapshot *applicationapiv1alpha1.Snapshot, namespace string) error {
 	syncedSnapshot := snapshot.DeepCopy()
 	syncedSnapshot.ObjectMeta = v1.ObjectMeta{
 		Name:        snapshot.Name,

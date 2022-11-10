@@ -53,7 +53,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		adapter *Adapter
 
 		application              *applicationapiv1alpha1.Application
-		applicationSnapshot      *applicationapiv1alpha1.ApplicationSnapshot
+		snapshot                 *applicationapiv1alpha1.Snapshot
 		component                *applicationapiv1alpha1.Component
 		environment              *applicationapiv1alpha1.Environment
 		release                  *appstudiov1alpha1.Release
@@ -104,17 +104,17 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, releaseStrategy)).Should(Succeed())
 
-		applicationSnapshot = &applicationapiv1alpha1.ApplicationSnapshot{
+		snapshot = &applicationapiv1alpha1.Snapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-snapshot-",
 				Namespace:    "default",
 			},
-			Spec: applicationapiv1alpha1.ApplicationSnapshotSpec{
+			Spec: applicationapiv1alpha1.SnapshotSpec{
 				Application: "test-app",
-				Components:  []applicationapiv1alpha1.ApplicationSnapshotComponent{},
+				Components:  []applicationapiv1alpha1.SnapshotComponent{},
 			},
 		}
-		Expect(k8sClient.Create(ctx, applicationSnapshot)).Should(Succeed())
+		Expect(k8sClient.Create(ctx, snapshot)).Should(Succeed())
 
 		application = &applicationapiv1alpha1.Application{
 			ObjectMeta: metav1.ObjectMeta{
@@ -207,8 +207,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Namespace:    testNamespace,
 			},
 			Spec: appstudiov1alpha1.ReleaseSpec{
-				ApplicationSnapshot: applicationSnapshot.GetName(),
-				ReleasePlan:         releasePlan.GetName(),
+				Snapshot:    snapshot.GetName(),
+				ReleasePlan: releasePlan.GetName(),
 			},
 		}
 		Expect(k8sClient.Create(ctx, release)).Should(Succeed())
@@ -232,7 +232,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		err := k8sClient.Delete(ctx, applicationSnapshot)
+		err := k8sClient.Delete(ctx, snapshot)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 
 		Expect(k8sClient.Delete(ctx, releaseStrategy)).Should(Succeed())
@@ -645,9 +645,9 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should fail if there's no Snapshot", func() {
-			Expect(k8sClient.Delete(ctx, applicationSnapshot)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, snapshot)).Should(Succeed())
 			Eventually(func() bool {
-				_, err := adapter.getApplicationSnapshot()
+				_, err := adapter.getSnapshot()
 
 				return err != nil
 			}, time.Second*10).Should(BeTrue())
@@ -655,8 +655,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(adapter.syncResources()).ToNot(Succeed())
 
 			// Recreate the Snapshot
-			applicationSnapshot.ObjectMeta.ResourceVersion = ""
-			Expect(k8sClient.Create(ctx, applicationSnapshot)).Should(Succeed())
+			snapshot.ObjectMeta.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, snapshot)).Should(Succeed())
 		})
 
 		It("should sync resources properly", func() {
@@ -719,19 +719,19 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	Context("When createReleasePipelineRun is called", func() {
 
 		BeforeEach(func() {
-			applicationSnapshot.TypeMeta.Kind = "applicationSnapshot"
-			Expect(k8sClient.Update(ctx, applicationSnapshot)).Should(Succeed())
+			snapshot.TypeMeta.Kind = "snapshot"
+			Expect(k8sClient.Update(ctx, snapshot)).Should(Succeed())
 		})
 
 		It("is a PipelineRun type as AsPipelineRun was implicitly called", func() {
-			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1beta1.PipelineRun{})))
 			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
 		})
 
 		It("has the owner annotation as WithOwner was implicitly called", func() {
-			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pipelineRun.GetAnnotations()[handler.NamespacedNameAnnotation]).To(ContainSubstring(release.Name))
 			Expect(pipelineRun.GetAnnotations()[handler.TypeAnnotation]).To(ContainSubstring("Release"))
@@ -739,7 +739,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("contains the release labels as WithReleaseLabels was implicitly called", func() {
-			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pipelineRun.GetLabels()[tekton.PipelinesTypeLabel]).To(Equal("release"))
 			Expect(pipelineRun.GetLabels()[tekton.ReleaseNameLabel]).To(Equal(release.Name))
@@ -749,7 +749,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("contains the release strategy as WithReleaseStrategy was implicitly called", func() {
-			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pipelineRun.Spec.PipelineRef.Name).To(Equal(releaseStrategy.Spec.Pipeline))
 			Expect(pipelineRun.Spec.PipelineRef.Bundle).To(Equal(releaseStrategy.Spec.Bundle))
@@ -758,7 +758,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("contains a json representation of the enterprise contract policy as WithEnterpriseContractPolicy was called", func() {
-			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
 			Expect(err).NotTo(HaveOccurred())
 			enterpriseContractPolicy, err := adapter.getEnterpriseContractPolicy(releaseStrategy)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -768,10 +768,10 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
 		})
 
-		It("has the application snapshot application name as WithApplicationSnapshot was implicitly called", func() {
-			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+		It("has the snapshot application name as WithSnapshot was implicitly called", func() {
+			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", ContainSubstring(applicationSnapshot.Spec.Application))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", ContainSubstring(snapshot.Spec.Application))))
 			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
 		})
 	})
@@ -873,14 +873,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}, time.Second*10).Should(BeTrue())
 	})
 
-	It("can get an existing ApplicationSnapshot", func() {
-		snapshot, err := adapter.getApplicationSnapshot()
+	It("can get an existing Snapshot", func() {
+		snapshot, err := adapter.getSnapshot()
 		Expect(err).Should(Succeed())
-		Expect(reflect.TypeOf(snapshot)).To(Equal(reflect.TypeOf(&applicationapiv1alpha1.ApplicationSnapshot{})))
+		Expect(reflect.TypeOf(snapshot)).To(Equal(reflect.TypeOf(&applicationapiv1alpha1.Snapshot{})))
 
 		Expect(k8sClient.Delete(ctx, snapshot)).Should(Succeed())
 		Eventually(func() bool {
-			_, err = adapter.getApplicationSnapshot()
+			_, err = adapter.getSnapshot()
 			return errors.IsNotFound(err)
 		}, time.Second*10).Should(BeTrue())
 	})

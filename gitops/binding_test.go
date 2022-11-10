@@ -69,14 +69,14 @@ var _ = Describe("Binding", func() {
 		},
 	}
 
-	snapshot := &applicationapiv1alpha1.ApplicationSnapshot{
+	snapshot := &applicationapiv1alpha1.Snapshot{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: "snapshot-",
 			Namespace:    "default",
 		},
-		Spec: applicationapiv1alpha1.ApplicationSnapshotSpec{
+		Spec: applicationapiv1alpha1.SnapshotSpec{
 			Application: "app",
-			Components:  []applicationapiv1alpha1.ApplicationSnapshotComponent{},
+			Components:  []applicationapiv1alpha1.SnapshotComponent{},
 		},
 	}
 
@@ -100,7 +100,7 @@ var _ = Describe("Binding", func() {
 	Context("When calling NewSnapshotEnvironmentBinding", func() {
 		It("can create and return a new SnapshotEnvironmentBinding", func() {
 			binding := NewSnapshotEnvironmentBinding(components, snapshot, environment)
-			Expect(reflect.TypeOf(binding)).To(Equal(reflect.TypeOf(&applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding{})))
+			Expect(reflect.TypeOf(binding)).To(Equal(reflect.TypeOf(&applicationapiv1alpha1.SnapshotEnvironmentBinding{})))
 			Expect(*binding).To(MatchFields(IgnoreExtras, Fields{
 				"ObjectMeta": MatchFields(IgnoreExtras, Fields{
 					"GenerateName": Equal(environment.Name + "-"),

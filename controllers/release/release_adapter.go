@@ -162,14 +162,14 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (results.OperationResult, err
 			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
 
-		applicationSnapshot, err := a.getApplicationSnapshot()
+		snapshot, err := a.getSnapshot()
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
 			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
 
-		pipelineRun, err = a.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, applicationSnapshot)
+		pipelineRun, err = a.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
 		if err != nil {
 			return results.RequeueWithError(err)
 		}
@@ -277,7 +277,7 @@ func (a *Adapter) EnsureTargetContextIsSet() (results.OperationResult, error) {
 
 // createOrUpdateSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being
 // processed.
-func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding, error) {
+func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
 	application, components, snapshot, environment, err := a.getSnapshotEnvironmentResources(releasePlanAdmission)
 	if err != nil {
 		return nil, err
@@ -308,17 +308,17 @@ func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission 
 
 // createReleasePipelineRun creates and returns a new release PipelineRun. The new PipelineRun will include owner
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
-// will be extracted from the given ReleaseStrategy. The Release's ApplicationSnapshot will also be passed to the
-// release PipelineRun.
+// will be extracted from the given ReleaseStrategy. The Release's Snapshot will also be passed to the release
+// PipelineRun.
 func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy,
 	enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy,
-	applicationSnapshot *applicationapiv1alpha1.ApplicationSnapshot) (*v1beta1.PipelineRun, error) {
+	snapshot *applicationapiv1alpha1.Snapshot) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", releaseStrategy.Namespace).
 		WithOwner(a.release).
-		WithReleaseAndApplicationLabels(a.release.Name, a.release.Namespace, a.release.GetAnnotations()[logicalcluster.AnnotationKey], applicationSnapshot.Spec.Application).
+		WithReleaseAndApplicationLabels(a.release.Name, a.release.Namespace, a.release.GetAnnotations()[logicalcluster.AnnotationKey], snapshot.Spec.Application).
 		WithReleaseStrategy(releaseStrategy).
 		WithEnterpriseContractPolicy(enterpriseContractPolicy).
-		WithApplicationSnapshot(applicationSnapshot).
+		WithSnapshot(snapshot).
 		AsPipelineRun()
 
 	err := a.client.Create(a.targetContext, pipelineRun)
@@ -422,20 +422,20 @@ func (a *Adapter) getApplicationComponents(application *applicationapiv1alpha1.A
 	return applicationComponents.Items, nil
 }
 
-// getApplicationSnapshot returns the ApplicationSnapshot referenced by the Release being processed. If the
-// ApplicationSnapshot is not found or the Get operation failed, an error will be returned.
-func (a *Adapter) getApplicationSnapshot() (*applicationapiv1alpha1.ApplicationSnapshot, error) {
-	applicationSnapshot := &applicationapiv1alpha1.ApplicationSnapshot{}
+// getSnapshot returns the Snapshot referenced by the Release being processed. If the Snapshot
+// is not found or the Get operation failed, an error is returned.
+func (a *Adapter) getSnapshot() (*applicationapiv1alpha1.Snapshot, error) {
+	snapshot := &applicationapiv1alpha1.Snapshot{}
 	err := a.client.Get(a.context, types.NamespacedName{
-		Name:      a.release.Spec.ApplicationSnapshot,
+		Name:      a.release.Spec.Snapshot,
 		Namespace: a.release.Namespace,
-	}, applicationSnapshot)
+	}, snapshot)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return applicationSnapshot, nil
+	return snapshot, nil
 }
 
 // getEnvironment returns the Environment referenced by the ReleasePlanAdmission used during this release. If the
@@ -525,8 +525,8 @@ func (a *Adapter) getEnterpriseContractPolicy(releaseStrategy *v1alpha1.ReleaseS
 // That association is defined by both the Environment and Application matching between the ReleasePlanAdmission and
 // the SnapshotEnvironmentBinding. If the Get operation fails, an error will be returned.
 func (a *Adapter) getSnapshotEnvironmentBinding(environment *applicationapiv1alpha1.Environment,
-	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.ApplicationSnapshotEnvironmentBinding, error) {
-	bindingList := &applicationapiv1alpha1.ApplicationSnapshotEnvironmentBindingList{}
+	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
+	bindingList := &applicationapiv1alpha1.SnapshotEnvironmentBindingList{}
 	opts := []client.ListOption{
 		client.InNamespace(environment.Namespace),
 		client.MatchingFields{"spec.environment": environment.Name},
@@ -550,7 +550,7 @@ func (a *Adapter) getSnapshotEnvironmentBinding(environment *applicationapiv1alp
 // those resources cannot be retrieved from the cluster, an error will be returned.
 func (a *Adapter) getSnapshotEnvironmentResources(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (
 	*applicationapiv1alpha1.Application, []applicationapiv1alpha1.Component,
-	*applicationapiv1alpha1.ApplicationSnapshot, *applicationapiv1alpha1.Environment, error,
+	*applicationapiv1alpha1.Snapshot, *applicationapiv1alpha1.Environment, error,
 ) {
 	environment, err := a.getEnvironment(releasePlanAdmission)
 	if err != nil {
@@ -567,7 +567,7 @@ func (a *Adapter) getSnapshotEnvironmentResources(releasePlanAdmission *v1alpha1
 		return application, nil, nil, environment, err
 	}
 
-	snapshot, err := a.getApplicationSnapshot()
+	snapshot, err := a.getSnapshot()
 	if err != nil {
 		return application, components, nil, environment, err
 	}
@@ -624,7 +624,7 @@ func (a *Adapter) syncResources() error {
 		return err
 	}
 
-	snapshot, err := a.getApplicationSnapshot()
+	snapshot, err := a.getSnapshot()
 	if err != nil {
 		return err
 	}

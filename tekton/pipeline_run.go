@@ -102,9 +102,8 @@ func (r *ReleasePipelineRun) WithExtraParam(name string, value tektonv1beta1.Arr
 	return r
 }
 
-// WithApplicationSnapshot adds a param containing the ApplicationSnapshot as a json string
-// to the release PipelineRun.
-func (r *ReleasePipelineRun) WithApplicationSnapshot(snapshot *applicationapiv1alpha1.ApplicationSnapshot) *ReleasePipelineRun {
+// WithSnapshot adds a param containing the Snapshot as a json string to the release PipelineRun.
+func (r *ReleasePipelineRun) WithSnapshot(snapshot *applicationapiv1alpha1.Snapshot) *ReleasePipelineRun {
 	// We ignore the error here because none should be raised when marshalling the spec of a CRD.
 	// If we end up deciding it is useful, we will need to pass the errors trough the chain and
 	// add something like a `Complete` function that returns the final object and error.

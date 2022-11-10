@@ -39,8 +39,8 @@ var _ = Describe("Release validation webhook", func() {
 				Namespace:    "default",
 			},
 			Spec: ReleaseSpec{
-				ApplicationSnapshot: "test-snapshot",
-				ReleasePlan:         "test-releaseplan",
+				Snapshot:    "test-snapshot",
+				ReleasePlan: "test-releaseplan",
 			},
 		}
 	})
@@ -55,8 +55,8 @@ var _ = Describe("Release validation webhook", func() {
 
 			Expect(k8sClient.Create(ctx, release)).Should(Succeed())
 
-			// Try to update the Release application snapshot
-			release.Spec.ApplicationSnapshot = "another-snapshot"
+			// Try to update the Release snapshot
+			release.Spec.Snapshot = "another-snapshot"
 
 			err := k8sClient.Update(ctx, release)
 			Expect(err).Should(HaveOccurred())
