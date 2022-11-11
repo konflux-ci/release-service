@@ -19,12 +19,13 @@ package tekton
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"reflect"
 
 	ecapiv1alpha1 "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/kcp-dev/logicalcluster/v2"
@@ -37,12 +38,6 @@ import (
 type ExtraParams struct {
 	Name  string
 	Value tektonv1beta1.ArrayOrString
-}
-
-type ReleasePipelineParams struct {
-	Prefix    string
-	Namespace string
-	Extra     ExtraParams
 }
 
 var _ = Describe("PipelineRun", func() {
@@ -132,7 +127,7 @@ var _ = Describe("PipelineRun", func() {
 				PersistentVolumeClaim: persistentVolumeClaim,
 				ServiceAccount:        serviceAccountName,
 				Params: []v1alpha1.Params{
-					v1alpha1.Params{
+					{
 						Name:   "testparam1",
 						Values: []string{"val1", "val2"},
 					},
@@ -187,11 +182,7 @@ var _ = Describe("PipelineRun", func() {
 		})
 
 		It("can append the release Name, Namespace, and Workspace to a ReleasePipelineRun object and that these label key names match the correct label format", func() {
-			releasePipelineRun.WithReleaseAndApplicationLabels(
-				release.Name,
-				release.Namespace,
-				release.GetAnnotations()[logicalcluster.AnnotationKey],
-				applicationName)
+			releasePipelineRun.WithReleaseAndApplicationMetadata(release, applicationName)
 			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/name"]).
 				To(Equal(release.Name))
 			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/namespace"]).
@@ -245,6 +236,37 @@ var _ = Describe("PipelineRun", func() {
 			releasePipelineRun.WithEnterpriseContractPolicy(enterpriseContractPolicy)
 			jsonSpec, _ := json.Marshal(enterpriseContractPolicy.Spec)
 			Expect(releasePipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(jsonSpec)))))
+		})
+	})
+
+	Context("WithReleaseStrategy handles all limbs of PVC conditional branch", func() {
+		When("strategy.Spec.PersistentVolumeClaim is empty", func() {
+			It("nothing happens when the DEFAULT_RELEASE_WORKSPACE_NAME environment variable is empty", func() {
+				os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "")
+				os.Setenv("DEFAULT_RELEASE_PVC", "bar")
+				strategy.Spec.PersistentVolumeClaim = ""
+				releasePipelineRun.WithReleaseStrategy(strategy)
+				Expect(releasePipelineRun.Spec.Workspaces).To(BeNil())
+			})
+		})
+		When("strategy.Spec.PersistentVolumeClaim is empty", func() {
+			It("nothing happens when the DEFAULT_RELEASE_PVC environment variable is empty", func() {
+				os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "foo")
+				os.Setenv("DEFAULT_RELEASE_PVC", "")
+				strategy.Spec.PersistentVolumeClaim = ""
+				releasePipelineRun.WithReleaseStrategy(strategy)
+				Expect(releasePipelineRun.Spec.Workspaces).To(BeNil())
+			})
+		})
+		When("strategy.Spec.PersistentVolumeClaim is empty", func() {
+			It("sets the ClaimName from the DEFAULT_RELEASE_PVC environment variable", func() {
+				os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "foo")
+				os.Setenv("DEFAULT_RELEASE_PVC", "bar")
+				strategy.Spec.PersistentVolumeClaim = ""
+				releasePipelineRun.WithReleaseStrategy(strategy)
+				Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("Name", Equal("foo"))))
+				Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("PersistentVolumeClaim.ClaimName", Equal("bar"))))
+			})
 		})
 	})
 })

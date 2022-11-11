@@ -24,7 +24,9 @@ import (
 	"unicode"
 
 	ecapiv1alpha1 "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
+	"github.com/kcp-dev/logicalcluster/v2"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/metadata"
 
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
@@ -48,6 +50,9 @@ const (
 
 	//PipelineTypeRelease is the type for PipelineRuns created to run a release Pipeline
 	PipelineTypeRelease = "release"
+
+	// pipelinesAsCodeMetadataPrefix is the prefix for pipelines-as-code metadata
+	pipelinesAsCodeMetadataPrefix = "pipelinesascode.tekton.dev"
 )
 
 var (
@@ -121,7 +126,7 @@ func (r *ReleasePipelineRun) WithSnapshot(snapshot *applicationapiv1alpha1.Snaps
 	return r
 }
 
-//  WithEnterpriseContractPolicy adds a param containing the EnterpriseContractPolicy Spec as a json string to the release PipelineRun.
+// WithEnterpriseContractPolicy adds a param containing the EnterpriseContractPolicy Spec as a json string to the release PipelineRun.
 func (r *ReleasePipelineRun) WithEnterpriseContractPolicy(enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy) *ReleasePipelineRun {
 	policyJson, _ := json.Marshal(enterpriseContractPolicy.Spec)
 
@@ -143,16 +148,18 @@ func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipeli
 	return r
 }
 
-// WithReleaseAndApplicationLabels adds Release and Application labels to the release PipelineRun.
-func (r *ReleasePipelineRun) WithReleaseAndApplicationLabels(releaseName, releaseNamespace, releaseWorkspace string, applicationName string) *ReleasePipelineRun {
+// WithReleaseAndApplicationMetadata adds Release and Application metadata to the release PipelineRun.
+func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1.Release, applicationName string) *ReleasePipelineRun {
 	r.ObjectMeta.Labels = map[string]string{
 		PipelinesTypeLabel:    PipelineTypeRelease,
-		ReleaseNameLabel:      releaseName,
-		ReleaseNamespaceLabel: releaseNamespace,
+		ReleaseNameLabel:      release.Name,
+		ReleaseNamespaceLabel: release.Namespace,
 		// PipelineRun does not allow labels with : in the value, which KCP workspaces have
-		ReleaseWorkspaceLabel: strings.ReplaceAll(releaseWorkspace, ":", "__"),
+		ReleaseWorkspaceLabel: strings.ReplaceAll(release.GetAnnotations()[logicalcluster.AnnotationKey], ":", "__"),
 		ApplicationNameLabel:  applicationName,
 	}
+	metadata.AddAnnotations(r.AsPipelineRun(), metadata.GetAnnotationsWithPrefix(release, pipelinesAsCodeMetadataPrefix))
+	metadata.AddLabels(r.AsPipelineRun(), metadata.GetLabelsWithPrefix(release, pipelinesAsCodeMetadataPrefix))
 
 	return r
 }
