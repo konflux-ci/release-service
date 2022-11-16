@@ -1,9 +1,0 @@
-apiVersion: apis.kcp.dev/v1alpha1
-kind: APIBinding
-metadata:
-  name: managed
-spec:
-  reference:
-    workspace:
-      path: root:users:someuser:dev
-      exportName: release

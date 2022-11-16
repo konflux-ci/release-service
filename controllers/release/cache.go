@@ -18,6 +18,7 @@ package release
 
 import (
 	"context"
+
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,14 +35,14 @@ func SetupComponentCache(mgr ctrl.Manager) error {
 		"spec.application", componentIndexFunc)
 }
 
-// SetupReleasePlanAdmissionCache adds a new index field to be able to search ReleasePlanAdmissions by origin namespace.
+// SetupReleasePlanAdmissionCache adds a new index field to be able to search ReleasePlanAdmissions by origin.
 func SetupReleasePlanAdmissionCache(mgr ctrl.Manager) error {
 	releasePlanAdmissionIndexFunc := func(obj client.Object) []string {
-		return []string{obj.(*v1alpha1.ReleasePlanAdmission).Spec.Origin.Namespace}
+		return []string{obj.(*v1alpha1.ReleasePlanAdmission).Spec.Origin}
 	}
 
 	return mgr.GetCache().IndexField(context.Background(), &v1alpha1.ReleasePlanAdmission{},
-		"spec.origin.namespace", releasePlanAdmissionIndexFunc)
+		"spec.origin", releasePlanAdmissionIndexFunc)
 }
 
 // SetupSnapshotEnvironmentBindingCache adds a new index field to be able to search SnapshotEnvironmentBindings by environment.

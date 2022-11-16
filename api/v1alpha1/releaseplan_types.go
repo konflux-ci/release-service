@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/redhat-appstudio/release-service/kcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,14 +26,15 @@ type ReleasePlanSpec struct {
 	// +optional
 	DisplayName string `json:"displayName"`
 
-	// Application is a reference to the application to be released in the managed workspace
+	// Application is a reference to the application to be released in the managed namespace
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
 	Application string `json:"application"`
 
 	// Target references where to send the release requests
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
-	Target kcp.NamespaceReference `json:"target"`
+	Target string `json:"target"`
 }
 
 // ReleasePlanStatus defines the observed state of ReleasePlan.
@@ -45,8 +45,7 @@ type ReleasePlanStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Display Name",type=string,priority=1,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Application",type=string,JSONPath=`.spec.application`
-// +kubebuilder:printcolumn:name="Target Namespace",type=string,priority=1,JSONPath=`.spec.target.namespace`
-// +kubebuilder:printcolumn:name="Target Workspace",type=string,priority=1,JSONPath=`.spec.target.workspace`
+// +kubebuilder:printcolumn:name="Target",type=string,JSONPath=`.spec.target`
 
 // ReleasePlan is the Schema for the ReleasePlans API.
 type ReleasePlan struct {

@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/kcp"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,9 +57,7 @@ var _ = Describe("Release Controller", func() {
 			},
 			Spec: appstudiov1alpha1.ReleasePlanSpec{
 				Application: "test-app",
-				Target: kcp.NamespaceReference{
-					Namespace: testNamespace,
-				},
+				Target:      testNamespace,
 			},
 		}
 		Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())

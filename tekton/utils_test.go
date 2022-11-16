@@ -18,13 +18,13 @@ package tekton
 
 import (
 	"context"
-	"k8s.io/utils/clock"
 	"reflect"
+
+	"k8s.io/utils/clock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,9 +52,6 @@ var _ = Describe("Utils", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "testrelease-",
 				Namespace:    namespace,
-				Annotations: map[string]string{
-					logicalcluster.AnnotationKey: "test-cluster",
-				},
 			},
 			Spec: v1alpha1.ReleaseSpec{
 				Snapshot:    "testsnapshot",

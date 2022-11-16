@@ -18,7 +18,6 @@ package v1alpha1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-appstudio/release-service/kcp"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -42,9 +41,7 @@ var _ = Describe("ReleasePlan webhook", func() {
 			Spec: ReleasePlanSpec{
 				DisplayName: "Test release plan",
 				Application: "application",
-				Target: kcp.NamespaceReference{
-					Namespace: "default",
-				},
+				Target:      "default",
 			},
 		}
 	})

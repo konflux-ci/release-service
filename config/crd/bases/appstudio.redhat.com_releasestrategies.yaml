@@ -62,7 +62,7 @@ spec:
                 type: array
               persistentVolumeClaim:
                 description: PersistentVolumeClaim is the pvc to use in the Release
-                  pipeline workspace
+                  pipeline namespace
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
               pipeline:

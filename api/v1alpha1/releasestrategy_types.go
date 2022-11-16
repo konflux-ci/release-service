@@ -40,7 +40,7 @@ type ReleaseStrategySpec struct {
 	// +required
 	Policy string `json:"policy"`
 
-	// PersistentVolumeClaim is the pvc to use in the Release pipeline workspace
+	// PersistentVolumeClaim is the pvc to use in the Release pipeline namespace
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
 	PersistentVolumeClaim string `json:"persistentVolumeClaim,omitempty"`
