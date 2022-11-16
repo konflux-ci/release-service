@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/redhat-appstudio/release-service/kcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,14 +26,15 @@ type ReleasePlanAdmissionSpec struct {
 	// +optional
 	DisplayName string `json:"displayName"`
 
-	// Application is a reference to the application to be released in the managed workspace
+	// Application is a reference to the application to be released in the managed namespace
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
 	Application string `json:"application"`
 
 	// Origin references where the release requests should come from
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
-	Origin kcp.NamespaceReference `json:"origin"`
+	Origin string `json:"origin"`
 
 	// Environment defines which Environment will be used to release the application
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -57,8 +57,7 @@ type ReleasePlanAdmissionStatus struct {
 // +kubebuilder:printcolumn:name="Application",type=string,JSONPath=`.spec.application`
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
 // +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=`.spec.strategy`
-// +kubebuilder:printcolumn:name="Origin Namespace",type=string,priority=1,JSONPath=`.spec.origin.namespace`
-// +kubebuilder:printcolumn:name="Origin Workspace",type=string,priority=1,JSONPath=`.spec.origin.workspace`
+// +kubebuilder:printcolumn:name="Origin",type=string,JSONPath=`.spec.origin`
 
 // ReleasePlanAdmission is the Schema for the ReleasePlanAdmissions API.
 type ReleasePlanAdmission struct {

@@ -15,7 +15,6 @@ COPY main.go main.go
 COPY api/ api/
 COPY controllers/ controllers/
 COPY gitops/ gitops/
-COPY kcp/ kcp/
 COPY metadata/ metadata/
 COPY metrics/ metrics/
 COPY syncer/ syncer/

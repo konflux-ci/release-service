@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"time"
 
-	"github.com/redhat-appstudio/release-service/kcp"
 	"github.com/redhat-appstudio/release-service/metrics"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -104,8 +103,9 @@ type ReleaseStatus struct {
 	ReleaseStrategy string `json:"releaseStrategy,omitempty"`
 
 	// Target references where this relesae is intended to be released to
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
-	Target kcp.NamespaceReference `json:"target,omitempty"`
+	Target string `json:"target,omitempty"`
 }
 
 // +kubebuilder:object:root=true

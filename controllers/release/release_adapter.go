@@ -26,14 +26,12 @@ import (
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
 	"github.com/redhat-appstudio/release-service/gitops"
-	"github.com/redhat-appstudio/release-service/kcp"
 	"github.com/redhat-appstudio/release-service/syncer"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/controllers/results"
 	"github.com/redhat-appstudio/release-service/tekton"
@@ -47,12 +45,11 @@ import (
 
 // Adapter holds the objects needed to reconcile a Release.
 type Adapter struct {
-	release       *v1alpha1.Release
-	logger        logr.Logger
-	client        client.Client
-	context       context.Context
-	syncer        *syncer.Syncer
-	targetContext context.Context
+	release *v1alpha1.Release
+	logger  logr.Logger
+	client  client.Client
+	context context.Context
+	syncer  *syncer.Syncer
 }
 
 // finalizerName is the finalizer name to be added to the Releases
@@ -235,46 +232,6 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingIsCreated() (results.Operation
 	return results.RequeueOnErrorOrContinue(a.client.Status().Patch(a.context, a.release, patch))
 }
 
-// EnsureTargetContextIsSet is an operation that will ensure that the targetContext of the adapter is not nil. It will
-// set it to a context from the workspace in the ReleasePlan if one is defined or to its own context if not.
-func (a *Adapter) EnsureTargetContextIsSet() (results.OperationResult, error) {
-	if a.release.Status.Target == (kcp.NamespaceReference{}) {
-		patch := client.MergeFrom(a.release.DeepCopy())
-		releasePlan, err := a.getReleasePlan()
-		if err != nil {
-			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, err.Error())
-			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
-		}
-
-		if _, ok := logicalcluster.ClusterFromContext(a.context); ok {
-			a.logger.Info("Running in a KCP environment")
-
-			if releasePlan.Spec.Target.Workspace == "" {
-				a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, "ReleasePlan Workspace is not set while running on KCP")
-				return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
-			}
-		} else if releasePlan.Spec.Target.Workspace != "" {
-			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, "ReleasePlan Workspace is set while not running on KCP")
-			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
-		}
-
-		a.release.Status.Target = releasePlan.Spec.Target
-		err = a.client.Status().Patch(a.context, a.release, patch)
-		if err != nil {
-			return results.RequeueWithError(err)
-		}
-	}
-
-	if a.release.Status.Target.Workspace == "" {
-		a.targetContext = a.context
-	} else {
-		a.targetContext = logicalcluster.WithCluster(a.context, logicalcluster.New(a.release.Status.Target.Workspace))
-		a.syncer.SetContext(a.targetContext)
-	}
-
-	return results.ContinueProcessing()
-}
-
 // createOrUpdateSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being
 // processed.
 func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
@@ -297,12 +254,12 @@ func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission 
 		if err != nil {
 			return nil, err
 		}
-		return binding, a.client.Create(a.targetContext, binding)
+		return binding, a.client.Create(a.context, binding)
 	} else {
 		// We create the binding so if the owner reference is not already present, there must be a good reason for that
 		patch := client.MergeFrom(existingBinding.DeepCopy())
 		existingBinding.Spec = binding.Spec
-		return existingBinding, a.client.Patch(a.targetContext, existingBinding, patch)
+		return existingBinding, a.client.Patch(a.context, existingBinding, patch)
 	}
 }
 
@@ -321,7 +278,7 @@ func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStra
 		WithSnapshot(snapshot).
 		AsPipelineRun()
 
-	err := a.client.Create(a.targetContext, pipelineRun)
+	err := a.client.Create(a.context, pipelineRun)
 	if err != nil {
 		return nil, err
 	}
@@ -360,11 +317,11 @@ func (a *Adapter) getActiveReleasePlanAdmission() (*v1alpha1.ReleasePlanAdmissio
 
 	releasePlanAdmissions := &v1alpha1.ReleasePlanAdmissionList{}
 	opts := []client.ListOption{
-		client.InNamespace(releasePlan.Spec.Target.Namespace),
-		client.MatchingFields{"spec.origin.namespace": releasePlan.Namespace},
+		client.InNamespace(releasePlan.Spec.Target),
+		client.MatchingFields{"spec.origin": releasePlan.Namespace},
 	}
 
-	err = a.client.List(a.targetContext, releasePlanAdmissions, opts...)
+	err = a.client.List(a.context, releasePlanAdmissions, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +351,7 @@ func (a *Adapter) getActiveReleasePlanAdmission() (*v1alpha1.ReleasePlanAdmissio
 // the Get operation failed, an error will be returned.
 func (a *Adapter) getApplication(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error) {
 	application := &applicationapiv1alpha1.Application{}
-	err := a.client.Get(a.targetContext, types.NamespacedName{
+	err := a.client.Get(a.context, types.NamespacedName{
 		Name:      releasePlanAdmission.Spec.Application,
 		Namespace: releasePlanAdmission.Namespace,
 	}, application)
@@ -414,7 +371,7 @@ func (a *Adapter) getApplicationComponents(application *applicationapiv1alpha1.A
 		client.MatchingFields{"spec.application": application.Name},
 	}
 
-	err := a.client.List(a.targetContext, applicationComponents, opts...)
+	err := a.client.List(a.context, applicationComponents, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +399,7 @@ func (a *Adapter) getSnapshot() (*applicationapiv1alpha1.Snapshot, error) {
 // Environment is not found or the Get operation fails, an error will be returned.
 func (a *Adapter) getEnvironment(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Environment, error) {
 	environment := &applicationapiv1alpha1.Environment{}
-	err := a.client.Get(a.targetContext, types.NamespacedName{
+	err := a.client.Get(a.context, types.NamespacedName{
 		Name:      releasePlanAdmission.Spec.Environment,
 		Namespace: releasePlanAdmission.Namespace,
 	}, environment)
@@ -478,11 +435,10 @@ func (a *Adapter) getReleasePipelineRun() (*v1beta1.PipelineRun, error) {
 		client.MatchingLabels{
 			tekton.ReleaseNameLabel:      a.release.Name,
 			tekton.ReleaseNamespaceLabel: a.release.Namespace,
-			tekton.ReleaseWorkspaceLabel: a.release.GetAnnotations()[logicalcluster.AnnotationKey],
 		},
 	}
 
-	err := a.client.List(a.targetContext, pipelineRuns, opts...)
+	err := a.client.List(a.context, pipelineRuns, opts...)
 	if err == nil && len(pipelineRuns.Items) > 0 {
 		return &pipelineRuns.Items[0], nil
 	}
@@ -494,7 +450,7 @@ func (a *Adapter) getReleasePipelineRun() (*v1beta1.PipelineRun, error) {
 // is not found or the Get operation fails, an error will be returned.
 func (a *Adapter) getReleaseStrategy(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleaseStrategy, error) {
 	releaseStrategy := &v1alpha1.ReleaseStrategy{}
-	err := a.client.Get(a.targetContext, types.NamespacedName{
+	err := a.client.Get(a.context, types.NamespacedName{
 		Name:      releasePlanAdmission.Spec.ReleaseStrategy,
 		Namespace: releasePlanAdmission.Namespace,
 	}, releaseStrategy)
@@ -509,7 +465,7 @@ func (a *Adapter) getReleaseStrategy(releasePlanAdmission *v1alpha1.ReleasePlanA
 // getEnterpriseContractPolicy return the EnterpriseContractPolicy referenced by the given ReleaseStrategy.
 func (a *Adapter) getEnterpriseContractPolicy(releaseStrategy *v1alpha1.ReleaseStrategy) (*ecapiv1alpha1.EnterpriseContractPolicy, error) {
 	enterpriseContractPolicy := &ecapiv1alpha1.EnterpriseContractPolicy{}
-	err := a.client.Get(a.targetContext, types.NamespacedName{
+	err := a.client.Get(a.context, types.NamespacedName{
 		Name:      releaseStrategy.Spec.Policy,
 		Namespace: releaseStrategy.Namespace,
 	}, enterpriseContractPolicy)
@@ -532,7 +488,7 @@ func (a *Adapter) getSnapshotEnvironmentBinding(environment *applicationapiv1alp
 		client.MatchingFields{"spec.environment": environment.Name},
 	}
 
-	err := a.client.List(a.targetContext, bindingList, opts...)
+	err := a.client.List(a.context, bindingList, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -609,8 +565,7 @@ func (a *Adapter) registerReleaseStatusData(releasePipelineRun *v1beta1.Pipeline
 		releasePipelineRun.Namespace, types.Separator, releasePipelineRun.Name)
 	a.release.Status.ReleaseStrategy = fmt.Sprintf("%s%c%s",
 		releaseStrategy.Namespace, types.Separator, releaseStrategy.Name)
-	a.release.Status.Target.Namespace = releasePipelineRun.Namespace
-	a.release.Status.Target.Workspace = releasePipelineRun.GetAnnotations()[logicalcluster.AnnotationKey]
+	a.release.Status.Target = releasePipelineRun.Namespace
 
 	a.release.MarkRunning()
 

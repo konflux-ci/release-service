@@ -22,12 +22,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kcp-dev/logicalcluster/v2"
 	"github.com/redhat-appstudio/release-service/gitops"
-	"github.com/redhat-appstudio/release-service/kcp"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -171,10 +168,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 			},
 			Spec: appstudiov1alpha1.ReleasePlanAdmissionSpec{
-				Application: "test-app",
-				Origin: kcp.NamespaceReference{
-					Namespace: testNamespace,
-				},
+				Application:     "test-app",
+				Origin:          testNamespace,
 				Environment:     "test-environment",
 				ReleaseStrategy: releaseStrategy.GetName(),
 			},
@@ -191,9 +186,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			},
 			Spec: appstudiov1alpha1.ReleasePlanSpec{
 				Application: "test-app",
-				Target: kcp.NamespaceReference{
-					Namespace: testNamespace,
-				},
+				Target:      testNamespace,
 			},
 		}
 		Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
@@ -222,7 +215,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}, time.Second*10).ShouldNot(HaveOccurred())
 
 		adapter = NewAdapter(release, ctrl.Log, k8sClient, ctx)
-		adapter.targetContext = adapter.context
 		Expect(reflect.TypeOf(adapter)).To(Equal(reflect.TypeOf(&Adapter{})))
 	})
 
@@ -744,7 +736,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(pipelineRun.GetLabels()[tekton.PipelinesTypeLabel]).To(Equal("release"))
 			Expect(pipelineRun.GetLabels()[tekton.ReleaseNameLabel]).To(Equal(release.Name))
 			Expect(pipelineRun.GetLabels()[tekton.ReleaseNamespaceLabel]).To(Equal(testNamespace))
-			Expect(pipelineRun.GetLabels()[tekton.ReleaseWorkspaceLabel]).To(Equal(""))
 			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
 		})
 
@@ -797,7 +788,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(reflect.TypeOf(link)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleasePlanAdmission{})))
 		Expect(link.Spec.Application).To(Equal("test-app"))
 		Expect(link.Spec.ReleaseStrategy).To(Equal(releaseStrategy.Name))
-		Expect(link.Namespace).Should(Equal(releasePlan.Spec.Target.Namespace))
+		Expect(link.Namespace).Should(Equal(releasePlan.Spec.Target))
 
 		// It should return nil if the ReleasePlanAdmission has auto-release set to false
 		patch := client.MergeFrom(link.DeepCopy())
@@ -812,9 +803,9 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}, time.Second*10).Should(BeTrue())
 	})
 
-	It("fails to find the target ReleasePlanAdmission when target namespace does not match", func() {
+	It("fails to find the target ReleasePlanAdmission when target does not match", func() {
 		patch := client.MergeFrom(releasePlan.DeepCopy())
-		releasePlan.Spec.Target.Namespace = "foo"
+		releasePlan.Spec.Target = "foo"
 		Expect(k8sClient.Patch(ctx, releasePlan, patch)).Should(Succeed())
 		Eventually(func() bool {
 			activeReleasePlanAdmission, err := adapter.getActiveReleasePlanAdmission()
@@ -906,104 +897,5 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		link, err := adapter.getReleasePlan()
 		Expect(err).Should(Succeed())
 		Expect(reflect.TypeOf(link)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleasePlan{})))
-	})
-
-	Context("When calling EnsureTargetContextIsSet", func() {
-		It("ensures the target context is set when a workspace is targeted by a ReleasePlan", func() {
-			// Set the targetContext to nil to check if the operation sets its value
-			adapter.targetContext = nil
-			patch := client.MergeFrom(release.DeepCopy())
-
-			// Add a target workspace to the Release Status to bypass the path loading and validating the ReleasePlan
-			release.Status.Target = kcp.NamespaceReference{
-				Namespace: "default",
-				Workspace: "test-workspace",
-			}
-			Expect(k8sClient.Status().Patch(ctx, release, patch)).To(Succeed())
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      release.Name,
-					Namespace: release.Namespace,
-				}, release)
-				return err == nil && release.Status.Target.Workspace == "test-workspace"
-			}, time.Second*10).Should(BeTrue())
-
-			result, err := adapter.EnsureTargetContextIsSet()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(!result.RequeueRequest).To(BeTrue())
-
-			clusterName, _ := logicalcluster.ClusterFromContext(adapter.targetContext)
-			Expect(clusterName.String()).To(Equal("test-workspace"))
-
-			// Restore original values
-			adapter.targetContext = adapter.context
-		})
-
-		It("should mark release as invalid when the target workspace is set in a non-KCP environment", func() {
-			// Add a target workspace to the ReleasePlan
-			patch := client.MergeFrom(releasePlan.DeepCopy())
-			originalWorkspace := releasePlan.Spec.Target.Workspace
-			releasePlan.Spec.Target.Workspace = "test-workspace"
-			Expect(k8sClient.Patch(ctx, releasePlan, patch)).Should(Succeed())
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      releasePlan.Name,
-					Namespace: releasePlan.Namespace,
-				}, releasePlan)
-				return err == nil && releasePlan.Spec.Target.Workspace == "test-workspace"
-			}, time.Second*10).Should(BeTrue())
-
-			result, err := adapter.EnsureTargetContextIsSet()
-			Expect(result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      release.Name,
-					Namespace: release.Namespace,
-				}, release)
-				condition := meta.FindStatusCondition(release.Status.Conditions, "Succeeded")
-				return err == nil && condition != nil && condition.Reason == string(appstudiov1alpha1.ReleaseReasonReleasePlanValidationError)
-			}, time.Second*10).Should(BeTrue())
-
-			// Restore original values
-			adapter.targetContext = adapter.context
-			patch = client.MergeFrom(releasePlan.DeepCopy())
-			releasePlan.Spec.Target.Workspace = originalWorkspace
-			Expect(k8sClient.Patch(ctx, releasePlan, patch)).Should(Succeed())
-		})
-
-		It("ensures the target context is set to the default context when the ReleasePlan does not contain a target workspace", func() {
-			result, err := adapter.EnsureTargetContextIsSet()
-			Expect(!result.RequeueRequest && err == nil).To(BeTrue())
-			Expect(adapter.targetContext).To(Equal(adapter.context))
-		})
-
-		It("ensures an error is returned when the ReleasePlan is missing", func() {
-			// Delete the ReleasePlan
-			Expect(k8sClient.Delete(ctx, releasePlan)).Should(Succeed())
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      releasePlan.Name,
-					Namespace: releasePlan.Namespace,
-				}, releasePlan)
-				return err != nil && errors.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue())
-
-			// Set the targetContext to nil to check if the EnsureTargetContextIsSet sets its value
-			adapter.targetContext = nil
-
-			result, err := adapter.EnsureTargetContextIsSet()
-			Expect(!result.RequeueRequest && result.CancelRequest && err == nil).To(BeTrue())
-
-			// Restore original targetContext value
-			adapter.targetContext = adapter.context
-
-			releasePlan.ResourceVersion = ""
-			Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
-		})
 	})
 })

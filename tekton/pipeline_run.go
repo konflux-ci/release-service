@@ -20,11 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"unicode"
 
 	ecapiv1alpha1 "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
-	"github.com/kcp-dev/logicalcluster/v2"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/metadata"
 
@@ -67,9 +65,6 @@ var (
 
 	// ReleaseNamespaceLabel is the label used to specify the namespace of the Release associated with the PipelineRun
 	ReleaseNamespaceLabel = fmt.Sprintf("%s/%s", releaseLabelPrefix, "namespace")
-
-	// ReleaseWorkspaceLabel is the label used to specify the workspace of the Release associated with the PipelineRun
-	ReleaseWorkspaceLabel = fmt.Sprintf("%s/%s", releaseLabelPrefix, "workspace")
 )
 
 // ReleasePipelineRun is a PipelineRun alias, so we can add new methods to it in this file.
@@ -154,8 +149,6 @@ func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1
 		PipelinesTypeLabel:    PipelineTypeRelease,
 		ReleaseNameLabel:      release.Name,
 		ReleaseNamespaceLabel: release.Namespace,
-		// PipelineRun does not allow labels with : in the value, which KCP workspaces have
-		ReleaseWorkspaceLabel: strings.ReplaceAll(release.GetAnnotations()[logicalcluster.AnnotationKey], ":", "__"),
 		ApplicationNameLabel:  applicationName,
 	}
 	metadata.AddAnnotations(r.AsPipelineRun(), metadata.GetAnnotationsWithPrefix(release, pipelinesAsCodeMetadataPrefix))

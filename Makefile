@@ -8,9 +8,6 @@ TAG_NAME ?= next
 CERT_MANAGER_VERSION ?= v1.8.0
 ENABLE_WEBHOOKS ?= true
 
-# CONTROL_PLANE defines the type of cluster that will be used. Possible values are kubernetes (default) and kcp.
-CONTROL_PLANE ?= kubernetes
-
 # DEFAULT_PERSISTENT_VOLUME_CLAIM defines the default PVC to be used in the Release pipeline workspace declaration.
 DEFAULT_RELEASE_PVC ?= release-pvc
 
@@ -101,9 +98,6 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-ifeq ($(CONTROL_PLANE), kcp)
-	hack/generate-kcp-api.sh ## Generate KCP APIExport and APIResourceSchemas from CRDs
-endif
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.

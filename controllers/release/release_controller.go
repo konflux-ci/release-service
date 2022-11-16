@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/kcp-dev/logicalcluster/v2"
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/controllers/results"
@@ -58,17 +57,11 @@ func NewReleaseReconciler(client client.Client, logger *logr.Logger, scheme *run
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=applications/finalizers,verbs=update
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=enterprisecontractpolicies,verbs=get;list;watch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=enterprisecontractpolicies/status,verbs=get
-//+kubebuilder:rbac:groups=apis.kcp.dev,resources=apiexports,verbs=get;list;watch
-//+kubebuilder:rbac:groups=apis.kcp.dev,resources=apiexports/content,verbs=*
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.Log.WithValues("Release", req.NamespacedName).WithValues("clusterName", req.ClusterName)
-
-	if req.ClusterName != "" {
-		ctx = logicalcluster.WithCluster(ctx, logicalcluster.New(req.ClusterName))
-	}
+	logger := r.Log.WithValues("Release", req.NamespacedName)
 
 	release := &v1alpha1.Release{}
 	err := r.Get(ctx, req.NamespacedName, release)
@@ -93,7 +86,6 @@ type AdapterInterface interface {
 	EnsureReleasePipelineStatusIsTracked() (results.OperationResult, error)
 	EnsureReleasePlanAdmissionEnabled() (results.OperationResult, error)
 	EnsureSnapshotEnvironmentBindingIsCreated() (results.OperationResult, error)
-	EnsureTargetContextIsSet() (results.OperationResult, error)
 }
 
 // ReconcileOperation defines the syntax of functions invoked by the ReconcileHandler
@@ -103,7 +95,6 @@ type ReconcileOperation func() (results.OperationResult, error)
 // based on the operations' results.
 func (r *Reconciler) ReconcileHandler(adapter AdapterInterface) (ctrl.Result, error) {
 	operations := []ReconcileOperation{
-		adapter.EnsureTargetContextIsSet,
 		adapter.EnsureReleasePlanAdmissionEnabled,
 		adapter.EnsureFinalizersAreCalled,
 		adapter.EnsureFinalizerIsAdded,

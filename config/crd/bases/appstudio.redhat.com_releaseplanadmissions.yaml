@@ -29,13 +29,8 @@ spec:
     - jsonPath: .spec.strategy
       name: Strategy
       type: string
-    - jsonPath: .spec.origin.namespace
-      name: Origin Namespace
-      priority: 1
-      type: string
-    - jsonPath: .spec.origin.workspace
-      name: Origin Workspace
-      priority: 1
+    - jsonPath: .spec.origin
+      name: Origin
       type: string
     name: v1alpha1
     schema:
@@ -60,7 +55,7 @@ spec:
             properties:
               application:
                 description: Application is a reference to the application to be released
-                  in the managed workspace
+                  in the managed namespace
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
               displayName:
@@ -74,18 +69,8 @@ spec:
               origin:
                 description: Origin references where the release requests should come
                   from
-                properties:
-                  namespace:
-                    description: Namespace references a namespace within the cluster
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                    type: string
-                  workspace:
-                    description: Workspace references a KCP workspace within the cluster
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])(:[a-z0-9]([-a-z0-9]*[a-z0-9]))*$
-                    type: string
-                required:
-                - namespace
-                type: object
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
               releaseStrategy:
                 description: Release Strategy defines which strategy will be used
                   to release the application

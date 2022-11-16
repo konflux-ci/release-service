@@ -23,7 +23,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-appstudio/release-service/kcp"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -61,10 +60,7 @@ var _ = Describe("Metrics Release", Ordered, func() {
 		strategy             = "nostrategy"
 	)
 
-	var defaultNamespace = kcp.NamespaceReference{
-		Namespace: "default",
-		Workspace: "default",
-	}
+	var defaultNamespace = "default"
 
 	Context("When RegisterNewRelease is called", func() {
 		// As we need to share metrics within the Context, we need to use "per Context" '(Before|After)All'
@@ -132,7 +128,7 @@ var _ = Describe("Metrics Release", Ordered, func() {
 					Help:    "Release durations from the moment the release PipelineRun was created til the release is marked as finished",
 					Buckets: []float64{60, 600, 1800, 3600},
 				},
-				[]string{"reason", "strategy", "succeeded", "target_namespace", "target_workspace"},
+				[]string{"reason", "strategy", "succeeded", "target"},
 			)
 
 			ReleaseAttemptConcurrentTotal = prometheus.NewGauge(
@@ -153,8 +149,8 @@ var _ = Describe("Metrics Release", Ordered, func() {
 		// Input seconds for duration of operations less or equal to the following buckets of 60, 600, 1800 and 3600 seconds
 		inputSeconds := []float64{30, 500, 1500, 3000}
 		elapsedSeconds := 0.0
-		labels := fmt.Sprintf(`reason="%s", strategy="%s", succeeded="true", target_namespace="%s", target_workspace="%s",`,
-			validReleaseReason, strategy, defaultNamespace.Workspace, defaultNamespace.Workspace)
+		labels := fmt.Sprintf(`reason="%s", strategy="%s", succeeded="true", target="%s",`,
+			validReleaseReason, strategy, defaultNamespace)
 
 		It("increments 'ReleaseAttemptConcurrentTotal' so we can decrement it to a non-negative number in the next test", func() {
 			creationTime := metav1.Time{}
@@ -195,9 +191,9 @@ var _ = Describe("Metrics Release", Ordered, func() {
 		})
 
 		It("increments the 'ReleaseAttemptTotal' metric.", func() {
-			labels := fmt.Sprintf(`reason="%s", strategy="", succeeded="false", target_namespace="", target_workspace="",`, invalidReleaseReason)
+			labels := fmt.Sprintf(`reason="%s", strategy="", succeeded="false", target="",`, invalidReleaseReason)
 			readerData := createCounterReader(AttemptTotalHeader, labels, true, 10.0)
-			Expect(testutil.CollectAndCompare(ReleaseAttemptTotal.WithLabelValues("invalid_release_reason", "", "false", "", ""),
+			Expect(testutil.CollectAndCompare(ReleaseAttemptTotal.WithLabelValues("invalid_release_reason", "", "false", ""),
 				strings.NewReader(readerData))).To(Succeed())
 		})
 	})
