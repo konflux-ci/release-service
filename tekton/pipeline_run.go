@@ -27,6 +27,7 @@ import (
 	"github.com/redhat-appstudio/release-service/metadata"
 
 	libhandler "github.com/operator-framework/operator-lib/handler"
+	integrationServiceGitopsPkg "github.com/redhat-appstudio/integration-service/gitops"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -48,9 +49,6 @@ const (
 
 	//PipelineTypeRelease is the type for PipelineRuns created to run a release Pipeline
 	PipelineTypeRelease = "release"
-
-	// pipelinesAsCodeMetadataPrefix is the prefix for pipelines-as-code metadata
-	pipelinesAsCodeMetadataPrefix = "pipelinesascode.tekton.dev"
 )
 
 var (
@@ -151,8 +149,8 @@ func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1
 		ReleaseNamespaceLabel: release.Namespace,
 		ApplicationNameLabel:  applicationName,
 	}
-	metadata.AddAnnotations(r.AsPipelineRun(), metadata.GetAnnotationsWithPrefix(release, pipelinesAsCodeMetadataPrefix))
-	metadata.AddLabels(r.AsPipelineRun(), metadata.GetLabelsWithPrefix(release, pipelinesAsCodeMetadataPrefix))
+	metadata.AddAnnotations(r.AsPipelineRun(), metadata.GetAnnotationsWithPrefix(release, integrationServiceGitopsPkg.PipelinesAsCodePrefix))
+	metadata.AddLabels(r.AsPipelineRun(), metadata.GetLabelsWithPrefix(release, integrationServiceGitopsPkg.PipelinesAsCodePrefix))
 
 	return r
 }
