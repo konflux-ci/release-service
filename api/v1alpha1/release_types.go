@@ -17,9 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	"github.com/redhat-appstudio/release-service/conditions"
 	"github.com/redhat-appstudio/release-service/metrics"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,11 +38,6 @@ type ReleaseSpec struct {
 	// +required
 	ReleasePlan string `json:"releasePlan"`
 }
-
-const (
-	// AutoReleaseLabel is the label name for the auto-release setting
-	AutoReleaseLabel = "release.appstudio.openshift.io/auto-release"
-)
 
 // ReleaseStatus defines the observed state of Release.
 type ReleaseStatus struct {

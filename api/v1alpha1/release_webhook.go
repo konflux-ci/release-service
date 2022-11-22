@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/redhat-appstudio/release-service/metadata"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,8 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
-
-const authorLabel = "release.rhtap.openshift.io/author"
 
 // releaseHandler describes the handler for the Release low level webhook
 type releaseHandler struct {
@@ -66,7 +65,7 @@ func (r *releaseHandler) Handle(ctx context.Context, req admission.Request) admi
 		if !reflect.DeepEqual(releaseNew.Spec, releaseOld.Spec) {
 			return failedResponse(req.UID, "release resources spec cannot be updated")
 		}
-		if releaseNew.GetLabels()[authorLabel] != releaseOld.GetLabels()[authorLabel] {
+		if releaseNew.GetLabels()[metadata.AuthorLabel] != releaseOld.GetLabels()[metadata.AuthorLabel] {
 			return failedResponse(req.UID, "release author label cannnot be updated")
 		}
 	}
@@ -108,7 +107,7 @@ func patchAuthorResponse(req admission.Request) admission.Response {
 		Operation: "replace",
 		Path:      "/metadata/labels",
 		Value: map[string]string{
-			authorLabel: author,
+			metadata.AuthorLabel: author,
 		},
 	})
 	patchBytes, err := json.Marshal(patch)

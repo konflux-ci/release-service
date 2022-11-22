@@ -17,12 +17,13 @@ limitations under the License.
 package metadata
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestMetadata(t *testing.T) {
@@ -148,26 +149,26 @@ var _ = Describe("Metadata", func() {
 	})
 
 	Context("AddLabels function", func() {
-		When("called with a pipelineRun containing nil Labels", func() {
-			pipelineRun := &v1beta1.PipelineRun{
+		When("called with an object containing nil Labels", func() {
+			pod := &corev1.Pod{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: nil,
 					Labels:      nil,
 				},
 			}
-			AddLabels(pipelineRun, map[string]string{})
+			AddLabels(pod, map[string]string{})
 			It("should create the Labels map", func() {
-				Expect(pipelineRun.GetLabels()).ToNot(BeNil())
+				Expect(pod.GetLabels()).ToNot(BeNil())
 			})
 			It("should do nothing with the Annotations map", func() {
-				Expect(pipelineRun.GetAnnotations()).To(BeNil())
+				Expect(pod.GetAnnotations()).To(BeNil())
 			})
 		})
 	})
 
 	Context("GetAnnotationsWithPrefix function", func() {
 		When("calling filterByPrefix with GetAnnotations()", func() {
-			release := &v1alpha1.Release{
+			pod := &corev1.Pod{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
 						"pet/dog": "bark",
@@ -177,7 +178,7 @@ var _ = Describe("Metadata", func() {
 					},
 				},
 			}
-			dst := GetAnnotationsWithPrefix(release, "pet/")
+			dst := GetAnnotationsWithPrefix(pod, "pet/")
 			It("should only fetch Annotations", func() {
 				Expect(dst["pet/dog"]).To(Equal("bark"))
 			})
@@ -189,7 +190,7 @@ var _ = Describe("Metadata", func() {
 
 	Context("GetLabelsWithPrefix function", func() {
 		When("calling filterByPrefix with GetLabels()", func() {
-			release := &v1alpha1.Release{
+			pod := &corev1.Pod{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
 						"foo": "bar",
@@ -199,7 +200,7 @@ var _ = Describe("Metadata", func() {
 					},
 				},
 			}
-			dst := GetLabelsWithPrefix(release, "pet/")
+			dst := GetLabelsWithPrefix(pod, "pet/")
 			It("should only fetch Labels", func() {
 				Expect(dst["pet/dog"]).To(Equal("bark"))
 			})

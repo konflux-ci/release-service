@@ -21,6 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/redhat-appstudio/release-service/metadata"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//+kubebuilder:scaffold:imports
 )
@@ -62,7 +64,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 					Namespace: releasePlanAdmission.Namespace,
 				}, releasePlanAdmission)
 
-				labelValue, ok := releasePlanAdmission.GetLabels()[AutoReleaseLabel]
+				labelValue, ok := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]
 
 				return err == nil && ok && labelValue == "true"
 			}, timeout).Should(BeTrue())
@@ -71,10 +73,10 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 
 	Context("When a ReleasePlanAdmission is created with an invalid auto-release label value", func() {
 		It("should get rejected until the value is valid", func() {
-			releasePlanAdmission.Labels = map[string]string{AutoReleaseLabel: "foo"}
+			releasePlanAdmission.Labels = map[string]string{metadata.AutoReleaseLabel: "foo"}
 			err := k8sClient.Create(ctx, releasePlanAdmission)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("'%s' label can only be set to true or false", AutoReleaseLabel))
+			Expect(err.Error()).To(ContainSubstring("'%s' label can only be set to true or false", metadata.AutoReleaseLabel))
 		})
 	})
 
@@ -82,7 +84,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 		It("shouldn't be modified", func() {
 			By("setting label to true")
 			localReleasePlanAdmission := releasePlanAdmission.DeepCopy()
-			localReleasePlanAdmission.Labels = map[string]string{AutoReleaseLabel: "true"}
+			localReleasePlanAdmission.Labels = map[string]string{metadata.AutoReleaseLabel: "true"}
 			Expect(k8sClient.Create(ctx, localReleasePlanAdmission)).Should(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
@@ -90,7 +92,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 					Namespace: localReleasePlanAdmission.Namespace,
 				}, localReleasePlanAdmission)
 
-				labelValue, ok := localReleasePlanAdmission.GetLabels()[AutoReleaseLabel]
+				labelValue, ok := localReleasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]
 
 				return err == nil && ok && labelValue == "true"
 			}, timeout).Should(BeTrue())
@@ -99,7 +101,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 
 			By("setting label to false")
 			localReleasePlanAdmission = releasePlanAdmission.DeepCopy()
-			localReleasePlanAdmission.Labels = map[string]string{AutoReleaseLabel: "false"}
+			localReleasePlanAdmission.Labels = map[string]string{metadata.AutoReleaseLabel: "false"}
 			Expect(k8sClient.Create(ctx, localReleasePlanAdmission)).Should(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
@@ -107,7 +109,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 					Namespace: localReleasePlanAdmission.Namespace,
 				}, localReleasePlanAdmission)
 
-				labelValue, ok := localReleasePlanAdmission.GetLabels()[AutoReleaseLabel]
+				labelValue, ok := localReleasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]
 
 				return err == nil && ok && labelValue == "false"
 			}, timeout).Should(BeTrue())
@@ -117,10 +119,10 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 	Context("When a ReleasePlanAdmission is updated using an invalid auto-release label value", func() {
 		It("shouldn't be modified", func() {
 			Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
-			releasePlanAdmission.GetLabels()[AutoReleaseLabel] = "foo"
+			releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel] = "foo"
 			err := k8sClient.Update(ctx, releasePlanAdmission)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("'%s' label can only be set to true or false", AutoReleaseLabel))
+			Expect(err.Error()).To(ContainSubstring("'%s' label can only be set to true or false", metadata.AutoReleaseLabel))
 		})
 	})
 
