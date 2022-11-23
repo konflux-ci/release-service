@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/go-logr/logr v1.2.3
-	github.com/hacbs-contract/enterprise-contract-controller v0.0.0-20221014135051-0e9807ee5915
+	github.com/hacbs-contract/enterprise-contract-controller/api v0.0.0-20221123200519-210c9331b2e2
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/ginkgo/v2 v2.5.0
 	github.com/onsi/gomega v1.24.0
