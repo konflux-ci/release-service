@@ -105,14 +105,7 @@ var _ = Describe("PipelineRun", func() {
 			},
 			Spec: ecapiv1alpha1.EnterpriseContractPolicySpec{
 				Description: "test-policy-description",
-				Sources: []ecapiv1alpha1.PolicySource{
-					ecapiv1alpha1.PolicySource{
-						GitRepository: &ecapiv1alpha1.GitPolicySource{
-							Repository: "https://github.com/",
-							Revision:   "main",
-						},
-					},
-				},
+				Sources:     []string{"foo"},
 			},
 		}
 		strategy = &v1alpha1.ReleaseStrategy{

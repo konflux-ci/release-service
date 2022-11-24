@@ -78,7 +78,7 @@ var _ = BeforeSuite(func() {
 			),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("enterprise-contract-controller"), "config", "crd", "bases",
+				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("enterprise-contract-controller"), "config",
 			),
 		},
 		ErrorIfCRDPathMissing: true,

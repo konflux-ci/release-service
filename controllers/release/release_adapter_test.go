@@ -61,13 +61,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		ecPolicy := ecapiv1alpha1.PolicySource{
-			GitRepository: &ecapiv1alpha1.GitPolicySource{
-				Repository: "https://github.com/",
-				Revision:   "main",
-			},
-		}
-
 		enterpriseContractPolicy = &ecapiv1alpha1.EnterpriseContractPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test-policy-",
@@ -75,7 +68,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			},
 			Spec: ecapiv1alpha1.EnterpriseContractPolicySpec{
 				Description: "test-policy-description",
-				Sources:     []ecapiv1alpha1.PolicySource{ecPolicy},
+				Sources:     []string{"foo"},
 			},
 		}
 		Expect(k8sClient.Create(ctx, enterpriseContractPolicy)).Should(Succeed())
