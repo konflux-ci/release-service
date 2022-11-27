@@ -19,6 +19,7 @@ package tekton
 import (
 	"context"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+	goodies "github.com/redhat-appstudio/operator-goodies/test"
 	"go/build"
 	"path/filepath"
 	"testing"
@@ -32,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
-	appstudiotest "github.com/redhat-appstudio/release-service/test"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 
@@ -64,11 +64,11 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "config", "crd", "bases"),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("tektoncd/pipeline"), "config",
+				"pkg", "mod", goodies.GetRelativeDependencyPath("tektoncd/pipeline"), "config",
 			),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
+				"pkg", "mod", goodies.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
 			),
 		},
 		ErrorIfCRDPathMissing: true,
