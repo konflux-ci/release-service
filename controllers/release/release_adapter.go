@@ -32,8 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
+	"github.com/redhat-appstudio/operator-goodies/reconciler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/controllers/results"
 	"github.com/redhat-appstudio/release-service/tekton"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,31 +70,31 @@ func NewAdapter(release *v1alpha1.Release, logger logr.Logger, client client.Cli
 // processed is marked for deletion. Once finalizers get called, the finalizer will be removed and the Release will go
 // back to the queue, so it gets deleted. If a finalizer function fails its execution or a finalizer fails to be removed,
 // the Release will be requeued with the error attached.
-func (a *Adapter) EnsureFinalizersAreCalled() (results.OperationResult, error) {
+func (a *Adapter) EnsureFinalizersAreCalled() (reconciler.OperationResult, error) {
 	// Check if the Release is marked for deletion and continue processing other operations otherwise
 	if a.release.GetDeletionTimestamp() == nil {
-		return results.ContinueProcessing()
+		return reconciler.ContinueProcessing()
 	}
 
 	if controllerutil.ContainsFinalizer(a.release, finalizerName) {
 		if err := a.finalizeRelease(); err != nil {
-			return results.RequeueWithError(err)
+			return reconciler.RequeueWithError(err)
 		}
 
 		patch := client.MergeFrom(a.release.DeepCopy())
 		controllerutil.RemoveFinalizer(a.release, finalizerName)
 		err := a.client.Patch(a.context, a.release, patch)
 		if err != nil {
-			return results.RequeueWithError(err)
+			return reconciler.RequeueWithError(err)
 		}
 	}
 
 	// Requeue the release again so it gets deleted and other operations are not executed
-	return results.Requeue()
+	return reconciler.Requeue()
 }
 
 // EnsureFinalizerIsAdded is an operation that will ensure that the Release being processed contains a finalizer.
-func (a *Adapter) EnsureFinalizerIsAdded() (results.OperationResult, error) {
+func (a *Adapter) EnsureFinalizerIsAdded() (reconciler.OperationResult, error) {
 	var finalizerFound bool
 	for _, finalizer := range a.release.GetFinalizers() {
 		if finalizer == finalizerName {
@@ -108,30 +108,30 @@ func (a *Adapter) EnsureFinalizerIsAdded() (results.OperationResult, error) {
 		controllerutil.AddFinalizer(a.release, finalizerName)
 		err := a.client.Patch(a.context, a.release, patch)
 
-		return results.RequeueOnErrorOrContinue(err)
+		return reconciler.RequeueOnErrorOrContinue(err)
 	}
 
-	return results.ContinueProcessing()
+	return reconciler.ContinueProcessing()
 }
 
 // EnsureReleasePlanAdmissionEnabled is an operation that will ensure that the ReleasePlanAdmission is enabled.
 // If it is not, no further operations will occur for this Release.
-func (a *Adapter) EnsureReleasePlanAdmissionEnabled() (results.OperationResult, error) {
+func (a *Adapter) EnsureReleasePlanAdmissionEnabled() (reconciler.OperationResult, error) {
 	_, err := a.getActiveReleasePlanAdmission()
 	if err != nil && strings.Contains(err.Error(), "auto-release label set to false") {
 		patch := client.MergeFrom(a.release.DeepCopy())
 		a.release.MarkInvalid(v1alpha1.ReleaseReasonTargetDisabledError, err.Error())
-		return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+		return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 	}
-	return results.ContinueProcessing()
+	return reconciler.ContinueProcessing()
 }
 
 // EnsureReleasePipelineRunExists is an operation that will ensure that a release PipelineRun associated to the Release
 // being processed exists. Otherwise, it will create a new release PipelineRun.
-func (a *Adapter) EnsureReleasePipelineRunExists() (results.OperationResult, error) {
+func (a *Adapter) EnsureReleasePipelineRunExists() (reconciler.OperationResult, error) {
 	pipelineRun, err := a.getReleasePipelineRun()
 	if err != nil && !errors.IsNotFound(err) {
-		return results.RequeueWithError(err)
+		return reconciler.RequeueWithError(err)
 	}
 
 	var (
@@ -144,83 +144,83 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (results.OperationResult, err
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, err.Error())
-			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
 		releaseStrategy, err = a.getReleaseStrategy(releasePlanAdmission)
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
 		enterpriseContractPolicy, err := a.getEnterpriseContractPolicy(releaseStrategy)
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
 
 		snapshot, err := a.getSnapshot()
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-			return results.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
 		}
 
 		pipelineRun, err = a.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
 		if err != nil {
-			return results.RequeueWithError(err)
+			return reconciler.RequeueWithError(err)
 		}
 
 		a.logger.Info("Created release PipelineRun",
 			"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
 	}
 
-	return results.RequeueOnErrorOrContinue(a.registerReleaseStatusData(pipelineRun, releaseStrategy))
+	return reconciler.RequeueOnErrorOrContinue(a.registerReleaseStatusData(pipelineRun, releaseStrategy))
 }
 
 // EnsureReleasePipelineStatusIsTracked is an operation that will ensure that the release PipelineRun status is tracked
 // in the Release being processed.
-func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (results.OperationResult, error) {
+func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (reconciler.OperationResult, error) {
 	if !a.release.HasStarted() || a.release.IsDone() {
-		return results.ContinueProcessing()
+		return reconciler.ContinueProcessing()
 	}
 
 	pipelineRun, err := a.getReleasePipelineRun()
 	if err != nil {
-		return results.RequeueWithError(err)
+		return reconciler.RequeueWithError(err)
 	}
 	if pipelineRun != nil {
-		return results.RequeueOnErrorOrContinue(a.registerReleasePipelineRunStatus(pipelineRun))
+		return reconciler.RequeueOnErrorOrContinue(a.registerReleasePipelineRunStatus(pipelineRun))
 	}
 
-	return results.ContinueProcessing()
+	return reconciler.ContinueProcessing()
 }
 
 // EnsureSnapshotEnvironmentBindingIsCreated is an operation that will ensure that a SnapshotEnvironmentBinding is created
 // or updated for the current Release.
-func (a *Adapter) EnsureSnapshotEnvironmentBindingIsCreated() (results.OperationResult, error) {
+func (a *Adapter) EnsureSnapshotEnvironmentBindingIsCreated() (reconciler.OperationResult, error) {
 	if !a.release.HasSucceeded() || a.release.HasBeenDeployed() {
-		return results.ContinueProcessing()
+		return reconciler.ContinueProcessing()
 	}
 
 	releasePlanAdmission, err := a.getActiveReleasePlanAdmission()
 	if err != nil {
-		return results.RequeueWithError(err)
+		return reconciler.RequeueWithError(err)
 	}
 
 	// If no environment is set in the ReleasePlanAdmission, skip the Binding creation
 	if releasePlanAdmission.Spec.Environment == "" {
-		return results.ContinueProcessing()
+		return reconciler.ContinueProcessing()
 	}
 
 	err = a.syncResources()
 	if err != nil {
-		return results.RequeueWithError(err)
+		return reconciler.RequeueWithError(err)
 	}
 
 	binding, err := a.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
 	if err != nil {
-		return results.RequeueWithError(err)
+		return reconciler.RequeueWithError(err)
 	}
 
 	a.logger.Info("Created/updated SnapshotEnvironmentBinding",
@@ -229,7 +229,7 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingIsCreated() (results.Operation
 	patch := client.MergeFrom(a.release.DeepCopy())
 	a.release.Status.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", binding.Namespace, types.Separator, binding.Name)
 
-	return results.RequeueOnErrorOrContinue(a.client.Status().Patch(a.context, a.release, patch))
+	return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.context, a.release, patch))
 }
 
 // createOrUpdateSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being

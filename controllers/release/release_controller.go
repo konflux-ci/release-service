@@ -18,11 +18,10 @@ package release
 
 import (
 	"context"
-
 	"github.com/go-logr/logr"
 	libhandler "github.com/operator-framework/operator-lib/handler"
+	"github.com/redhat-appstudio/operator-goodies/reconciler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/controllers/results"
 	"github.com/redhat-appstudio/release-service/tekton"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -75,45 +74,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	adapter := NewAdapter(release, logger, r.Client, ctx)
 
-	return r.ReconcileHandler(adapter)
-}
-
-// AdapterInterface is an interface defining all the operations that should be defined in a Release adapter.
-type AdapterInterface interface {
-	EnsureFinalizersAreCalled() (results.OperationResult, error)
-	EnsureFinalizerIsAdded() (results.OperationResult, error)
-	EnsureReleasePipelineRunExists() (results.OperationResult, error)
-	EnsureReleasePipelineStatusIsTracked() (results.OperationResult, error)
-	EnsureReleasePlanAdmissionEnabled() (results.OperationResult, error)
-	EnsureSnapshotEnvironmentBindingIsCreated() (results.OperationResult, error)
-}
-
-// ReconcileOperation defines the syntax of functions invoked by the ReconcileHandler
-type ReconcileOperation func() (results.OperationResult, error)
-
-// ReconcileHandler will invoke all the operations to be performed as part of a Release reconcile, managing the queue
-// based on the operations' results.
-func (r *Reconciler) ReconcileHandler(adapter AdapterInterface) (ctrl.Result, error) {
-	operations := []ReconcileOperation{
+	return reconciler.ReconcileHandler([]reconciler.ReconcileOperation{
 		adapter.EnsureReleasePlanAdmissionEnabled,
 		adapter.EnsureFinalizersAreCalled,
 		adapter.EnsureFinalizerIsAdded,
 		adapter.EnsureReleasePipelineRunExists,
 		adapter.EnsureReleasePipelineStatusIsTracked,
 		adapter.EnsureSnapshotEnvironmentBindingIsCreated,
-	}
-
-	for _, operation := range operations {
-		result, err := operation()
-		if err != nil || result.RequeueRequest {
-			return ctrl.Result{RequeueAfter: result.RequeueDelay}, err
-		}
-		if result.CancelRequest {
-			return ctrl.Result{}, nil
-		}
-	}
-
-	return ctrl.Result{}, nil
+	})
 }
 
 // SetupController creates a new Release reconciler and adds it to the Manager.
