@@ -18,6 +18,7 @@ package release
 
 import (
 	"context"
+	goodies "github.com/redhat-appstudio/operator-goodies/test"
 	"go/build"
 	"path/filepath"
 	"testing"
@@ -31,13 +32,11 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	ecapiv1alpha1 "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
-	appstudiotest "github.com/redhat-appstudio/release-service/test"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
@@ -70,15 +69,15 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "config", "crd", "bases"),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("tektoncd/pipeline"), "config",
+				"pkg", "mod", goodies.GetRelativeDependencyPath("tektoncd/pipeline"), "config",
 			),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
+				"pkg", "mod", goodies.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
 			),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", appstudiotest.GetRelativeDependencyPath("enterprise-contract-controller"), "config",
+				"pkg", "mod", goodies.GetRelativeDependencyPath("enterprise-contract-controller"), "config",
 			),
 		},
 		ErrorIfCRDPathMissing: true,
