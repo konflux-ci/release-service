@@ -38,12 +38,12 @@ import (
 
 var _ = Describe("Release Controller", func() {
 	var (
-		manager     ctrl.Manager
-		release     *appstudiov1alpha1.Release
-		releasePlan *appstudiov1alpha1.ReleasePlan
-		reconciler  *Reconciler
-		scheme      runtime.Scheme
-		req         ctrl.Request
+		manager           ctrl.Manager
+		release           *appstudiov1alpha1.Release
+		releasePlan       *appstudiov1alpha1.ReleasePlan
+		releaseReconciler *Reconciler
+		scheme            runtime.Scheme
+		req               ctrl.Request
 	)
 
 	BeforeEach(func() {
@@ -97,7 +97,7 @@ var _ = Describe("Release Controller", func() {
 			LeaderElection:     false,
 		})
 		Expect(err).NotTo(HaveOccurred())
-		reconciler = NewReleaseReconciler(k8sClient, &logf.Log, &scheme)
+		releaseReconciler = NewReleaseReconciler(k8sClient, &logf.Log, &scheme)
 	})
 
 	AfterEach(func() {
@@ -108,26 +108,19 @@ var _ = Describe("Release Controller", func() {
 	})
 
 	It("can create and return a new Reconciler object", func() {
-		Expect(reflect.TypeOf(reconciler)).To(Equal(reflect.TypeOf(&Reconciler{})))
-	})
-
-	It("should reconcile using the ReconcileHandler", func() {
-		adapter := NewAdapter(release, ctrl.Log, k8sClient, ctx)
-		result, err := reconciler.ReconcileHandler(adapter)
-		Expect(reflect.TypeOf(result)).To(Equal(reflect.TypeOf(reconcile.Result{})))
-		Expect(err).To(BeNil())
+		Expect(reflect.TypeOf(releaseReconciler)).To(Equal(reflect.TypeOf(&Reconciler{})))
 	})
 
 	It("can fail when Reconcile fails to prepare the adapter when release is not found", func() {
 		Expect(k8sClient.Delete(ctx, release)).Should(Succeed())
 		Eventually(func() error {
-			_, err := reconciler.Reconcile(ctx, req)
+			_, err := releaseReconciler.Reconcile(ctx, req)
 			return err
 		}).Should(BeNil())
 	})
 
 	It("can Reconcile function prepare the adapter and return the result of the reconcile handling operation", func() {
-		result, err := reconciler.Reconcile(ctx, req)
+		result, err := releaseReconciler.Reconcile(ctx, req)
 		Expect(reflect.TypeOf(result)).To(Equal(reflect.TypeOf(reconcile.Result{})))
 		Expect(err).To(BeNil())
 	})
@@ -137,8 +130,8 @@ var _ = Describe("Release Controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("can setup a new controller manager with the given reconciler", func() {
-		err := setupControllerWithManager(manager, reconciler)
+	It("can setup a new controller manager with the given releaseReconciler", func() {
+		err := setupControllerWithManager(manager, releaseReconciler)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
