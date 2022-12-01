@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -56,13 +57,28 @@ var _ = Describe("Release type", func() {
 	})
 
 	Context("When HasBeenDeployed method is called", func() {
-		It("should return false when status.SnapshotEnvironmentBinding is nil", func() {
-			Expect(r.HasBeenDeployed()).To(BeFalse())
+		It("should return true when BindingDeploymentStatusConditionType is True in release status", func() {
+			r.Status.Conditions[0] = metav1.Condition{
+				Type:   BindingDeploymentStatusConditionType,
+				Status: metav1.ConditionTrue,
+			}
+			Expect(r.HasBeenDeployed()).To(BeTrue())
 		})
 
-		It("should return true when status.SnapshotEnvironmentBinding is not empty", func() {
-			r.Status.SnapshotEnvironmentBinding = "foo"
+		It("should return true when BindingDeploymentStatusConditionType is False in release status", func() {
+			r.Status.Conditions[0] = metav1.Condition{
+				Type:   BindingDeploymentStatusConditionType,
+				Status: metav1.ConditionFalse,
+			}
 			Expect(r.HasBeenDeployed()).To(BeTrue())
+		})
+
+		It("should return false BindingDeploymentStatusConditionType is Unknown in release status", func() {
+			r.Status.Conditions[0] = metav1.Condition{
+				Type:   BindingDeploymentStatusConditionType,
+				Status: metav1.ConditionUnknown,
+			}
+			Expect(r.HasBeenDeployed()).To(BeFalse())
 		})
 	})
 
@@ -119,6 +135,36 @@ var _ = Describe("Release type", func() {
 				Status: metav1.ConditionUnknown,
 			}
 			Expect(r.IsDone()).To(BeFalse())
+		})
+	})
+
+	Context("When MarkDeployed method is called", func() {
+		It("should properly register the status if passed status is true or false", func() {
+			r.MarkDeployed(metav1.ConditionTrue, "CommitsSynced", "3 of 3 components deployed")
+			statusCondition := meta.FindStatusCondition(r.Status.Conditions, BindingDeploymentStatusConditionType)
+			Expect(*statusCondition).To(MatchFields(IgnoreExtras, Fields{
+				"Status":  Equal(metav1.ConditionTrue),
+				"Reason":  Equal("CommitsSynced"),
+				"Message": Equal("3 of 3 components deployed"),
+			}))
+		})
+
+		It("should not change the release status if passed status that is neither true nor false", func() {
+			r.MarkDeployed(metav1.ConditionUnknown, "CommitsSynced", "3 of 3 components deployed")
+			statusCondition := meta.FindStatusCondition(r.Status.Conditions, BindingDeploymentStatusConditionType)
+			Expect(statusCondition).To(BeNil())
+		})
+	})
+
+	Context("When MarkDeploying method is called", func() {
+		It("should properly register the status to the release", func() {
+			r.MarkDeploying("CommitsUnsynced", "1 of 3 components deployed")
+			statusCondition := meta.FindStatusCondition(r.Status.Conditions, BindingDeploymentStatusConditionType)
+			Expect(*statusCondition).To(MatchFields(IgnoreExtras, Fields{
+				"Status":  Equal(metav1.ConditionUnknown),
+				"Reason":  Equal("CommitsUnsynced"),
+				"Message": Equal("1 of 3 components deployed"),
+			}))
 		})
 	})
 
@@ -322,7 +368,7 @@ var _ = Describe("Release type", func() {
 				Reason:  ReleaseReasonTargetDisabledError.String(),
 				Message: "lucy in the sky with diamonds",
 			}
-			r.setStatusCondition(args.status, args.reason)
+			r.setStatusCondition(releaseConditionType, args.status, args.reason)
 			Expect(len(r.Status.Conditions)).To(Equal(1))
 			Expect(r.Status.Conditions[0]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
 				"Status":  Equal(args.status),
@@ -345,7 +391,7 @@ var _ = Describe("Release type", func() {
 				Reason:  ReleaseReasonPipelineFailed.String(),
 				Message: "lucy in the sky with diamonds",
 			}
-			r.setStatusConditionWithMessage(args.status, args.reason, args.message)
+			r.setStatusConditionWithMessage(releaseConditionType, args.status, args.reason, args.message)
 			Expect(len(r.Status.Conditions)).To(Equal(1))
 			Expect(r.Status.Conditions[0]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
 				"Status":  Equal(args.status),

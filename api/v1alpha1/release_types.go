@@ -44,6 +44,10 @@ const (
 	// releaseConditionType is the type used when setting a release status condition
 	releaseConditionType string = "Succeeded"
 
+	// BindingDeploymentStatusConditionType is the condition type to retrieve from the ComponentDeploymentConditions
+	// in the SnapshotEnvironmentBinding's status to copy into the Release status
+	BindingDeploymentStatusConditionType string = "AllComponentsDeployed"
+
 	// ReleaseReasonValidationError is the reason set when the Release validation failed
 	ReleaseReasonValidationError ReleaseReason = "ReleaseValidationError"
 
@@ -102,7 +106,7 @@ type ReleaseStatus struct {
 	// +optional
 	ReleaseStrategy string `json:"releaseStrategy,omitempty"`
 
-	// Target references where this relesae is intended to be released to
+	// Target references where this release is intended to be released to
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
 	Target string `json:"target,omitempty"`
@@ -127,9 +131,10 @@ type Release struct {
 	Status ReleaseStatus `json:"status,omitempty"`
 }
 
-// HasBeenDeployed checks whether the Release has an associated SnapshotEnvironmentBinding.
+// HasBeenDeployed checks whether the Release has been deployed via GitOps.
 func (r *Release) HasBeenDeployed() bool {
-	return r.Status.SnapshotEnvironmentBinding != ""
+	condition := meta.FindStatusCondition(r.Status.Conditions, BindingDeploymentStatusConditionType)
+	return condition != nil && condition.Status != metav1.ConditionUnknown
 }
 
 // HasStarted checks whether the Release has a valid start time set in its status.
@@ -145,11 +150,19 @@ func (r *Release) HasSucceeded() bool {
 // IsDone returns a boolean indicating whether the Release's status indicates that it is done or not.
 func (r *Release) IsDone() bool {
 	condition := meta.FindStatusCondition(r.Status.Conditions, releaseConditionType)
-	if condition != nil {
-		return condition.Status != metav1.ConditionUnknown
-	}
+	return condition != nil && condition.Status != metav1.ConditionUnknown
+}
 
-	return false
+// MarkDeployed sets the AllComponentsDeployed status in the Release to True or False with the provided reason and message.
+func (r *Release) MarkDeployed(status metav1.ConditionStatus, reason, message string) {
+	if status != metav1.ConditionUnknown {
+		r.setStatusConditionWithMessage(BindingDeploymentStatusConditionType, status, ReleaseReason(reason), message)
+	}
+}
+
+// MarkDeploying sets the AllComponentsDeployed status in the Release to Unknown with the provided reason and message.
+func (r *Release) MarkDeploying(reason, message string) {
+	r.setStatusConditionWithMessage(BindingDeploymentStatusConditionType, metav1.ConditionUnknown, ReleaseReason(reason), message)
 }
 
 // MarkFailed registers the completion time and changes the Succeeded condition to False with
@@ -160,7 +173,7 @@ func (r *Release) MarkFailed(reason ReleaseReason, message string) {
 	}
 
 	r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
-	r.setStatusConditionWithMessage(metav1.ConditionFalse, reason, message)
+	r.setStatusConditionWithMessage(releaseConditionType, metav1.ConditionFalse, reason, message)
 
 	go metrics.RegisterCompletedRelease(reason.String(), r.Status.ReleaseStrategy, r.Status.Target,
 		r.Status.StartTime, r.Status.CompletionTime, false)
@@ -172,7 +185,7 @@ func (r *Release) MarkInvalid(reason ReleaseReason, message string) {
 		return
 	}
 
-	r.setStatusConditionWithMessage(metav1.ConditionFalse, reason, message)
+	r.setStatusConditionWithMessage(releaseConditionType, metav1.ConditionFalse, reason, message)
 
 	go metrics.RegisterInvalidRelease(reason.String())
 }
@@ -184,7 +197,7 @@ func (r *Release) MarkRunning() {
 	}
 
 	r.Status.StartTime = &metav1.Time{Time: time.Now()}
-	r.setStatusCondition(metav1.ConditionUnknown, ReleaseReasonRunning)
+	r.setStatusCondition(releaseConditionType, metav1.ConditionUnknown, ReleaseReasonRunning)
 
 	go metrics.RegisterNewRelease(r.GetCreationTimestamp(), r.Status.StartTime)
 }
@@ -196,23 +209,23 @@ func (r *Release) MarkSucceeded() {
 	}
 
 	r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
-	r.setStatusCondition(metav1.ConditionTrue, ReleaseReasonSucceeded)
+	r.setStatusCondition(releaseConditionType, metav1.ConditionTrue, ReleaseReasonSucceeded)
 
 	go metrics.RegisterCompletedRelease(ReleaseReasonSucceeded.String(), r.Status.ReleaseStrategy, r.Status.Target,
 		r.Status.StartTime, r.Status.CompletionTime, false)
 }
 
-// SetCondition creates a new condition with the given status and reason. Then, it sets this new condition,
+// SetCondition creates a new condition with the given conditionType, status and reason. Then, it sets this new condition,
 // unsetting previous conditions with the same type as necessary.
-func (r *Release) setStatusCondition(status metav1.ConditionStatus, reason ReleaseReason) {
-	r.setStatusConditionWithMessage(status, reason, "")
+func (r *Release) setStatusCondition(conditionType string, status metav1.ConditionStatus, reason ReleaseReason) {
+	r.setStatusConditionWithMessage(conditionType, status, reason, "")
 }
 
-// SetCondition creates a new condition with the given status, reason and message. Then, it sets this new condition,
+// SetCondition creates a new condition with the given conditionType, status, reason and message. Then, it sets this new condition,
 // unsetting previous conditions with the same type as necessary.
-func (r *Release) setStatusConditionWithMessage(status metav1.ConditionStatus, reason ReleaseReason, message string) {
+func (r *Release) setStatusConditionWithMessage(conditionType string, status metav1.ConditionStatus, reason ReleaseReason, message string) {
 	meta.SetStatusCondition(&r.Status.Conditions, metav1.Condition{
-		Type:    releaseConditionType,
+		Type:    conditionType,
 		Status:  status,
 		Reason:  reason.String(),
 		Message: message,

@@ -199,7 +199,7 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (reconciler.OperationRe
 // EnsureSnapshotEnvironmentBindingIsCreated is an operation that will ensure that a SnapshotEnvironmentBinding is created
 // or updated for the current Release.
 func (a *Adapter) EnsureSnapshotEnvironmentBindingIsCreated() (reconciler.OperationResult, error) {
-	if !a.release.HasSucceeded() || a.release.HasBeenDeployed() {
+	if !a.release.HasSucceeded() || a.release.Status.SnapshotEnvironmentBinding != "" {
 		return reconciler.ContinueProcessing()
 	}
 

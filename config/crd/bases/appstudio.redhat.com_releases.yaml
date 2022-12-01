@@ -170,7 +170,7 @@ spec:
                 format: date-time
                 type: string
               target:
-                description: Target references where this relesae is intended to be
+                description: Target references where this release is intended to be
                   released to
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
