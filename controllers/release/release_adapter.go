@@ -30,8 +30,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 
 	"github.com/go-logr/logr"
+	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/operator-goodies/reconciler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/tekton"
@@ -196,10 +198,10 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (reconciler.OperationRe
 	return reconciler.ContinueProcessing()
 }
 
-// EnsureSnapshotEnvironmentBindingIsCreated is an operation that will ensure that a SnapshotEnvironmentBinding is created
-// or updated for the current Release.
-func (a *Adapter) EnsureSnapshotEnvironmentBindingIsCreated() (reconciler.OperationResult, error) {
-	if !a.release.HasSucceeded() || a.release.Status.SnapshotEnvironmentBinding != "" {
+// EnsureSnapshotEnvironmentBindingExists is an operation that will ensure that a SnapshotEnvironmentBinding
+// associated to the Release being processed exists. Otherwise, it will create a new one.
+func (a *Adapter) EnsureSnapshotEnvironmentBindingExists() (reconciler.OperationResult, error) {
+	if !a.release.HasSucceeded() || a.release.HasBeenDeployed() {
 		return reconciler.ContinueProcessing()
 	}
 
@@ -213,54 +215,55 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingIsCreated() (reconciler.Operat
 		return reconciler.ContinueProcessing()
 	}
 
-	err = a.syncResources()
+	environment, err := a.getEnvironment(releasePlanAdmission)
 	if err != nil {
 		return reconciler.RequeueWithError(err)
 	}
-
-	binding, err := a.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
-	if err != nil {
-		return reconciler.RequeueWithError(err)
-	}
-
-	a.logger.Info("Created/updated SnapshotEnvironmentBinding",
-		"SnapshotEnvironmentBinding.Name", binding.Name, "SnapshotEnvironmentBinding.Namespace", binding.Namespace)
-
-	patch := client.MergeFrom(a.release.DeepCopy())
-	a.release.Status.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", binding.Namespace, types.Separator, binding.Name)
-
-	return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.context, a.release, patch))
-}
-
-// createOrUpdateSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being
-// processed.
-func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
-	application, components, snapshot, environment, err := a.getSnapshotEnvironmentResources(releasePlanAdmission)
-	if err != nil {
-		return nil, err
-	}
-
-	// The binding information needs to be updated no matter if it already exists or not
-	binding := gitops.NewSnapshotEnvironmentBinding(components, snapshot, environment)
 
 	// Search for an existing binding
-	existingBinding, err := a.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+	binding, err := a.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
 	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
+		return reconciler.RequeueWithError(err)
 	}
 
-	if existingBinding == nil {
-		err = ctrl.SetControllerReference(application, binding, a.client.Scheme())
+	if binding == nil {
+		err = a.syncResources()
 		if err != nil {
-			return nil, err
+			return reconciler.RequeueWithError(err)
 		}
-		return binding, a.client.Create(a.context, binding)
-	} else {
-		// We create the binding so if the owner reference is not already present, there must be a good reason for that
-		patch := client.MergeFrom(existingBinding.DeepCopy())
-		existingBinding.Spec = binding.Spec
-		return existingBinding, a.client.Patch(a.context, existingBinding, patch)
+
+		patch := client.MergeFrom(a.release.DeepCopy())
+
+		binding, err := a.createSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+		if err != nil {
+			return reconciler.RequeueWithError(err)
+		}
+
+		a.logger.Info("Created SnapshotEnvironmentBinding",
+			"SnapshotEnvironmentBinding.Name", binding.Name, "SnapshotEnvironmentBinding.Namespace", binding.Namespace)
+
+		a.release.Status.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", binding.Namespace, types.Separator, binding.Name)
+
+		return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.context, a.release, patch))
 	}
+
+	return reconciler.ContinueProcessing()
+}
+
+// EnsureSnapshotEnvironmentBindingIsTracked is an operation that will ensure that the SnapshotEnvironmentBinding
+// Deployment status is tracked in the Release being processed.
+func (a *Adapter) EnsureSnapshotEnvironmentBindingIsTracked() (reconciler.OperationResult, error) {
+	if !a.release.HasSucceeded() || a.release.Status.SnapshotEnvironmentBinding == "" || a.release.HasBeenDeployed() {
+		return reconciler.ContinueProcessing()
+	}
+
+	// Search for an existing binding
+	binding, err := a.getSnapshotEnvironmentBindingFromReleaseStatus()
+	if err != nil {
+		return reconciler.RequeueWithError(err)
+	}
+
+	return reconciler.RequeueOnErrorOrContinue(a.registerGitOpsDeploymentStatus(binding))
 }
 
 // createReleasePipelineRun creates and returns a new release PipelineRun. The new PipelineRun will include owner
@@ -284,6 +287,32 @@ func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStra
 	}
 
 	return pipelineRun, nil
+}
+
+// createSnapshotEnvironmentBinding creates a SnapshotEnvironmentBinding for the Release being processed.
+func (a *Adapter) createSnapshotEnvironmentBinding(environment *applicationapiv1alpha1.Environment,
+	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
+	application, components, snapshot, err := a.getSnapshotEnvironmentResources(releasePlanAdmission)
+	if err != nil {
+		return nil, err
+	}
+
+	binding := gitops.NewSnapshotEnvironmentBinding(components, snapshot, environment)
+
+	// Set owner references so the binding is deleted if the application is deleted
+	err = ctrl.SetControllerReference(application, binding, a.client.Scheme())
+	if err != nil {
+		return nil, err
+	}
+
+	// Add owner annotations so the controller can watch for status updates to the binding and track them
+	// in the release
+	err = libhandler.SetOwnerAnnotations(a.release, binding)
+	if err != nil {
+		return nil, err
+	}
+
+	return binding, a.client.Create(a.context, binding)
 }
 
 // finalizeRelease will finalize the Release being processed, removing the associated resources.
@@ -502,33 +531,67 @@ func (a *Adapter) getSnapshotEnvironmentBinding(environment *applicationapiv1alp
 	return nil, nil
 }
 
+// getSnapshotEnvironmentBindingFromReleaseStatus returns the SnapshotEnvironmentBinding associated with the Release being processed.
+// That association is defined by namespaced name stored in the Release's status
+func (a *Adapter) getSnapshotEnvironmentBindingFromReleaseStatus() (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
+	binding := &applicationapiv1alpha1.SnapshotEnvironmentBinding{}
+	bindingNamespacedName := strings.Split(a.release.Status.SnapshotEnvironmentBinding, string(types.Separator))
+	if len(bindingNamespacedName) != 2 {
+		return nil, fmt.Errorf("found invalid namespaced name of SnapshotEnvironmentBinding in"+
+			" release status: '%s'", a.release.Status.SnapshotEnvironmentBinding)
+	}
+
+	err := a.client.Get(a.context, types.NamespacedName{
+		Namespace: bindingNamespacedName[0],
+		Name:      bindingNamespacedName[1],
+	}, binding)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return binding, nil
+}
+
 // getSnapshotEnvironmentResources returns all the resources required to create a SnapshotEnvironmentBinding. If any of
 // those resources cannot be retrieved from the cluster, an error will be returned.
 func (a *Adapter) getSnapshotEnvironmentResources(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (
-	*applicationapiv1alpha1.Application, []applicationapiv1alpha1.Component,
-	*applicationapiv1alpha1.Snapshot, *applicationapiv1alpha1.Environment, error,
-) {
-	environment, err := a.getEnvironment(releasePlanAdmission)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
+	*applicationapiv1alpha1.Application, []applicationapiv1alpha1.Component, *applicationapiv1alpha1.Snapshot, error) {
 	application, err := a.getApplication(releasePlanAdmission)
 	if err != nil {
-		return application, nil, nil, environment, err
+		return application, nil, nil, err
 	}
 
 	components, err := a.getApplicationComponents(application)
 	if err != nil {
-		return application, nil, nil, environment, err
+		return application, nil, nil, err
 	}
 
 	snapshot, err := a.getSnapshot()
 	if err != nil {
-		return application, components, nil, environment, err
+		return application, components, nil, err
 	}
 
-	return application, components, snapshot, environment, err
+	return application, components, snapshot, err
+}
+
+// registerGitOpsDeploymentStatus updates the status of the Release being processed by monitoring the status of the
+// associated SnapshotEnvironmentBinding and setting the appropriate state in the Release.
+func (a *Adapter) registerGitOpsDeploymentStatus(binding *applicationapiv1alpha1.SnapshotEnvironmentBinding) error {
+	if binding != nil {
+		patch := client.MergeFrom(a.release.DeepCopy())
+
+		condition := meta.FindStatusCondition(binding.Status.ComponentDeploymentConditions, v1alpha1.BindingDeploymentStatusConditionType)
+		if condition.Status == metav1.ConditionUnknown {
+			a.release.MarkDeploying(condition.Reason, condition.Message)
+		} else {
+			a.release.MarkDeployed(condition.Status, condition.Reason, condition.Message)
+		}
+
+		return a.client.Status().Patch(a.context, a.release, patch)
+	}
+
+	return nil
 }
 
 // registerReleasePipelineRunStatus updates the status of the Release being processed by monitoring the status of the
