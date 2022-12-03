@@ -18,6 +18,8 @@ package release
 
 import (
 	"context"
+	"github.com/redhat-appstudio/release-service/cache"
+	"github.com/redhat-appstudio/release-service/loader"
 
 	"github.com/go-logr/logr"
 	libhandler "github.com/operator-framework/operator-lib/handler"
@@ -76,7 +78,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	adapter := NewAdapter(release, logger, r.Client, ctx)
+	adapter := NewAdapter(ctx, r.Client, release, loader.NewLoader(), logger)
 
 	return reconciler.ReconcileHandler([]reconciler.ReconcileOperation{
 		adapter.EnsureReleasePlanAdmissionEnabled,
@@ -98,15 +100,15 @@ func SetupController(manager ctrl.Manager, log *logr.Logger) error {
 // setupCache indexes fields for each of the resources used in the release adapter in those cases where filtering by
 // field is required.
 func setupCache(mgr ctrl.Manager) error {
-	if err := SetupComponentCache(mgr); err != nil {
+	if err := cache.SetupComponentCache(mgr); err != nil {
 		return err
 	}
 
-	if err := SetupReleasePlanAdmissionCache(mgr); err != nil {
+	if err := cache.SetupReleasePlanAdmissionCache(mgr); err != nil {
 		return err
 	}
 
-	return SetupSnapshotEnvironmentBindingCache(mgr)
+	return cache.SetupSnapshotEnvironmentBindingCache(mgr)
 }
 
 // setupControllerWithManager sets up the controller with the Manager which monitors new Releases and filters out

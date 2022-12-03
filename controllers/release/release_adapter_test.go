@@ -19,11 +19,9 @@ package release
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/redhat-appstudio/release-service/loader"
 	"reflect"
-	"strings"
 	"time"
-
-	"github.com/redhat-appstudio/release-service/gitops"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -215,7 +213,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			return err
 		}, time.Second*10).ShouldNot(HaveOccurred())
 
-		adapter = NewAdapter(release, ctrl.Log, k8sClient, ctx)
+		adapter = NewAdapter(ctx, k8sClient, release, loader.NewLoader(), ctrl.Log)
 		Expect(reflect.TypeOf(adapter)).To(Equal(reflect.TypeOf(&Adapter{})))
 	})
 
@@ -238,7 +236,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	It("can create a new Adapter instance", func() {
-		Expect(reflect.TypeOf(NewAdapter(release, ctrl.Log, k8sClient, ctx))).To(Equal(reflect.TypeOf(&Adapter{})))
+		Expect(reflect.TypeOf(NewAdapter(ctx, k8sClient, release, loader.NewLoader(), ctrl.Log))).To(Equal(reflect.TypeOf(&Adapter{})))
 	})
 
 	It("ensures the finalizer is added to the Release object", func() {
@@ -311,7 +309,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			return !result.CancelRequest && err == nil
 		}, time.Second*10).Should(BeTrue())
 
-		pipelineRun, err := adapter.getReleasePipelineRun()
+		pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 		Expect(pipelineRun != nil && err == nil).To(BeTrue())
 		Expect(k8sClient.Delete(ctx, pipelineRun)).Should(Succeed())
 	})
@@ -320,7 +318,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		result, err := adapter.EnsureReleasePipelineRunExists()
 		Expect(!result.CancelRequest && err == nil).Should(BeTrue())
 
-		pipelineRun, err := adapter.getReleasePipelineRun()
+		pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 		Expect(pipelineRun != nil && err == nil).Should(BeTrue())
 
 		result, err = adapter.EnsureReleasePipelineStatusIsTracked()
@@ -345,7 +343,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(func() bool {
-			pipelineRun, err := adapter.getReleasePipelineRun()
+			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			return pipelineRun == nil && err == nil
 
 		}, time.Second*10).Should(BeTrue())
@@ -394,7 +392,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 			// Blocking for 5 seconds to ensure that no binding is created
 			Consistently(func() bool {
-				binding, err := adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+				binding, err := adapter.loader.GetSnapshotEnvironmentBinding(adapter.ctx, adapter.client, releasePlanAdmission)
 
 				return err == nil && binding == nil
 			}, time.Second*5).Should(BeTrue())
@@ -412,7 +410,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			// Delete the application which is one of the required resources
 			Expect(k8sClient.Delete(ctx, application)).Should(Succeed())
 			Eventually(func() bool {
-				_, err := adapter.getApplication(releasePlanAdmission)
+				_, err := adapter.loader.GetApplication(adapter.ctx, adapter.client, releasePlanAdmission)
 
 				return err != nil
 			}, time.Second*10).Should(BeTrue())
@@ -434,7 +432,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(result.RequeueRequest).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
 
-			binding, err := adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+			binding, err := adapter.loader.GetSnapshotEnvironmentBinding(adapter.ctx, adapter.client, releasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(binding).ToNot(BeNil())
 
@@ -461,7 +459,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			// Wait for binding to be created
 			var binding *applicationapiv1alpha1.SnapshotEnvironmentBinding
 			Eventually(func() bool {
-				binding, err = adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+				binding, err = adapter.loader.GetSnapshotEnvironmentBinding(adapter.ctx, adapter.client, releasePlanAdmission)
 
 				return err == nil && binding != nil
 			}, time.Second*10).Should(BeTrue())
@@ -489,7 +487,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(result.RequeueRequest).To(BeFalse())
 		Expect(err).NotTo(HaveOccurred())
 
-		binding, err := adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+		binding, err := adapter.loader.GetSnapshotEnvironmentBinding(adapter.ctx, adapter.client, releasePlanAdmission)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(binding).ToNot(BeNil())
 
@@ -533,7 +531,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			// Delete the application which is one of the required resources
 			Expect(k8sClient.Delete(ctx, application)).Should(Succeed())
 			Eventually(func() bool {
-				_, err := adapter.getApplication(releasePlanAdmission)
+				_, err := adapter.loader.GetApplication(adapter.ctx, adapter.client, releasePlanAdmission)
 
 				return err != nil
 			}, time.Second*10).Should(BeTrue())
@@ -553,7 +551,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(binding).ToNot(BeNil())
 
 			Eventually(func() bool {
-				binding, err = adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+				binding, err = adapter.loader.GetSnapshotEnvironmentBinding(adapter.ctx, adapter.client, releasePlanAdmission)
 				return err == nil && binding != nil
 			}, time.Second*10).Should(BeTrue())
 
@@ -568,138 +566,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling getSnapshotEnvironmentResources", func() {
-		It("should return all the resources", func() {
-			application, components, snapshot, err := adapter.getSnapshotEnvironmentResources(releasePlanAdmission)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(application).ToNot(BeNil())
-			Expect(components).ToNot(BeNil())
-			Expect(snapshot).ToNot(BeNil())
-		})
-
-		It("should fail when any of the resources is not present", func() {
-			Expect(k8sClient.Delete(ctx, application)).Should(Succeed())
-			Eventually(func() bool {
-				_, err := adapter.getApplication(releasePlanAdmission)
-
-				return err != nil
-			}, time.Second*10).Should(BeTrue())
-
-			retrievedApplication, _, _, err := adapter.getSnapshotEnvironmentResources(releasePlanAdmission)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("not found"))
-			Expect(retrievedApplication).To(BeNil())
-
-			// Recreate the application
-			application.ObjectMeta.ResourceVersion = ""
-			Expect(k8sClient.Create(ctx, application)).Should(Succeed())
-		})
-	})
-
-	Context("When calling getApplication", func() {
-		It("should return the Application if it exists", func() {
-			application, err := adapter.getApplication(releasePlanAdmission)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(application).ToNot(BeNil())
-		})
-
-		It("should fail if the Application doesn't exist", func() {
-			Expect(k8sClient.Delete(ctx, application)).Should(Succeed())
-			Eventually(func() bool {
-				_, err := adapter.getApplication(releasePlanAdmission)
-
-				return err != nil
-			}, time.Second*10).Should(BeTrue())
-
-			retrievedApplication, err := adapter.getApplication(releasePlanAdmission)
-			Expect(err).To(HaveOccurred())
-			Expect(retrievedApplication).To(BeNil())
-
-			// Recreate the application
-			application.ObjectMeta.ResourceVersion = ""
-			Expect(k8sClient.Create(ctx, application)).Should(Succeed())
-		})
-	})
-
-	Context("When calling getApplicationComponents", func() {
-		It("should return the list of components", func() {
-			components, err := adapter.getApplicationComponents(application)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(components) > 0).To(BeTrue())
-		})
-	})
-
-	Context("When calling getEnvironment", func() {
-		It("should return the Environment if it exists", func() {
-			application, err := adapter.getEnvironment(releasePlanAdmission)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(application).ToNot(BeNil())
-		})
-
-		It("should fail if the Environment doesn't exist", func() {
-			Expect(k8sClient.Delete(ctx, environment)).Should(Succeed())
-			Eventually(func() bool {
-				_, err := adapter.getEnvironment(releasePlanAdmission)
-
-				return err != nil
-			}, time.Second*10).Should(BeTrue())
-
-			retrievedEnvironment, err := adapter.getEnvironment(releasePlanAdmission)
-			Expect(err).To(HaveOccurred())
-			Expect(retrievedEnvironment).To(BeNil())
-
-			// Recreate the environment
-			environment.ObjectMeta.ResourceVersion = ""
-			Expect(k8sClient.Create(ctx, environment)).Should(Succeed())
-		})
-	})
-
-	Context("When calling getSnapshotEnvironmentBinding", func() {
-		It("should return the SnapshotEnvironmentBinding if it exists", func() {
-			_, components, snapshot, err := adapter.getSnapshotEnvironmentResources(releasePlanAdmission)
-			Expect(err).NotTo(HaveOccurred())
-			binding := gitops.NewSnapshotEnvironmentBinding(components, snapshot, environment)
-			Expect(k8sClient.Create(ctx, binding)).Should(Succeed())
-
-			Eventually(func() bool {
-				binding, err := adapter.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
-
-				return err == nil && binding != nil
-			}, time.Second*10).Should(BeTrue())
-
-			// Delete binding to clean up
-			Expect(k8sClient.Delete(ctx, binding)).Should(Succeed())
-		})
-	})
-
-	Context("When calling getSnapshotEnvironmentBindingFromReleaseStatus", func() {
-		It("should return the SnapshotEnvironmentBinding if it exists", func() {
-			release.MarkRunning()
-			release.MarkSucceeded()
-			result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
-			Expect(result.RequeueRequest).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-
-			binding, err := adapter.getSnapshotEnvironmentBindingFromReleaseStatus()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(binding).ToNot(BeNil())
-
-			// Delete binding to clean up
-			Expect(k8sClient.Delete(ctx, binding)).Should(Succeed())
-		})
-
-		It("should return err SnapshotEnvironmentBinding does not exists", func() {
-			binding, err := adapter.getSnapshotEnvironmentBindingFromReleaseStatus()
-			Expect(err).To(HaveOccurred())
-			Expect(binding).To(BeNil())
-		})
-	})
-
 	Context("When calling syncResources", func() {
 		It("should fail if there's no active ReleasePlanAdmission", func() {
 			Expect(k8sClient.Delete(ctx, releasePlanAdmission)).Should(Succeed())
 			Eventually(func() bool {
-				_, err := adapter.getActiveReleasePlanAdmission()
+				_, err := adapter.loader.GetActiveReleasePlanAdmission(adapter.ctx, adapter.client, releasePlan)
 
 				return err != nil
 			}, time.Second*10).Should(BeTrue())
@@ -714,7 +585,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("should fail if there's no Snapshot", func() {
 			Expect(k8sClient.Delete(ctx, snapshot)).Should(Succeed())
 			Eventually(func() bool {
-				_, err := adapter.getSnapshot()
+				_, err := adapter.loader.GetSnapshot(adapter.ctx, adapter.client, adapter.release)
 
 				return err != nil
 			}, time.Second*10).Should(BeTrue())
@@ -763,7 +634,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(result.RequeueRequest).Should(BeTrue())
 
 		Eventually(func() bool {
-			pipelineRun, _ := adapter.getReleasePipelineRun()
+			pipelineRun, _ := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			return pipelineRun == nil
 		}, time.Second*10).Should(BeTrue())
 	})
@@ -778,7 +649,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(adapter.finalizeRelease()).To(Succeed())
 		Eventually(func() bool {
-			pipelineRun, _ := adapter.getReleasePipelineRun()
+			pipelineRun, _ := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			return pipelineRun == nil
 		}, time.Second*10).Should(BeTrue())
 	})
@@ -826,7 +697,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("contains a json representation of the enterprise contract policy as WithEnterpriseContractPolicy was called", func() {
 			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
 			Expect(err).NotTo(HaveOccurred())
-			enterpriseContractPolicy, err := adapter.getEnterpriseContractPolicy(releaseStrategy)
+			enterpriseContractPolicy, err := adapter.loader.GetEnterpriseContractPolicy(adapter.ctx, adapter.client, releaseStrategy)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			enterpriseContractPolicyJsonSpec, _ := json.Marshal(enterpriseContractPolicy.Spec)
@@ -842,93 +713,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	It("can return the pipelineRun from the release", func() {
-		result, err := adapter.EnsureReleasePipelineRunExists()
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(result.CancelRequest).To(BeFalse())
-
-		pipelineRun, err := adapter.getReleasePipelineRun()
-		Expect(err).Should(Succeed())
-		Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1beta1.PipelineRun{})))
-	})
-
-	It("can return the releaseStrategy referenced in a given ReleasePlanAdmission", func() {
-		strategy, err := adapter.getReleaseStrategy(releasePlanAdmission)
-		Expect(err).Should(Succeed())
-		Expect(reflect.TypeOf(strategy)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleaseStrategy{})))
-	})
-
-	It("can return the ReleasePlanAdmission targeted from a given ReleasePlan", func() {
-		link, _ := adapter.getActiveReleasePlanAdmission()
-		Expect(reflect.TypeOf(link)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleasePlanAdmission{})))
-		Expect(link.Spec.Application).To(Equal("test-app"))
-		Expect(link.Spec.ReleaseStrategy).To(Equal(releaseStrategy.Name))
-		Expect(link.Namespace).Should(Equal(releasePlan.Spec.Target))
-
-		// It should return nil if the ReleasePlanAdmission has auto-release set to false
-		patch := client.MergeFrom(link.DeepCopy())
-		link.SetLabels(map[string]string{
-			appstudiov1alpha1.AutoReleaseLabel: "false",
-		})
-		Expect(k8sClient.Patch(ctx, link, patch)).Should(Succeed())
-		Eventually(func() bool {
-			activeReleasePlanAdmission, err := adapter.getActiveReleasePlanAdmission()
-			return activeReleasePlanAdmission == nil && err != nil &&
-				strings.Contains(err.Error(), "with auto-release label set to false")
-		}, time.Second*10).Should(BeTrue())
-
-		// Reset label to not interfere with other tests
-		patch = client.MergeFrom(link.DeepCopy())
-		link.SetLabels(map[string]string{
-			appstudiov1alpha1.AutoReleaseLabel: "true",
-		})
-		Expect(k8sClient.Patch(ctx, link, patch)).Should(Succeed())
-	})
-
-	It("can return the ReleasePlanAdmission targeted from a given ReleasePlan when two ReleasePlanAdmissions exist", func() {
-		releasePlanAdmission2 := &appstudiov1alpha1.ReleasePlanAdmission{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-releaseplanadmission-",
-				Namespace:    testNamespace,
-				Labels: map[string]string{
-					appstudiov1alpha1.AutoReleaseLabel: "true",
-				},
-			},
-			Spec: appstudiov1alpha1.ReleasePlanAdmissionSpec{
-				Application:     "test-app2",
-				Origin:          testNamespace,
-				ReleaseStrategy: releaseStrategy.GetName(),
-			},
-		}
-		Expect(k8sClient.Create(ctx, releasePlanAdmission2)).Should(Succeed())
-
-		releasePlanAdmission, _ := adapter.getActiveReleasePlanAdmission()
-		Expect(reflect.TypeOf(releasePlanAdmission)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleasePlanAdmission{})))
-		Expect(releasePlanAdmission.Spec.Application).To(Equal("test-app"))
-		Expect(releasePlanAdmission.Spec.ReleaseStrategy).To(Equal(releaseStrategy.Name))
-		Expect(releasePlanAdmission.Namespace).Should(Equal(releasePlan.Spec.Target))
-
-		// Delete the extra ReleasePlanAdmission
-		Expect(k8sClient.Delete(ctx, releasePlanAdmission2)).Should(Succeed())
-	})
-
-	It("fails to find the target ReleasePlanAdmission when target does not match", func() {
-		originalTarget := releasePlan.Spec.Target
-		patch := client.MergeFrom(releasePlan.DeepCopy())
-		releasePlan.Spec.Target = "foo"
-		Expect(k8sClient.Patch(ctx, releasePlan, patch)).Should(Succeed())
-		Eventually(func() bool {
-			activeReleasePlanAdmission, err := adapter.getActiveReleasePlanAdmission()
-			return activeReleasePlanAdmission == nil && err != nil &&
-				strings.Contains(err.Error(), "no ReleasePlanAdmission found in the target")
-		}, time.Second*10).Should(BeTrue())
-
-		// Reset Target value to not interfere with other tests
-		patch = client.MergeFrom(releasePlan.DeepCopy())
-		releasePlan.Spec.Target = originalTarget
-		Expect(k8sClient.Patch(ctx, releasePlan, patch)).Should(Succeed())
-	})
-
 	It("can mark the status for a given Release according to the SnapshotEnvironmentBinding status", func() {
 		// Create a binding
 		release.MarkRunning()
@@ -936,7 +720,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
 		Expect(result.RequeueRequest).To(BeFalse())
 		Expect(err).NotTo(HaveOccurred())
-		binding, err := adapter.getSnapshotEnvironmentBindingFromReleaseStatus()
+		binding, err := adapter.loader.GetSnapshotEnvironmentBindingFromReleaseStatus(adapter.ctx, adapter.client, adapter.release)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(binding).ToNot(BeNil())
 
@@ -1026,38 +810,4 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}, time.Second*10).Should(BeTrue())
 	})
 
-	It("can get an existing Snapshot", func() {
-		snapshot, err := adapter.getSnapshot()
-		Expect(err).Should(Succeed())
-		Expect(reflect.TypeOf(snapshot)).To(Equal(reflect.TypeOf(&applicationapiv1alpha1.Snapshot{})))
-
-		Expect(k8sClient.Delete(ctx, snapshot)).Should(Succeed())
-		Eventually(func() bool {
-			_, err = adapter.getSnapshot()
-			return errors.IsNotFound(err)
-		}, time.Second*10).Should(BeTrue())
-	})
-
-	It("can retrieve an existing EnterpriseContractPolicy from a release strategy", func() {
-		ecpolicy, err := adapter.getEnterpriseContractPolicy(releaseStrategy)
-		Expect(err).Should(Succeed())
-		Expect(reflect.TypeOf(ecpolicy)).To(Equal(reflect.TypeOf(&ecapiv1alpha1.EnterpriseContractPolicy{})))
-	})
-
-	It("returns an IsNotFound error if the EnterpriseContractPolicy does not exist", func() {
-		Expect(k8sClient.Delete(ctx, enterpriseContractPolicy)).Should(Succeed())
-		Eventually(func() bool {
-			_, err := adapter.getEnterpriseContractPolicy(releaseStrategy)
-			return errors.IsNotFound(err)
-		}, time.Second*10).Should(BeTrue())
-
-		enterpriseContractPolicy.ResourceVersion = ""
-		Expect(k8sClient.Create(ctx, enterpriseContractPolicy)).Should(Succeed())
-	})
-
-	It("can return the ReleasePlan from the release", func() {
-		link, err := adapter.getReleasePlan()
-		Expect(err).Should(Succeed())
-		Expect(reflect.TypeOf(link)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleasePlan{})))
-	})
 })

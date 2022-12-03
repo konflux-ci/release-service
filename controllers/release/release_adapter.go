@@ -19,6 +19,7 @@ package release
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/release-service/loader"
 	"strings"
 	"time"
 
@@ -47,10 +48,11 @@ import (
 
 // Adapter holds the objects needed to reconcile a Release.
 type Adapter struct {
-	release *v1alpha1.Release
-	logger  logr.Logger
 	client  client.Client
-	context context.Context
+	ctx     context.Context
+	loader  loader.ObjectLoader
+	logger  logr.Logger
+	release *v1alpha1.Release
 	syncer  *syncer.Syncer
 }
 
@@ -58,13 +60,14 @@ type Adapter struct {
 const finalizerName string = "appstudio.redhat.com/release-finalizer"
 
 // NewAdapter creates and returns an Adapter instance.
-func NewAdapter(release *v1alpha1.Release, logger logr.Logger, client client.Client, context context.Context) *Adapter {
+func NewAdapter(ctx context.Context, client client.Client, release *v1alpha1.Release, loader loader.ObjectLoader, logger logr.Logger) *Adapter {
 	return &Adapter{
-		release: release,
-		logger:  logger,
 		client:  client,
-		context: context,
-		syncer:  syncer.NewSyncerWithContext(client, logger, context),
+		ctx:     ctx,
+		loader:  loader,
+		logger:  logger,
+		release: release,
+		syncer:  syncer.NewSyncerWithContext(client, logger, ctx),
 	}
 }
 
@@ -85,7 +88,7 @@ func (a *Adapter) EnsureFinalizersAreCalled() (reconciler.OperationResult, error
 
 		patch := client.MergeFrom(a.release.DeepCopy())
 		controllerutil.RemoveFinalizer(a.release, finalizerName)
-		err := a.client.Patch(a.context, a.release, patch)
+		err := a.client.Patch(a.ctx, a.release, patch)
 		if err != nil {
 			return reconciler.RequeueWithError(err)
 		}
@@ -108,7 +111,7 @@ func (a *Adapter) EnsureFinalizerIsAdded() (reconciler.OperationResult, error) {
 		a.logger.Info("Adding Finalizer to the Release")
 		patch := client.MergeFrom(a.release.DeepCopy())
 		controllerutil.AddFinalizer(a.release, finalizerName)
-		err := a.client.Patch(a.context, a.release, patch)
+		err := a.client.Patch(a.ctx, a.release, patch)
 
 		return reconciler.RequeueOnErrorOrContinue(err)
 	}
@@ -119,16 +122,16 @@ func (a *Adapter) EnsureFinalizerIsAdded() (reconciler.OperationResult, error) {
 // EnsureReleasePlanAdmissionEnabled is an operation that will ensure that the ReleasePlanAdmission is enabled.
 // If it is not, no further operations will occur for this Release.
 func (a *Adapter) EnsureReleasePlanAdmissionEnabled() (reconciler.OperationResult, error) {
-	_, err := a.getActiveReleasePlanAdmission()
+	_, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
 	if err != nil && strings.Contains(err.Error(), "multiple ReleasePlanAdmissions found") {
 		patch := client.MergeFrom(a.release.DeepCopy())
 		a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-		return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+		return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 	}
 	if err != nil && strings.Contains(err.Error(), "auto-release label set to false") {
 		patch := client.MergeFrom(a.release.DeepCopy())
 		a.release.MarkInvalid(v1alpha1.ReleaseReasonTargetDisabledError, err.Error())
-		return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+		return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 	}
 	return reconciler.ContinueProcessing()
 }
@@ -136,7 +139,7 @@ func (a *Adapter) EnsureReleasePlanAdmissionEnabled() (reconciler.OperationResul
 // EnsureReleasePipelineRunExists is an operation that will ensure that a release PipelineRun associated to the Release
 // being processed exists. Otherwise, it will create a new release PipelineRun.
 func (a *Adapter) EnsureReleasePipelineRunExists() (reconciler.OperationResult, error) {
-	pipelineRun, err := a.getReleasePipelineRun()
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil && !errors.IsNotFound(err) {
 		return reconciler.RequeueWithError(err)
 	}
@@ -147,30 +150,30 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (reconciler.OperationResult, 
 	)
 
 	if pipelineRun == nil {
-		releasePlanAdmission, err = a.getActiveReleasePlanAdmission()
+		releasePlanAdmission, err = a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, err.Error())
-			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 		}
-		releaseStrategy, err = a.getReleaseStrategy(releasePlanAdmission)
+		releaseStrategy, err = a.loader.GetReleaseStrategy(a.ctx, a.client, releasePlanAdmission)
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 		}
-		enterpriseContractPolicy, err := a.getEnterpriseContractPolicy(releaseStrategy)
+		enterpriseContractPolicy, err := a.loader.GetEnterpriseContractPolicy(a.ctx, a.client, releaseStrategy)
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 		}
 
-		snapshot, err := a.getSnapshot()
+		snapshot, err := a.loader.GetSnapshot(a.ctx, a.client, a.release)
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 		}
 
 		pipelineRun, err = a.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
@@ -192,7 +195,7 @@ func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (reconciler.OperationRe
 		return reconciler.ContinueProcessing()
 	}
 
-	pipelineRun, err := a.getReleasePipelineRun()
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil {
 		return reconciler.RequeueWithError(err)
 	}
@@ -210,7 +213,7 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingExists() (reconciler.Operation
 		return reconciler.ContinueProcessing()
 	}
 
-	releasePlanAdmission, err := a.getActiveReleasePlanAdmission()
+	releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
 	if err != nil {
 		return reconciler.RequeueWithError(err)
 	}
@@ -220,13 +223,13 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingExists() (reconciler.Operation
 		return reconciler.ContinueProcessing()
 	}
 
-	environment, err := a.getEnvironment(releasePlanAdmission)
+	environment, err := a.loader.GetEnvironment(a.ctx, a.client, releasePlanAdmission)
 	if err != nil {
 		return reconciler.RequeueWithError(err)
 	}
 
 	// Search for an existing binding
-	binding, err := a.getSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+	binding, err := a.loader.GetSnapshotEnvironmentBinding(a.ctx, a.client, releasePlanAdmission)
 	if err != nil && !errors.IsNotFound(err) {
 		return reconciler.RequeueWithError(err)
 	}
@@ -249,7 +252,7 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingExists() (reconciler.Operation
 
 		a.release.Status.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", binding.Namespace, types.Separator, binding.Name)
 
-		return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.context, a.release, patch))
+		return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 	}
 
 	return reconciler.ContinueProcessing()
@@ -263,7 +266,7 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingIsTracked() (reconciler.Operat
 	}
 
 	// Search for an existing binding
-	binding, err := a.getSnapshotEnvironmentBindingFromReleaseStatus()
+	binding, err := a.loader.GetSnapshotEnvironmentBindingFromReleaseStatus(a.ctx, a.client, a.release)
 	if err != nil {
 		return reconciler.RequeueWithError(err)
 	}
@@ -286,7 +289,7 @@ func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStra
 		WithSnapshot(snapshot).
 		AsPipelineRun()
 
-	err := a.client.Create(a.context, pipelineRun)
+	err := a.client.Create(a.ctx, pipelineRun)
 	if err != nil {
 		return nil, err
 	}
@@ -297,15 +300,15 @@ func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStra
 // createSnapshotEnvironmentBinding creates a SnapshotEnvironmentBinding for the Release being processed.
 func (a *Adapter) createSnapshotEnvironmentBinding(environment *applicationapiv1alpha1.Environment,
 	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
-	application, components, snapshot, err := a.getSnapshotEnvironmentResources(releasePlanAdmission)
+	resources, err := a.loader.GetSnapshotEnvironmentBindingResources(a.ctx, a.client, a.release, releasePlanAdmission)
 	if err != nil {
 		return nil, err
 	}
 
-	binding := gitops.NewSnapshotEnvironmentBinding(components, snapshot, environment)
+	binding := gitops.NewSnapshotEnvironmentBinding(resources.ApplicationComponents, resources.Snapshot, environment)
 
 	// Set owner references so the binding is deleted if the application is deleted
-	err = ctrl.SetControllerReference(application, binding, a.client.Scheme())
+	err = ctrl.SetControllerReference(resources.Application, binding, a.client.Scheme())
 	if err != nil {
 		return nil, err
 	}
@@ -317,18 +320,18 @@ func (a *Adapter) createSnapshotEnvironmentBinding(environment *applicationapiv1
 		return nil, err
 	}
 
-	return binding, a.client.Create(a.context, binding)
+	return binding, a.client.Create(a.ctx, binding)
 }
 
 // finalizeRelease will finalize the Release being processed, removing the associated resources.
 func (a *Adapter) finalizeRelease() error {
-	pipelineRun, err := a.getReleasePipelineRun()
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil {
 		return err
 	}
 
 	if pipelineRun != nil {
-		err = a.client.Delete(a.context, pipelineRun)
+		err = a.client.Delete(a.ctx, pipelineRun)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
@@ -337,256 +340,6 @@ func (a *Adapter) finalizeRelease() error {
 	a.logger.Info("Successfully finalized Release")
 
 	return nil
-}
-
-// getActiveReleasePlanAdmission returns the ReleasePlanAdmission targeted by the ReleasePlan in the Release being
-// processed. Only ReleasePlanAdmissions with the 'auto-release' label set to true (or missing the label, which is
-// treated the same as having the label and it being set to true) will be searched for. If a matching
-// ReleasePlanAdmission is not found or the List operation fails, an error will be returned.
-func (a *Adapter) getActiveReleasePlanAdmission() (*v1alpha1.ReleasePlanAdmission, error) {
-	releasePlan, err := a.getReleasePlan()
-	if err != nil {
-		return nil, err
-	}
-
-	releasePlanAdmissions := &v1alpha1.ReleasePlanAdmissionList{}
-	opts := []client.ListOption{
-		client.InNamespace(releasePlan.Spec.Target),
-		client.MatchingFields{"spec.origin": releasePlan.Namespace},
-	}
-
-	err = a.client.List(a.context, releasePlanAdmissions, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	var activeReleasePlanAdmission *v1alpha1.ReleasePlanAdmission
-
-	for i, releasePlanAdmission := range releasePlanAdmissions.Items {
-		if releasePlanAdmission.Spec.Application != releasePlan.Spec.Application {
-			continue
-		}
-
-		if activeReleasePlanAdmission != nil {
-			return nil, fmt.Errorf("multiple ReleasePlanAdmissions found with the target (%+v) for application '%s'",
-				releasePlan.Spec.Target, releasePlan.Spec.Application)
-		}
-
-		labelValue, found := releasePlanAdmission.GetLabels()[v1alpha1.AutoReleaseLabel]
-		if found && labelValue == "false" {
-			return nil, fmt.Errorf("found ReleasePlanAdmission '%s' with auto-release label set to false",
-				releasePlanAdmission.Name)
-		}
-
-		activeReleasePlanAdmission = &releasePlanAdmissions.Items[i]
-
-	}
-
-	if activeReleasePlanAdmission == nil {
-		return nil, fmt.Errorf("no ReleasePlanAdmission found in the target (%+v) for application '%s'",
-			releasePlan.Spec.Target, releasePlan.Spec.Application)
-	}
-
-	return activeReleasePlanAdmission, nil
-}
-
-// getApplication returns the Application referenced by the ReleasePlanAdmission. If the Application is not found or
-// the Get operation failed, an error will be returned.
-func (a *Adapter) getApplication(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error) {
-	application := &applicationapiv1alpha1.Application{}
-	err := a.client.Get(a.context, types.NamespacedName{
-		Name:      releasePlanAdmission.Spec.Application,
-		Namespace: releasePlanAdmission.Namespace,
-	}, application)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return application, nil
-}
-
-// getApplicationComponents returns a list of all the Components associated with the given Application.
-func (a *Adapter) getApplicationComponents(application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error) {
-	applicationComponents := &applicationapiv1alpha1.ComponentList{}
-	opts := []client.ListOption{
-		client.InNamespace(application.Namespace),
-		client.MatchingFields{"spec.application": application.Name},
-	}
-
-	err := a.client.List(a.context, applicationComponents, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return applicationComponents.Items, nil
-}
-
-// getSnapshot returns the Snapshot referenced by the Release being processed. If the Snapshot
-// is not found or the Get operation failed, an error is returned.
-func (a *Adapter) getSnapshot() (*applicationapiv1alpha1.Snapshot, error) {
-	snapshot := &applicationapiv1alpha1.Snapshot{}
-	err := a.client.Get(a.context, types.NamespacedName{
-		Name:      a.release.Spec.Snapshot,
-		Namespace: a.release.Namespace,
-	}, snapshot)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return snapshot, nil
-}
-
-// getEnvironment returns the Environment referenced by the ReleasePlanAdmission used during this release. If the
-// Environment is not found or the Get operation fails, an error will be returned.
-func (a *Adapter) getEnvironment(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Environment, error) {
-	environment := &applicationapiv1alpha1.Environment{}
-	err := a.client.Get(a.context, types.NamespacedName{
-		Name:      releasePlanAdmission.Spec.Environment,
-		Namespace: releasePlanAdmission.Namespace,
-	}, environment)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return environment, nil
-}
-
-// getReleasePlan returns the ReleasePlan referenced by the Release being processed. If the ReleasePlan is not found or
-// the Get operation fails, an error will be returned.
-func (a *Adapter) getReleasePlan() (*v1alpha1.ReleasePlan, error) {
-	releasePlan := &v1alpha1.ReleasePlan{}
-	err := a.client.Get(a.context, types.NamespacedName{
-		Namespace: a.release.Namespace,
-		Name:      a.release.Spec.ReleasePlan,
-	}, releasePlan)
-	if err != nil {
-		return nil, err
-	}
-
-	return releasePlan, nil
-}
-
-// getReleasePipelineRun returns the PipelineRun referenced by the Release being processed or nil if it's not found.
-// In the case the List operation fails, an error will be returned.
-func (a *Adapter) getReleasePipelineRun() (*v1beta1.PipelineRun, error) {
-	pipelineRuns := &v1beta1.PipelineRunList{}
-	opts := []client.ListOption{
-		client.Limit(1),
-		client.MatchingLabels{
-			tekton.ReleaseNameLabel:      a.release.Name,
-			tekton.ReleaseNamespaceLabel: a.release.Namespace,
-		},
-	}
-
-	err := a.client.List(a.context, pipelineRuns, opts...)
-	if err == nil && len(pipelineRuns.Items) > 0 {
-		return &pipelineRuns.Items[0], nil
-	}
-
-	return nil, err
-}
-
-// getReleaseStrategy returns the ReleaseStrategy referenced by the given ReleasePlanAdmission. If the ReleaseStrategy
-// is not found or the Get operation fails, an error will be returned.
-func (a *Adapter) getReleaseStrategy(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleaseStrategy, error) {
-	releaseStrategy := &v1alpha1.ReleaseStrategy{}
-	err := a.client.Get(a.context, types.NamespacedName{
-		Name:      releasePlanAdmission.Spec.ReleaseStrategy,
-		Namespace: releasePlanAdmission.Namespace,
-	}, releaseStrategy)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return releaseStrategy, nil
-}
-
-// getEnterpriseContractPolicy return the EnterpriseContractPolicy referenced by the given ReleaseStrategy.
-func (a *Adapter) getEnterpriseContractPolicy(releaseStrategy *v1alpha1.ReleaseStrategy) (*ecapiv1alpha1.EnterpriseContractPolicy, error) {
-	enterpriseContractPolicy := &ecapiv1alpha1.EnterpriseContractPolicy{}
-	err := a.client.Get(a.context, types.NamespacedName{
-		Name:      releaseStrategy.Spec.Policy,
-		Namespace: releaseStrategy.Namespace,
-	}, enterpriseContractPolicy)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return enterpriseContractPolicy, nil
-}
-
-// getSnapshotEnvironmentBinding returns the SnapshotEnvironmentBinding associated with the Release being processed.
-// That association is defined by both the Environment and Application matching between the ReleasePlanAdmission and
-// the SnapshotEnvironmentBinding. If the Get operation fails, an error will be returned.
-func (a *Adapter) getSnapshotEnvironmentBinding(environment *applicationapiv1alpha1.Environment,
-	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
-	bindingList := &applicationapiv1alpha1.SnapshotEnvironmentBindingList{}
-	opts := []client.ListOption{
-		client.InNamespace(environment.Namespace),
-		client.MatchingFields{"spec.environment": environment.Name},
-	}
-
-	err := a.client.List(a.context, bindingList, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, binding := range bindingList.Items {
-		if binding.Spec.Application == releasePlanAdmission.Spec.Application {
-			return &binding, nil
-		}
-	}
-
-	return nil, nil
-}
-
-// getSnapshotEnvironmentBindingFromReleaseStatus returns the SnapshotEnvironmentBinding associated with the Release being processed.
-// That association is defined by namespaced name stored in the Release's status
-func (a *Adapter) getSnapshotEnvironmentBindingFromReleaseStatus() (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
-	binding := &applicationapiv1alpha1.SnapshotEnvironmentBinding{}
-	bindingNamespacedName := strings.Split(a.release.Status.SnapshotEnvironmentBinding, string(types.Separator))
-	if len(bindingNamespacedName) != 2 {
-		return nil, fmt.Errorf("found invalid namespaced name of SnapshotEnvironmentBinding in"+
-			" release status: '%s'", a.release.Status.SnapshotEnvironmentBinding)
-	}
-
-	err := a.client.Get(a.context, types.NamespacedName{
-		Namespace: bindingNamespacedName[0],
-		Name:      bindingNamespacedName[1],
-	}, binding)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return binding, nil
-}
-
-// getSnapshotEnvironmentResources returns all the resources required to create a SnapshotEnvironmentBinding. If any of
-// those resources cannot be retrieved from the cluster, an error will be returned.
-func (a *Adapter) getSnapshotEnvironmentResources(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (
-	*applicationapiv1alpha1.Application, []applicationapiv1alpha1.Component, *applicationapiv1alpha1.Snapshot, error) {
-	application, err := a.getApplication(releasePlanAdmission)
-	if err != nil {
-		return application, nil, nil, err
-	}
-
-	components, err := a.getApplicationComponents(application)
-	if err != nil {
-		return application, nil, nil, err
-	}
-
-	snapshot, err := a.getSnapshot()
-	if err != nil {
-		return application, components, nil, err
-	}
-
-	return application, components, snapshot, err
 }
 
 // registerGitOpsDeploymentStatus updates the status of the Release being processed by monitoring the status of the
@@ -610,7 +363,7 @@ func (a *Adapter) registerGitOpsDeploymentStatus(binding *applicationapiv1alpha1
 		a.release.MarkDeployed(condition.Status, condition.Reason, condition.Message)
 	}
 
-	return a.client.Status().Patch(a.context, a.release, patch)
+	return a.client.Status().Patch(a.ctx, a.release, patch)
 }
 
 // registerReleasePipelineRunStatus updates the status of the Release being processed by monitoring the status of the
@@ -629,7 +382,7 @@ func (a *Adapter) registerReleasePipelineRunStatus(pipelineRun *v1beta1.Pipeline
 			a.release.MarkFailed(v1alpha1.ReleaseReasonPipelineFailed, condition.Message)
 		}
 
-		return a.client.Status().Patch(a.context, a.release, patch)
+		return a.client.Status().Patch(a.ctx, a.release, patch)
 	}
 
 	return nil
@@ -651,17 +404,17 @@ func (a *Adapter) registerReleaseStatusData(releasePipelineRun *v1beta1.Pipeline
 
 	a.release.MarkRunning()
 
-	return a.client.Status().Patch(a.context, a.release, patch)
+	return a.client.Status().Patch(a.ctx, a.release, patch)
 }
 
 // syncResources sync all the resources needed to trigger the deployment of the Release being processed.
 func (a *Adapter) syncResources() error {
-	releasePlanAdmission, err := a.getActiveReleasePlanAdmission()
+	releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
 	if err != nil {
 		return err
 	}
 
-	snapshot, err := a.getSnapshot()
+	snapshot, err := a.loader.GetSnapshot(a.ctx, a.client, a.release)
 	if err != nil {
 		return err
 	}

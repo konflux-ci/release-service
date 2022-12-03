@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/go-logr/logr v1.2.3
-	github.com/hacbs-contract/enterprise-contract-controller/api v0.0.0-20221220151524-ad0f637efacf
+	github.com/hacbs-contract/enterprise-contract-controller/api v0.0.0-20230119144703-99925bf43f06
 	github.com/onsi/ginkgo/v2 v2.6.0
 	github.com/onsi/gomega v1.24.1
 	github.com/operator-framework/operator-lib v0.10.0
@@ -12,7 +12,7 @@ require (
 	github.com/redhat-appstudio/operator-goodies v0.0.0-20221130140446-010c05bd7471
 	github.com/tektoncd/pipeline v0.41.0
 	k8s.io/api v0.26.0
-	k8s.io/apimachinery v0.26.0
+	k8s.io/apimachinery v0.26.1
 	k8s.io/client-go v0.26.0
 	knative.dev/pkg v0.0.0-20221011175852-714b7630a836
 	sigs.k8s.io/controller-runtime v0.14.1

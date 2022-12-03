@@ -17,18 +17,16 @@ limitations under the License.
 package release
 
 import (
-	"reflect"
-
 	"k8s.io/apimachinery/pkg/api/errors"
+	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
