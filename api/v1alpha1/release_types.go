@@ -203,7 +203,7 @@ func (r *Release) MarkRunning() {
 
 // MarkSucceeded registers the completion time and changes the Succeeded condition to True.
 func (r *Release) MarkSucceeded() {
-	if r.IsDone() && r.Status.CompletionTime != nil {
+	if !r.HasStarted() || (r.IsDone() && r.Status.CompletionTime != nil) {
 		return
 	}
 
