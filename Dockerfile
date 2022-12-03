@@ -13,8 +13,10 @@ RUN go mod download
 # Copy the go source
 COPY main.go main.go
 COPY api/ api/
+COPY cache/ cache/
 COPY controllers/ controllers/
 COPY gitops/ gitops/
+COPY loader/ loader/
 COPY metadata/ metadata/
 COPY metrics/ metrics/
 COPY syncer/ syncer/

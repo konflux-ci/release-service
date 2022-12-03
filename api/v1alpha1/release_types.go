@@ -54,9 +54,6 @@ const (
 	// ReleaseReasonPipelineFailed is the reason set when the release PipelineRun failed
 	ReleaseReasonPipelineFailed ReleaseReason = "ReleasePipelineFailed"
 
-	// ReleaseReasonReleasePlanValidationError is the reason set when there is a validation error with the ReleasePlan
-	ReleaseReasonReleasePlanValidationError ReleaseReason = "ReleasePlanValidationError"
-
 	// ReleaseReasonTargetDisabledError is the reason set when releases to the target are disabled
 	ReleaseReasonTargetDisabledError ReleaseReason = "ReleaseTargetDisabledError"
 
@@ -204,7 +201,7 @@ func (r *Release) MarkRunning() {
 
 // MarkSucceeded registers the completion time and changes the Succeeded condition to True.
 func (r *Release) MarkSucceeded() {
-	if r.IsDone() && r.Status.CompletionTime != nil {
+	if !r.HasStarted() || (r.IsDone() && r.Status.CompletionTime != nil) {
 		return
 	}
 

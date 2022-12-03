@@ -22,6 +22,7 @@ import (
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/operator-goodies/reconciler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/cache"
 	"github.com/redhat-appstudio/release-service/tekton"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -92,15 +93,15 @@ func SetupController(manager ctrl.Manager, log *logr.Logger) error {
 // setupCache indexes fields for each of the resources used in the release adapter in those cases where filtering by
 // field is required.
 func setupCache(mgr ctrl.Manager) error {
-	if err := SetupComponentCache(mgr); err != nil {
+	if err := cache.SetupComponentCache(mgr); err != nil {
 		return err
 	}
 
-	if err := SetupReleasePlanAdmissionCache(mgr); err != nil {
+	if err := cache.SetupReleasePlanAdmissionCache(mgr); err != nil {
 		return err
 	}
 
-	return SetupSnapshotEnvironmentBindingCache(mgr)
+	return cache.SetupSnapshotEnvironmentBindingCache(mgr)
 }
 
 // setupControllerWithManager sets up the controller with the Manager which monitors new Releases and filters out

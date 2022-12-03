@@ -222,7 +222,7 @@ var _ = Describe("Release type", func() {
 			r.Status.Conditions[0] = metav1.Condition{
 				Type:    "Fail",
 				Status:  metav1.ConditionUnknown,
-				Reason:  ReleaseReasonReleasePlanValidationError.String(),
+				Reason:  ReleaseReasonValidationError.String(),
 				Message: "message string",
 			}
 			r.MarkInvalid(args.reason, args.message)
