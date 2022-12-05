@@ -131,6 +131,12 @@ func GetEnvironment(releasePlanAdmission *v1alpha1.ReleasePlanAdmission, cli cli
 	return getObject(releasePlanAdmission.Spec.Environment, releasePlanAdmission.Namespace, cli, ctx, &applicationapiv1alpha1.Environment{})
 }
 
+// GetRelease returns the Release with the given name and namespace. If the Release is not found or the Get operation
+// fails, an error will be returned.
+func GetRelease(name, namespace string, cli client.Client, ctx context.Context) (*v1alpha1.Release, error) {
+	return getObject(name, namespace, cli, ctx, &v1alpha1.Release{})
+}
+
 // GetReleasePipelineRun returns the PipelineRun referenced by the given Release or nil if it's not found. In the case
 // the List operation fails, an error will be returned.
 func GetReleasePipelineRun(release *v1alpha1.Release, cli client.Client, ctx context.Context) (*v1beta1.PipelineRun, error) {

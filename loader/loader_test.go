@@ -150,7 +150,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("returns the requested list of components", func() {
 			returnedObjects, err := GetApplicationComponents(*application, k8sClient, ctx)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(returnedObjects)).To(Equal(1))
+			Expect(returnedObjects).To(HaveLen(1))
 			Expect(returnedObjects[0].Name).To(Equal(component.Name))
 		})
 	})
@@ -170,6 +170,15 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Environment{}))
 			Expect(returnedObject.Name).To(Equal(environment.Name))
+		})
+	})
+
+	Context("When calling GetRelease", func() {
+		It("returns the requested release", func() {
+			returnedObject, err := GetRelease(release.Name, release.Namespace, k8sClient, ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&v1alpha1.Release{}))
+			Expect(returnedObject.Name).To(Equal(release.Name))
 		})
 	})
 

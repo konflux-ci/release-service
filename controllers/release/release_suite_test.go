@@ -47,23 +47,25 @@ const (
 )
 
 var (
+	cancel    context.CancelFunc
 	cfg       *rest.Config
+	ctx       context.Context
 	k8sClient client.Client
 	testEnv   *envtest.Environment
-	ctx       context.Context
-	cancel    context.CancelFunc
 )
 
 func TestControllerRelease(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Release Controller Test Suite")
+
+	RunSpecs(t, "Release Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
 	ctx, cancel = context.WithCancel(context.TODO())
 
-	// adding required CRDs, including tekton for PipelineRun Kind
+	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "config", "crd", "bases"),
@@ -84,6 +86,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	var err error
+	// cfg is defined in this file globally.
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
@@ -93,22 +96,28 @@ var _ = BeforeSuite(func() {
 	Expect(ecapiv1alpha1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
 	Expect(applicationapiv1alpha1.AddToScheme(clientsetscheme.Scheme)).To(Succeed())
 
+	//+kubebuilder:scaffold:scheme
+
 	k8sManager, _ := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             clientsetscheme.Scheme,
-		MetricsBindAddress: "0", // this disables metrics
+		MetricsBindAddress: "0",
 		LeaderElection:     false,
 	})
+	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient = k8sManager.GetClient()
 	go func() {
 		defer GinkgoRecover()
+
 		Expect(setupCache(k8sManager)).To(Succeed())
+
 		Expect(k8sManager.Start(ctx)).To(Succeed())
 	}()
 })
 
 var _ = AfterSuite(func() {
 	cancel()
+
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
