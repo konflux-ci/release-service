@@ -9,7 +9,7 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - applications
+  - internalrequests
   verbs:
   - get
   - list
@@ -17,6 +17,6 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - applications/status
+  - internalrequests/status
   verbs:
   - get
