@@ -18,10 +18,14 @@ package release
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	libhandler "github.com/operator-framework/operator-lib/handler"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+	goodies "github.com/redhat-appstudio/operator-goodies/predicates"
 	"github.com/redhat-appstudio/operator-goodies/reconciler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/tekton"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -80,8 +84,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		adapter.EnsureFinalizerIsAdded,
 		adapter.EnsureReleasePipelineRunExists,
 		adapter.EnsureReleasePipelineStatusIsTracked,
-		adapter.EnsureSnapshotEnvironmentBindingIsCreated,
+		adapter.EnsureSnapshotEnvironmentBindingExists,
+		adapter.EnsureSnapshotEnvironmentBindingIsTracked,
 	})
+
 }
 
 // SetupController creates a new Release reconciler and adds it to the Manager.
@@ -104,8 +110,8 @@ func setupCache(mgr ctrl.Manager) error {
 }
 
 // setupControllerWithManager sets up the controller with the Manager which monitors new Releases and filters out
-// status updates. This controller also watches for PipelineRuns created by this controller and owned by the Releases so
-// the owner gets reconciled on PipelineRun changes.
+// status updates. This controller also watches for PipelineRuns and SnapshotEnvironmentBindings that are created
+// by this controller and owned by the Releases so the owner gets reconciled on changes.
 func setupControllerWithManager(manager ctrl.Manager, reconciler *Reconciler) error {
 	err := setupCache(manager)
 	if err != nil {
@@ -114,6 +120,12 @@ func setupControllerWithManager(manager ctrl.Manager, reconciler *Reconciler) er
 
 	return ctrl.NewControllerManagedBy(manager).
 		For(&v1alpha1.Release{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&source.Kind{Type: &applicationapiv1alpha1.SnapshotEnvironmentBinding{}}, &libhandler.EnqueueRequestForAnnotation{
+			Type: schema.GroupKind{
+				Kind:  "Release",
+				Group: "appstudio.redhat.com",
+			},
+		}, builder.WithPredicates(goodies.GenerationUnchangedOnUpdatePredicate{}, gitops.DeploymentFinishedPredicate())).
 		Watches(&source.Kind{Type: &v1beta1.PipelineRun{}}, &libhandler.EnqueueRequestForAnnotation{
 			Type: schema.GroupKind{
 				Kind:  "Release",
