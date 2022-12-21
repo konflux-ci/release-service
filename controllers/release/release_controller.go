@@ -119,18 +119,34 @@ func setupControllerWithManager(manager ctrl.Manager, reconciler *Reconciler) er
 	}
 
 	return ctrl.NewControllerManagedBy(manager).
-		For(&v1alpha1.Release{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&source.Kind{Type: &applicationapiv1alpha1.SnapshotEnvironmentBinding{}}, &libhandler.EnqueueRequestForAnnotation{
-			Type: schema.GroupKind{
-				Kind:  "Release",
-				Group: "appstudio.redhat.com",
+		For(
+			&v1alpha1.Release{},
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
+		Watches(
+			&source.Kind{
+				Type: &applicationapiv1alpha1.SnapshotEnvironmentBinding{},
 			},
-		}, builder.WithPredicates(goodies.GenerationUnchangedOnUpdatePredicate{}, gitops.DeploymentFinishedPredicate())).
-		Watches(&source.Kind{Type: &v1beta1.PipelineRun{}}, &libhandler.EnqueueRequestForAnnotation{
-			Type: schema.GroupKind{
-				Kind:  "Release",
-				Group: "appstudio.redhat.com",
+			&libhandler.EnqueueRequestForAnnotation{
+				Type: schema.GroupKind{
+					Kind:  "Release",
+					Group: "appstudio.redhat.com",
+				},
 			},
-		}, builder.WithPredicates(tekton.ReleasePipelineRunSucceededPredicate())).
+			builder.WithPredicates(
+				goodies.GenerationUnchangedOnUpdatePredicate{},
+				gitops.DeploymentFinishedPredicate(),
+			),
+		).
+		Watches(
+			&source.Kind{Type: &v1beta1.PipelineRun{}},
+			&libhandler.EnqueueRequestForAnnotation{
+				Type: schema.GroupKind{
+					Kind:  "Release",
+					Group: "appstudio.redhat.com",
+				},
+			},
+			builder.WithPredicates(tekton.ReleasePipelineRunSucceededPredicate()),
+		).
 		Complete(reconciler)
 }
