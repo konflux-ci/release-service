@@ -2,7 +2,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-ingress-https-only-and-block-egress
+  name: allow-https-only-for-specific-ports-ingress
   namespace: system
 spec:
   podSelector:
@@ -12,10 +12,19 @@ spec:
   - Ingress
   - Egress
   ingress:
-  - ports:
-    - protocol: TCP
-      port: 443,444,8080,8443,4443,9443
-      tls:
-        termination: passthrough
+  - matchExpressions:
+    - key: port
+      operator: In
+      values:
+      - "443"
+      - "444"
+      - "4443"
+      - "8080"
+      - "8081"
+      - "8443"
+      - "9443"
+    - key: scheme
+      operator: In
+      values:
+      - https
   egress: []
----
