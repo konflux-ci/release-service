@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,7 +86,7 @@ var _ = Describe("Utils", Ordered, func() {
 		// Set the status of the unknown status binding after it is created
 		bindingUnknownStatus.Status.ComponentDeploymentConditions = []metav1.Condition{
 			{
-				Type:   v1alpha1.BindingDeploymentStatusConditionType,
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 				Status: metav1.ConditionUnknown,
 			},
 		}
@@ -118,7 +117,7 @@ var _ = Describe("Utils", Ordered, func() {
 		It("returns true when the old SnapshotEnvironmentBinding has unknown status and the new one has false status", func() {
 			binding.Status.ComponentDeploymentConditions = []metav1.Condition{
 				{
-					Type:   v1alpha1.BindingDeploymentStatusConditionType,
+					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 					Status: metav1.ConditionFalse,
 				},
 			}
@@ -128,7 +127,7 @@ var _ = Describe("Utils", Ordered, func() {
 		It("returns true when the old SnapshotEnvironmentBinding has unknown status and the new one has true status", func() {
 			binding.Status.ComponentDeploymentConditions = []metav1.Condition{
 				{
-					Type:   v1alpha1.BindingDeploymentStatusConditionType,
+					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 					Status: metav1.ConditionTrue,
 				},
 			}

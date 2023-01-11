@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -76,13 +75,13 @@ var _ = Describe("Predicates", Ordered, func() {
 		// Set the binding statuses after they are created
 		bindingUnknownStatus.Status.ComponentDeploymentConditions = []metav1.Condition{
 			{
-				Type:   v1alpha1.BindingDeploymentStatusConditionType,
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 				Status: metav1.ConditionUnknown,
 			},
 		}
 		bindingTrueStatus.Status.ComponentDeploymentConditions = []metav1.Condition{
 			{
-				Type:   v1alpha1.BindingDeploymentStatusConditionType,
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 				Status: metav1.ConditionTrue,
 			},
 		}
