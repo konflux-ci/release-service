@@ -1,7 +1,5 @@
 # Build the manager binary
-FROM golang:1.18 as builder
-
-WORKDIR /workspace
+FROM registry.access.redhat.com/ubi9/go-toolset:1.18 as builder
 
 # Copy the Go Modules manifests
 COPY go.mod go.mod
@@ -26,11 +24,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
 ARG ENABLE_WEBHOOKS=true
 ENV ENABLE_WEBHOOKS=${ENABLE_WEBHOOKS}
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
-WORKDIR /
-COPY --from=builder /workspace/manager .
+# Use ubi-micro as minimal base image to package the manager binary
+# See https://catalog.redhat.com/software/containers/ubi9/ubi-micro/615bdf943f6014fa45ae1b58
+FROM registry.access.redhat.com/ubi9/ubi-micro:9.1.0
+COPY --from=builder /opt/app-root/src/manager /
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]
