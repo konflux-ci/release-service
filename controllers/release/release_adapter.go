@@ -581,7 +581,8 @@ func (a *Adapter) registerGitOpsDeploymentStatus(binding *applicationapiv1alpha1
 	if binding != nil {
 		patch := client.MergeFrom(a.release.DeepCopy())
 
-		condition := meta.FindStatusCondition(binding.Status.ComponentDeploymentConditions, v1alpha1.BindingDeploymentStatusConditionType)
+		condition := meta.FindStatusCondition(binding.Status.ComponentDeploymentConditions,
+			applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
 		if condition.Status == metav1.ConditionUnknown {
 			a.release.MarkDeploying(condition.Reason, condition.Message)
 		} else {

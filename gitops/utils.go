@@ -18,7 +18,6 @@ package gitops
 
 import (
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,13 +30,15 @@ func hasDeploymentFinished(objectOld, objectNew client.Object) bool {
 	var oldCondition, newCondition *metav1.Condition
 
 	if oldBinding, ok := objectOld.(*applicationapiv1alpha1.SnapshotEnvironmentBinding); ok {
-		oldCondition = meta.FindStatusCondition(oldBinding.Status.ComponentDeploymentConditions, v1alpha1.BindingDeploymentStatusConditionType)
+		oldCondition = meta.FindStatusCondition(oldBinding.Status.ComponentDeploymentConditions,
+			applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
 		if oldCondition == nil {
 			return false
 		}
 	}
 	if newBinding, ok := objectNew.(*applicationapiv1alpha1.SnapshotEnvironmentBinding); ok {
-		newCondition = meta.FindStatusCondition(newBinding.Status.ComponentDeploymentConditions, v1alpha1.BindingDeploymentStatusConditionType)
+		newCondition = meta.FindStatusCondition(newBinding.Status.ComponentDeploymentConditions,
+			applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
 		if newCondition == nil {
 			return false
 		}

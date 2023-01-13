@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"time"
 
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/metrics"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,10 +44,6 @@ type ReleaseReason string
 const (
 	// releaseConditionType is the type used when setting a release status condition
 	releaseConditionType string = "Succeeded"
-
-	// BindingDeploymentStatusConditionType is the condition type to retrieve from the ComponentDeploymentConditions
-	// in the SnapshotEnvironmentBinding's status to copy into the Release status
-	BindingDeploymentStatusConditionType string = "AllComponentsDeployed"
 
 	// ReleaseReasonValidationError is the reason set when the Release validation failed
 	ReleaseReasonValidationError ReleaseReason = "ReleaseValidationError"
@@ -133,7 +130,7 @@ type Release struct {
 
 // HasBeenDeployed checks whether the Release has been deployed via GitOps.
 func (r *Release) HasBeenDeployed() bool {
-	condition := meta.FindStatusCondition(r.Status.Conditions, BindingDeploymentStatusConditionType)
+	condition := meta.FindStatusCondition(r.Status.Conditions, applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
 	return condition != nil && condition.Status != metav1.ConditionUnknown
 }
 
@@ -156,13 +153,15 @@ func (r *Release) IsDone() bool {
 // MarkDeployed sets the AllComponentsDeployed status in the Release to True or False with the provided reason and message.
 func (r *Release) MarkDeployed(status metav1.ConditionStatus, reason, message string) {
 	if status != metav1.ConditionUnknown {
-		r.setStatusConditionWithMessage(BindingDeploymentStatusConditionType, status, ReleaseReason(reason), message)
+		r.setStatusConditionWithMessage(applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+			status, ReleaseReason(reason), message)
 	}
 }
 
 // MarkDeploying sets the AllComponentsDeployed status in the Release to Unknown with the provided reason and message.
 func (r *Release) MarkDeploying(reason, message string) {
-	r.setStatusConditionWithMessage(BindingDeploymentStatusConditionType, metav1.ConditionUnknown, ReleaseReason(reason), message)
+	r.setStatusConditionWithMessage(applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+		metav1.ConditionUnknown, ReleaseReason(reason), message)
 }
 
 // MarkFailed registers the completion time and changes the Succeeded condition to False with

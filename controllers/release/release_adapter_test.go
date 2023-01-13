@@ -889,7 +889,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		// Check that release status properly shows that the binding is deploying
 		binding.Status.ComponentDeploymentConditions = []metav1.Condition{
 			{
-				Type:   appstudiov1alpha1.BindingDeploymentStatusConditionType,
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 				Status: metav1.ConditionUnknown,
 				Reason: "a", // status.conditions.reason in body should be at least 1 chars long
 			},
@@ -897,13 +897,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		err = adapter.registerGitOpsDeploymentStatus(binding)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(!release.HasBeenDeployed()).To(BeTrue())
-		releaseBindingStatus := meta.FindStatusCondition(release.Status.Conditions, appstudiov1alpha1.BindingDeploymentStatusConditionType)
+		releaseBindingStatus := meta.FindStatusCondition(release.Status.Conditions,
+			applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
 		Expect(releaseBindingStatus).ToNot(BeNil())
 
 		// Check that the release status properly shows that the binding has deployed
 		binding.Status.ComponentDeploymentConditions = []metav1.Condition{
 			{
-				Type:   appstudiov1alpha1.BindingDeploymentStatusConditionType,
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 				Status: metav1.ConditionTrue,
 				Reason: "a", // status.conditions.reason in body should be at least 1 chars long
 			},
