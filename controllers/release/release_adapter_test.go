@@ -886,12 +886,17 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(binding).ToNot(BeNil())
 
+		// Check that registerGitOpsDeploymentStatus doesn't error when binding has no
+		// ComponentDeploymentConditions in its Status
+		err = adapter.registerGitOpsDeploymentStatus(binding)
+		Expect(err).ToNot(HaveOccurred())
+
 		// Check that release status properly shows that the binding is deploying
 		binding.Status.ComponentDeploymentConditions = []metav1.Condition{
 			{
 				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 				Status: metav1.ConditionUnknown,
-				Reason: "a", // status.conditions.reason in body should be at least 1 chars long
+				Reason: "a", // status.conditions.reason in body should be at least 1 char long
 			},
 		}
 		err = adapter.registerGitOpsDeploymentStatus(binding)

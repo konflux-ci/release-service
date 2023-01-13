@@ -578,21 +578,25 @@ func (a *Adapter) getSnapshotEnvironmentResources(releasePlanAdmission *v1alpha1
 // registerGitOpsDeploymentStatus updates the status of the Release being processed by monitoring the status of the
 // associated SnapshotEnvironmentBinding and setting the appropriate state in the Release.
 func (a *Adapter) registerGitOpsDeploymentStatus(binding *applicationapiv1alpha1.SnapshotEnvironmentBinding) error {
-	if binding != nil {
-		patch := client.MergeFrom(a.release.DeepCopy())
-
-		condition := meta.FindStatusCondition(binding.Status.ComponentDeploymentConditions,
-			applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-		if condition.Status == metav1.ConditionUnknown {
-			a.release.MarkDeploying(condition.Reason, condition.Message)
-		} else {
-			a.release.MarkDeployed(condition.Status, condition.Reason, condition.Message)
-		}
-
-		return a.client.Status().Patch(a.context, a.release, patch)
+	if binding == nil {
+		return nil
 	}
 
-	return nil
+	condition := meta.FindStatusCondition(binding.Status.ComponentDeploymentConditions,
+		applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
+	if condition == nil {
+		return nil
+	}
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+
+	if condition.Status == metav1.ConditionUnknown {
+		a.release.MarkDeploying(condition.Reason, condition.Message)
+	} else {
+		a.release.MarkDeployed(condition.Status, condition.Reason, condition.Message)
+	}
+
+	return a.client.Status().Patch(a.context, a.release, patch)
 }
 
 // registerReleasePipelineRunStatus updates the status of the Release being processed by monitoring the status of the
