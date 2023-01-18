@@ -84,6 +84,12 @@ jobs:
             git --no-pager diff ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen'
             exit 1
           fi
+      - name: Check RBAC wildcards
+         run: |
+           if grep -n "*" config/rbac/*.yaml ; then
+             echo "RBAC files contain wildcards (*)"
+             exit 1
+           fi
       - name: Run Go Tests
         run: make test
       - name: Upload coverage to Codecov
