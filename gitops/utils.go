@@ -27,22 +27,23 @@ import (
 // is a SnapshotEnvironmentBinding with the componentDeployment status Unknown and the second
 // passed object is a SnapshotEnvironmentBinding with the componentDeployment status True/False.
 func hasDeploymentFinished(objectOld, objectNew client.Object) bool {
+	var ok bool
+	var oldBinding, newBinding *applicationapiv1alpha1.SnapshotEnvironmentBinding
 	var oldCondition, newCondition *metav1.Condition
 
-	if oldBinding, ok := objectOld.(*applicationapiv1alpha1.SnapshotEnvironmentBinding); ok {
-		oldCondition = meta.FindStatusCondition(oldBinding.Status.ComponentDeploymentConditions,
-			applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-		if oldCondition == nil {
-			return false
-		}
+	if oldBinding, ok = objectOld.(*applicationapiv1alpha1.SnapshotEnvironmentBinding); !ok {
+		return false
 	}
-	if newBinding, ok := objectNew.(*applicationapiv1alpha1.SnapshotEnvironmentBinding); ok {
-		newCondition = meta.FindStatusCondition(newBinding.Status.ComponentDeploymentConditions,
-			applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-		if newCondition == nil {
-			return false
-		}
+	if newBinding, ok = objectNew.(*applicationapiv1alpha1.SnapshotEnvironmentBinding); !ok {
+		return false
 	}
 
-	return oldCondition.Status == metav1.ConditionUnknown && newCondition.Status != metav1.ConditionUnknown
+	oldCondition = meta.FindStatusCondition(oldBinding.Status.ComponentDeploymentConditions,
+		applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
+
+	newCondition = meta.FindStatusCondition(newBinding.Status.ComponentDeploymentConditions,
+		applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
+
+	return (oldCondition == nil || oldCondition.Status == metav1.ConditionUnknown) &&
+		(newCondition != nil && newCondition.Status != metav1.ConditionUnknown)
 }
