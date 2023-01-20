@@ -38,12 +38,12 @@ var _ = Describe("Predicates", Ordered, func() {
 		snapshotName    = "test-snapshot"
 	)
 
-	var bindingUnknownStatus, bindingTrueStatus *applicationapiv1alpha1.SnapshotEnvironmentBinding
+	var bindingNoStatus, bindingTrueStatus, bindingUnknownStatus *applicationapiv1alpha1.SnapshotEnvironmentBinding
 
 	BeforeAll(func() {
-		bindingUnknownStatus = &applicationapiv1alpha1.SnapshotEnvironmentBinding{
+		bindingNoStatus = &applicationapiv1alpha1.SnapshotEnvironmentBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:       "bindingunknownstatus",
+				Name:       "bindingnostatus",
 				Namespace:  namespace,
 				Generation: 1,
 			},
@@ -67,35 +67,59 @@ var _ = Describe("Predicates", Ordered, func() {
 				Components:  []applicationapiv1alpha1.BindingComponent{},
 			},
 		}
-		ctx := context.Background()
-
-		Expect(k8sClient.Create(ctx, bindingUnknownStatus)).Should(Succeed())
-		Expect(k8sClient.Create(ctx, bindingTrueStatus)).Should(Succeed())
-
-		// Set the binding statuses after they are created
-		bindingUnknownStatus.Status.ComponentDeploymentConditions = []metav1.Condition{
-			{
-				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-				Status: metav1.ConditionUnknown,
+		bindingUnknownStatus = &applicationapiv1alpha1.SnapshotEnvironmentBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "bindingunknownstatus",
+				Namespace:  namespace,
+				Generation: 1,
+			},
+			Spec: applicationapiv1alpha1.SnapshotEnvironmentBindingSpec{
+				Application: applicationName,
+				Environment: environmentName,
+				Snapshot:    snapshotName,
+				Components:  []applicationapiv1alpha1.BindingComponent{},
 			},
 		}
+		ctx := context.Background()
+
+		Expect(k8sClient.Create(ctx, bindingNoStatus)).Should(Succeed())
+		Expect(k8sClient.Create(ctx, bindingTrueStatus)).Should(Succeed())
+		Expect(k8sClient.Create(ctx, bindingUnknownStatus)).Should(Succeed())
+
+		// Set the binding statuses after they are created
 		bindingTrueStatus.Status.ComponentDeploymentConditions = []metav1.Condition{
 			{
 				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 				Status: metav1.ConditionTrue,
 			},
 		}
+		bindingUnknownStatus.Status.ComponentDeploymentConditions = []metav1.Condition{
+			{
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+				Status: metav1.ConditionUnknown,
+			},
+		}
 	})
 
 	AfterAll(func() {
-		err := k8sClient.Delete(ctx, bindingUnknownStatus)
+		err := k8sClient.Delete(ctx, bindingNoStatus)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 		err = k8sClient.Delete(ctx, bindingTrueStatus)
+		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
+		err = k8sClient.Delete(ctx, bindingUnknownStatus)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 	})
 
 	Context("when testing DeploymentFinishedPredicate predicate", func() {
 		instance := DeploymentFinishedPredicate()
+
+		It("returns true when the old SnapshotEnvironmentBinding has no AllComponentsDeployed status and the new one has true status", func() {
+			contextEvent := event.UpdateEvent{
+				ObjectOld: bindingNoStatus,
+				ObjectNew: bindingTrueStatus,
+			}
+			Expect(instance.Update(contextEvent)).To(BeTrue())
+		})
 
 		It("returns true when the old SnapshotEnvironmentBinding has unknown status and the new one has true status", func() {
 			contextEvent := event.UpdateEvent{
