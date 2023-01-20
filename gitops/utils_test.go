@@ -36,7 +36,8 @@ var _ = Describe("Utils", Ordered, func() {
 	)
 
 	var pod *corev1.Pod
-	var binding, bindingMissingComponentStatus, bindingUnknownStatus *applicationapiv1alpha1.SnapshotEnvironmentBinding
+	var bindingFalseStatus, bindingMissingComponentStatus,
+		bindingTrueStatus, bindingUnknownStatus *applicationapiv1alpha1.SnapshotEnvironmentBinding
 
 	BeforeAll(func() {
 		pod = &corev1.Pod{
@@ -53,9 +54,9 @@ var _ = Describe("Utils", Ordered, func() {
 				},
 			},
 		}
-		binding = &applicationapiv1alpha1.SnapshotEnvironmentBinding{
+		bindingFalseStatus = &applicationapiv1alpha1.SnapshotEnvironmentBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "binding",
+				Name:      "bindingfalsestatus",
 				Namespace: namespace,
 			},
 			Spec: applicationapiv1alpha1.SnapshotEnvironmentBindingSpec{
@@ -68,6 +69,18 @@ var _ = Describe("Utils", Ordered, func() {
 		bindingMissingComponentStatus = &applicationapiv1alpha1.SnapshotEnvironmentBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "bindingmissingcomponentstatus",
+				Namespace: namespace,
+			},
+			Spec: applicationapiv1alpha1.SnapshotEnvironmentBindingSpec{
+				Application: applicationName,
+				Environment: environmentName,
+				Snapshot:    snapshotName,
+				Components:  []applicationapiv1alpha1.BindingComponent{},
+			},
+		}
+		bindingTrueStatus = &applicationapiv1alpha1.SnapshotEnvironmentBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bindingtruestatus",
 				Namespace: namespace,
 			},
 			Spec: applicationapiv1alpha1.SnapshotEnvironmentBindingSpec{
@@ -92,11 +105,24 @@ var _ = Describe("Utils", Ordered, func() {
 		ctx := context.Background()
 
 		Expect(k8sClient.Create(ctx, pod)).Should(Succeed())
-		Expect(k8sClient.Create(ctx, binding)).Should(Succeed())
+		Expect(k8sClient.Create(ctx, bindingFalseStatus)).Should(Succeed())
 		Expect(k8sClient.Create(ctx, bindingMissingComponentStatus)).Should(Succeed())
+		Expect(k8sClient.Create(ctx, bindingTrueStatus)).Should(Succeed())
 		Expect(k8sClient.Create(ctx, bindingUnknownStatus)).Should(Succeed())
 
-		// Set the status of the unknown status binding after it is created
+		// Set the AllComponentsDeployed status of the bindings after they are created
+		bindingFalseStatus.Status.ComponentDeploymentConditions = []metav1.Condition{
+			{
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+				Status: metav1.ConditionFalse,
+			},
+		}
+		bindingTrueStatus.Status.ComponentDeploymentConditions = []metav1.Condition{
+			{
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+				Status: metav1.ConditionTrue,
+			},
+		}
 		bindingUnknownStatus.Status.ComponentDeploymentConditions = []metav1.Condition{
 			{
 				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
@@ -116,9 +142,11 @@ var _ = Describe("Utils", Ordered, func() {
 	AfterAll(func() {
 		err := k8sClient.Delete(ctx, pod)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
-		err = k8sClient.Delete(ctx, binding)
+		err = k8sClient.Delete(ctx, bindingFalseStatus)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 		err = k8sClient.Delete(ctx, bindingMissingComponentStatus)
+		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
+		err = k8sClient.Delete(ctx, bindingTrueStatus)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 		err = k8sClient.Delete(ctx, bindingUnknownStatus)
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
@@ -126,15 +154,15 @@ var _ = Describe("Utils", Ordered, func() {
 
 	Context("when using utility functions on SnapshotEnvironmentBinding objects", func() {
 		It("returns false when called with an old object that isn't a SnapshotEnvironmentBinding", func() {
-			Expect(hasDeploymentFinished(pod, binding)).To(Equal(false))
+			Expect(hasDeploymentFinished(pod, bindingTrueStatus)).To(Equal(false))
 		})
 
 		It("returns false when called with a new object that isn't a SnapshotEnvironmentBinding", func() {
-			Expect(hasDeploymentFinished(binding, pod)).To(Equal(false))
+			Expect(hasDeploymentFinished(bindingTrueStatus, pod)).To(Equal(false))
 		})
 
 		It("returns false when the new SnapshotEnvironmentBinding has no status field", func() {
-			Expect(hasDeploymentFinished(binding, binding)).To(Equal(false))
+			Expect(hasDeploymentFinished(bindingTrueStatus, bindingMissingComponentStatus)).To(Equal(false))
 		})
 
 		It("returns false when the new SnapshotEnvironmentBinding does not have status set to true or false", func() {
@@ -146,43 +174,19 @@ var _ = Describe("Utils", Ordered, func() {
 		})
 
 		It("returns true when the old SnapshotEnvironmentBinding has unknown status and the new one has false status", func() {
-			binding.Status.ComponentDeploymentConditions = []metav1.Condition{
-				{
-					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-					Status: metav1.ConditionFalse,
-				},
-			}
-			Expect(hasDeploymentFinished(bindingUnknownStatus, binding)).To(Equal(true))
+			Expect(hasDeploymentFinished(bindingUnknownStatus, bindingFalseStatus)).To(Equal(true))
 		})
 
 		It("returns true when the old SnapshotEnvironmentBinding has unknown status and the new one has true status", func() {
-			binding.Status.ComponentDeploymentConditions = []metav1.Condition{
-				{
-					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-					Status: metav1.ConditionTrue,
-				},
-			}
-			Expect(hasDeploymentFinished(bindingUnknownStatus, binding)).To(Equal(true))
+			Expect(hasDeploymentFinished(bindingUnknownStatus, bindingTrueStatus)).To(Equal(true))
 		})
 
 		It("returns true when the old SnapshotEnvironmentBinding has no AllComponentsDeployed status and the new one has false status", func() {
-			binding.Status.ComponentDeploymentConditions = []metav1.Condition{
-				{
-					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-					Status: metav1.ConditionFalse,
-				},
-			}
-			Expect(hasDeploymentFinished(bindingMissingComponentStatus, binding)).To(Equal(true))
+			Expect(hasDeploymentFinished(bindingMissingComponentStatus, bindingFalseStatus)).To(Equal(true))
 		})
 
 		It("returns true when the old SnapshotEnvironmentBinding has no AllComponentsDeployed status and the new one has true status", func() {
-			binding.Status.ComponentDeploymentConditions = []metav1.Condition{
-				{
-					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-					Status: metav1.ConditionTrue,
-				},
-			}
-			Expect(hasDeploymentFinished(bindingMissingComponentStatus, binding)).To(Equal(true))
+			Expect(hasDeploymentFinished(bindingMissingComponentStatus, bindingTrueStatus)).To(Equal(true))
 		})
 	})
 })
