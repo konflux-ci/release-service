@@ -211,7 +211,7 @@ func (r *Release) MarkSucceeded() {
 	r.setStatusCondition(releaseConditionType, metav1.ConditionTrue, ReleaseReasonSucceeded)
 
 	go metrics.RegisterCompletedRelease(ReleaseReasonSucceeded.String(), r.Status.ReleaseStrategy, r.Status.Target,
-		r.Status.StartTime, r.Status.CompletionTime, false)
+		r.Status.StartTime, r.Status.CompletionTime, true)
 }
 
 // SetCondition creates a new condition with the given conditionType, status and reason. Then, it sets this new condition,
