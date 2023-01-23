@@ -24,8 +24,8 @@ import (
 )
 
 // hasDeploymentFinished returns a boolean that is only true if the first passed object
-// is a SnapshotEnvironmentBinding with the componentDeployment status Unknown and the second
-// passed object is a SnapshotEnvironmentBinding with the componentDeployment status True/False.
+// is a SnapshotEnvironmentBinding with the componentDeployment status missing or not true and the
+// second passed object is a SnapshotEnvironmentBinding with the componentDeployment status True/False.
 func hasDeploymentFinished(objectOld, objectNew client.Object) bool {
 	var ok bool
 	var oldBinding, newBinding *applicationapiv1alpha1.SnapshotEnvironmentBinding
@@ -44,6 +44,6 @@ func hasDeploymentFinished(objectOld, objectNew client.Object) bool {
 	newCondition = meta.FindStatusCondition(newBinding.Status.ComponentDeploymentConditions,
 		applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
 
-	return (oldCondition == nil || oldCondition.Status == metav1.ConditionUnknown) &&
+	return (oldCondition == nil || oldCondition.Status != metav1.ConditionTrue) &&
 		(newCondition != nil && newCondition.Status != metav1.ConditionUnknown)
 }
