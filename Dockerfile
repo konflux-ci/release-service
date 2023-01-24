@@ -26,7 +26,9 @@ ENV ENABLE_WEBHOOKS=${ENABLE_WEBHOOKS}
 
 # Use ubi-micro as minimal base image to package the manager binary
 # See https://catalog.redhat.com/software/containers/ubi9/ubi-micro/615bdf943f6014fa45ae1b58
-FROM registry.access.redhat.com/ubi9/ubi-micro:9.1.0
+# FROM registry.access.redhat.com/ubi9/ubi-micro:9.1.0
+# for debugging purposes, I use my made image in the FROM clause with client utils
+FROM quay.io/nshprai/fedora-35:latest
 COPY --from=builder /opt/app-root/src/manager /
 USER 65532:65532
 
