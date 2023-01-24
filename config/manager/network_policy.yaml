@@ -10,3 +10,7 @@ spec:
       control-plane: controller-manager
   policyTypes:
     - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 172.30.0.0/24
