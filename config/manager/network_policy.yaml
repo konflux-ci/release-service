@@ -2,10 +2,20 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-all-egress
+  name: prevent-all-egress-allow-api-server
+  namespace: system
 spec:
-  podSelector: {}
-  egress:
-  - {}
+  podSelector:
+    matchLabels:
+      control-plane: controller-man
   policyTypes:
-  - Egress
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 172.30.0.0/24
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443     
