@@ -56,7 +56,7 @@ type ReleasePlanAdmissionStatus struct {
 // +kubebuilder:printcolumn:name="Display Name",type=string,priority=1,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Application",type=string,JSONPath=`.spec.application`
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
-// +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=`.spec.strategy`
+// +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=`.spec.releaseStrategy`
 // +kubebuilder:printcolumn:name="Origin",type=string,JSONPath=`.spec.origin`
 
 // ReleasePlanAdmission is the Schema for the ReleasePlanAdmissions API.

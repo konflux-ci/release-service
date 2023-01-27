@@ -26,7 +26,7 @@ spec:
     - jsonPath: .spec.environment
       name: Environment
       type: string
-    - jsonPath: .spec.strategy
+    - jsonPath: .spec.releaseStrategy
       name: Strategy
       type: string
     - jsonPath: .spec.origin
