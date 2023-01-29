@@ -228,6 +228,7 @@ func (l *loader) GetSnapshotEnvironmentBindingFromReleaseStatus(ctx context.Cont
 type SnapshotEnvironmentBindingResources struct {
 	Application           *applicationapiv1alpha1.Application
 	ApplicationComponents []applicationapiv1alpha1.Component
+	Environment           *applicationapiv1alpha1.Environment
 	Snapshot              *applicationapiv1alpha1.Snapshot
 }
 
@@ -247,6 +248,12 @@ func (l *loader) GetSnapshotEnvironmentBindingResources(ctx context.Context, cli
 		return resources, err
 	}
 	resources.ApplicationComponents = applicationComponents
+
+	environment, err := l.GetEnvironment(ctx, cli, releasePlanAdmission)
+	if err != nil {
+		return resources, err
+	}
+	resources.Environment = environment
 
 	snapshot, err := l.GetSnapshot(ctx, cli, release)
 	if err != nil {

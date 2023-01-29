@@ -144,24 +144,21 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (reconciler.OperationResult, 
 		return reconciler.RequeueWithError(err)
 	}
 
-	var (
-		releasePlanAdmission *v1alpha1.ReleasePlanAdmission
-		releaseStrategy      *v1alpha1.ReleaseStrategy
-	)
-
-	if pipelineRun == nil {
-		releasePlanAdmission, err = a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
+	if pipelineRun == nil || !a.release.HasStarted() {
+		releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, err.Error())
 			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 		}
-		releaseStrategy, err = a.loader.GetReleaseStrategy(a.ctx, a.client, releasePlanAdmission)
+
+		releaseStrategy, err := a.loader.GetReleaseStrategy(a.ctx, a.client, releasePlanAdmission)
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
 			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 		}
+
 		enterpriseContractPolicy, err := a.loader.GetEnterpriseContractPolicy(a.ctx, a.client, releaseStrategy)
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
@@ -176,16 +173,20 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (reconciler.OperationResult, 
 			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 		}
 
-		pipelineRun, err = a.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
-		if err != nil {
-			return reconciler.RequeueWithError(err)
+		if pipelineRun == nil {
+			pipelineRun, err = a.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
+			if err != nil {
+				return reconciler.RequeueWithError(err)
+			}
+
+			a.logger.Info("Created release PipelineRun",
+				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
 		}
 
-		a.logger.Info("Created release PipelineRun",
-			"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
+		return reconciler.RequeueOnErrorOrContinue(a.registerReleaseStatusData(pipelineRun, releaseStrategy))
 	}
 
-	return reconciler.RequeueOnErrorOrContinue(a.registerReleaseStatusData(pipelineRun, releaseStrategy))
+	return reconciler.ContinueProcessing()
 }
 
 // EnsureReleasePipelineStatusIsTracked is an operation that will ensure that the release PipelineRun status is tracked
@@ -223,11 +224,6 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingExists() (reconciler.Operation
 		return reconciler.ContinueProcessing()
 	}
 
-	environment, err := a.loader.GetEnvironment(a.ctx, a.client, releasePlanAdmission)
-	if err != nil {
-		return reconciler.RequeueWithError(err)
-	}
-
 	// Search for an existing binding
 	binding, err := a.loader.GetSnapshotEnvironmentBinding(a.ctx, a.client, releasePlanAdmission)
 	if err != nil && !errors.IsNotFound(err) {
@@ -242,7 +238,7 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingExists() (reconciler.Operation
 
 		patch := client.MergeFrom(a.release.DeepCopy())
 
-		binding, err := a.createSnapshotEnvironmentBinding(environment, releasePlanAdmission)
+		binding, err := a.createSnapshotEnvironmentBinding(releasePlanAdmission)
 		if err != nil {
 			return reconciler.RequeueWithError(err)
 		}
@@ -298,14 +294,13 @@ func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStra
 }
 
 // createSnapshotEnvironmentBinding creates a SnapshotEnvironmentBinding for the Release being processed.
-func (a *Adapter) createSnapshotEnvironmentBinding(environment *applicationapiv1alpha1.Environment,
-	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
+func (a *Adapter) createSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
 	resources, err := a.loader.GetSnapshotEnvironmentBindingResources(a.ctx, a.client, a.release, releasePlanAdmission)
 	if err != nil {
 		return nil, err
 	}
 
-	binding := gitops.NewSnapshotEnvironmentBinding(resources.ApplicationComponents, resources.Snapshot, environment)
+	binding := gitops.NewSnapshotEnvironmentBinding(resources.ApplicationComponents, resources.Snapshot, resources.Environment)
 
 	// Set owner references so the binding is deleted if the application is deleted
 	err = ctrl.SetControllerReference(resources.Application, binding, a.client.Scheme())
