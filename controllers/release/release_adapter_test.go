@@ -278,6 +278,33 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(k8sClient.Patch(ctx, releasePlanAdmission, patch)).Should(Succeed())
 	})
 
+	It("ensures processing stops if two ReleasePlanAdmissions are found with matching origin and application", func() {
+		releasePlanAdmission2 := &appstudiov1alpha1.ReleasePlanAdmission{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-releaseplanadmission-",
+				Namespace:    testNamespace,
+				Labels: map[string]string{
+					appstudiov1alpha1.AutoReleaseLabel: "true",
+				},
+			},
+			Spec: appstudiov1alpha1.ReleasePlanAdmissionSpec{
+				Application:     "test-app",
+				Origin:          testNamespace,
+				ReleaseStrategy: releaseStrategy.GetName(),
+			},
+		}
+		Expect(k8sClient.Create(ctx, releasePlanAdmission2)).Should(Succeed())
+
+		Eventually(func() bool {
+			result, _ := adapter.EnsureReleasePlanAdmissionEnabled()
+			return !result.RequeueRequest && result.CancelRequest &&
+				release.Status.Conditions[0].Reason == string(appstudiov1alpha1.ReleaseReasonValidationError)
+		})
+
+		// Delete the extra ReleasePlanAdmission
+		Expect(k8sClient.Delete(ctx, releasePlanAdmission2)).Should(Succeed())
+	})
+
 	It("ensures a PipelineRun object exists", func() {
 		Eventually(func() bool {
 			result, err := adapter.EnsureReleasePipelineRunExists()
@@ -856,6 +883,33 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			appstudiov1alpha1.AutoReleaseLabel: "true",
 		})
 		Expect(k8sClient.Patch(ctx, link, patch)).Should(Succeed())
+	})
+
+	It("can return the ReleasePlanAdmission targeted from a given ReleasePlan when two ReleasePlanAdmissions exist", func() {
+		releasePlanAdmission2 := &appstudiov1alpha1.ReleasePlanAdmission{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-releaseplanadmission-",
+				Namespace:    testNamespace,
+				Labels: map[string]string{
+					appstudiov1alpha1.AutoReleaseLabel: "true",
+				},
+			},
+			Spec: appstudiov1alpha1.ReleasePlanAdmissionSpec{
+				Application:     "test-app2",
+				Origin:          testNamespace,
+				ReleaseStrategy: releaseStrategy.GetName(),
+			},
+		}
+		Expect(k8sClient.Create(ctx, releasePlanAdmission2)).Should(Succeed())
+
+		releasePlanAdmission, _ := adapter.getActiveReleasePlanAdmission()
+		Expect(reflect.TypeOf(releasePlanAdmission)).To(Equal(reflect.TypeOf(&appstudiov1alpha1.ReleasePlanAdmission{})))
+		Expect(releasePlanAdmission.Spec.Application).To(Equal("test-app"))
+		Expect(releasePlanAdmission.Spec.ReleaseStrategy).To(Equal(releaseStrategy.Name))
+		Expect(releasePlanAdmission.Namespace).Should(Equal(releasePlan.Spec.Target))
+
+		// Delete the extra ReleasePlanAdmission
+		Expect(k8sClient.Delete(ctx, releasePlanAdmission2)).Should(Succeed())
 	})
 
 	It("fails to find the target ReleasePlanAdmission when target does not match", func() {

@@ -120,6 +120,11 @@ func (a *Adapter) EnsureFinalizerIsAdded() (reconciler.OperationResult, error) {
 // If it is not, no further operations will occur for this Release.
 func (a *Adapter) EnsureReleasePlanAdmissionEnabled() (reconciler.OperationResult, error) {
 	_, err := a.getActiveReleasePlanAdmission()
+	if err != nil && strings.Contains(err.Error(), "multiple ReleasePlanAdmissions found") {
+		patch := client.MergeFrom(a.release.DeepCopy())
+		a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
+		return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.context, a.release, patch))
+	}
 	if err != nil && strings.Contains(err.Error(), "auto-release label set to false") {
 		patch := client.MergeFrom(a.release.DeepCopy())
 		a.release.MarkInvalid(v1alpha1.ReleaseReasonTargetDisabledError, err.Error())
@@ -355,25 +360,34 @@ func (a *Adapter) getActiveReleasePlanAdmission() (*v1alpha1.ReleasePlanAdmissio
 		return nil, err
 	}
 
-	activeReleasePlanAdmissionFound := false
+	var activeReleasePlanAdmission *v1alpha1.ReleasePlanAdmission
 
-	for _, releasePlanAdmission := range releasePlanAdmissions.Items {
-		if releasePlanAdmission.Spec.Application == releasePlan.Spec.Application {
-			labelValue, found := releasePlanAdmission.GetLabels()[v1alpha1.AutoReleaseLabel]
-			if found && labelValue == "false" {
-				return nil, fmt.Errorf("found ReleasePlanAdmission '%s' with auto-release label set to false",
-					releasePlanAdmission.Name)
-			}
-			activeReleasePlanAdmissionFound = true
+	for i, releasePlanAdmission := range releasePlanAdmissions.Items {
+		if releasePlanAdmission.Spec.Application != releasePlan.Spec.Application {
+			continue
 		}
+
+		if activeReleasePlanAdmission != nil {
+			return nil, fmt.Errorf("multiple ReleasePlanAdmissions found with the target (%+v) for application '%s'",
+				releasePlan.Spec.Target, releasePlan.Spec.Application)
+		}
+
+		labelValue, found := releasePlanAdmission.GetLabels()[v1alpha1.AutoReleaseLabel]
+		if found && labelValue == "false" {
+			return nil, fmt.Errorf("found ReleasePlanAdmission '%s' with auto-release label set to false",
+				releasePlanAdmission.Name)
+		}
+
+		activeReleasePlanAdmission = &releasePlanAdmissions.Items[i]
+
 	}
 
-	if !activeReleasePlanAdmissionFound {
+	if activeReleasePlanAdmission == nil {
 		return nil, fmt.Errorf("no ReleasePlanAdmission found in the target (%+v) for application '%s'",
 			releasePlan.Spec.Target, releasePlan.Spec.Application)
 	}
 
-	return &releasePlanAdmissions.Items[0], nil
+	return activeReleasePlanAdmission, nil
 }
 
 // getApplication returns the Application referenced by the ReleasePlanAdmission. If the Application is not found or
