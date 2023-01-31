@@ -7,7 +7,7 @@ require (
 	github.com/hacbs-contract/enterprise-contract-controller/api v0.0.0-20221220151524-ad0f637efacf
 	github.com/onsi/ginkgo/v2 v2.6.0
 	github.com/onsi/gomega v1.24.1
-	github.com/operator-framework/operator-lib v0.10.0
+	github.com/operator-framework/operator-lib v0.9.0
 	github.com/redhat-appstudio/application-api v0.0.0-20230111181119-3144e2878df0
 	github.com/redhat-appstudio/operator-goodies v0.0.0-20221130140446-010c05bd7471
 	github.com/tektoncd/pipeline v0.41.0
@@ -16,6 +16,7 @@ require (
 	k8s.io/client-go v0.26.0
 	knative.dev/pkg v0.0.0-20221011175852-714b7630a836
 	sigs.k8s.io/controller-runtime v0.14.1
+	github.com/openshift/osin v1.0.1
 )
 
 require (
