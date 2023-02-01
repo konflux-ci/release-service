@@ -12,6 +12,9 @@ spec:
     - Egress
   egress:
     - to:
+      - ipBlock:
+          cidr: 172.30.0.1/24
+  
       - namespaceSelector:
           matchLabels:
             name: kube-system
