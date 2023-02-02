@@ -439,6 +439,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("skips the operation if the release has already being deployed", func() {
 			adapter.release.MarkRunning()
 			adapter.release.MarkSucceeded()
+			adapter.release.MarkDeploying(metav1.ConditionFalse, "", "")
 			adapter.release.MarkDeployed("", "")
 
 			result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
@@ -597,6 +598,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter.release.MarkRunning()
 			adapter.release.MarkSucceeded()
 			adapter.release.Status.SnapshotEnvironmentBinding = snapshotEnvironmentBinding.Namespace + "/" + snapshotEnvironmentBinding.Name
+			adapter.release.MarkDeploying(metav1.ConditionFalse, "", "")
 			adapter.release.MarkDeployed("", "")
 
 			result, err := adapter.EnsureSnapshotEnvironmentBindingIsTracked()
@@ -727,6 +729,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("registers the deployment status when the binding has been deployed", func() {
+			adapter.release.MarkDeploying(metav1.ConditionFalse, "", "")
 			newSnapshotEnvironmentBinding := snapshotEnvironmentBinding.DeepCopy()
 			newSnapshotEnvironmentBinding.Status.ComponentDeploymentConditions = []metav1.Condition{
 				{

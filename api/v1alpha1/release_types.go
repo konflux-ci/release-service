@@ -83,6 +83,14 @@ type ReleaseStatus struct {
 	// +optional
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 
+	// DeploymentStartTime is the time when the SnapshotEnvironmentBinding was created
+	// +optional
+	DeploymentStartTime *metav1.Time `json:"deploymentStartTime,omitempty"`
+
+	// DeploymentCompletionTime is the time when the SnapshotEnvironmentBinding has all components deployed
+	// +optional
+	DeploymentCompletionTime *metav1.Time `json:"deploymentCompletionTime,omitempty"`
+
 	// Conditions represent the latest available observations for the release
 	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
@@ -117,6 +125,8 @@ type ReleaseStatus struct {
 // +kubebuilder:printcolumn:name="PipelineRun",type=string,priority=1,JSONPath=`.status.releasePipelineRun`
 // +kubebuilder:printcolumn:name="Start Time",type=date,priority=1,JSONPath=`.status.startTime`
 // +kubebuilder:printcolumn:name="Completion Time",type=date,priority=1,JSONPath=`.status.completionTime`
+// +kubebuilder:printcolumn:name="Deployment Start Time",type=date,priority=1,JSONPath=`.status.deploymentStartTime`
+// +kubebuilder:printcolumn:name="Deployment Completion Time",type=date,priority=1,JSONPath=`.status.deploymentCompletionTime`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // Release is the Schema for the releases API
@@ -144,12 +154,9 @@ func (r *Release) IsDeployed() bool {
 	return condition != nil && condition.Status == metav1.ConditionTrue
 }
 
-// IsDeploying returns a boolean indicating whether the Release's status indicates that it is being deployed.
+// IsDeploying checks whether the Release has a valid start time for the deployment set in its status.
 func (r *Release) IsDeploying() bool {
-	return meta.IsStatusConditionPresentAndEqual(r.Status.Conditions,
-		applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed, metav1.ConditionFalse) ||
-		meta.IsStatusConditionPresentAndEqual(r.Status.Conditions,
-			applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed, metav1.ConditionUnknown)
+	return r.Status.DeploymentStartTime != nil && !r.Status.DeploymentStartTime.IsZero()
 }
 
 // IsDone returns a boolean indicating whether the Release's status indicates that it is done or not.
@@ -158,19 +165,33 @@ func (r *Release) IsDone() bool {
 	return condition != nil && condition.Status != metav1.ConditionUnknown
 }
 
-// MarkDeployed sets the AllComponentsDeployed status in the Release to True with the provided reason and message.
+// MarkDeployed registers the deployment completion time and sets the AllComponentsDeployed status in the
+// Release to True with the provided reason and message.
 func (r *Release) MarkDeployed(reason, message string) {
+	if !r.IsDeploying() || (r.IsDeployed() && r.Status.DeploymentCompletionTime != nil) {
+		return
+	}
+
+	r.Status.DeploymentCompletionTime = &metav1.Time{Time: time.Now()}
 	r.setStatusConditionWithMessage(applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 		metav1.ConditionTrue, ReleaseReason(reason), message)
+
+	go metrics.RegisterDeployedRelease(reason, r.Status.Target, string(metav1.ConditionTrue),
+		r.Status.DeploymentStartTime, r.Status.DeploymentCompletionTime)
 }
 
-// MarkDeploying sets the AllComponentsDeployed status in the Release to Unknown or False with the provided reason and message.
+// MarkDeploying registers the deployment start time and sets the AllComponentsDeployed status in the Release to Unknown
+// or False with the provided reason and message.
 // Note: The binding condition should treat False and True as the final states and Unknown as the transient status. However, it
 // currently treats False as a transient status, so we accept False (temporarily) as a status here until it is changed.
 func (r *Release) MarkDeploying(status metav1.ConditionStatus, reason, message string) {
 	if status != metav1.ConditionTrue {
 		r.setStatusConditionWithMessage(applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 			status, ReleaseReason(reason), message)
+
+		if r.Status.DeploymentStartTime == nil {
+			r.Status.DeploymentStartTime = &metav1.Time{Time: time.Now()}
+		}
 	}
 }
 

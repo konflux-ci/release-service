@@ -37,6 +37,14 @@ spec:
       name: Completion Time
       priority: 1
       type: date
+    - jsonPath: .status.deploymentStartTime
+      name: Deployment Start Time
+      priority: 1
+      type: date
+    - jsonPath: .status.deploymentCompletionTime
+      name: Deployment Completion Time
+      priority: 1
+      type: date
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -149,6 +157,16 @@ spec:
                   - type
                   type: object
                 type: array
+              deploymentCompletionTime:
+                description: DeploymentCompletionTime is the time when the SnapshotEnvironmentBinding
+                  has all components deployed
+                format: date-time
+                type: string
+              deploymentStartTime:
+                description: DeploymentStartTime is the time when the SnapshotEnvironmentBinding
+                  was created
+                format: date-time
+                type: string
               releasePipelineRun:
                 description: ReleasePipelineRun contains the namespaced name of the
                   release PipelineRun executed as part of this release

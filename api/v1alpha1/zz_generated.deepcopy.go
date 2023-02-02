@@ -309,6 +309,14 @@ func (in *ReleaseStatus) DeepCopyInto(out *ReleaseStatus) {
 		in, out := &in.CompletionTime, &out.CompletionTime
 		*out = (*in).DeepCopy()
 	}
+	if in.DeploymentStartTime != nil {
+		in, out := &in.DeploymentStartTime, &out.DeploymentStartTime
+		*out = (*in).DeepCopy()
+	}
+	if in.DeploymentCompletionTime != nil {
+		in, out := &in.DeploymentCompletionTime, &out.DeploymentCompletionTime
+		*out = (*in).DeepCopy()
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]v1.Condition, len(*in))

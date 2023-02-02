@@ -36,6 +36,7 @@ var _ = Describe("Metrics Release", Ordered, func() {
 		// We need to unregister in advance otherwise it breaks with 'AlreadyRegisteredError'
 		metrics.Registry.Unregister(ReleaseAttemptRunningSeconds)
 		metrics.Registry.Unregister(ReleaseAttemptConcurrentTotal)
+		metrics.Registry.Unregister(ReleaseAttemptDeploymentSeconds)
 		metrics.Registry.Unregister(ReleaseAttemptDurationSeconds)
 	})
 
@@ -43,6 +44,14 @@ var _ = Describe("Metrics Release", Ordered, func() {
 		AttemptRunningSecondsHeader = inputHeader{
 			Name: "release_attempt_running_seconds",
 			Help: "Release durations from the moment the release resource was created til the release is marked as running",
+		}
+		AttemptDeploymentSecondsHeader = inputHeader{
+			Name: "release_attempt_deployment_seconds",
+			Help: "Release durations from the moment the SnapshotEnvironmentBinding was created til the release is marked as deployed",
+		}
+		AttemptDeploymentTotalHeader = inputHeader{
+			Name: "release_attempt_deployment_total",
+			Help: "Total number of deployments released to managed environments by the operator",
 		}
 		AttemptDurationSecondsHeader = inputHeader{
 			Name: "release_attempt_duration_seconds",
@@ -58,6 +67,8 @@ var _ = Describe("Metrics Release", Ordered, func() {
 		validReleaseReason   = "valid_release_reason"
 		invalidReleaseReason = "invalid_release_reason"
 		strategy             = "nostrategy"
+		deployReason         = "CommitsSynced"
+		deploySuccess        = "True"
 	)
 
 	var defaultNamespace = "default"
@@ -65,7 +76,7 @@ var _ = Describe("Metrics Release", Ordered, func() {
 	Context("When RegisterNewRelease is called", func() {
 		// As we need to share metrics within the Context, we need to use "per Context" '(Before|After)All'
 		BeforeAll(func() {
-			// Mocking metrics to be able to resent data with each tests. Otherwise, we would have to take previous tests into account.
+			// Mocking metrics to be able to reset data with each tests. Otherwise, we would have to take previous tests into account.
 			//
 			// 'Help' can't be overridden due to 'https://github.com/prometheus/client_golang/blob/83d56b1144a0c2eb10d399e7abbae3333bebc463/prometheus/registry.go#L314'
 			ReleaseAttemptRunningSeconds = prometheus.NewHistogram(
@@ -179,6 +190,50 @@ var _ = Describe("Metrics Release", Ordered, func() {
 			data := []int{1, 2, 3, 4}
 			readerData := createHistogramReader(AttemptDurationSecondsHeader, timeBuckets, data, labels, elapsedSeconds, len(inputSeconds))
 			Expect(testutil.CollectAndCompare(ReleaseAttemptDurationSeconds, strings.NewReader(readerData))).To(Succeed())
+		})
+	})
+
+	Context("When RegisterDeployedRelease is called", func() {
+		BeforeAll(func() {
+			ReleaseAttemptDeploymentSeconds = prometheus.NewHistogram(
+				prometheus.HistogramOpts{
+					Name:    "release_attempt_deployment_seconds",
+					Help:    "Release durations from the moment the SnapshotEnvironmentBinding was created til the release is marked as deployed",
+					Buckets: []float64{1, 5, 10, 30},
+				},
+			)
+			metrics.Registry.MustRegister(ReleaseAttemptDeploymentSeconds)
+		})
+
+		AfterAll(func() {
+			metrics.Registry.Unregister(ReleaseAttemptDeploymentSeconds)
+		})
+
+		// Input seconds for duration of operations less or equal to the following buckets of 1, 5, 10 and 30 seconds
+		inputSeconds := []float64{1, 3, 8, 15}
+		elapsedSeconds := 0.0
+
+		It("increments the 'ReleaseAttemptDeploymentTotal' metric.", func() {
+			startTime := metav1.Time{}
+			for _, seconds := range inputSeconds {
+				completionTime := metav1.NewTime(startTime.Add(time.Second * time.Duration(seconds)))
+				elapsedSeconds += seconds
+				RegisterDeployedRelease(deployReason, "", deploySuccess, &startTime, &completionTime)
+			}
+
+			labels := fmt.Sprintf(`reason="%s", succeeded="%s", target="",`, deployReason, deploySuccess)
+			readerData := createCounterReader(AttemptDeploymentTotalHeader, labels, true, len(inputSeconds))
+			Expect(testutil.CollectAndCompare(ReleaseAttemptDeploymentTotal.WithLabelValues("CommitsSynced", "True", ""),
+				strings.NewReader(readerData))).To(Succeed())
+		})
+
+		It("registers a new observation for 'ReleaseAttemptDeploymentSeconds' with the time difference between the passed "+
+			"start time and finish time.", func() {
+			// Defined buckets for ReleaseAttemptDeploymentSeconds
+			timeBuckets := []string{"1", "5", "10", "30"}
+			data := []int{1, 2, 3, 4}
+			readerData := createHistogramReader(AttemptDeploymentSecondsHeader, timeBuckets, data, "", elapsedSeconds, len(inputSeconds))
+			Expect(testutil.CollectAndCompare(ReleaseAttemptDeploymentSeconds, strings.NewReader(readerData))).To(Succeed())
 		})
 	})
 
