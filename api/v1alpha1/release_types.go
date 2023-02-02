@@ -128,12 +128,6 @@ type Release struct {
 	Status ReleaseStatus `json:"status,omitempty"`
 }
 
-// HasBeenDeployed checks whether the Release has been deployed via GitOps.
-func (r *Release) HasBeenDeployed() bool {
-	condition := meta.FindStatusCondition(r.Status.Conditions, applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-	return condition != nil && condition.Status != metav1.ConditionUnknown
-}
-
 // HasStarted checks whether the Release has a valid start time set in its status.
 func (r *Release) HasStarted() bool {
 	return r.Status.StartTime != nil && !r.Status.StartTime.IsZero()
@@ -142,6 +136,18 @@ func (r *Release) HasStarted() bool {
 // HasSucceeded checks whether the Release has succeeded or not.
 func (r *Release) HasSucceeded() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, releaseConditionType)
+}
+
+// IsDeployed checks whether the Release has been deployed via GitOps.
+func (r *Release) IsDeployed() bool {
+	condition := meta.FindStatusCondition(r.Status.Conditions, applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
+	return condition != nil && condition.Status != metav1.ConditionUnknown
+}
+
+// IsDeploying returns a boolean indicating whether the Release's status indicates that it is being deployed.
+func (r *Release) IsDeploying() bool {
+	return meta.IsStatusConditionPresentAndEqual(r.Status.Conditions,
+		applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed, metav1.ConditionUnknown)
 }
 
 // IsDone returns a boolean indicating whether the Release's status indicates that it is done or not.

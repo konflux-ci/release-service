@@ -18,16 +18,15 @@ package release
 
 import (
 	"context"
-	"github.com/redhat-appstudio/release-service/cache"
-	"github.com/redhat-appstudio/release-service/loader"
-
 	"github.com/go-logr/logr"
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	goodies "github.com/redhat-appstudio/operator-goodies/predicates"
 	"github.com/redhat-appstudio/operator-goodies/reconciler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/cache"
 	"github.com/redhat-appstudio/release-service/gitops"
+	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/tekton"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"

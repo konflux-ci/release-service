@@ -17,129 +17,75 @@ limitations under the License.
 package release
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
-	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var _ = Describe("Release Controller", func() {
-	var (
-		manager           ctrl.Manager
-		release           *appstudiov1alpha1.Release
-		releasePlan       *appstudiov1alpha1.ReleasePlan
-		releaseReconciler *Reconciler
-		scheme            runtime.Scheme
-		req               ctrl.Request
-	)
+var _ = Describe("Release Controller", Ordered, func() {
 
-	BeforeEach(func() {
-		releasePlan = &appstudiov1alpha1.ReleasePlan{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-releaseplan-",
-				Namespace:    testNamespace,
-				Labels: map[string]string{
-					appstudiov1alpha1.AutoReleaseLabel: "true",
-				},
-			},
-			Spec: appstudiov1alpha1.ReleasePlanSpec{
-				Application: "test-app",
-				Target:      testNamespace,
-			},
-		}
-		Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
-
-		release = &appstudiov1alpha1.Release{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: testApiVersion,
-				Kind:       "Release",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-release-",
-				Namespace:    testNamespace,
-			},
-			Spec: appstudiov1alpha1.ReleaseSpec{
-				Snapshot:    "test-snapshot",
-				ReleasePlan: releasePlan.GetName(),
-			},
-		}
-		Expect(k8sClient.Create(ctx, release)).Should(Succeed())
-
-		req = ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: release.Namespace,
-				Name:      release.Name,
-			},
-		}
-
-		webhookInstallOptions := &testEnv.WebhookInstallOptions
-
-		var err error
-		manager, err = ctrl.NewManager(cfg, ctrl.Options{
-			Scheme:             clientsetscheme.Scheme,
-			Host:               webhookInstallOptions.LocalServingHost,
-			Port:               webhookInstallOptions.LocalServingPort,
-			CertDir:            webhookInstallOptions.LocalServingCertDir,
-			MetricsBindAddress: "0", // this disables metrics
-			LeaderElection:     false,
+	Context("When NewReleaseReconciler is called", func() {
+		It("creates and return a new Reconciler", func() {
+			Expect(reflect.TypeOf(NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme))).To(Equal(reflect.TypeOf(&Reconciler{})))
 		})
-		Expect(err).NotTo(HaveOccurred())
-		releaseReconciler = NewReleaseReconciler(k8sClient, &logf.Log, &scheme)
 	})
 
-	AfterEach(func() {
-		err := k8sClient.Delete(ctx, release)
-		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
-		err = k8sClient.Delete(ctx, releasePlan)
-		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
+	// For the Reconcile function test we don't want to make a successful call as it will call every single operation
+	// defined there. We don't have any control over the operations being executed, and we want to keep a clean env for
+	// the adapter tests.
+	Context("When Reconcile is called", func() {
+		It("should succeed even if the release is not found", func() {
+			reconciler := NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme)
+			req := ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "non-existent",
+					Namespace: "default",
+				},
+			}
+			result, err := reconciler.Reconcile(ctx, req)
+			Expect(reflect.TypeOf(result)).To(Equal(reflect.TypeOf(reconcile.Result{})))
+			Expect(err).To(BeNil())
+		})
 	})
 
-	It("can create and return a new Reconciler object", func() {
-		Expect(reflect.TypeOf(releaseReconciler)).To(Equal(reflect.TypeOf(&Reconciler{})))
+	Context("When SetupController is called", func() {
+		It("should setup the controller successfully", func() {
+			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
+				Scheme:             scheme.Scheme,
+				MetricsBindAddress: "0", // disable metrics
+				LeaderElection:     false,
+			})
+			Expect(SetupController(manager, &ctrl.Log)).To(Succeed())
+		})
 	})
 
-	It("can fail when Reconcile fails to prepare the adapter when release is not found", func() {
-		Expect(k8sClient.Delete(ctx, release)).Should(Succeed())
-		Eventually(func() error {
-			_, err := releaseReconciler.Reconcile(ctx, req)
-			return err
-		}).Should(BeNil())
+	Context("When setupCache is called", func() {
+		It("should setup the cache successfully", func() {
+			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
+				Scheme:             scheme.Scheme,
+				MetricsBindAddress: "0", // disable metrics
+				LeaderElection:     false,
+			})
+			Expect(setupCache(manager)).To(Succeed())
+		})
 	})
 
-	It("can Reconcile function prepare the adapter and return the result of the reconcile handling operation", func() {
-		result, err := releaseReconciler.Reconcile(ctx, req)
-		Expect(reflect.TypeOf(result)).To(Equal(reflect.TypeOf(reconcile.Result{})))
-		Expect(err).To(BeNil())
+	Context("When setupControllerWithManager is called", func() {
+		It("should setup the controller successfully", func() {
+			reconciler := NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme)
+			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
+				Scheme:             scheme.Scheme,
+				MetricsBindAddress: "0", // disable metrics
+				LeaderElection:     false,
+			})
+			Expect(setupControllerWithManager(manager, reconciler)).To(Succeed())
+		})
 	})
 
-	It("can setup the cache by adding a new index field to search for ReleasePlanAdmissions", func() {
-		err := setupCache(manager)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	It("can setup a new controller manager with the given releaseReconciler", func() {
-		err := setupControllerWithManager(manager, releaseReconciler)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("can setup a new Controller manager and start it", func() {
-		err := SetupController(manager, &ctrl.Log)
-		Expect(err).To(BeNil())
-		go func() {
-			defer GinkgoRecover()
-			err = manager.Start(ctx)
-			Expect(err).NotTo(HaveOccurred())
-		}()
-	})
 })

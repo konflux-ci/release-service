@@ -57,32 +57,6 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When HasBeenDeployed method is called", func() {
-		It("should return true when AllComponentsDeployed is True in release status", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-				Status: metav1.ConditionTrue,
-			}
-			Expect(r.HasBeenDeployed()).To(BeTrue())
-		})
-
-		It("should return true when AllComponentsDeployed is False in release status", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-				Status: metav1.ConditionFalse,
-			}
-			Expect(r.HasBeenDeployed()).To(BeTrue())
-		})
-
-		It("should return false AllComponentsDeployed is Unknown in release status", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-				Status: metav1.ConditionUnknown,
-			}
-			Expect(r.HasBeenDeployed()).To(BeFalse())
-		})
-	})
-
 	Context("When HasStarted method is called", func() {
 		It("should return false when Status.startTime is nil", func() {
 			r.Status.StartTime = nil
@@ -114,6 +88,58 @@ var _ = Describe("Release type", func() {
 				Status: metav1.ConditionTrue,
 			}
 			Expect(r.HasSucceeded()).To(BeTrue())
+		})
+	})
+
+	Context("When IsDeployed method is called", func() {
+		It("should return true when AllComponentsDeployed condition status is True", func() {
+			r.Status.Conditions[0] = metav1.Condition{
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+				Status: metav1.ConditionTrue,
+			}
+			Expect(r.IsDeployed()).To(BeTrue())
+		})
+
+		It("should return true when AllComponentsDeployed condition status is False", func() {
+			r.Status.Conditions[0] = metav1.Condition{
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+				Status: metav1.ConditionFalse,
+			}
+			Expect(r.IsDeployed()).To(BeTrue())
+		})
+
+		It("should return false when AllComponentsDeployed condition status is Unknown", func() {
+			r.Status.Conditions[0] = metav1.Condition{
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+				Status: metav1.ConditionUnknown,
+			}
+			Expect(r.IsDeployed()).To(BeFalse())
+		})
+	})
+
+	Context("When IsDeploying method is called", func() {
+		It("should return false when AllComponentsDeployed condition status is True", func() {
+			r.Status.Conditions[0] = metav1.Condition{
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+				Status: metav1.ConditionTrue,
+			}
+			Expect(r.IsDeploying()).To(BeFalse())
+		})
+
+		It("should return false when AllComponentsDeployed condition status is False", func() {
+			r.Status.Conditions[0] = metav1.Condition{
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+				Status: metav1.ConditionFalse,
+			}
+			Expect(r.IsDeploying()).To(BeFalse())
+		})
+
+		It("should return true when AllComponentsDeployed condition status is Unknown", func() {
+			r.Status.Conditions[0] = metav1.Condition{
+				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+				Status: metav1.ConditionUnknown,
+			}
+			Expect(r.IsDeploying()).To(BeTrue())
 		})
 	})
 
