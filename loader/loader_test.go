@@ -66,7 +66,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("returns an active release plan admission", func() {
 			returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleasePlanAdmission{}))
+			Expect(returnedObject).NotTo(BeNil())
 			Expect(returnedObject.Name).To(Equal(releasePlanAdmission.Name))
 		})
 
@@ -114,7 +114,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("returns an active release plan admission", func() {
 			returnedObject, err := loader.GetActiveReleasePlanAdmissionFromRelease(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleasePlanAdmission{}))
+			Expect(returnedObject).NotTo(BeNil())
 			Expect(returnedObject.Name).To(Equal(releasePlanAdmission.Name))
 		})
 
@@ -178,7 +178,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("returns a PipelineRun if the labels match with the release data", func() {
 			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&v1beta1.PipelineRun{}))
+			Expect(returnedObject).NotTo(BeNil())
 			Expect(returnedObject.Name).To(Equal(pipelineRun.Name))
 		})
 
@@ -221,17 +221,26 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	Context("When calling GetSnapshotEnvironmentBinding", func() {
 		It("returns a snapshot environment binding if the environment field value matches the release plan admission one", func() {
-			returnedObject, err := loader.GetSnapshotEnvironmentBinding(ctx, k8sClient, releasePlanAdmission)
+			returnedObject, err := loader.GetSnapshotEnvironmentBinding(ctx, k8sClient, release, releasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.SnapshotEnvironmentBinding{}))
+			Expect(returnedObject).NotTo(BeNil())
 			Expect(returnedObject.Name).To(Equal(snapshotEnvironmentBinding.Name))
+		})
+
+		It("fails to return a snapshot environment binding if the snapshot field value doesn't match the one in the release", func() {
+			modifiedRelease := release.DeepCopy()
+			modifiedRelease.Spec.Snapshot = "non-existing-snapshot"
+
+			returnedObject, err := loader.GetSnapshotEnvironmentBinding(ctx, k8sClient, modifiedRelease, releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).To(BeNil())
 		})
 
 		It("fails to return a snapshot environment binding if the environment field value doesn't match the release plan admission one", func() {
 			modifiedReleasePlanAdmission := releasePlanAdmission.DeepCopy()
 			modifiedReleasePlanAdmission.Spec.Environment = "non-existing-environment"
 
-			returnedObject, err := loader.GetSnapshotEnvironmentBinding(ctx, k8sClient, modifiedReleasePlanAdmission)
+			returnedObject, err := loader.GetSnapshotEnvironmentBinding(ctx, k8sClient, release, modifiedReleasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).To(BeNil())
 		})
@@ -251,7 +260,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 			returnedObject, err := loader.GetSnapshotEnvironmentBindingFromReleaseStatus(ctx, k8sClient, modifiedRelease)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.SnapshotEnvironmentBinding{}))
+			Expect(returnedObject).NotTo(BeNil())
 			Expect(returnedObject.Name).To(Equal(snapshotEnvironmentBinding.Name))
 		})
 	})

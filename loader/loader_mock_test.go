@@ -251,7 +251,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource:   snapshotEnvironmentBinding,
 				},
 			})
-			resource, err := loader.GetSnapshotEnvironmentBinding(mockContext, nil, nil)
+			resource, err := loader.GetSnapshotEnvironmentBinding(mockContext, nil, nil, nil)
 			Expect(resource).To(Equal(snapshotEnvironmentBinding))
 			Expect(err).To(BeNil())
 		})

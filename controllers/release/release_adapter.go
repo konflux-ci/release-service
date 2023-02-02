@@ -226,7 +226,7 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingExists() (reconciler.Operation
 	}
 
 	// Search for an existing binding
-	binding, err := a.loader.GetSnapshotEnvironmentBinding(a.ctx, a.client, releasePlanAdmission)
+	binding, err := a.loader.GetSnapshotEnvironmentBinding(a.ctx, a.client, a.release, releasePlanAdmission)
 	if err != nil && !errors.IsNotFound(err) {
 		return reconciler.RequeueWithError(err)
 	}

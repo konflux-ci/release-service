@@ -163,9 +163,9 @@ func (l *mockLoader) GetSnapshot(ctx context.Context, cli client.Client, release
 }
 
 // GetSnapshotEnvironmentBinding returns the resource and error passed as values of the context.
-func (l *mockLoader) GetSnapshotEnvironmentBinding(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
+func (l *mockLoader) GetSnapshotEnvironmentBinding(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
 	if ctx.Value(SnapshotEnvironmentBindingContextKey) == nil {
-		return l.loader.GetSnapshotEnvironmentBinding(ctx, cli, releasePlanAdmission)
+		return l.loader.GetSnapshotEnvironmentBinding(ctx, cli, release, releasePlanAdmission)
 	}
 	return getMockedResourceAndErrorFromContext(ctx, SnapshotEnvironmentBindingContextKey, &applicationapiv1alpha1.SnapshotEnvironmentBinding{})
 }

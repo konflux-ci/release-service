@@ -25,7 +25,7 @@ type ObjectLoader interface {
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
 	GetReleaseStrategy(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleaseStrategy, error)
 	GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error)
-	GetSnapshotEnvironmentBinding(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error)
+	GetSnapshotEnvironmentBinding(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error)
 	GetSnapshotEnvironmentBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error)
 	GetSnapshotEnvironmentBindingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*SnapshotEnvironmentBindingResources, error)
 }
@@ -182,7 +182,7 @@ func (l *loader) GetSnapshot(ctx context.Context, cli client.Client, release *v1
 // GetSnapshotEnvironmentBinding returns the SnapshotEnvironmentBinding associated with the given ReleasePlanAdmission.
 // That association is defined by both the Environment and Application matching between the ReleasePlanAdmission and
 // the SnapshotEnvironmentBinding. If the Get operation fails, an error will be returned.
-func (l *loader) GetSnapshotEnvironmentBinding(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
+func (l *loader) GetSnapshotEnvironmentBinding(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
 	bindingList := &applicationapiv1alpha1.SnapshotEnvironmentBindingList{}
 	err := cli.List(ctx, bindingList,
 		client.InNamespace(releasePlanAdmission.Namespace),
@@ -192,7 +192,7 @@ func (l *loader) GetSnapshotEnvironmentBinding(ctx context.Context, cli client.C
 	}
 
 	for _, binding := range bindingList.Items {
-		if binding.Spec.Application == releasePlanAdmission.Spec.Application {
+		if binding.Spec.Application == releasePlanAdmission.Spec.Application && binding.Spec.Snapshot == release.Spec.Snapshot {
 			return &binding, nil
 		}
 	}
