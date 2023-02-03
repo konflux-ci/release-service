@@ -353,10 +353,10 @@ func (a *Adapter) registerGitOpsDeploymentStatus(binding *applicationapiv1alpha1
 
 	patch := client.MergeFrom(a.release.DeepCopy())
 
-	if condition.Status == metav1.ConditionUnknown {
-		a.release.MarkDeploying(condition.Reason, condition.Message)
+	if condition.Status == metav1.ConditionTrue {
+		a.release.MarkDeployed(condition.Reason, condition.Message)
 	} else {
-		a.release.MarkDeployed(condition.Status, condition.Reason, condition.Message)
+		a.release.MarkDeploying(condition.Status, condition.Reason, condition.Message)
 	}
 
 	return a.client.Status().Patch(a.ctx, a.release, patch)
