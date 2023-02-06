@@ -491,7 +491,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err.Error()).To(ContainSubstring("not found"))
 		})
 
-		It("does not create the binding if one already exists", func() {
+		It("updates the binding if one already exists", func() {
 			adapter.release.MarkRunning()
 			adapter.release.MarkSucceeded()
 
@@ -502,18 +502,31 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 				{
 					ContextKey: loader.SnapshotEnvironmentBindingContextKey,
-					Resource: &applicationapiv1alpha1.SnapshotEnvironmentBinding{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "binding",
-						},
+					Resource:   snapshotEnvironmentBinding,
+				},
+				{
+					ContextKey: loader.SnapshotEnvironmentBindingResourcesContextKey,
+					Resource: &loader.SnapshotEnvironmentBindingResources{
+						Application:           application,
+						ApplicationComponents: []applicationapiv1alpha1.Component{*component},
+						Environment:           environment,
+						Snapshot:              snapshot,
 					},
 				},
 			})
 
 			result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
-			Expect(result.RequeueRequest && !result.CancelRequest).To(BeFalse())
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Status.SnapshotEnvironmentBinding).To(BeEmpty())
+			Expect(adapter.release.Status.SnapshotEnvironmentBinding).NotTo(BeEmpty())
+
+			binding, _ := adapter.loader.GetSnapshotEnvironmentBindingFromReleaseStatus(adapter.ctx, adapter.client, adapter.release)
+			Expect(binding).NotTo(BeNil())
+			Expect(binding.Annotations).To(HaveLen(2))
+			Expect(binding.Annotations[handler.NamespacedNameAnnotation]).To(
+				Equal(adapter.release.Namespace + "/" + adapter.release.Name),
+			)
+			Expect(binding.Annotations[handler.TypeAnnotation]).To(Equal(adapter.release.Kind))
 		})
 
 		It("creates a binding and updates the release status", func() {
@@ -601,7 +614,36 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 		})
 
+		It("skips the operation if the binding isn't owned by the release", func() {
+			adapter.release.MarkRunning()
+			adapter.release.MarkSucceeded()
+
+			newSnapshotEnvironmentBinding := snapshotEnvironmentBinding.DeepCopy()
+			newSnapshotEnvironmentBinding.Status.ComponentDeploymentConditions = []metav1.Condition{
+				{
+					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+					Status: metav1.ConditionTrue,
+					Reason: "Deployed",
+				},
+			}
+			newSnapshotEnvironmentBinding.Annotations = map[string]string{
+				handler.TypeAnnotation:           adapter.release.Kind,
+				handler.NamespacedNameAnnotation: "other-release",
+			}
+			adapter.release.Status.SnapshotEnvironmentBinding = newSnapshotEnvironmentBinding.Namespace + "/" + newSnapshotEnvironmentBinding.Name
+
+			result, err := adapter.EnsureSnapshotEnvironmentBindingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		It("tracks the binding if one is found", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.SnapshotEnvironmentBindingContextKey,
+					Resource:   snapshotEnvironmentBinding,
+				},
+			})
 			adapter.release.MarkRunning()
 			adapter.release.MarkSucceeded()
 			adapter.release.Status.SnapshotEnvironmentBinding = snapshotEnvironmentBinding.Namespace + "/" + snapshotEnvironmentBinding.Name
@@ -787,7 +829,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When createSnapshotEnvironmentBinding is called", func() {
+	Context("When createOrUpdateSnapshotEnvironmentBinding is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -806,13 +848,16 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 			})
 
-			_, err := adapter.createSnapshotEnvironmentBinding(releasePlanAdmission)
+			_, err := adapter.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("not found"))
 		})
 
 		It("creates a new binding owned by the release if the required resources are present", func() {
 			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.SnapshotEnvironmentBindingContextKey,
+				},
 				{
 					ContextKey: loader.SnapshotEnvironmentBindingResourcesContextKey,
 					Resource: &loader.SnapshotEnvironmentBindingResources{
@@ -824,7 +869,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 			})
 
-			binding, err := adapter.createSnapshotEnvironmentBinding(releasePlanAdmission)
+			binding, err := adapter.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
 			Expect(binding).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -836,6 +881,34 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(binding.Annotations[handler.TypeAnnotation]).To(Equal(adapter.release.Kind))
 
 			Expect(k8sClient.Delete(ctx, binding)).Should(Succeed())
+		})
+
+		It("updates a binding and marks it as owned by the release if a binding is already present", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.SnapshotEnvironmentBindingContextKey,
+					Resource:   snapshotEnvironmentBinding,
+				},
+				{
+					ContextKey: loader.SnapshotEnvironmentBindingResourcesContextKey,
+					Resource: &loader.SnapshotEnvironmentBindingResources{
+						Application:           application,
+						ApplicationComponents: []applicationapiv1alpha1.Component{*component},
+						Environment:           environment,
+						Snapshot:              snapshot,
+					},
+				},
+			})
+
+			binding, err := adapter.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
+			Expect(binding).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(binding.Annotations).To(HaveLen(2))
+			Expect(binding.Annotations[handler.NamespacedNameAnnotation]).To(
+				Equal(adapter.release.Namespace + "/" + adapter.release.Name),
+			)
+			Expect(binding.Annotations[handler.TypeAnnotation]).To(Equal(adapter.release.Kind))
 		})
 	})
 
