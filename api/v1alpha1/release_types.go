@@ -138,16 +138,18 @@ func (r *Release) HasSucceeded() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, releaseConditionType)
 }
 
-// IsDeployed checks whether the Release has been deployed via GitOps.
+// IsDeployed checks whether the Release has been successfully deployed via GitOps.
 func (r *Release) IsDeployed() bool {
 	condition := meta.FindStatusCondition(r.Status.Conditions, applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-	return condition != nil && condition.Status != metav1.ConditionUnknown
+	return condition != nil && condition.Status == metav1.ConditionTrue
 }
 
 // IsDeploying returns a boolean indicating whether the Release's status indicates that it is being deployed.
 func (r *Release) IsDeploying() bool {
 	return meta.IsStatusConditionPresentAndEqual(r.Status.Conditions,
-		applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed, metav1.ConditionUnknown)
+		applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed, metav1.ConditionFalse) ||
+		meta.IsStatusConditionPresentAndEqual(r.Status.Conditions,
+			applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed, metav1.ConditionUnknown)
 }
 
 // IsDone returns a boolean indicating whether the Release's status indicates that it is done or not.
@@ -156,18 +158,20 @@ func (r *Release) IsDone() bool {
 	return condition != nil && condition.Status != metav1.ConditionUnknown
 }
 
-// MarkDeployed sets the AllComponentsDeployed status in the Release to True or False with the provided reason and message.
-func (r *Release) MarkDeployed(status metav1.ConditionStatus, reason, message string) {
-	if status != metav1.ConditionUnknown {
+// MarkDeployed sets the AllComponentsDeployed status in the Release to True with the provided reason and message.
+func (r *Release) MarkDeployed(reason, message string) {
+	r.setStatusConditionWithMessage(applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+		metav1.ConditionTrue, ReleaseReason(reason), message)
+}
+
+// MarkDeploying sets the AllComponentsDeployed status in the Release to Unknown or False with the provided reason and message.
+// Note: The binding condition should treat False and True as the final states and Unknown as the transient status. However, it
+// currently treats False as a transient status, so we accept False (temporarily) as a status here until it is changed.
+func (r *Release) MarkDeploying(status metav1.ConditionStatus, reason, message string) {
+	if status != metav1.ConditionTrue {
 		r.setStatusConditionWithMessage(applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
 			status, ReleaseReason(reason), message)
 	}
-}
-
-// MarkDeploying sets the AllComponentsDeployed status in the Release to Unknown with the provided reason and message.
-func (r *Release) MarkDeploying(reason, message string) {
-	r.setStatusConditionWithMessage(applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-		metav1.ConditionUnknown, ReleaseReason(reason), message)
 }
 
 // MarkFailed registers the completion time and changes the Succeeded condition to False with

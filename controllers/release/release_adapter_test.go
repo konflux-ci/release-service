@@ -439,7 +439,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("skips the operation if the release has already being deployed", func() {
 			adapter.release.MarkRunning()
 			adapter.release.MarkSucceeded()
-			adapter.release.MarkDeployed(metav1.ConditionTrue, "", "")
+			adapter.release.MarkDeployed("", "")
 
 			result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
@@ -584,7 +584,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter.release.MarkRunning()
 			adapter.release.MarkSucceeded()
 			adapter.release.Status.SnapshotEnvironmentBinding = snapshotEnvironmentBinding.Namespace + "/" + snapshotEnvironmentBinding.Name
-			adapter.release.MarkDeployed(metav1.ConditionTrue, "", "")
+			adapter.release.MarkDeployed("", "")
 
 			result, err := adapter.EnsureSnapshotEnvironmentBindingIsTracked()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
