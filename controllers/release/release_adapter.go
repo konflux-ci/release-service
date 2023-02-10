@@ -225,34 +225,23 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingExists() (reconciler.Operation
 		return reconciler.ContinueProcessing()
 	}
 
-	// Search for an existing binding
-	binding, err := a.loader.GetSnapshotEnvironmentBinding(a.ctx, a.client, releasePlanAdmission)
-	if err != nil && !errors.IsNotFound(err) {
+	err = a.syncResources()
+	if err != nil {
 		return reconciler.RequeueWithError(err)
 	}
 
-	if binding == nil {
-		err = a.syncResources()
-		if err != nil {
-			return reconciler.RequeueWithError(err)
-		}
-
-		patch := client.MergeFrom(a.release.DeepCopy())
-
-		binding, err := a.createSnapshotEnvironmentBinding(releasePlanAdmission)
-		if err != nil {
-			return reconciler.RequeueWithError(err)
-		}
-
-		a.logger.Info("Created SnapshotEnvironmentBinding",
-			"SnapshotEnvironmentBinding.Name", binding.Name, "SnapshotEnvironmentBinding.Namespace", binding.Namespace)
-
-		a.release.Status.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", binding.Namespace, types.Separator, binding.Name)
-
-		return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+	binding, err := a.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
+	if err != nil {
+		return reconciler.RequeueWithError(err)
 	}
 
-	return reconciler.ContinueProcessing()
+	a.logger.Info("Created/updated SnapshotEnvironmentBinding",
+		"SnapshotEnvironmentBinding.Name", binding.Name, "SnapshotEnvironmentBinding.Namespace", binding.Namespace)
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+	a.release.Status.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", binding.Namespace, types.Separator, binding.Name)
+
+	return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 }
 
 // EnsureSnapshotEnvironmentBindingIsTracked is an operation that will ensure that the SnapshotEnvironmentBinding
@@ -266,6 +255,12 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingIsTracked() (reconciler.Operat
 	binding, err := a.loader.GetSnapshotEnvironmentBindingFromReleaseStatus(a.ctx, a.client, a.release)
 	if err != nil {
 		return reconciler.RequeueWithError(err)
+	}
+
+	// Do nothing if the release does not own the binding
+	if binding.GetAnnotations()[libhandler.TypeAnnotation] != a.release.GetObjectKind().GroupVersionKind().GroupKind().String() ||
+		binding.GetAnnotations()[libhandler.NamespacedNameAnnotation] != fmt.Sprintf("%s/%s", a.release.GetNamespace(), a.release.GetName()) {
+		return reconciler.ContinueProcessing()
 	}
 
 	return reconciler.RequeueOnErrorOrContinue(a.registerGitOpsDeploymentStatus(binding))
@@ -294,29 +289,51 @@ func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStra
 	return pipelineRun, nil
 }
 
-// createSnapshotEnvironmentBinding creates a SnapshotEnvironmentBinding for the Release being processed.
-func (a *Adapter) createSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
+// createSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being processed.
+func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
 	resources, err := a.loader.GetSnapshotEnvironmentBindingResources(a.ctx, a.client, a.release, releasePlanAdmission)
 	if err != nil {
 		return nil, err
 	}
 
+	// The binding information needs to be updated no matter if it already exists or not
 	binding := gitops.NewSnapshotEnvironmentBinding(resources.ApplicationComponents, resources.Snapshot, resources.Environment)
 
-	// Set owner references so the binding is deleted if the application is deleted
-	err = ctrl.SetControllerReference(resources.Application, binding, a.client.Scheme())
-	if err != nil {
+	// Search for an existing binding
+	existingBinding, err := a.loader.GetSnapshotEnvironmentBinding(a.ctx, a.client, releasePlanAdmission)
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 
-	// Add owner annotations so the controller can watch for status updates to the binding and track them
-	// in the release
-	err = libhandler.SetOwnerAnnotations(a.release, binding)
-	if err != nil {
-		return nil, err
-	}
+	if existingBinding == nil {
+		// Set owner references so the binding is deleted if the application is deleted
+		err = ctrl.SetControllerReference(resources.Application, binding, a.client.Scheme())
+		if err != nil {
+			return nil, err
+		}
 
-	return binding, a.client.Create(a.ctx, binding)
+		// Add owner annotations so the controller can watch for status updates to the binding and track them
+		// in the release
+		err = libhandler.SetOwnerAnnotations(a.release, binding)
+		if err != nil {
+			return nil, err
+		}
+
+		return binding, a.client.Create(a.ctx, binding)
+	} else {
+		// We create the binding so if the owner reference is not already present, there must be a good reason for that
+		patch := client.MergeFrom(existingBinding.DeepCopy())
+		existingBinding.Spec = binding.Spec
+
+		// Add owner annotations so the controller can watch for status updates to the binding and track them
+		// in the release
+		err = libhandler.SetOwnerAnnotations(a.release, existingBinding)
+		if err != nil {
+			return nil, err
+		}
+
+		return existingBinding, a.client.Patch(a.ctx, existingBinding, patch)
+	}
 }
 
 // finalizeRelease will finalize the Release being processed, removing the associated resources.
