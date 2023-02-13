@@ -32,6 +32,22 @@ var (
 		},
 	)
 
+	ReleaseAttemptDeploymentSeconds = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "release_attempt_deployment_seconds",
+			Help:    "Release durations from the moment the SnapshotEnvironmentBinding was created til the release is marked as deployed",
+			Buckets: []float64{10, 20, 40, 60, 120, 240, 360, 480, 600},
+		},
+	)
+
+	ReleaseAttemptDeploymentTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "release_attempt_deployment_total",
+			Help: "Total number of deployments released to managed environments by the operator",
+		},
+		[]string{"reason", "succeeded", "target"},
+	)
+
 	ReleaseAttemptDurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "release_attempt_duration_seconds",
@@ -82,6 +98,20 @@ func RegisterCompletedRelease(reason, strategy, target string, startTime, comple
 	ReleaseAttemptTotal.With(labels).Inc()
 }
 
+// RegisterDeployedRelease increments the 'release_attempt_deployment_total' and registers a new observation for
+// 'release_attempt_deployment_seconds' with the elapsed time from the moment the SnapshotEnvironmentBinding was
+// created to when it was marked as deployed.
+func RegisterDeployedRelease(reason, target, succeeded string, startTime, completionTime *metav1.Time) {
+	labels := prometheus.Labels{
+		"reason":    reason,
+		"succeeded": succeeded,
+		"target":    target,
+	}
+
+	ReleaseAttemptDeploymentSeconds.Observe(completionTime.Sub(startTime.Time).Seconds())
+	ReleaseAttemptDeploymentTotal.With(labels).Inc()
+}
+
 // RegisterInvalidRelease increments the 'release_attempt_invalid_total' and `release_attempt_total` metrics.
 func RegisterInvalidRelease(reason string) {
 	ReleaseAttemptInvalidTotal.With(prometheus.Labels{"reason": reason}).Inc()
@@ -104,6 +134,8 @@ func RegisterNewRelease(creationTime metav1.Time, startTime *metav1.Time) {
 func init() {
 	metrics.Registry.MustRegister(
 		ReleaseAttemptConcurrentTotal,
+		ReleaseAttemptDeploymentSeconds,
+		ReleaseAttemptDeploymentTotal,
 		ReleaseAttemptDurationSeconds,
 		ReleaseAttemptInvalidTotal,
 		ReleaseAttemptRunningSeconds,
