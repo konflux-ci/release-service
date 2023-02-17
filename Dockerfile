@@ -19,6 +19,7 @@ COPY metadata/ metadata/
 COPY metrics/ metrics/
 COPY syncer/ syncer/
 COPY tekton/ tekton/
+COPY README.md README.md
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go

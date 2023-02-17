@@ -147,6 +147,7 @@ func (a *Adapter) EnsureReleasePipelineRunExists() (reconciler.OperationResult, 
 
 	if pipelineRun == nil || !a.release.HasStarted() {
 		releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
+
 		if err != nil {
 			patch := client.MergeFrom(a.release.DeepCopy())
 			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, err.Error())
