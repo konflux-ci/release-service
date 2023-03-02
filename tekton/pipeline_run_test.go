@@ -156,15 +156,15 @@ var _ = Describe("PipelineRun", func() {
 		_ = k8sClient.Delete(ctx, releasePipelineRun.AsPipelineRun())
 	})
 
-	Context("When managing a new ReleasePipelineRun", func() {
+	Context("When managing a new PipelineRun", func() {
 
-		It("can create a ReleasePipelineRun and the returned object name is prefixed with the provided GenerateName", func() {
+		It("can create a PipelineRun and the returned object name is prefixed with the provided GenerateName", func() {
 			Expect(releasePipelineRun.ObjectMeta.Name).
 				Should(HavePrefix(pipelineRunPrefixName))
 			Expect(releasePipelineRun.ObjectMeta.Namespace).To(Equal(namespace))
 		})
 
-		It("can append extra params to ReleasePipelineRun and these parameters are present in the object Specs", func() {
+		It("can append extra params to PipelineRun and these parameters are present in the object Specs", func() {
 			releasePipelineRun.WithExtraParam(extraParams.Name, extraParams.Value)
 			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal(extraParams.Name))
 			Expect(releasePipelineRun.Spec.Params[0].Value.StringVal).
@@ -176,7 +176,7 @@ var _ = Describe("PipelineRun", func() {
 			Expect(releasePipelineRun.Annotations).NotTo(BeNil())
 		})
 
-		It("can append the release Name, Namespace, and Application to a ReleasePipelineRun object and that these label key names match the correct label format", func() {
+		It("can append the release Name, Namespace, and Application to a PipelineRun object and that these label key names match the correct label format", func() {
 			releasePipelineRun.WithReleaseAndApplicationMetadata(release, applicationName)
 			Expect(releasePipelineRun.Labels["release.appstudio.openshift.io/name"]).
 				To(Equal(release.Name))
@@ -186,7 +186,7 @@ var _ = Describe("PipelineRun", func() {
 				To(Equal(applicationName))
 		})
 
-		It("can return a PipelineRun object from a ReleasePipelineRun object", func() {
+		It("can return a PipelineRun object from a PipelineRun object", func() {
 			Expect(reflect.TypeOf(releasePipelineRun.AsPipelineRun())).
 				To(Equal(reflect.TypeOf(&tektonv1beta1.PipelineRun{})))
 		})

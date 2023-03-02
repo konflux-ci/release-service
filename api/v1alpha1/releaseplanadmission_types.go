@@ -41,7 +41,7 @@ type ReleasePlanAdmissionSpec struct {
 	// +optional
 	Environment string `json:"environment,omitempty"`
 
-	// Release Strategy defines which strategy will be used to release the application
+	// ReleaseStrategy defines which strategy will be used to release the application
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
 	ReleaseStrategy string `json:"releaseStrategy"`

@@ -20,23 +20,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/operator-framework/operator-lib/handler"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/loader"
+	"github.com/redhat-appstudio/release-service/tekton"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/loader"
-	"github.com/redhat-appstudio/release-service/tekton"
-
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
-	"github.com/operator-framework/operator-lib/handler"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -82,25 +81,22 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter = createReleaseAndAdapter()
 		})
 
-		It("should do nothing if the release is not set to be deleted", func() {
+		It("should do nothing if the Release is not set to be deleted", func() {
 			result, err := adapter.EnsureFinalizersAreCalled()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(!result.CancelRequest && !result.RequeueRequest).To(BeTrue())
 		})
 
-		It("should finalize the release if it's set to be deleted and it has a finalizer", func() {
+		It("should finalize the Release if it's set to be deleted and it has a finalizer", func() {
 			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
 				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Resource:   releasePlanAdmission,
-				},
-				{
-					ContextKey: loader.EnterpriseContractPolicyContextKey,
-					Resource:   enterpriseContractPolicy,
-				},
-				{
-					ContextKey: loader.SnapshotContextKey,
-					Resource:   snapshot,
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						ReleaseStrategy:          releaseStrategy,
+						Snapshot:                 snapshot,
+					},
 				},
 			})
 			result, err := adapter.EnsureFinalizerIsAdded()
@@ -108,7 +104,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.Finalizers).To(HaveLen(1))
 
-			result, err = adapter.EnsureReleasePipelineRunExists()
+			result, err = adapter.EnsureReleaseIsProcessed()
 			Expect(!result.RequeueRequest && result.CancelRequest).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -143,14 +139,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter = createReleaseAndAdapter()
 		})
 
-		It("should add a finalizer to the release", func() {
+		It("should add a finalizer to the Release", func() {
 			result, err := adapter.EnsureFinalizerIsAdded()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.Finalizers).To(ContainElement(finalizerName))
 		})
 
-		It("shouldn't fail if the release already has the finalizer added", func() {
+		It("shouldn't fail if the Release already has the finalizer added", func() {
 			result, err := adapter.EnsureFinalizerIsAdded()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -162,7 +158,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When EnsureReleasePlanAdmissionEnabled is called", func() {
+	Context("When EnsureReleaseIsCompleted is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -171,206 +167,69 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			adapter.release.MarkReleasing("")
 		})
 
-		It("should succeed if the ReleasePlanAdmission is enabled", func() {
-			result, err := adapter.EnsureReleasePlanAdmissionEnabled()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("should stop reconcile if the ReleasePlanAdmission is found to be disabled", func() {
+		It("should not change the release status if it's set already", func() {
 			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Err:        fmt.Errorf("auto-release label set to false"),
-				},
-			})
-			result, err := adapter.EnsureReleasePlanAdmissionEnabled()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Status.Conditions).To(HaveLen(1))
-			Expect(adapter.release.Status.Conditions[0].Reason).To(Equal(string(v1alpha1.ReleaseReasonTargetDisabledError)))
-		})
-
-		It("should stop reconcile if multiple ReleasePlanAdmissions exist", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Err:        fmt.Errorf("multiple ReleasePlanAdmissions found"),
-				},
-			})
-			result, err := adapter.EnsureReleasePlanAdmissionEnabled()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Status.Conditions).To(HaveLen(1))
-			Expect(adapter.release.Status.Conditions[0].Reason).To(Equal(string(v1alpha1.ReleaseReasonValidationError)))
-		})
-	})
-
-	Context("When EnsureReleasePipelineRunExists is called", func() {
-		var adapter *Adapter
-
-		AfterEach(func() {
-			_ = adapter.client.Delete(ctx, adapter.release)
-		})
-
-		BeforeEach(func() {
-			adapter = createReleaseAndAdapter()
-		})
-
-		It("should continue if the pipelineRun exists and the release has started", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
-				{
-					ContextKey: loader.ReleasePipelineRunContextKey,
-					Resource: &v1beta1.PipelineRun{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "pipeline-run",
-							Namespace: "default",
-						},
-					},
-				},
-			})
-
-			adapter.release.MarkRunning()
-
-			result, err := adapter.EnsureReleasePipelineRunExists()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("should track the status data if the pipelineRun already exists", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
-				{
-					ContextKey: loader.ReleasePipelineRunContextKey,
-					Resource: &v1beta1.PipelineRun{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "pipeline-run",
-							Namespace: "default",
-						},
-					},
-				},
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   releasePlanAdmission,
 				},
 			})
-
-			result, err := adapter.EnsureReleasePipelineRunExists()
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
+			adapter.release.MarkDeploying("")
+			adapter.release.MarkDeployed()
+			adapter.release.MarkReleaseFailed("")
+			result, err := adapter.EnsureReleaseIsCompleted()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.HasStarted()).To(BeTrue())
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+			Expect(adapter.release.IsReleased()).To(BeFalse())
 		})
 
-		It("should create a pipelineRun and track the status data if all the required resources are present", func() {
+		It("should do nothing if the processing has not completed", func() {
+			result, err := adapter.EnsureReleaseIsCompleted()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasReleaseFinished()).To(BeFalse())
+		})
+
+		It("should do nothing if a deployment is required and it's not complete", func() {
 			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   releasePlanAdmission,
 				},
-				{
-					ContextKey: loader.EnterpriseContractPolicyContextKey,
-					Resource:   enterpriseContractPolicy,
-				},
-				{
-					ContextKey: loader.SnapshotContextKey,
-					Resource:   snapshot,
-				},
 			})
-
-			result, err := adapter.EnsureReleasePipelineRunExists()
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
+			result, err := adapter.EnsureReleaseIsCompleted()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.HasStarted()).To(BeTrue())
-
-			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
-			Expect(pipelineRun).NotTo(BeNil())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+			Expect(adapter.release.HasReleaseFinished()).To(BeFalse())
 		})
 
-		It("should fail if the ReleasePlanAdmission is not found", func() {
+		It("should complete the release if all the required phases have completed", func() {
 			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Err:        fmt.Errorf("not found"),
+					Resource:   releasePlanAdmission,
 				},
 			})
-
-			result, err := adapter.EnsureReleasePipelineRunExists()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
+			adapter.release.MarkDeploying("")
+			adapter.release.MarkDeployed()
+			result, err := adapter.EnsureReleaseIsCompleted()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Status.Conditions).To(HaveLen(1))
-			Expect(adapter.release.Status.Conditions[0].Reason).To(Equal(string(v1alpha1.ReleaseReasonReleasePlanValidationError)))
-		})
-
-		It("should fail if the ReleaseStrategy is not found", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-				},
-				{
-					ContextKey: loader.ReleaseStrategyContextKey,
-					Err:        fmt.Errorf("not found"),
-				},
-			})
-
-			result, err := adapter.EnsureReleasePipelineRunExists()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Status.Conditions).To(HaveLen(1))
-			Expect(adapter.release.Status.Conditions[0].Reason).To(Equal(string(v1alpha1.ReleaseReasonValidationError)))
-		})
-
-		It("should fail if the EnterpriseContractPolicy is not found", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-				},
-				{
-					ContextKey: loader.ReleaseStrategyContextKey,
-					Resource:   releaseStrategy,
-				},
-				{
-					ContextKey: loader.EnterpriseContractPolicyContextKey,
-					Err:        fmt.Errorf("not found"),
-				},
-			})
-
-			result, err := adapter.EnsureReleasePipelineRunExists()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Status.Conditions).To(HaveLen(1))
-			Expect(adapter.release.Status.Conditions[0].Reason).To(Equal(string(v1alpha1.ReleaseReasonValidationError)))
-		})
-
-		It("should fail if the Snapshot is not found", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-				},
-				{
-					ContextKey: loader.ReleaseStrategyContextKey,
-					Resource:   releaseStrategy,
-				},
-				{
-					ContextKey: loader.EnterpriseContractPolicyContextKey,
-				},
-				{
-					ContextKey: loader.SnapshotContextKey,
-					Err:        fmt.Errorf("not found"),
-				},
-			})
-
-			result, err := adapter.EnsureReleasePipelineRunExists()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Status.Conditions).To(HaveLen(1))
-			Expect(adapter.release.Status.Conditions[0].Reason).To(Equal(string(v1alpha1.ReleaseReasonValidationError)))
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
 		})
 	})
 
-	Context("When EnsureReleasePipelineStatusIsTracked is called", func() {
+	Context("When EnsureReleaseIsDeployed is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -381,75 +240,26 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter = createReleaseAndAdapter()
 		})
 
-		It("should continue if the release hasn't started or it's done", func() {
-			result, err := adapter.EnsureReleasePipelineStatusIsTracked()
+		It("skips the operation if the Release processing has not succeeded yet", func() {
+			result, err := adapter.EnsureReleaseIsDeployed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should track the status if the pipelineRun exists", func() {
-			adapter.release.MarkRunning()
+		It("skips the operation if the Release has already being deployed", func() {
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
+			adapter.release.MarkDeploying("")
+			adapter.release.MarkDeployed()
 
-			pipelineRun := &v1beta1.PipelineRun{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pipeline-run",
-					Namespace: "default",
-				},
-			}
-			pipelineRun.Status.MarkSucceeded("", "")
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
-				{
-					ContextKey: loader.ReleasePipelineRunContextKey,
-					Resource:   pipelineRun,
-				},
-			})
-
-			result, err := adapter.EnsureReleasePipelineStatusIsTracked()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.IsDone()).To(BeTrue())
-		})
-
-		It("should continue if the pipelineRun doesn't exist", func() {
-			adapter.release.MarkRunning()
-
-			result, err := adapter.EnsureReleasePipelineStatusIsTracked()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	Context("When EnsureSnapshotEnvironmentBindingExists is called", func() {
-		var adapter *Adapter
-
-		AfterEach(func() {
-			_ = adapter.client.Delete(ctx, adapter.release)
-		})
-
-		BeforeEach(func() {
-			adapter = createReleaseAndAdapter()
-		})
-
-		It("skips the operation if the release has not succeeded yet", func() {
-			result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("skips the operation if the release has already being deployed", func() {
-			adapter.release.MarkRunning()
-			adapter.release.MarkSucceeded()
-			adapter.release.MarkDeploying(metav1.ConditionFalse, "", "")
-			adapter.release.MarkDeployed("", "")
-
-			result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
+			result, err := adapter.EnsureReleaseIsDeployed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("skips the operation if no environment is set in the ReleasePlanAdmission", func() {
-			adapter.release.MarkRunning()
-			adapter.release.MarkSucceeded()
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
 
 			newReleasePlanAdmission := &v1alpha1.ReleasePlanAdmission{
 				ObjectMeta: metav1.ObjectMeta{
@@ -469,15 +279,15 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 			})
 
-			result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
+			result, err := adapter.EnsureReleaseIsDeployed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Status.SnapshotEnvironmentBinding).To(BeEmpty())
+			Expect(adapter.release.Status.Deployment.SnapshotEnvironmentBinding).To(BeEmpty())
 		})
 
 		It("fails when the ReleasePlanAdmission is not present", func() {
-			adapter.release.MarkRunning()
-			adapter.release.MarkSucceeded()
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
 
 			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
 				{
@@ -486,15 +296,15 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 			})
 
-			result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
+			result, err := adapter.EnsureReleaseIsDeployed()
 			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("not found"))
 		})
 
 		It("updates the binding if one already exists", func() {
-			adapter.release.MarkRunning()
-			adapter.release.MarkSucceeded()
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
 
 			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
 				{
@@ -506,8 +316,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource:   snapshotEnvironmentBinding,
 				},
 				{
-					ContextKey: loader.SnapshotEnvironmentBindingResourcesContextKey,
-					Resource: &loader.SnapshotEnvironmentBindingResources{
+					ContextKey: loader.DeploymentResourcesContextKey,
+					Resource: &loader.DeploymentResources{
 						Application:           application,
 						ApplicationComponents: []applicationapiv1alpha1.Component{*component},
 						Environment:           environment,
@@ -516,10 +326,10 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 			})
 
-			result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
+			result, err := adapter.EnsureReleaseIsDeployed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Status.SnapshotEnvironmentBinding).NotTo(BeEmpty())
+			Expect(adapter.release.Status.Deployment.SnapshotEnvironmentBinding).NotTo(BeEmpty())
 
 			binding, _ := adapter.loader.GetSnapshotEnvironmentBindingFromReleaseStatus(adapter.ctx, adapter.client, adapter.release)
 			Expect(binding).NotTo(BeNil())
@@ -531,8 +341,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("creates a binding and updates the release status", func() {
-			adapter.release.MarkRunning()
-			adapter.release.MarkSucceeded()
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
 
 			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
 				{
@@ -543,8 +353,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					ContextKey: loader.SnapshotEnvironmentBindingContextKey,
 				},
 				{
-					ContextKey: loader.SnapshotEnvironmentBindingResourcesContextKey,
-					Resource: &loader.SnapshotEnvironmentBindingResources{
+					ContextKey: loader.DeploymentResourcesContextKey,
+					Resource: &loader.DeploymentResources{
 						Application:           application,
 						ApplicationComponents: []applicationapiv1alpha1.Component{*component},
 						Environment:           environment,
@@ -553,10 +363,10 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 			})
 
-			result, err := adapter.EnsureSnapshotEnvironmentBindingExists()
+			result, err := adapter.EnsureReleaseIsDeployed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Status.SnapshotEnvironmentBinding).NotTo(BeEmpty())
+			Expect(adapter.release.Status.Deployment.SnapshotEnvironmentBinding).NotTo(BeEmpty())
 
 			// Restore the context to get the actual binding
 			adapter.ctx = context.TODO()
@@ -568,7 +378,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When EnsureSnapshotEnvironmentBindingIsTracked is called", func() {
+	Context("When EnsureReleaseDeploymentIsTracked is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -579,46 +389,32 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter = createReleaseAndAdapter()
 		})
 
-		It("skips the operation if the release has not succeeded yet", func() {
-			result, err := adapter.EnsureSnapshotEnvironmentBindingIsTracked()
+		It("skips the operation if the deployment has not started yet", func() {
+			result, err := adapter.EnsureReleaseDeploymentIsTracked()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("skips the operation if the release doesn't have an associated binding", func() {
-			adapter.release.MarkRunning()
-			adapter.release.MarkSucceeded()
+		It("skips the operation if the deployment has finished", func() {
+			adapter.release.MarkDeploying("")
+			adapter.release.MarkDeployed()
 
-			result, err := adapter.EnsureSnapshotEnvironmentBindingIsTracked()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("skips the operation if the release has been deployed already", func() {
-			adapter.release.MarkRunning()
-			adapter.release.MarkSucceeded()
-			adapter.release.Status.SnapshotEnvironmentBinding = snapshotEnvironmentBinding.Namespace + "/" + snapshotEnvironmentBinding.Name
-			adapter.release.MarkDeploying(metav1.ConditionFalse, "", "")
-			adapter.release.MarkDeployed("", "")
-
-			result, err := adapter.EnsureSnapshotEnvironmentBindingIsTracked()
+			result, err := adapter.EnsureReleaseDeploymentIsTracked()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("fails if the binding is not found", func() {
-			adapter.release.MarkRunning()
-			adapter.release.MarkSucceeded()
-			adapter.release.Status.SnapshotEnvironmentBinding = "not/found"
+			adapter.release.MarkDeploying("")
+			adapter.release.Status.Deployment.SnapshotEnvironmentBinding = "not/found"
 
-			result, err := adapter.EnsureSnapshotEnvironmentBindingIsTracked()
+			result, err := adapter.EnsureReleaseDeploymentIsTracked()
 			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("skips the operation if the binding isn't owned by the release", func() {
-			adapter.release.MarkRunning()
-			adapter.release.MarkSucceeded()
+			adapter.release.MarkDeploying("")
 
 			newSnapshotEnvironmentBinding := snapshotEnvironmentBinding.DeepCopy()
 			newSnapshotEnvironmentBinding.Status.ComponentDeploymentConditions = []metav1.Condition{
@@ -632,9 +428,9 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				handler.TypeAnnotation:           adapter.release.Kind,
 				handler.NamespacedNameAnnotation: "other-release",
 			}
-			adapter.release.Status.SnapshotEnvironmentBinding = newSnapshotEnvironmentBinding.Namespace + "/" + newSnapshotEnvironmentBinding.Name
+			adapter.release.Status.Deployment.SnapshotEnvironmentBinding = newSnapshotEnvironmentBinding.Namespace + "/" + newSnapshotEnvironmentBinding.Name
 
-			result, err := adapter.EnsureSnapshotEnvironmentBindingIsTracked()
+			result, err := adapter.EnsureReleaseDeploymentIsTracked()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -646,11 +442,289 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource:   snapshotEnvironmentBinding,
 				},
 			})
-			adapter.release.MarkRunning()
-			adapter.release.MarkSucceeded()
-			adapter.release.Status.SnapshotEnvironmentBinding = snapshotEnvironmentBinding.Namespace + "/" + snapshotEnvironmentBinding.Name
+			adapter.release.MarkDeploying("")
+			adapter.release.Status.Deployment.SnapshotEnvironmentBinding = snapshotEnvironmentBinding.Namespace + "/" + snapshotEnvironmentBinding.Name
 
-			result, err := adapter.EnsureSnapshotEnvironmentBindingIsTracked()
+			result, err := adapter.EnsureReleaseDeploymentIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("When EnsureReleaseIsRunning is called", func() {
+		var adapter *Adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("should stop processing if the release has finished", func() {
+			adapter.release.MarkReleasing("")
+			adapter.release.MarkReleased()
+
+			result, err := adapter.EnsureReleaseIsRunning()
+			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should mark the Release as releasing if it is missing the status", func() {
+			result, err := adapter.EnsureReleaseIsRunning()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsReleasing()).To(BeTrue())
+		})
+
+		It("should do nothing if the release is already running", func() {
+			adapter.release.MarkReleasing("")
+
+			result, err := adapter.EnsureReleaseIsRunning()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsReleasing()).To(BeTrue())
+		})
+	})
+
+	Context("When EnsureReleaseIsProcessed is called", func() {
+		var adapter *Adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("should do nothing if the Release is already processed", func() {
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
+
+			result, err := adapter.EnsureReleaseIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsProcessing()).To(BeFalse())
+		})
+
+		It("should continue if the PipelineRun exists and the release processing has started", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource: &v1beta1.PipelineRun{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "pipeline-run",
+							Namespace: "default",
+						},
+					},
+				},
+			})
+			adapter.release.MarkProcessing("")
+
+			result, err := adapter.EnsureReleaseIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should register the processing data if the PipelineRun already exists", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource: &v1beta1.PipelineRun{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "pipeline-run",
+							Namespace: "default",
+						},
+					},
+				},
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						ReleaseStrategy:          releaseStrategy,
+						Snapshot:                 snapshot,
+					},
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsProcessing()).To(BeTrue())
+		})
+
+		It("should requeue the Release if any of the resources is not found", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Err:        fmt.Errorf("not found"),
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsProcessed()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should create a pipelineRun and register the processing data if all the required resources are present", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						ReleaseStrategy:          releaseStrategy,
+						Snapshot:                 snapshot,
+					},
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsProcessing()).To(BeTrue())
+
+			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+	})
+
+	Context("When EnsureReleaseIsValid is called", func() {
+		var adapter *Adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+			adapter.release.MarkReleasing("")
+		})
+
+		It("should mark the Release as valid if all the resources are found", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						ReleaseStrategy:          releaseStrategy,
+						Snapshot:                 snapshot,
+					},
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeTrue())
+			Expect(adapter.release.HasReleaseFinished()).To(BeFalse())
+		})
+
+		It("should mark the Release as invalid if any of the resources is not found", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Err:        fmt.Errorf("not found"),
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+		})
+
+		It("should stop reconcile if the ReleasePlanAdmission is found to be disabled", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Err:        fmt.Errorf("auto-release label set to false"),
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+		})
+
+		It("should stop reconcile if multiple ReleasePlanAdmissions exist", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Err:        fmt.Errorf("multiple ReleasePlanAdmissions found"),
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+		})
+	})
+
+	Context("When EnsureReleaseProcessingIsTracked is called", func() {
+		var adapter *Adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("should continue if the Release processing has not started", func() {
+			result, err := adapter.EnsureReleaseProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should continue if the Release processing has finished", func() {
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
+
+			result, err := adapter.EnsureReleaseProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should track the status if the PipelineRun exists", func() {
+			adapter.release.MarkProcessing("")
+
+			pipelineRun := &v1beta1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run",
+					Namespace: "default",
+				},
+			}
+			pipelineRun.Status.MarkSucceeded("", "")
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource:   pipelineRun,
+				},
+			})
+
+			result, err := adapter.EnsureReleaseProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasProcessingFinished()).To(BeTrue())
+		})
+
+		It("should continue if the PipelineRun doesn't exist", func() {
+			adapter.release.MarkProcessing("")
+
+			result, err := adapter.EnsureReleaseProcessingIsTracked()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -707,131 +781,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When registerGitOpsDeploymentStatus is called", func() {
-		var adapter *Adapter
-
-		AfterEach(func() {
-			_ = adapter.client.Delete(ctx, adapter.release)
-		})
-
-		BeforeEach(func() {
-			adapter = createReleaseAndAdapter()
-		})
-
-		It("does nothing if there is no binding", func() {
-			Expect(adapter.registerGitOpsDeploymentStatus(nil)).To(Succeed())
-			Expect(adapter.release.IsDeploying()).To(BeFalse())
-		})
-
-		It("does nothing if the binding doesn't have the expected condition", func() {
-			Expect(adapter.registerGitOpsDeploymentStatus(snapshotEnvironmentBinding)).To(Succeed())
-			Expect(adapter.release.IsDeploying()).To(BeFalse())
-		})
-
-		It("registers the deployment status when the binding has been deployed", func() {
-			adapter.release.MarkDeploying(metav1.ConditionFalse, "", "")
-			newSnapshotEnvironmentBinding := snapshotEnvironmentBinding.DeepCopy()
-			newSnapshotEnvironmentBinding.Status.ComponentDeploymentConditions = []metav1.Condition{
-				{
-					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-					Status: metav1.ConditionTrue,
-					Reason: "Deployed",
-				},
-			}
-			Expect(adapter.registerGitOpsDeploymentStatus(newSnapshotEnvironmentBinding)).To(Succeed())
-			Expect(adapter.release.IsDeployed()).To(BeTrue())
-		})
-	})
-
-	Context("When registerReleasePipelineRunStatus is called", func() {
-		var adapter *Adapter
-
-		AfterEach(func() {
-			_ = adapter.client.Delete(ctx, adapter.release)
-		})
-
-		BeforeEach(func() {
-			adapter = createReleaseAndAdapter()
-		})
-
-		It("does nothing if there is no PipelineRun", func() {
-			Expect(adapter.registerReleasePipelineRunStatus(nil)).To(Succeed())
-			Expect(adapter.release.Status.CompletionTime).To(BeNil())
-		})
-
-		It("does nothing if the PipelineRun is not done", func() {
-			pipelineRun := &v1beta1.PipelineRun{}
-			Expect(adapter.registerReleasePipelineRunStatus(pipelineRun)).To(Succeed())
-			Expect(adapter.release.Status.CompletionTime).To(BeNil())
-		})
-
-		It("sets the Release completion time", func() {
-			pipelineRun := &v1beta1.PipelineRun{}
-			pipelineRun.Status.MarkSucceeded("", "")
-			Expect(adapter.registerReleasePipelineRunStatus(pipelineRun)).To(Succeed())
-			Expect(adapter.release.Status.CompletionTime).NotTo(BeNil())
-		})
-
-		It("sets the Release as succeeded if the PipelineRun succeeded", func() {
-			pipelineRun := &v1beta1.PipelineRun{}
-			pipelineRun.Status.MarkSucceeded("", "")
-			adapter.release.MarkRunning()
-			Expect(adapter.registerReleasePipelineRunStatus(pipelineRun)).To(Succeed())
-			Expect(adapter.release.HasSucceeded()).To(BeTrue())
-		})
-
-		It("sets the Release as failed if the PipelineRun didn't succeed", func() {
-			pipelineRun := &v1beta1.PipelineRun{}
-			pipelineRun.Status.MarkFailed("", "")
-			adapter.release.MarkRunning()
-			Expect(adapter.registerReleasePipelineRunStatus(pipelineRun)).To(Succeed())
-			Expect(adapter.release.HasSucceeded()).To(BeFalse())
-		})
-	})
-
-	Context("When registerReleaseStatusData is called", func() {
-		var adapter *Adapter
-
-		AfterEach(func() {
-			_ = adapter.client.Delete(ctx, adapter.release)
-		})
-
-		BeforeEach(func() {
-			adapter = createReleaseAndAdapter()
-		})
-
-		It("does nothing if there is no PipelineRun", func() {
-			Expect(adapter.registerReleaseStatusData(nil, nil)).To(Succeed())
-			Expect(adapter.release.Status.ReleasePipelineRun).To(BeEmpty())
-		})
-
-		It("does nothing if there is no ReleaseStrategy", func() {
-			pipelineRun := &v1beta1.PipelineRun{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pipeline-run",
-					Namespace: "default",
-				},
-			}
-			Expect(adapter.registerReleaseStatusData(pipelineRun, nil)).To(Succeed())
-			Expect(adapter.release.Status.ReleasePipelineRun).To(BeEmpty())
-		})
-
-		It("registers the Release data", func() {
-			pipelineRun := &v1beta1.PipelineRun{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pipeline-run",
-					Namespace: "default",
-				},
-			}
-			Expect(adapter.registerReleaseStatusData(pipelineRun, releaseStrategy)).To(Succeed())
-			Expect(adapter.release.Status.ReleasePipelineRun).To(Equal(fmt.Sprintf("%s%c%s",
-				pipelineRun.Namespace, types.Separator, pipelineRun.Name)))
-			Expect(adapter.release.Status.ReleaseStrategy).To(Equal(fmt.Sprintf("%s%c%s",
-				releaseStrategy.Namespace, types.Separator, releaseStrategy.Name)))
-			Expect(adapter.release.Status.Target).To(Equal(pipelineRun.Namespace))
-		})
-	})
-
 	Context("When createOrUpdateSnapshotEnvironmentBinding is called", func() {
 		var adapter *Adapter
 
@@ -846,7 +795,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("fails when the required resources are not present", func() {
 			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
 				{
-					ContextKey: loader.SnapshotEnvironmentBindingResourcesContextKey,
+					ContextKey: loader.DeploymentResourcesContextKey,
 					Err:        fmt.Errorf("not found"),
 				},
 			})
@@ -862,8 +811,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					ContextKey: loader.SnapshotEnvironmentBindingContextKey,
 				},
 				{
-					ContextKey: loader.SnapshotEnvironmentBindingResourcesContextKey,
-					Resource: &loader.SnapshotEnvironmentBindingResources{
+					ContextKey: loader.DeploymentResourcesContextKey,
+					Resource: &loader.DeploymentResources{
 						Application:           application,
 						ApplicationComponents: []applicationapiv1alpha1.Component{*component},
 						Environment:           environment,
@@ -893,8 +842,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource:   snapshotEnvironmentBinding,
 				},
 				{
-					ContextKey: loader.SnapshotEnvironmentBindingResourcesContextKey,
-					Resource: &loader.SnapshotEnvironmentBindingResources{
+					ContextKey: loader.DeploymentResourcesContextKey,
+					Resource: &loader.DeploymentResources{
 						Application:           application,
 						ApplicationComponents: []applicationapiv1alpha1.Component{*component},
 						Environment:           environment,
@@ -939,6 +888,201 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			pipelineRun, err = adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			Expect(pipelineRun).To(BeNil())
 			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("When registerDeploymentData is called", func() {
+		var adapter *Adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("does nothing if there is no binding", func() {
+			Expect(adapter.registerDeploymentData(nil, releasePlanAdmission)).To(Succeed())
+			Expect(adapter.release.Status.Deployment.SnapshotEnvironmentBinding).To(BeEmpty())
+		})
+
+		It("does nothing if there is no ReleasePlanAdmission", func() {
+			Expect(adapter.registerDeploymentData(snapshotEnvironmentBinding, nil)).To(Succeed())
+			Expect(adapter.release.Status.Deployment.SnapshotEnvironmentBinding).To(BeEmpty())
+		})
+
+		It("registers the Release deployment data", func() {
+			Expect(adapter.registerDeploymentData(snapshotEnvironmentBinding, releasePlanAdmission)).To(Succeed())
+			Expect(adapter.release.Status.Deployment.Environment).To(Equal(fmt.Sprintf("%s%c%s",
+				releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Spec.Environment)))
+			Expect(adapter.release.Status.Deployment.SnapshotEnvironmentBinding).To(Equal(fmt.Sprintf("%s%c%s",
+				snapshotEnvironmentBinding.Namespace, types.Separator, snapshotEnvironmentBinding.Name)))
+			Expect(adapter.release.IsDeploying()).To(BeTrue())
+		})
+
+		It("should not register the environment if the ReleasePlanAdmission does not reference any", func() {
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Spec.Environment = ""
+
+			Expect(adapter.registerDeploymentData(snapshotEnvironmentBinding, newReleasePlanAdmission)).To(Succeed())
+			Expect(adapter.release.Status.Deployment.Environment).To(Equal(""))
+			Expect(adapter.release.Status.Deployment.SnapshotEnvironmentBinding).To(Equal(fmt.Sprintf("%s%c%s",
+				snapshotEnvironmentBinding.Namespace, types.Separator, snapshotEnvironmentBinding.Name)))
+			Expect(adapter.release.IsDeploying()).To(BeTrue())
+		})
+	})
+
+	Context("When registerDeploymentStatus is called", func() {
+		var adapter *Adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("does nothing if there is no binding", func() {
+			Expect(adapter.registerDeploymentStatus(nil)).To(Succeed())
+			Expect(adapter.release.IsDeploying()).To(BeFalse())
+		})
+
+		It("does nothing if the binding doesn't have the expected condition", func() {
+			Expect(adapter.registerDeploymentStatus(snapshotEnvironmentBinding)).To(Succeed())
+			Expect(adapter.release.IsDeploying()).To(BeFalse())
+		})
+
+		It("registers the deployment status when the the deployment succeeded deployed", func() {
+			adapter.release.MarkDeploying("")
+			newSnapshotEnvironmentBinding := snapshotEnvironmentBinding.DeepCopy()
+			newSnapshotEnvironmentBinding.Status.ComponentDeploymentConditions = []metav1.Condition{
+				{
+					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+					Status: metav1.ConditionTrue,
+					Reason: "Deployed",
+				},
+			}
+			Expect(adapter.registerDeploymentStatus(newSnapshotEnvironmentBinding)).To(Succeed())
+			Expect(adapter.release.HasDeploymentFinished()).To(BeTrue())
+			Expect(adapter.release.IsDeployed()).To(BeTrue())
+		})
+
+		It("registers the deployment status when the deployment failed", func() {
+			adapter.release.MarkDeploying("")
+			newSnapshotEnvironmentBinding := snapshotEnvironmentBinding.DeepCopy()
+			newSnapshotEnvironmentBinding.Status.ComponentDeploymentConditions = []metav1.Condition{
+				{
+					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+					Status: metav1.ConditionFalse,
+					Reason: applicationapiv1alpha1.ComponentDeploymentConditionErrorOccurred,
+				},
+			}
+			Expect(adapter.registerDeploymentStatus(newSnapshotEnvironmentBinding)).To(Succeed())
+			Expect(adapter.release.HasDeploymentFinished()).To(BeTrue())
+			Expect(adapter.release.IsDeployed()).To(BeFalse())
+			Expect(adapter.release.IsReleased()).To(BeFalse())
+		})
+
+		It("registers the deployment status when the deployment is progressing", func() {
+			adapter.release.MarkDeploying("")
+			newSnapshotEnvironmentBinding := snapshotEnvironmentBinding.DeepCopy()
+			newSnapshotEnvironmentBinding.Status.ComponentDeploymentConditions = []metav1.Condition{
+				{
+					Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
+					Status: metav1.ConditionFalse,
+					Reason: "Deploying",
+				},
+			}
+			Expect(adapter.registerDeploymentStatus(newSnapshotEnvironmentBinding)).To(Succeed())
+			Expect(adapter.release.HasDeploymentFinished()).To(BeFalse())
+		})
+	})
+
+	Context("When registerProcessingData is called", func() {
+		var adapter *Adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("does nothing if there is no PipelineRun", func() {
+			Expect(adapter.registerProcessingData(nil, releaseStrategy)).To(Succeed())
+			Expect(adapter.release.Status.Processing.PipelineRun).To(BeEmpty())
+		})
+
+		It("does nothing if there is no ReleaseStrategy", func() {
+			pipelineRun := &v1beta1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run",
+					Namespace: "default",
+				},
+			}
+			Expect(adapter.registerProcessingData(pipelineRun, nil)).To(Succeed())
+			Expect(adapter.release.Status.Processing.PipelineRun).To(BeEmpty())
+		})
+
+		It("registers the Release processing data", func() {
+			pipelineRun := &v1beta1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run",
+					Namespace: "default",
+				},
+			}
+			Expect(adapter.registerProcessingData(pipelineRun, releaseStrategy)).To(Succeed())
+			Expect(adapter.release.Status.Processing.PipelineRun).To(Equal(fmt.Sprintf("%s%c%s",
+				pipelineRun.Namespace, types.Separator, pipelineRun.Name)))
+			Expect(adapter.release.Status.Processing.ReleaseStrategy).To(Equal(fmt.Sprintf("%s%c%s",
+				releaseStrategy.Namespace, types.Separator, releaseStrategy.Name)))
+			Expect(adapter.release.Status.Target).To(Equal(pipelineRun.Namespace))
+			Expect(adapter.release.IsProcessing()).To(BeTrue())
+		})
+	})
+
+	Context("When registerProcessingStatus is called", func() {
+		var adapter *Adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("does nothing if there is no PipelineRun", func() {
+			Expect(adapter.registerProcessingStatus(nil)).To(Succeed())
+			Expect(adapter.release.Status.Processing.CompletionTime).To(BeNil())
+		})
+
+		It("does nothing if the PipelineRun is not done", func() {
+			pipelineRun := &v1beta1.PipelineRun{}
+			Expect(adapter.registerProcessingStatus(pipelineRun)).To(Succeed())
+			Expect(adapter.release.Status.Processing.CompletionTime).To(BeNil())
+		})
+
+		It("sets the Release as succeeded if the PipelineRun succeeded", func() {
+			pipelineRun := &v1beta1.PipelineRun{}
+			pipelineRun.Status.MarkSucceeded("", "")
+			adapter.release.MarkProcessing("")
+
+			Expect(adapter.registerProcessingStatus(pipelineRun)).To(Succeed())
+			Expect(adapter.release.IsProcessed()).To(BeTrue())
+		})
+
+		It("sets the Release as failed if the PipelineRun didn't succeed", func() {
+			pipelineRun := &v1beta1.PipelineRun{}
+			pipelineRun.Status.MarkFailed("", "")
+			adapter.release.MarkProcessing("")
+
+			Expect(adapter.registerProcessingStatus(pipelineRun)).To(Succeed())
+			Expect(adapter.release.HasProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.IsProcessed()).To(BeFalse())
 		})
 	})
 
