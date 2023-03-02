@@ -17,128 +17,233 @@ limitations under the License.
 package metrics
 
 import (
-	"strconv"
-
 	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var (
-	ReleaseAttemptConcurrentTotal = prometheus.NewGauge(
+	ReleaseConcurrentTotal = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "release_attempt_concurrent_requests",
+			Name: "release_concurrent_total",
 			Help: "Total number of concurrent release attempts",
 		},
+		[]string{},
 	)
 
-	ReleaseAttemptDeploymentSeconds = prometheus.NewHistogram(
-		prometheus.HistogramOpts{
-			Name:    "release_attempt_deployment_seconds",
-			Help:    "Release durations from the moment the SnapshotEnvironmentBinding was created til the release is marked as deployed",
-			Buckets: []float64{10, 20, 40, 60, 120, 240, 360, 480, 600},
+	ReleaseConcurrentDeploymentsTotal = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "release_concurrent_deployments_total",
+			Help: "Total number of concurrent release deployment attempts",
 		},
+		[]string{},
 	)
 
-	ReleaseAttemptDeploymentTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "release_attempt_deployment_total",
-			Help: "Total number of deployments released to managed environments by the operator",
+	ReleaseConcurrentPostActionsExecutionsTotal = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "release_concurrent_post_actions_executions_total",
+			Help: "Total number of concurrent release post actions executions attempts",
 		},
-		[]string{"reason", "succeeded", "target"},
+		[]string{},
 	)
 
-	ReleaseAttemptDurationSeconds = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "release_attempt_duration_seconds",
-			Help:    "Release durations from the moment the release PipelineRun was created til the release is marked as finished",
-			Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
+	ReleaseConcurrentProcessingsTotal = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "release_concurrent_processings_total",
+			Help: "Total number of concurrent release processing attempts",
 		},
-		[]string{"reason", "strategy", "succeeded", "target"},
+		[]string{},
 	)
 
-	ReleaseAttemptInvalidTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "release_attempt_invalid_total",
-			Help: "Number of invalid releases",
-		},
-		[]string{"reason"},
+	ReleaseDeploymentDurationSeconds = prometheus.NewHistogramVec(
+		releaseDeploymentDurationSecondsOpts,
+		releaseDeploymentDurationSecondsLabels,
 	)
+	releaseDeploymentDurationSecondsLabels = []string{
+		"environment",
+		"reason",
+		"target",
+	}
+	releaseDeploymentDurationSecondsOpts = prometheus.HistogramOpts{
+		Name:    "release_deployment_duration_seconds",
+		Help:    "How long in seconds a Release deployment takes to complete",
+		Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
+	}
 
-	ReleaseAttemptRunningSeconds = prometheus.NewHistogram(
-		prometheus.HistogramOpts{
-			Name:    "release_attempt_running_seconds",
-			Help:    "Release durations from the moment the release resource was created til the release is marked as running",
-			Buckets: []float64{0.5, 1, 2, 3, 4, 5, 6, 7, 10, 15, 30},
-		},
+	ReleaseDurationSeconds = prometheus.NewHistogramVec(
+		releaseDurationSecondsOpts,
+		releaseDurationSecondsLabels,
 	)
+	releaseDurationSecondsLabels = []string{
+		"deployment_reason",
+		"post_actions_reason",
+		"processing_reason",
+		"release_reason",
+		"release_strategy",
+		"target",
+		"validation_reason",
+	}
+	releaseDurationSecondsOpts = prometheus.HistogramOpts{
+		Name:    "release_duration_seconds",
+		Help:    "How long in seconds a Release takes to complete",
+		Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
+	}
 
-	ReleaseAttemptTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "release_attempt_total",
-			Help: "Total number of releases processed by the operator",
-		},
-		[]string{"reason", "strategy", "succeeded", "target"},
+	ReleasePostActionsExecutionDurationSeconds = prometheus.NewHistogramVec(
+		releasePostActionsExecutionDurationSecondsOpts,
+		releasePostActionsExecutionDurationSecondsLabels,
 	)
+	releasePostActionsExecutionDurationSecondsLabels = []string{
+		"reason",
+	}
+	releasePostActionsExecutionDurationSecondsOpts = prometheus.HistogramOpts{
+		Name:    "release_post_actions_execution_duration_seconds",
+		Help:    "How long in seconds Release post-actions take to complete",
+		Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
+	}
+
+	ReleaseProcessingDurationSeconds = prometheus.NewHistogramVec(
+		releaseProcessingDurationSecondsOpts,
+		releaseProcessingDurationSecondsLabels,
+	)
+	releaseProcessingDurationSecondsLabels = []string{
+		"reason",
+		"release_strategy",
+		"target",
+	}
+	releaseProcessingDurationSecondsOpts = prometheus.HistogramOpts{
+		Name:    "release_processing_duration_seconds",
+		Help:    "How long in seconds a Release processing takes to complete",
+		Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
+	}
+
+	ReleaseTotal = prometheus.NewCounterVec(
+		releaseTotalOpts,
+		releaseTotalLabels,
+	)
+	releaseTotalLabels = []string{
+		"deployment_reason",
+		"post_actions_reason",
+		"processing_reason",
+		"release_reason",
+		"release_strategy",
+		"target",
+		"validation_reason",
+	}
+	releaseTotalOpts = prometheus.CounterOpts{
+		Name: "release_total",
+		Help: "Total number of releases reconciled by the operator",
+	}
 )
 
-// RegisterCompletedRelease decrements the 'release_attempt_concurrent_total' metric, increments `release_attempt_total`
-// and registers a new observation for 'release_attempt_duration_seconds' with the elapsed time from the moment the
-// Release attempt started (Release marked as 'Running').
-func RegisterCompletedRelease(reason, strategy, target string, startTime, completionTime *metav1.Time, succeeded bool) {
-	labels := prometheus.Labels{
-		"reason":    reason,
-		"strategy":  strategy,
-		"succeeded": strconv.FormatBool(succeeded),
-		"target":    target,
+// RegisterCompletedRelease registers a Release as complete, decreasing the number of concurrent releases, adding a new
+// observation for the Release duration and increasing the total number of releases. If either the startTime or the
+// completionTime parameters are nil, no action will be taken.
+func RegisterCompletedRelease(startTime, completionTime *metav1.Time,
+	deploymentReason, postActionsReason, processingReason, releaseReason, releaseStrategy, target, validationReason string) {
+	if startTime == nil || completionTime == nil {
+		return
 	}
 
-	ReleaseAttemptConcurrentTotal.Dec()
-	ReleaseAttemptDurationSeconds.With(labels).Observe(completionTime.Sub(startTime.Time).Seconds())
-	ReleaseAttemptTotal.With(labels).Inc()
+	labels := prometheus.Labels{
+		"deployment_reason":   deploymentReason,
+		"post_actions_reason": postActionsReason,
+		"processing_reason":   processingReason,
+		"release_reason":      releaseReason,
+		"release_strategy":    releaseStrategy,
+		"target":              target,
+		"validation_reason":   validationReason,
+	}
+	ReleaseConcurrentTotal.WithLabelValues().Dec()
+	ReleaseDurationSeconds.
+		With(labels).
+		Observe(completionTime.Sub(startTime.Time).Seconds())
+	ReleaseTotal.With(labels).Inc()
 }
 
-// RegisterDeployedRelease increments the 'release_attempt_deployment_total' and registers a new observation for
-// 'release_attempt_deployment_seconds' with the elapsed time from the moment the SnapshotEnvironmentBinding was
-// created to when it was marked as deployed.
-func RegisterDeployedRelease(reason, target, succeeded string, startTime, completionTime *metav1.Time) {
-	labels := prometheus.Labels{
-		"reason":    reason,
-		"succeeded": succeeded,
-		"target":    target,
+// RegisterCompletedReleaseDeployment registers a Release deployment as complete, adding a new observation for the
+// Release deployment duration and decreasing the number of concurrent deployments. If either the startTime or the
+// completionTime parameters are nil, no action will be taken.
+func RegisterCompletedReleaseDeployment(startTime, completionTime *metav1.Time, environment, reason, target string) {
+	if startTime == nil || completionTime == nil {
+		return
 	}
 
-	ReleaseAttemptDeploymentSeconds.Observe(completionTime.Sub(startTime.Time).Seconds())
-	ReleaseAttemptDeploymentTotal.With(labels).Inc()
+	ReleaseDeploymentDurationSeconds.
+		With(prometheus.Labels{
+			"environment": environment,
+			"reason":      reason,
+			"target":      target,
+		}).
+		Observe(completionTime.Sub(startTime.Time).Seconds())
+	ReleaseConcurrentDeploymentsTotal.WithLabelValues().Dec()
 }
 
-// RegisterInvalidRelease increments the 'release_attempt_invalid_total' and `release_attempt_total` metrics.
-func RegisterInvalidRelease(reason string) {
-	ReleaseAttemptInvalidTotal.With(prometheus.Labels{"reason": reason}).Inc()
-	ReleaseAttemptTotal.With(prometheus.Labels{
-		"reason":    reason,
-		"strategy":  "",
-		"succeeded": "false",
-		"target":    "",
-	}).Inc()
+// RegisterCompletedReleasePostActionsExecuted registers a Release post-actions execution as complete, adding a new
+// observation for the Release post-actions execution duration and decreasing the number of concurrent executions.
+// If either the startTime or the completionTime parameters are nil, no action will be taken.
+func RegisterCompletedReleasePostActionsExecuted(startTime, completionTime *metav1.Time, reason string) {
+	if startTime == nil || completionTime == nil {
+		return
+	}
+
+	ReleasePostActionsExecutionDurationSeconds.
+		With(prometheus.Labels{
+			"reason": reason,
+		}).
+		Observe(completionTime.Sub(startTime.Time).Seconds())
+	ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues().Dec()
 }
 
-// RegisterNewRelease increments the 'release_attempt_concurrent_total' and registers a new observation for
-// 'release_attempt_duration_seconds' with the elapsed time from the moment the Release was created to when
-// it started (Release marked as 'Running').
-func RegisterNewRelease(creationTime metav1.Time, startTime *metav1.Time) {
-	ReleaseAttemptConcurrentTotal.Inc()
-	ReleaseAttemptRunningSeconds.Observe(startTime.Sub(creationTime.Time).Seconds())
+// RegisterCompletedReleaseProcessing registers a Release processing as complete, adding a new observation for the
+// Release processing duration and decreasing the number of concurrent processings. If either the startTime or the
+// completionTime parameters are nil, no action will be taken.
+func RegisterCompletedReleaseProcessing(startTime, completionTime *metav1.Time, reason, releaseStrategy, target string) {
+	if startTime == nil || completionTime == nil {
+		return
+	}
+
+	ReleaseProcessingDurationSeconds.
+		With(prometheus.Labels{
+			"reason":           reason,
+			"release_strategy": releaseStrategy,
+			"target":           target,
+		}).
+		Observe(completionTime.Sub(startTime.Time).Seconds())
+	ReleaseConcurrentProcessingsTotal.WithLabelValues().Dec()
+}
+
+// RegisterNewRelease register a new Release, increasing the number of concurrent releases.
+func RegisterNewRelease() {
+	ReleaseConcurrentTotal.WithLabelValues().Inc()
+}
+
+// RegisterNewReleaseDeployment register a new Release deployment, increasing the number of concurrent deployments.
+func RegisterNewReleaseDeployment() {
+	ReleaseConcurrentDeploymentsTotal.WithLabelValues().Inc()
+}
+
+// RegisterNewReleaseProcessing register a new Release processing, increasing the number of concurrent processings.
+func RegisterNewReleaseProcessing() {
+	ReleaseConcurrentProcessingsTotal.WithLabelValues().Inc()
+}
+
+// RegisterNewReleasePostActionsExecution register a new Release post-actions execution, increasing the number of
+// concurrent executions.
+func RegisterNewReleasePostActionsExecution() {
+	ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues().Inc()
 }
 
 func init() {
 	metrics.Registry.MustRegister(
-		ReleaseAttemptConcurrentTotal,
-		ReleaseAttemptDeploymentSeconds,
-		ReleaseAttemptDeploymentTotal,
-		ReleaseAttemptDurationSeconds,
-		ReleaseAttemptInvalidTotal,
-		ReleaseAttemptRunningSeconds,
-		ReleaseAttemptTotal,
+		ReleaseConcurrentTotal,
+		ReleaseConcurrentDeploymentsTotal,
+		ReleaseConcurrentProcessingsTotal,
+		ReleaseConcurrentPostActionsExecutionsTotal,
+		ReleaseDeploymentDurationSeconds,
+		ReleaseDurationSeconds,
+		ReleasePostActionsExecutionDurationSeconds,
+		ReleaseProcessingDurationSeconds,
+		ReleaseTotal,
 	)
 }

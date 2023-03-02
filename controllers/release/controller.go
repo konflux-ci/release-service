@@ -80,15 +80,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	adapter := NewAdapter(ctx, r.Client, release, loader.NewLoader(), logger)
 
 	return reconciler.ReconcileHandler([]reconciler.ReconcileOperation{
-		adapter.EnsureReleasePlanAdmissionEnabled,
 		adapter.EnsureFinalizersAreCalled,
+		adapter.EnsureReleaseIsRunning,
+		adapter.EnsureReleaseIsValid,
 		adapter.EnsureFinalizerIsAdded,
-		adapter.EnsureReleasePipelineRunExists,
-		adapter.EnsureReleasePipelineStatusIsTracked,
-		adapter.EnsureSnapshotEnvironmentBindingExists,
-		adapter.EnsureSnapshotEnvironmentBindingIsTracked,
+		adapter.EnsureReleaseIsProcessed,
+		adapter.EnsureReleaseProcessingIsTracked,
+		adapter.EnsureReleaseIsDeployed,
+		adapter.EnsureReleaseDeploymentIsTracked,
+		adapter.EnsureReleaseIsCompleted,
 	})
-
 }
 
 // SetupController creates a new Release reconciler and adds it to the Manager.

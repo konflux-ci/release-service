@@ -12,6 +12,7 @@ RUN go mod download
 COPY main.go main.go
 COPY api/ api/
 COPY cache/ cache/
+COPY conditions/ conditions/
 COPY controllers/ controllers/
 COPY gitops/ gitops/
 COPY loader/ loader/

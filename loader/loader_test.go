@@ -247,7 +247,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		It("fails to return a snapshot environment binding if the environment field value doesn't match the release plan admission one", func() {
 			modifiedRelease := release.DeepCopy()
-			modifiedRelease.Status.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", snapshotEnvironmentBinding.Namespace,
+			modifiedRelease.Status.Deployment.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", snapshotEnvironmentBinding.Namespace,
 				types.Separator, snapshotEnvironmentBinding.Name)
 
 			returnedObject, err := loader.GetSnapshotEnvironmentBindingFromReleaseStatus(ctx, k8sClient, modifiedRelease)
@@ -257,9 +257,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetSnapshotEnvironmentBindingResources", func() {
+	// Composite functions
+
+	Context("When calling GetDeploymentResources", func() {
 		It("returns all the relevant resources", func() {
-			resources, err := loader.GetSnapshotEnvironmentBindingResources(ctx, k8sClient, release, releasePlanAdmission)
+			resources, err := loader.GetDeploymentResources(ctx, k8sClient, release, releasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*resources).To(MatchFields(IgnoreExtras, Fields{
 				"Application":           Not(BeNil()),
@@ -272,7 +274,28 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedReleasePlanAdmission := releasePlanAdmission.DeepCopy()
 			modifiedReleasePlanAdmission.Spec.Application = "non-existent-application"
 
-			_, err := loader.GetSnapshotEnvironmentBindingResources(ctx, k8sClient, release, modifiedReleasePlanAdmission)
+			_, err := loader.GetDeploymentResources(ctx, k8sClient, release, modifiedReleasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("When calling GetProcessingResources", func() {
+		It("returns all the relevant resources", func() {
+			resources, err := loader.GetProcessingResources(ctx, k8sClient, release)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*resources).To(MatchFields(IgnoreExtras, Fields{
+				"EnterpriseContractPolicy": Not(BeNil()),
+				"ReleasePlanAdmission":     Not(BeNil()),
+				"ReleaseStrategy":          Not(BeNil()),
+				"Snapshot":                 Not(BeNil()),
+			}))
+		})
+
+		It("fails if any resource fails to be fetched", func() {
+			modifiedRelease := release.DeepCopy()
+			modifiedRelease.Spec.Snapshot = "non-existent-snapshot"
+
+			_, err := loader.GetProcessingResources(ctx, k8sClient, modifiedRelease)
 			Expect(err).To(HaveOccurred())
 		})
 	})

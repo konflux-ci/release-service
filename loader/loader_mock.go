@@ -23,18 +23,19 @@ type (
 )
 
 const (
-	ApplicationContextKey                         contextKey = iota
-	ApplicationComponentsContextKey               contextKey = iota
-	EnterpriseContractPolicyContextKey            contextKey = iota
-	EnvironmentContextKey                         contextKey = iota
-	ReleaseContextKey                             contextKey = iota
-	ReleasePipelineRunContextKey                  contextKey = iota
-	ReleasePlanContextKey                         contextKey = iota
-	ReleasePlanAdmissionContextKey                contextKey = iota
-	ReleaseStrategyContextKey                     contextKey = iota
-	SnapshotContextKey                            contextKey = iota
-	SnapshotEnvironmentBindingContextKey          contextKey = iota
-	SnapshotEnvironmentBindingResourcesContextKey contextKey = iota
+	ApplicationComponentsContextKey      contextKey = iota
+	ApplicationContextKey                contextKey = iota
+	DeploymentResourcesContextKey        contextKey = iota
+	EnterpriseContractPolicyContextKey   contextKey = iota
+	EnvironmentContextKey                contextKey = iota
+	ProcessingResourcesContextKey        contextKey = iota
+	ReleaseContextKey                    contextKey = iota
+	ReleasePipelineRunContextKey         contextKey = iota
+	ReleasePlanAdmissionContextKey       contextKey = iota
+	ReleasePlanContextKey                contextKey = iota
+	ReleaseStrategyContextKey            contextKey = iota
+	SnapshotContextKey                   contextKey = iota
+	SnapshotEnvironmentBindingContextKey contextKey = iota
 )
 
 func GetMockedContext(ctx context.Context, data []MockData) context.Context {
@@ -179,10 +180,20 @@ func (l *mockLoader) GetSnapshotEnvironmentBindingFromReleaseStatus(ctx context.
 	return getMockedResourceAndErrorFromContext(ctx, SnapshotEnvironmentBindingContextKey, &applicationapiv1alpha1.SnapshotEnvironmentBinding{})
 }
 
-// GetSnapshotEnvironmentBindingResources returns the resource and error passed as values of the context.
-func (l *mockLoader) GetSnapshotEnvironmentBindingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*SnapshotEnvironmentBindingResources, error) {
-	if ctx.Value(SnapshotEnvironmentBindingResourcesContextKey) == nil {
-		return l.loader.GetSnapshotEnvironmentBindingResources(ctx, cli, release, releasePlanAdmission)
+// Composite functions
+
+// GetDeploymentResources returns the resource and error passed as values of the context.
+func (l *mockLoader) GetDeploymentResources(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*DeploymentResources, error) {
+	if ctx.Value(DeploymentResourcesContextKey) == nil {
+		return l.loader.GetDeploymentResources(ctx, cli, release, releasePlanAdmission)
 	}
-	return getMockedResourceAndErrorFromContext(ctx, SnapshotEnvironmentBindingResourcesContextKey, &SnapshotEnvironmentBindingResources{})
+	return getMockedResourceAndErrorFromContext(ctx, DeploymentResourcesContextKey, &DeploymentResources{})
+}
+
+// GetProcessingResources returns the resource and error passed as values of the context.
+func (l *mockLoader) GetProcessingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*ProcessingResources, error) {
+	if ctx.Value(ProcessingResourcesContextKey) == nil {
+		return l.loader.GetProcessingResources(ctx, cli, release)
+	}
+	return getMockedResourceAndErrorFromContext(ctx, ProcessingResourcesContextKey, &ProcessingResources{})
 }

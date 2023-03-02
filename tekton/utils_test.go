@@ -91,7 +91,7 @@ var _ = Describe("Utils", func() {
 				AsPipelineRun())).To(Equal(true))
 		})
 
-		It("returns true when ReleasePipelineRun.Status is `Succeeded` or false otherwise", func() {
+		It("returns true when PipelineRun.Status is `Succeeded` or false otherwise", func() {
 			releasePipelineRun.AsPipelineRun().Status.InitializeConditions(clock.RealClock{})
 			// MarkRunning sets Status to Unknown
 			releasePipelineRun.Status.MarkRunning("PipelineRun Tests", "sets it to Unknown")

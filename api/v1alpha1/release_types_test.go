@@ -17,437 +17,1075 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"github.com/redhat-appstudio/release-service/conditions"
 
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type conditionValues struct {
-	status  metav1.ConditionStatus
-	reason  ReleaseReason
-	message string
-}
-
 var _ = Describe("Release type", func() {
 
-	var r *Release
+	Context("When HasDeploymentFinished method is called", func() {
+		var release *Release
 
-	BeforeEach(func() {
-		r = &Release{}
-		r.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Hour * 1)}
-		r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
-		r.Status.Conditions = []metav1.Condition{{}}
-	})
-
-	Context("When ReleaseReason.String method is called", func() {
-		It("should return the string representation", func() {
-			var ReleaseReasonFake ReleaseReason = "Fake"
-			Expect(ReleaseReasonFake.String()).To(Equal("Fake"))
+		BeforeEach(func() {
+			release = &Release{}
 		})
 
-		It("should return an empty string when the ReleaseReason is empty", func() {
-			var ReleaseEmptyReason ReleaseReason = ""
-			Expect(ReleaseEmptyReason.String()).To(Equal(""))
-		})
-	})
-
-	Context("When HasStarted method is called", func() {
-		It("should return false when Status.startTime is nil", func() {
-			r.Status.StartTime = nil
-			Expect(r.HasStarted()).To(BeFalse())
+		It("should return false when the deployed condition is missing", func() {
+			Expect(release.HasDeploymentFinished()).To(BeFalse())
 		})
 
-		It("should return false when Status.startTime is zero", func() {
-			r.Status.StartTime = &metav1.Time{}
-			Expect(r.HasStarted()).To(BeFalse())
+		It("should return true when the deployed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.HasDeploymentFinished()).To(BeTrue())
 		})
 
-		It("should return true when Status.startTime is not nil or zero", func() {
-			Expect(r.HasStarted()).To(BeTrue())
+		It("should return false when the deployed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.HasDeploymentFinished()).To(BeFalse())
+		})
+
+		It("should return true when the deployed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.HasDeploymentFinished()).To(BeTrue())
+		})
+
+		It("should return false when the deployed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.HasDeploymentFinished()).To(BeFalse())
 		})
 	})
 
-	Context("When HasSucceeded method is called", func() {
-		It("should return false when condition.Status is ConditionUnknown", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:   releaseConditionType,
-				Status: metav1.ConditionUnknown,
-			}
-			Expect(r.HasSucceeded()).To(BeFalse())
+	Context("When HasEveryPostActionExecutionFinished method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
 		})
 
-		It("should return true when condition.Status is ConditionTrue", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:   releaseConditionType,
-				Status: metav1.ConditionTrue,
-			}
-			Expect(r.HasSucceeded()).To(BeTrue())
+		It("should return false when the post-actions executed condition is missing", func() {
+			Expect(release.HasEveryPostActionExecutionFinished()).To(BeFalse())
+		})
+
+		It("should return true when the post-actions executed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.HasEveryPostActionExecutionFinished()).To(BeTrue())
+		})
+
+		It("should return false when the post-actions executed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.HasEveryPostActionExecutionFinished()).To(BeFalse())
+		})
+
+		It("should return true when the post-actions executed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.HasEveryPostActionExecutionFinished()).To(BeTrue())
+		})
+
+		It("should return false when the post-actions executed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.HasEveryPostActionExecutionFinished()).To(BeFalse())
+		})
+	})
+
+	Context("When HasProcessingFinished method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the deployed condition is missing", func() {
+			Expect(release.HasProcessingFinished()).To(BeFalse())
+		})
+
+		It("should return true when the processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.HasProcessingFinished()).To(BeTrue())
+		})
+
+		It("should return false when the processed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.HasProcessingFinished()).To(BeFalse())
+		})
+
+		It("should return true when the processed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.HasProcessingFinished()).To(BeTrue())
+		})
+
+		It("should return false when the processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.HasProcessingFinished()).To(BeFalse())
+		})
+	})
+
+	Context("When HasReleaseFinished method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the released condition is missing", func() {
+			Expect(release.HasReleaseFinished()).To(BeFalse())
+		})
+
+		It("should return true when the released condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.HasReleaseFinished()).To(BeTrue())
+		})
+
+		It("should return false when the released condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.HasReleaseFinished()).To(BeFalse())
+		})
+
+		It("should return true when the released condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.HasReleaseFinished()).To(BeTrue())
+		})
+
+		It("should return false when the released condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.HasReleaseFinished()).To(BeFalse())
 		})
 	})
 
 	Context("When IsDeployed method is called", func() {
-		It("should return true when AllComponentsDeployed condition status is True", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-				Status: metav1.ConditionTrue,
-			}
-			Expect(r.IsDeployed()).To(BeTrue())
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
 		})
 
-		It("should return false when AllComponentsDeployed condition status is False", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-				Status: metav1.ConditionFalse,
-			}
-			Expect(r.IsDeployed()).To(BeFalse())
+		It("should return true when the deployed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsDeployed()).To(BeTrue())
 		})
 
-		It("should return false when AllComponentsDeployed condition status is Unknown", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:   applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-				Status: metav1.ConditionUnknown,
-			}
-			Expect(r.IsDeployed()).To(BeFalse())
+		It("should return false when the deployed condition status is False", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, SucceededReason)
+			Expect(release.IsDeployed()).To(BeFalse())
+		})
+
+		It("should return false when the deployed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionUnknown, SucceededReason)
+			Expect(release.IsDeployed()).To(BeFalse())
+		})
+
+		It("should return false when the deployed condition is missing", func() {
+			Expect(release.IsDeployed()).To(BeFalse())
 		})
 	})
 
 	Context("When IsDeploying method is called", func() {
-		It("should return false when Status.deploymentStartTime is nil", func() {
-			r.Status.DeploymentStartTime = nil
-			Expect(r.IsDeploying()).To(BeFalse())
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
 		})
 
-		It("should return false when Status.deploymentStartTime is zero", func() {
-			r.Status.DeploymentStartTime = &metav1.Time{}
-			Expect(r.IsDeploying()).To(BeFalse())
+		It("should return false when the deployed condition is missing", func() {
+			Expect(release.IsDeploying()).To(BeFalse())
 		})
 
-		It("should return true when Status.deploymentStartTime is not nil or zero", func() {
-			r.Status.DeploymentStartTime = &metav1.Time{Time: time.Now().Add(-time.Hour * 1)}
-			Expect(r.IsDeploying()).To(BeTrue())
+		It("should return false when the deployed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsDeploying()).To(BeFalse())
+		})
+
+		It("should return true when the deployed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.IsDeploying()).To(BeTrue())
+		})
+
+		It("should return false when the deployed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.IsDeploying()).To(BeFalse())
+		})
+
+		It("should return false when the deployed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.IsDeploying()).To(BeFalse())
 		})
 	})
 
-	Context("When IsDone method is called", func() {
-		It("should return false when condition struct is nil", func() {
-			Expect(r.IsDone()).To(BeFalse())
+	Context("When IsEveryPostActionExecuted method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
 		})
 
-		It("should return true when Release status is finished", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:   releaseConditionType,
-				Status: metav1.ConditionTrue,
-			}
-			Expect(r.IsDone()).To(BeTrue())
+		It("should return true when the post-actions executed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsEveryPostActionExecuted()).To(BeTrue())
 		})
 
-		It("should return false when condition.Status is ConditionUnknown", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:   releaseConditionType,
-				Status: metav1.ConditionUnknown,
-			}
-			Expect(r.IsDone()).To(BeFalse())
+		It("should return false when the post-actions executed condition status is False", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, SucceededReason)
+			Expect(release.IsEveryPostActionExecuted()).To(BeFalse())
+		})
+
+		It("should return false when the post-actions executed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionUnknown, SucceededReason)
+			Expect(release.IsEveryPostActionExecuted()).To(BeFalse())
+		})
+
+		It("should return false when the post-actions executed condition is missing", func() {
+			Expect(release.IsEveryPostActionExecuted()).To(BeFalse())
+		})
+	})
+
+	Context("When IsEachPostActionExecuting method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the post-actions executed condition is missing", func() {
+			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
+		})
+
+		It("should return false when the post-actions executed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
+		})
+
+		It("should return true when the post-actions executed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.IsEachPostActionExecuting()).To(BeTrue())
+		})
+
+		It("should return false when the post-actions executed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
+		})
+
+		It("should return false when the post-actions executed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
+		})
+	})
+
+	Context("When IsProcessed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsProcessed()).To(BeTrue())
+		})
+
+		It("should return false when the processed condition status is False", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionFalse, SucceededReason)
+			Expect(release.IsProcessed()).To(BeFalse())
+		})
+
+		It("should return false when the processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionUnknown, SucceededReason)
+			Expect(release.IsProcessed()).To(BeFalse())
+		})
+
+		It("should return false when the processed condition is missing", func() {
+			Expect(release.IsProcessed()).To(BeFalse())
+		})
+	})
+
+	Context("When IsProcessing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the processed condition is missing", func() {
+			Expect(release.IsProcessing()).To(BeFalse())
+		})
+
+		It("should return false when the processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsProcessing()).To(BeFalse())
+		})
+
+		It("should return true when the processed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.IsProcessing()).To(BeTrue())
+		})
+
+		It("should return false when the processed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.IsProcessing()).To(BeFalse())
+		})
+
+		It("should return false when the processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.IsProcessing()).To(BeFalse())
+		})
+	})
+
+	Context("When IsReleased method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the released condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsReleased()).To(BeTrue())
+		})
+
+		It("should return false when the released condition status is False", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionFalse, SucceededReason)
+			Expect(release.IsReleased()).To(BeFalse())
+		})
+
+		It("should return false when the released condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionUnknown, SucceededReason)
+			Expect(release.IsReleased()).To(BeFalse())
+		})
+
+		It("should return false when the released condition is missing", func() {
+			Expect(release.IsReleased()).To(BeFalse())
+		})
+	})
+
+	Context("When IsReleasing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the released condition is missing", func() {
+			Expect(release.IsReleasing()).To(BeFalse())
+		})
+
+		It("should return false when the released condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsReleasing()).To(BeFalse())
+		})
+
+		It("should return true when the released condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.IsReleasing()).To(BeTrue())
+		})
+
+		It("should return false when the released condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.IsReleasing()).To(BeFalse())
+		})
+
+		It("should return false when the released condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.IsReleasing()).To(BeFalse())
+		})
+	})
+
+	Context("When IsValid method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the validated condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsValid()).To(BeTrue())
+		})
+
+		It("should return false when the validated condition status is False", func() {
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionFalse, SucceededReason)
+			Expect(release.IsValid()).To(BeFalse())
+		})
+
+		It("should return false when the validated condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionUnknown, SucceededReason)
+			Expect(release.IsValid()).To(BeFalse())
+		})
+
+		It("should return false when the validated condition is missing", func() {
+			Expect(release.IsValid()).To(BeFalse())
 		})
 	})
 
 	Context("When MarkDeployed method is called", func() {
-		It("should do nothing if the Release is already deployed", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:    applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-				Status:  metav1.ConditionTrue,
-				Reason:  "test",
-				Message: "abc",
-			}
-			r.MarkDeployed("foo", "bar")
-			Expect(len(r.Status.Conditions)).To(Equal(1))
-			Expect(r.Status.Conditions[0]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
-				"Status":  Equal(metav1.ConditionTrue),
-				"Type":    Equal(applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed),
-				"Reason":  Equal("test"),
-				"Message": Equal("abc"),
-			}))
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
 		})
 
-		It("should properly register the status if passed status is true", func() {
-			r.MarkDeploying(metav1.ConditionFalse, "CommitsUnsynced", "1 of 3 components deployed")
-			r.MarkDeployed("CommitsSynced", "3 of 3 components deployed")
-			statusCondition := meta.FindStatusCondition(r.Status.Conditions,
-				applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-			Expect(*statusCondition).To(MatchFields(IgnoreExtras, Fields{
-				"Status":  Equal(metav1.ConditionTrue),
-				"Reason":  Equal("CommitsSynced"),
-				"Message": Equal("3 of 3 components deployed"),
+		It("should do nothing if the Release deployment has not started", func() {
+			release.MarkDeployed()
+			Expect(release.Status.Deployment.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release deployment finished", func() {
+			release.MarkDeploying("")
+			release.MarkDeployed()
+			Expect(release.Status.Deployment.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.Deployment.CompletionTime = &metav1.Time{}
+			release.MarkDeployed()
+			Expect(release.Status.Deployment.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkDeploying("")
+			Expect(release.Status.Deployment.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkDeployed()
+			Expect(release.Status.Deployment.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkDeploying("")
+			release.MarkDeployed()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, deployedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SucceededReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
 			}))
 		})
 	})
 
 	Context("When MarkDeploying method is called", func() {
-		It("should properly register the status to the release if passed status is false", func() {
-			r.MarkDeploying(metav1.ConditionFalse, "CommitsUnsynced", "1 of 3 components deployed")
-			statusCondition := meta.FindStatusCondition(r.Status.Conditions,
-				applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-			Expect(*statusCondition).To(MatchFields(IgnoreExtras, Fields{
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release deployment finished", func() {
+			release.MarkDeploying("")
+			release.MarkDeployed()
+			Expect(release.IsDeploying()).To(BeFalse())
+			release.MarkDeploying("")
+			Expect(release.IsDeploying()).To(BeFalse())
+		})
+
+		It("should register the start time if it's not deploying", func() {
+			Expect(release.Status.Deployment.StartTime).To(BeNil())
+			release.MarkDeploying("")
+			Expect(release.Status.Deployment.StartTime).NotTo(BeNil())
+		})
+
+		It("should not register the start time if it's deploying already", func() {
+			Expect(release.Status.Deployment.StartTime).To(BeNil())
+			release.MarkDeploying("")
+			release.Status.Deployment.StartTime = &metav1.Time{}
+			Expect(release.Status.Deployment.StartTime.IsZero()).To(BeTrue())
+			release.MarkDeploying("")
+			Expect(release.Status.Deployment.StartTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkDeploying("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, deployedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(ProgressingReason.String()),
 				"Status":  Equal(metav1.ConditionFalse),
-				"Reason":  Equal("CommitsUnsynced"),
-				"Message": Equal("1 of 3 components deployed"),
 			}))
-		})
-
-		It("should properly register the status to the release if passed status is unknown", func() {
-			r.MarkDeploying(metav1.ConditionUnknown, "CommitsUnsynced", "0 of 3 components deployed")
-			statusCondition := meta.FindStatusCondition(r.Status.Conditions,
-				applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-			Expect(*statusCondition).To(MatchFields(IgnoreExtras, Fields{
-				"Status":  Equal(metav1.ConditionUnknown),
-				"Reason":  Equal("CommitsUnsynced"),
-				"Message": Equal("0 of 3 components deployed"),
-			}))
-		})
-
-		It("should not change the release status if passed status that is true", func() {
-			r.MarkDeploying(metav1.ConditionTrue, "CommitsSynced", "3 of 3 components deployed")
-			statusCondition := meta.FindStatusCondition(r.Status.Conditions,
-				applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-			Expect(statusCondition).To(BeNil())
 		})
 	})
 
-	Context("When MarkFailed method is called", func() {
-		It("should do nothing if the Release is finished", func() {
-			args := conditionValues{
-				reason:  ReleaseReasonValidationError,
-				message: "cow say m00",
-			}
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:    releaseConditionType,
-				Status:  metav1.ConditionTrue,
-				Reason:  ReleaseReasonTargetDisabledError.String(),
-				Message: "Testcase one message string",
-			}
-			r.MarkFailed(args.reason, args.message)
-			Expect(len(r.Status.Conditions)).To(Equal(1))
-			Expect(r.Status.Conditions[0]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
-				"Status":  Equal(metav1.ConditionTrue),
-				"Type":    Equal(releaseConditionType),
-				"Reason":  Equal(ReleaseReasonTargetDisabledError.String()),
-				"Message": Equal("Testcase one message string"),
-			}))
+	Context("When MarkDeploymentFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
 		})
 
-		It("should register the Failed condition when the Release is not complete", func() {
-			args := conditionValues{
-				reason:  ReleaseReasonValidationError,
-				message: "what does the fox say",
-			}
-			r.Status.CompletionTime = nil
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:    releaseConditionType,
-				Status:  metav1.ConditionUnknown,
-				Reason:  ReleaseReasonTargetDisabledError.String(),
-				Message: "Testcase two message string",
-			}
-			r.MarkFailed(args.reason, args.message)
-			Expect(len(r.Status.Conditions)).To(Equal(1))
-			Expect(r.Status.Conditions[0]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
+		It("should do nothing if the Release deployment has not started", func() {
+			release.MarkDeploymentFailed("")
+			Expect(release.Status.Deployment.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release deployment finished", func() {
+			release.MarkDeploying("")
+			release.MarkDeployed()
+			Expect(release.Status.Deployment.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.Deployment.CompletionTime = &metav1.Time{}
+			release.MarkDeploymentFailed("")
+			Expect(release.Status.Deployment.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkDeploying("")
+			Expect(release.Status.Deployment.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkDeploymentFailed("")
+			Expect(release.Status.Deployment.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkDeploying("")
+			release.MarkDeploymentFailed("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, deployedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(FailedReason.String()),
 				"Status":  Equal(metav1.ConditionFalse),
-				"Type":    Equal(releaseConditionType),
-				"Reason":  Equal(ReleaseReasonValidationError.String()),
-				"Message": Equal("what does the fox say"),
 			}))
 		})
 	})
 
-	Context("When MarkInvalid method is called", func() {
-		It("should register the Invalid status when the Release is not finished", func() {
-			args := conditionValues{
-				reason:  ReleaseReasonPipelineFailed,
-				message: "what does the fox say",
-			}
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:    "Fail",
-				Status:  metav1.ConditionUnknown,
-				Reason:  ReleaseReasonReleasePlanValidationError.String(),
-				Message: "message string",
-			}
-			r.MarkInvalid(args.reason, args.message)
-			Expect(len(r.Status.Conditions)).To(Equal(2))
-			Expect(r.Status.Conditions[1]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
+	Context("When MarkProcessed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release processing has not started", func() {
+			release.MarkProcessed()
+			Expect(release.Status.Processing.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release processing finished", func() {
+			release.MarkProcessing("")
+			release.MarkProcessed()
+			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.Processing.CompletionTime = &metav1.Time{}
+			release.MarkProcessed()
+			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkProcessing("")
+			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkProcessed()
+			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkProcessing("")
+			release.MarkProcessed()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, processedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SucceededReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
+			}))
+		})
+	})
+
+	Context("When MarkProcessing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release processing finished", func() {
+			release.MarkProcessing("")
+			release.MarkProcessed()
+			Expect(release.IsProcessing()).To(BeFalse())
+			release.MarkProcessing("")
+			Expect(release.IsProcessing()).To(BeFalse())
+		})
+
+		It("should register the start time if it's not processing", func() {
+			Expect(release.Status.Processing.StartTime).To(BeNil())
+			release.MarkProcessing("")
+			Expect(release.Status.Processing.StartTime).NotTo(BeNil())
+		})
+
+		It("should not register the start time if it's processing already", func() {
+			Expect(release.Status.Processing.StartTime).To(BeNil())
+			release.MarkProcessing("")
+			release.Status.Processing.StartTime = &metav1.Time{}
+			Expect(release.Status.Processing.StartTime.IsZero()).To(BeTrue())
+			release.MarkProcessing("")
+			Expect(release.Status.Processing.StartTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkProcessing("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, processedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(ProgressingReason.String()),
 				"Status":  Equal(metav1.ConditionFalse),
-				"Type":    Equal(releaseConditionType),
-				"Reason":  Equal(ReleaseReasonPipelineFailed.String()),
-				"Message": Equal("what does the fox say"),
-			}))
-			Expect(r.Status.Conditions[0].Message).To(Equal("message string"))
-		})
-
-		It("should not register the Invalid status when the Release status is already finished", func() {
-			args := conditionValues{
-				reason:  ReleaseReasonTargetDisabledError,
-				message: "how now brown cow",
-			}
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:    releaseConditionType,
-				Status:  metav1.ConditionTrue,
-				Reason:  ReleaseReasonValidationError.String(),
-				Message: "message string",
-			}
-			r.MarkInvalid(args.reason, args.message)
-			Expect(len(r.Status.Conditions)).To(Equal(1))
-			Expect(r.Status.Conditions[0]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
-				"Status":  Equal(metav1.ConditionTrue),
-				"Type":    Equal(releaseConditionType),
-				"Reason":  Equal(ReleaseReasonValidationError.String()),
-				"Message": Equal("message string"),
 			}))
 		})
 	})
 
-	Context("When MarkRunning method is called", func() {
-		It("should do nothing when the Release is already running", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:    "fake type",
-				Status:  metav1.ConditionFalse,
-				Reason:  ReleaseReasonPipelineFailed.String(),
-				Message: "fake message",
-			}
-			r.MarkRunning()
-			Expect(r.Status.StartTime).ToNot(Equal(time.Time{}))
-			Expect(r.Status.StartTime).ToNot(BeNil())
-			Expect(len(r.Status.Conditions)).To(Equal(1))
-			Expect(r.Status.Conditions[0]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
+	Context("When MarkProcessingFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release processing has not started", func() {
+			release.MarkProcessingFailed("")
+			Expect(release.Status.Processing.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release processing finished", func() {
+			release.MarkProcessing("")
+			release.MarkProcessed()
+			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.Processing.CompletionTime = &metav1.Time{}
+			release.MarkProcessingFailed("")
+			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkProcessing("")
+			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkProcessingFailed("")
+			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkProcessing("")
+			release.MarkProcessingFailed("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, processedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(FailedReason.String()),
 				"Status":  Equal(metav1.ConditionFalse),
-				"Type":    Equal("fake type"),
-				"Reason":  Equal(ReleaseReasonPipelineFailed.String()),
-				"Message": Equal("fake message"),
-			}))
-		})
-
-		It("should register the Running status when the Release is not running", func() {
-			r.Status.StartTime = nil
-			r.Status.StartTime = &metav1.Time{
-				Time: time.Time{},
-			}
-			r.MarkRunning()
-			Expect(r.Status.StartTime.Time).ToNot(Equal(time.Time{}))
-			Expect(r.Status.StartTime).ToNot(BeNil())
-			Expect(len(r.Status.Conditions)).To(Equal(2))
-			Expect(r.Status.Conditions[1]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
-				"Status":  Equal(metav1.ConditionUnknown),
-				"Reason":  Equal(ReleaseReasonRunning.String()),
-				"Message": Equal(""),
-			}))
-		})
-
-		It("should register the Running status when the Release is not running", func() {
-			r.Status.StartTime = nil
-			r.MarkRunning()
-			Expect(r.Status.StartTime.Time).ToNot(Equal(time.Time{}))
-			Expect(r.Status.StartTime).ToNot(BeNil())
-			Expect(len(r.Status.Conditions)).To(Equal(2))
-			Expect(r.Status.Conditions[1]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
-				"Status":  Equal(metav1.ConditionUnknown),
-				"Reason":  Equal(ReleaseReasonRunning.String()),
-				"Message": Equal(""),
 			}))
 		})
 	})
 
-	Context("When MarkSucceeded method is called", func() {
-		It("should do nothing when when the Release is already successful", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:    releaseConditionType,
-				Status:  metav1.ConditionFalse,
-				Reason:  ReleaseReasonTargetDisabledError.String(),
-				Message: "lucy in the sky with diamonds",
-			}
-			rr := r.DeepCopy()
-			r.MarkSucceeded()
-			Expect(r.Status.StartTime).ToNot(BeNil())
-			Expect(r.Status.CompletionTime).ToNot(BeNil())
-			Expect(r.Status.CompletionTime.Time).To(BeTemporally(">=", rr.Status.CompletionTime.Time))
-			Expect(r.Status.CompletionTime.Time).To(BeTemporally(">", r.Status.StartTime.Time))
-			Expect(len(r.Status.Conditions)).To(Equal(1))
-			Expect(r.Status.Conditions[0]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
+	Context("When MarkPostActionsExecuted method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release post-actions execution has not started", func() {
+			release.MarkPostActionsExecuted()
+			Expect(release.Status.PostActionsExecution.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release post-actions execution finished", func() {
+			release.MarkPostActionsExecuting("")
+			release.MarkPostActionsExecuted()
+			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.PostActionsExecution.CompletionTime = &metav1.Time{}
+			release.MarkPostActionsExecuted()
+			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkPostActionsExecuting("")
+			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkPostActionsExecuted()
+			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkPostActionsExecuting("")
+			release.MarkPostActionsExecuted()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, postActionsExecutedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SucceededReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
+			}))
+		})
+	})
+
+	Context("When MarkPostActionsExecuting method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release post-actions execution finished", func() {
+			release.MarkPostActionsExecuting("")
+			release.MarkPostActionsExecuted()
+			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
+			release.MarkPostActionsExecuting("")
+			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
+		})
+
+		It("should register the start time if it's not executing post-actions", func() {
+			Expect(release.Status.PostActionsExecution.StartTime).To(BeNil())
+			release.MarkPostActionsExecuting("")
+			Expect(release.Status.PostActionsExecution.StartTime).NotTo(BeNil())
+		})
+
+		It("should not register the start time if it's executing post-actions already", func() {
+			Expect(release.Status.PostActionsExecution.StartTime).To(BeNil())
+			release.MarkPostActionsExecuting("")
+			release.Status.PostActionsExecution.StartTime = &metav1.Time{}
+			Expect(release.Status.PostActionsExecution.StartTime.IsZero()).To(BeTrue())
+			release.MarkPostActionsExecuting("")
+			Expect(release.Status.PostActionsExecution.StartTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkPostActionsExecuting("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, postActionsExecutedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(ProgressingReason.String()),
 				"Status":  Equal(metav1.ConditionFalse),
-				"Type":    Equal(releaseConditionType),
-				"Reason":  Equal(ReleaseReasonTargetDisabledError.String()),
-				"Message": Equal("lucy in the sky with diamonds"),
-			}))
-			rr = nil
-		})
-
-		It("register the Succeeded status when the Release is completed", func() {
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:    "Fail",
-				Status:  metav1.ConditionUnknown,
-				Reason:  ReleaseReasonValidationError.String(),
-				Message: "all your base belong to us",
-			}
-			rr := r.DeepCopy()
-			r.MarkSucceeded()
-			Expect(r.Status.CompletionTime).ToNot(BeNil())
-			Expect(r.Status.CompletionTime.Time).To(BeTemporally(">=", rr.Status.CompletionTime.Time))
-			Expect(r.Status.CompletionTime.Time).To(BeTemporally(">", r.Status.StartTime.Time))
-			Expect(len(r.Status.Conditions)).To(Equal(2))
-			Expect(r.Status.Conditions[1]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
-				"Status":  Equal(metav1.ConditionTrue),
-				"Type":    Equal(releaseConditionType),
-				"Reason":  Equal(ReleaseReasonSucceeded.String()),
-				"Message": Equal(""),
-			}))
-			Expect(r.Status.Conditions[0].Message).To(Equal("all your base belong to us"))
-			rr = nil
-		})
-	})
-
-	Context("When setStatusCondition method is called", func() {
-		It("should update condition with provided arguments, and empty message", func() {
-			args := conditionValues{
-				status: metav1.ConditionStatus("fake"),
-				reason: ReleaseReasonPipelineFailed,
-			}
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:    releaseConditionType,
-				Status:  metav1.ConditionFalse,
-				Reason:  ReleaseReasonTargetDisabledError.String(),
-				Message: "lucy in the sky with diamonds",
-			}
-			r.setStatusCondition(releaseConditionType, args.status, args.reason)
-			Expect(len(r.Status.Conditions)).To(Equal(1))
-			Expect(r.Status.Conditions[0]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
-				"Status":  Equal(args.status),
-				"Reason":  Equal(args.reason.String()),
-				"Message": Equal(""),
 			}))
 		})
 	})
 
-	Context("When setStatusConditionWithMessage method is called", func() {
-		It("should update condition with provided arguments", func() {
-			args := conditionValues{
-				status:  metav1.ConditionStatus("fake"),
-				reason:  ReleaseReasonValidationError,
-				message: "fake",
-			}
-			r.Status.Conditions[0] = metav1.Condition{
-				Type:    releaseConditionType,
-				Status:  metav1.ConditionFalse,
-				Reason:  ReleaseReasonPipelineFailed.String(),
-				Message: "lucy in the sky with diamonds",
-			}
-			r.setStatusConditionWithMessage(releaseConditionType, args.status, args.reason, args.message)
-			Expect(len(r.Status.Conditions)).To(Equal(1))
-			Expect(r.Status.Conditions[0]).To(MatchFields(IgnoreMissing|IgnoreExtras, Fields{
-				"Status":  Equal(args.status),
-				"Reason":  Equal(args.reason.String()),
-				"Message": Equal(args.message),
+	Context("When MarkPostActionsExecutionFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release post-actions execution has not started", func() {
+			release.MarkPostActionsExecutionFailed("")
+			Expect(release.Status.PostActionsExecution.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release post-actions execution finished", func() {
+			release.MarkPostActionsExecuting("")
+			release.MarkPostActionsExecuted()
+			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.PostActionsExecution.CompletionTime = &metav1.Time{}
+			release.MarkPostActionsExecutionFailed("")
+			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkPostActionsExecuting("")
+			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkPostActionsExecutionFailed("")
+			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkPostActionsExecuting("")
+			release.MarkPostActionsExecutionFailed("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, postActionsExecutedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(FailedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
 			}))
 		})
 	})
+
+	Context("When MarkReleased method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release has not started", func() {
+			release.MarkReleased()
+			Expect(release.Status.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release has finished", func() {
+			release.MarkReleasing("")
+			release.MarkReleased()
+			Expect(release.Status.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.CompletionTime = &metav1.Time{}
+			release.MarkReleased()
+			Expect(release.Status.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkReleasing("")
+			Expect(release.Status.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkReleased()
+			Expect(release.Status.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkReleasing("")
+			release.MarkReleased()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, releasedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SucceededReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
+			}))
+		})
+	})
+
+	Context("When MarkReleasing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release finished", func() {
+			release.MarkReleasing("")
+			release.MarkReleased()
+			Expect(release.IsReleasing()).To(BeFalse())
+			release.MarkReleasing("")
+			Expect(release.IsReleasing()).To(BeFalse())
+		})
+
+		It("should register the start time if it's not releasing", func() {
+			Expect(release.Status.StartTime).To(BeNil())
+			release.MarkReleasing("")
+			Expect(release.Status.StartTime).NotTo(BeNil())
+		})
+
+		It("should not register the start time if it's releasing already", func() {
+			Expect(release.Status.StartTime).To(BeNil())
+			release.MarkReleasing("")
+			release.Status.StartTime = &metav1.Time{}
+			Expect(release.Status.StartTime.IsZero()).To(BeTrue())
+			release.MarkReleasing("")
+			Expect(release.Status.StartTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkReleasing("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, releasedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(ProgressingReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+	})
+
+	Context("When MarkReleaseFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release has not started", func() {
+			release.MarkReleaseFailed("")
+			Expect(release.Status.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release has finished", func() {
+			release.MarkReleasing("")
+			release.MarkReleased()
+			Expect(release.Status.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.CompletionTime = &metav1.Time{}
+			release.MarkReleaseFailed("")
+			Expect(release.Status.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkReleasing("")
+			Expect(release.Status.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkReleaseFailed("")
+			Expect(release.Status.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkReleasing("")
+			release.MarkReleaseFailed("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, releasedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(FailedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+	})
+
+	Context("When MarkValidated method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release is valid", func() {
+			release.MarkValidated()
+			Expect(release.Status.Validation.Time.IsZero()).To(BeFalse())
+			release.Status.Validation.Time = &metav1.Time{}
+			release.MarkValidated()
+			Expect(release.Status.Validation.Time.IsZero()).To(BeTrue())
+		})
+
+		It("should register the validation time", func() {
+			Expect(release.Status.Validation.Time.IsZero()).To(BeTrue())
+			release.MarkValidated()
+			Expect(release.Status.Validation.Time.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkValidated()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, validatedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SucceededReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
+			}))
+		})
+	})
+
+	Context("When MarkValidationFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should not register the post-validation failure if it was not marked as valid before", func() {
+			release.MarkValidationFailed("")
+			Expect(release.Status.Validation.FailedPostValidation).To(BeFalse())
+		})
+
+		It("should register the post-validation failure if it was marked as valid before", func() {
+			release.MarkValidated()
+			release.MarkValidationFailed("")
+			Expect(release.Status.Validation.FailedPostValidation).To(BeTrue())
+		})
+
+		It("should register the validation time", func() {
+			Expect(release.Status.Validation.Time).To(BeNil())
+			release.MarkValidationFailed("")
+			Expect(release.Status.Validation.Time.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkValidationFailed("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, validatedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(FailedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+	})
+
+	Context("When getPhaseReason method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("returns the reason associated with the condition type", func() {
+			release.MarkValidated()
+			Expect(release.getPhaseReason(validatedConditionType)).To(Equal(SucceededReason.String()))
+		})
+
+		It("returns an empty string if the condition is not found", func() {
+			Expect(release.getPhaseReason(validatedConditionType)).To(Equal(""))
+		})
+	})
+
+	Context("When hasPhaseFinished method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the condition is missing", func() {
+			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeFalse())
+		})
+
+		It("should return true when the condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeTrue())
+		})
+
+		It("should return false when the condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeFalse())
+		})
+
+		It("should return true when the condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeTrue())
+		})
+
+		It("should return false when the condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeFalse())
+		})
+	})
+
+	Context("When isPhaseProgressing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the condition is missing", func() {
+			Expect(release.isPhaseProgressing(deployedConditionType)).To(BeFalse())
+		})
+
+		It("should return false when the condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.isPhaseProgressing(deployedConditionType)).To(BeFalse())
+		})
+
+		It("should return true when the condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.isPhaseProgressing(deployedConditionType)).To(BeTrue())
+		})
+
+		It("should return false when the condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.isPhaseProgressing(deployedConditionType)).To(BeFalse())
+		})
+
+		It("should return false when the condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.isPhaseProgressing(deployedConditionType)).To(BeFalse())
+		})
+	})
+
 })

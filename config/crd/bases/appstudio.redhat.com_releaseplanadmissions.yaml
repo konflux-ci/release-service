@@ -72,8 +72,8 @@ spec:
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
               releaseStrategy:
-                description: Release Strategy defines which strategy will be used
-                  to release the application
+                description: ReleaseStrategy defines which strategy will be used to
+                  release the application
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
             required:

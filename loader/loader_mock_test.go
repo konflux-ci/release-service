@@ -273,17 +273,34 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetSnapshotEnvironmentBindingResources", func() {
+	// Composite functions
+
+	Context("When calling GetDeploymentResources", func() {
 		It("returns the resource and error from the context", func() {
-			snapshotEnvironmentBindingResources := &SnapshotEnvironmentBindingResources{}
+			deploymentResources := &DeploymentResources{}
 			mockContext := GetMockedContext(ctx, []MockData{
 				{
-					ContextKey: SnapshotEnvironmentBindingResourcesContextKey,
-					Resource:   snapshotEnvironmentBindingResources,
+					ContextKey: DeploymentResourcesContextKey,
+					Resource:   deploymentResources,
 				},
 			})
-			resource, err := loader.GetSnapshotEnvironmentBindingResources(mockContext, nil, nil, nil)
-			Expect(resource).To(Equal(snapshotEnvironmentBindingResources))
+			resource, err := loader.GetDeploymentResources(mockContext, nil, nil, nil)
+			Expect(resource).To(Equal(deploymentResources))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("When calling GetProcessingResources", func() {
+		It("returns the resource and error from the context", func() {
+			processingResources := &ProcessingResources{}
+			mockContext := GetMockedContext(ctx, []MockData{
+				{
+					ContextKey: ProcessingResourcesContextKey,
+					Resource:   processingResources,
+				},
+			})
+			resource, err := loader.GetProcessingResources(mockContext, nil, nil)
+			Expect(resource).To(Equal(processingResources))
 			Expect(err).To(BeNil())
 		})
 	})

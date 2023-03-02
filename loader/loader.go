@@ -28,7 +28,8 @@ type ObjectLoader interface {
 	GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error)
 	GetSnapshotEnvironmentBinding(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error)
 	GetSnapshotEnvironmentBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error)
-	GetSnapshotEnvironmentBindingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*SnapshotEnvironmentBindingResources, error)
+	GetDeploymentResources(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*DeploymentResources, error)
+	GetProcessingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*ProcessingResources, error)
 }
 
 type loader struct{}
@@ -205,10 +206,10 @@ func (l *loader) GetSnapshotEnvironmentBinding(ctx context.Context, cli client.C
 // That association is defined by namespaced name stored in the Release's status.
 func (l *loader) GetSnapshotEnvironmentBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
 	binding := &applicationapiv1alpha1.SnapshotEnvironmentBinding{}
-	bindingNamespacedName := strings.Split(release.Status.SnapshotEnvironmentBinding, string(types.Separator))
+	bindingNamespacedName := strings.Split(release.Status.Deployment.SnapshotEnvironmentBinding, string(types.Separator))
 	if len(bindingNamespacedName) != 2 {
 		return nil, fmt.Errorf("release doesn't contain a valid reference to an SnapshotEnvironmentBinding ('%s')",
-			release.Status.SnapshotEnvironmentBinding)
+			release.Status.Deployment.SnapshotEnvironmentBinding)
 	}
 
 	err := cli.Get(ctx, types.NamespacedName{
@@ -225,42 +226,76 @@ func (l *loader) GetSnapshotEnvironmentBindingFromReleaseStatus(ctx context.Cont
 
 // Composite functions
 
-// SnapshotEnvironmentBindingResources contains the required resources for creating a SnapshotEnvironmentBinding.
-type SnapshotEnvironmentBindingResources struct {
+// DeploymentResources contains the required resources to trigger a deployment.
+type DeploymentResources struct {
 	Application           *applicationapiv1alpha1.Application
 	ApplicationComponents []applicationapiv1alpha1.Component
 	Environment           *applicationapiv1alpha1.Environment
 	Snapshot              *applicationapiv1alpha1.Snapshot
 }
 
-// GetSnapshotEnvironmentBindingResources returns all the resources required to create a SnapshotEnvironmentBinding.
-// If any of those resources cannot be retrieved from the cluster, an error will be returned.
-func (l *loader) GetSnapshotEnvironmentBindingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*SnapshotEnvironmentBindingResources, error) {
-	resources := &SnapshotEnvironmentBindingResources{}
+// GetDeploymentResources returns all the resources required to trigger a deployment. If any of those resources cannot
+// be retrieved from the cluster, an error will be returned.
+func (l *loader) GetDeploymentResources(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*DeploymentResources, error) {
+	var err error
+	resources := &DeploymentResources{}
 
-	application, err := l.GetApplication(ctx, cli, releasePlanAdmission)
+	resources.Application, err = l.GetApplication(ctx, cli, releasePlanAdmission)
 	if err != nil {
 		return resources, err
 	}
-	resources.Application = application
 
-	applicationComponents, err := l.GetApplicationComponents(ctx, cli, application)
+	resources.ApplicationComponents, err = l.GetApplicationComponents(ctx, cli, resources.Application)
 	if err != nil {
 		return resources, err
 	}
-	resources.ApplicationComponents = applicationComponents
 
-	environment, err := l.GetEnvironment(ctx, cli, releasePlanAdmission)
+	resources.Environment, err = l.GetEnvironment(ctx, cli, releasePlanAdmission)
 	if err != nil {
 		return resources, err
 	}
-	resources.Environment = environment
 
-	snapshot, err := l.GetSnapshot(ctx, cli, release)
+	resources.Snapshot, err = l.GetSnapshot(ctx, cli, release)
 	if err != nil {
 		return resources, err
 	}
-	resources.Snapshot = snapshot
+
+	return resources, nil
+}
+
+// ProcessingResources contains the required resources to process the Release.
+type ProcessingResources struct {
+	EnterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy
+	ReleasePlanAdmission     *v1alpha1.ReleasePlanAdmission
+	ReleaseStrategy          *v1alpha1.ReleaseStrategy
+	Snapshot                 *applicationapiv1alpha1.Snapshot
+}
+
+// GetProcessingResources returns all the resources required to process the Release. If any of those resources cannot
+// be retrieved from the cluster, an error will be returned.
+func (l *loader) GetProcessingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*ProcessingResources, error) {
+	var err error
+	resources := &ProcessingResources{}
+
+	resources.ReleasePlanAdmission, err = l.GetActiveReleasePlanAdmissionFromRelease(ctx, cli, release)
+	if err != nil {
+		return resources, err
+	}
+
+	resources.ReleaseStrategy, err = l.GetReleaseStrategy(ctx, cli, resources.ReleasePlanAdmission)
+	if err != nil {
+		return resources, err
+	}
+
+	resources.EnterpriseContractPolicy, err = l.GetEnterpriseContractPolicy(ctx, cli, resources.ReleaseStrategy)
+	if err != nil {
+		return resources, err
+	}
+
+	resources.Snapshot, err = l.GetSnapshot(ctx, cli, release)
+	if err != nil {
+		return resources, err
+	}
 
 	return resources, nil
 }

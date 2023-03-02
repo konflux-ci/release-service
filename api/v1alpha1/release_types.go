@@ -17,10 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/redhat-appstudio/release-service/conditions"
+	"github.com/redhat-appstudio/release-service/metrics"
 	"time"
 
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/metrics"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -38,36 +38,6 @@ type ReleaseSpec struct {
 	ReleasePlan string `json:"releasePlan"`
 }
 
-// ReleaseReason represents a reason for the release "Succeeded" condition.
-type ReleaseReason string
-
-const (
-	// releaseConditionType is the type used when setting a release status condition
-	releaseConditionType string = "Succeeded"
-
-	// ReleaseReasonValidationError is the reason set when the Release validation failed
-	ReleaseReasonValidationError ReleaseReason = "ReleaseValidationError"
-
-	// ReleaseReasonPipelineFailed is the reason set when the release PipelineRun failed
-	ReleaseReasonPipelineFailed ReleaseReason = "ReleasePipelineFailed"
-
-	// ReleaseReasonReleasePlanValidationError is the reason set when there is a validation error with the ReleasePlan
-	ReleaseReasonReleasePlanValidationError ReleaseReason = "ReleasePlanValidationError"
-
-	// ReleaseReasonTargetDisabledError is the reason set when releases to the target are disabled
-	ReleaseReasonTargetDisabledError ReleaseReason = "ReleaseTargetDisabledError"
-
-	// ReleaseReasonRunning is the reason set when the release PipelineRun starts running
-	ReleaseReasonRunning ReleaseReason = "Running"
-
-	// ReleaseReasonSucceeded is the reason set when the release PipelineRun has succeeded
-	ReleaseReasonSucceeded ReleaseReason = "Succeeded"
-)
-
-func (rr ReleaseReason) String() string {
-	return string(rr)
-}
-
 const (
 	// AutoReleaseLabel is the label name for the auto-release setting
 	AutoReleaseLabel = "release.appstudio.openshift.io/auto-release"
@@ -75,25 +45,49 @@ const (
 
 // ReleaseStatus defines the observed state of Release.
 type ReleaseStatus struct {
-	// StartTime is the time when the Release PipelineRun was created and set to run
-	// +optional
-	StartTime *metav1.Time `json:"startTime,omitempty"`
-
-	// CompletionTime is the time the Release PipelineRun completed
-	// +optional
-	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
-
-	// DeploymentStartTime is the time when the SnapshotEnvironmentBinding was created
-	// +optional
-	DeploymentStartTime *metav1.Time `json:"deploymentStartTime,omitempty"`
-
-	// DeploymentCompletionTime is the time when the SnapshotEnvironmentBinding has all components deployed
-	// +optional
-	DeploymentCompletionTime *metav1.Time `json:"deploymentCompletionTime,omitempty"`
-
 	// Conditions represent the latest available observations for the release
 	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
+
+	// Deployment contains information about the deployment
+	// +optional
+	Deployment DeploymentInfo `json:"deployment,omitempty"`
+
+	// PostActionsExecution contains information about the post-actions execution
+	// +optional
+	PostActionsExecution PostActionsExecutionInfo `json:"postActionsExecution,omitempty"`
+
+	// Processing contains information about the release processing
+	// +optional
+	Processing ProcessingInfo `json:"processing,omitempty"`
+
+	// Validation contains information about the release validation
+	// +optional
+	Validation ValidationInfo `json:"validation,omitempty"`
+
+	// Target references where this release is intended to be released to
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	Target string `json:"target,omitempty"`
+
+	// CompletionTime is the time when a Release was completed
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+
+	// StartTime is the time when a Release started
+	// +optional
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+}
+
+// DeploymentInfo defines the observed state of the deployment.
+type DeploymentInfo struct {
+	// CompletionTime is the time when the Release deployment was completed
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+
+	// Environment is the environment where the Release will be deployed to
+	// +optional
+	Environment string `json:"environment,omitempty"`
 
 	// SnapshotEnvironmentBinding contains the namespaced name of the SnapshotEnvironmentBinding created as part of
 	// this release
@@ -101,32 +95,58 @@ type ReleaseStatus struct {
 	// +optional
 	SnapshotEnvironmentBinding string `json:"snapshotEnvironmentBinding,omitempty"`
 
-	// ReleasePipelineRun contains the namespaced name of the release PipelineRun executed as part of this release
+	// StartTime is the time when the Release deployment started
+	// +optional
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+}
+
+// PostActionsExecutionInfo defines the observed state of the post-actions execution.
+type PostActionsExecutionInfo struct {
+	// CompletionTime is the time when the Release post-actions execution was completed
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+
+	// StartTime is the time when the Release post-actions execution started
+	// +optional
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+}
+
+// ProcessingInfo defines the observed state of the release processing.
+type ProcessingInfo struct {
+	// CompletionTime is the time when the Release processing was completed
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
+
+	// PipelineRun contains the namespaced name of the release PipelineRun executed as part of this release
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
-	ReleasePipelineRun string `json:"releasePipelineRun,omitempty"`
+	PipelineRun string `json:"pipelineRun,omitempty"`
 
 	// ReleaseStrategy contains the namespaced name of the ReleaseStrategy used for this release
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
 	ReleaseStrategy string `json:"releaseStrategy,omitempty"`
 
-	// Target references where this release is intended to be released to
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// StartTime is the time when the Release processing started
 	// +optional
-	Target string `json:"target,omitempty"`
+	StartTime *metav1.Time `json:"startTime,omitempty"`
+}
+
+// ValidationInfo defines the observed state of the release validation.
+type ValidationInfo struct {
+	// FailedPostValidation indicates whether the Release was marked as invalid after being initially marked as valid
+	FailedPostValidation bool `json:"failedPostValidation,omitempty"`
+
+	// Time is the time when the Release was validated or when the validation state changed
+	// +optional
+	Time *metav1.Time `json:"time,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Snapshot",type=string,JSONPath=`.spec.snapshot`
-// +kubebuilder:printcolumn:name="Succeeded",type=string,JSONPath=`.status.conditions[?(@.type=="Succeeded")].status`
-// +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=="Succeeded")].reason`
-// +kubebuilder:printcolumn:name="PipelineRun",type=string,priority=1,JSONPath=`.status.releasePipelineRun`
-// +kubebuilder:printcolumn:name="Start Time",type=date,priority=1,JSONPath=`.status.startTime`
-// +kubebuilder:printcolumn:name="Completion Time",type=date,priority=1,JSONPath=`.status.completionTime`
-// +kubebuilder:printcolumn:name="Deployment Start Time",type=date,priority=1,JSONPath=`.status.deploymentStartTime`
-// +kubebuilder:printcolumn:name="Deployment Completion Time",type=date,priority=1,JSONPath=`.status.deploymentCompletionTime`
+// +kubebuilder:printcolumn:name="ReleasePlan",type=string,JSONPath=`.spec.releasePlan`
+// +kubebuilder:printcolumn:name="Release status",type=string,JSONPath=`.status.conditions[?(@.type=="Released")].reason`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // Release is the Schema for the releases API
@@ -138,128 +158,338 @@ type Release struct {
 	Status ReleaseStatus `json:"status,omitempty"`
 }
 
-// HasStarted checks whether the Release has a valid start time set in its status.
-func (r *Release) HasStarted() bool {
-	return r.Status.StartTime != nil && !r.Status.StartTime.IsZero()
+// HasDeploymentFinished checks whether the Release deployment has finished, regardless of the result.
+func (r *Release) HasDeploymentFinished() bool {
+	return r.hasPhaseFinished(deployedConditionType)
 }
 
-// HasSucceeded checks whether the Release has succeeded or not.
-func (r *Release) HasSucceeded() bool {
-	return meta.IsStatusConditionTrue(r.Status.Conditions, releaseConditionType)
+// HasEveryPostActionExecutionFinished checks whether the Release post-actions execution has finished,
+// regardless of the result.
+func (r *Release) HasEveryPostActionExecutionFinished() bool {
+	return r.hasPhaseFinished(postActionsExecutedConditionType)
 }
 
-// IsDeployed checks whether the Release has been successfully deployed via GitOps.
+// HasProcessingFinished checks whether the Release processing has finished, regardless of the result.
+func (r *Release) HasProcessingFinished() bool {
+	return r.hasPhaseFinished(processedConditionType)
+}
+
+// HasReleaseFinished checks whether the Release has finished, regardless of the result.
+func (r *Release) HasReleaseFinished() bool {
+	return r.hasPhaseFinished(releasedConditionType)
+}
+
+// IsDeployed checks whether the Release was successfully deployed.
 func (r *Release) IsDeployed() bool {
-	condition := meta.FindStatusCondition(r.Status.Conditions, applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-	return condition != nil && condition.Status == metav1.ConditionTrue
+	return meta.IsStatusConditionTrue(r.Status.Conditions, deployedConditionType.String())
 }
 
-// IsDeploying checks whether the Release has a valid start time for the deployment set in its status.
+// IsDeploying checks whether the Release deployment is in progress.
 func (r *Release) IsDeploying() bool {
-	return r.Status.DeploymentStartTime != nil && !r.Status.DeploymentStartTime.IsZero()
+	return r.isPhaseProgressing(deployedConditionType)
 }
 
-// IsDone returns a boolean indicating whether the Release's status indicates that it is done or not.
-func (r *Release) IsDone() bool {
-	condition := meta.FindStatusCondition(r.Status.Conditions, releaseConditionType)
-	return condition != nil && condition.Status != metav1.ConditionUnknown
+// IsEveryPostActionExecuted checks whether the Release post-actions were successfully executed.
+func (r *Release) IsEveryPostActionExecuted() bool {
+	return meta.IsStatusConditionTrue(r.Status.Conditions, postActionsExecutedConditionType.String())
 }
 
-// MarkDeployed registers the deployment completion time and sets the AllComponentsDeployed status in the
-// Release to True with the provided reason and message.
-func (r *Release) MarkDeployed(reason, message string) {
-	if !r.IsDeploying() || (r.IsDeployed() && r.Status.DeploymentCompletionTime != nil) {
+// IsEachPostActionExecuting checks whether the Release post-actions are in progress.
+func (r *Release) IsEachPostActionExecuting() bool {
+	return r.isPhaseProgressing(postActionsExecutedConditionType)
+}
+
+// IsProcessed checks whether the Release was successfully processed.
+func (r *Release) IsProcessed() bool {
+	return meta.IsStatusConditionTrue(r.Status.Conditions, processedConditionType.String())
+}
+
+// IsProcessing checks whether the Release processing is in progress.
+func (r *Release) IsProcessing() bool {
+	return r.isPhaseProgressing(processedConditionType)
+}
+
+// IsReleased checks whether the Release has finished successfully.
+func (r *Release) IsReleased() bool {
+	return meta.IsStatusConditionTrue(r.Status.Conditions, releasedConditionType.String())
+}
+
+// IsReleasing checks whether the Release is in progress.
+func (r *Release) IsReleasing() bool {
+	return r.isPhaseProgressing(releasedConditionType)
+}
+
+// IsValid checks whether the Release validation has finished successfully.
+func (r *Release) IsValid() bool {
+	return meta.IsStatusConditionTrue(r.Status.Conditions, validatedConditionType.String())
+}
+
+// MarkDeployed marks the Release as deployed.
+func (r *Release) MarkDeployed() {
+	if !r.IsDeploying() || r.HasDeploymentFinished() {
 		return
 	}
 
-	r.Status.DeploymentCompletionTime = &metav1.Time{Time: time.Now()}
-	r.setStatusConditionWithMessage(applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-		metav1.ConditionTrue, ReleaseReason(reason), message)
+	r.Status.Deployment.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetCondition(&r.Status.Conditions, deployedConditionType, metav1.ConditionTrue, SucceededReason)
 
-	go metrics.RegisterDeployedRelease(reason, r.Status.Target, string(metav1.ConditionTrue),
-		r.Status.DeploymentStartTime, r.Status.DeploymentCompletionTime)
+	go metrics.RegisterCompletedReleaseDeployment(
+		r.Status.Deployment.StartTime,
+		r.Status.Deployment.CompletionTime,
+		r.Status.Deployment.Environment,
+		SucceededReason.String(),
+		r.Status.Target,
+	)
 }
 
-// MarkDeploying registers the deployment start time and sets the AllComponentsDeployed status in the Release to Unknown
-// or False with the provided reason and message.
-// Note: The binding condition should treat False and True as the final states and Unknown as the transient status. However, it
-// currently treats False as a transient status, so we accept False (temporarily) as a status here until it is changed.
-func (r *Release) MarkDeploying(status metav1.ConditionStatus, reason, message string) {
-	if status != metav1.ConditionTrue {
-		r.setStatusConditionWithMessage(applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed,
-			status, ReleaseReason(reason), message)
-
-		if r.Status.DeploymentStartTime == nil {
-			r.Status.DeploymentStartTime = &metav1.Time{Time: time.Now()}
-		}
+// MarkDeploying marks the Release as deploying.
+func (r *Release) MarkDeploying(message string) {
+	if r.HasDeploymentFinished() {
+		return
 	}
+
+	if !r.IsDeploying() {
+		r.Status.Deployment.StartTime = &metav1.Time{Time: time.Now()}
+	}
+
+	conditions.SetConditionWithMessage(&r.Status.Conditions, deployedConditionType, metav1.ConditionFalse, ProgressingReason, message)
+
+	go metrics.RegisterNewReleaseDeployment()
 }
 
-// MarkFailed registers the completion time and changes the Succeeded condition to False with
-// the provided reason and message.
-func (r *Release) MarkFailed(reason ReleaseReason, message string) {
-	if r.IsDone() && r.Status.CompletionTime != nil {
+// MarkDeploymentFailed marks the Release deployment as failed.
+func (r *Release) MarkDeploymentFailed(message string) {
+	if !r.IsDeploying() || r.HasDeploymentFinished() {
+		return
+	}
+
+	r.Status.Deployment.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetConditionWithMessage(&r.Status.Conditions, deployedConditionType, metav1.ConditionFalse, FailedReason, message)
+
+	go metrics.RegisterCompletedReleaseDeployment(
+		r.Status.Deployment.StartTime,
+		r.Status.Deployment.CompletionTime,
+		r.Status.Deployment.Environment,
+		FailedReason.String(),
+		r.Status.Target,
+	)
+}
+
+// MarkProcessed marks the Release as processed.
+func (r *Release) MarkProcessed() {
+	if !r.IsProcessing() || r.HasProcessingFinished() {
+		return
+	}
+
+	r.Status.Processing.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetCondition(&r.Status.Conditions, processedConditionType, metav1.ConditionTrue, SucceededReason)
+
+	go metrics.RegisterCompletedReleaseProcessing(
+		r.Status.Processing.StartTime,
+		r.Status.Processing.CompletionTime,
+		SucceededReason.String(),
+		r.Status.Processing.ReleaseStrategy,
+		r.Status.Target,
+	)
+}
+
+// MarkProcessing marks the Release as processing.
+func (r *Release) MarkProcessing(message string) {
+	if r.HasProcessingFinished() {
+		return
+	}
+
+	if !r.IsProcessing() {
+		r.Status.Processing.StartTime = &metav1.Time{Time: time.Now()}
+	}
+
+	conditions.SetConditionWithMessage(&r.Status.Conditions, processedConditionType, metav1.ConditionFalse, ProgressingReason, message)
+
+	go metrics.RegisterNewReleaseProcessing()
+}
+
+// MarkProcessingFailed marks the Release processing as failed.
+func (r *Release) MarkProcessingFailed(message string) {
+	if !r.IsProcessing() || r.HasProcessingFinished() {
+		return
+	}
+
+	r.Status.Processing.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetConditionWithMessage(&r.Status.Conditions, processedConditionType, metav1.ConditionFalse, FailedReason, message)
+
+	go metrics.RegisterCompletedReleaseProcessing(
+		r.Status.Processing.StartTime,
+		r.Status.Processing.CompletionTime,
+		FailedReason.String(),
+		r.Status.Processing.ReleaseStrategy,
+		r.Status.Target,
+	)
+}
+
+// MarkPostActionsExecuted marks the Release post-actions as executed.
+func (r *Release) MarkPostActionsExecuted() {
+	if !r.IsEachPostActionExecuting() || r.HasEveryPostActionExecutionFinished() {
+		return
+	}
+
+	r.Status.PostActionsExecution.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetCondition(&r.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionTrue, SucceededReason)
+
+	go metrics.RegisterCompletedReleasePostActionsExecuted(
+		r.Status.PostActionsExecution.StartTime,
+		r.Status.PostActionsExecution.CompletionTime,
+		SucceededReason.String(),
+	)
+}
+
+// MarkPostActionsExecuting marks the Release post-actions as executing.
+func (r *Release) MarkPostActionsExecuting(message string) {
+	if r.HasEveryPostActionExecutionFinished() {
+		return
+	}
+
+	if !r.IsEachPostActionExecuting() {
+		r.Status.PostActionsExecution.StartTime = &metav1.Time{Time: time.Now()}
+	}
+
+	conditions.SetConditionWithMessage(&r.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, ProgressingReason, message)
+
+	go metrics.RegisterNewReleasePostActionsExecution()
+}
+
+// MarkPostActionsExecutionFailed marks the Release post-actions execution as failed.
+func (r *Release) MarkPostActionsExecutionFailed(message string) {
+	if !r.IsEachPostActionExecuting() || r.HasEveryPostActionExecutionFinished() {
+		return
+	}
+
+	r.Status.PostActionsExecution.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetConditionWithMessage(&r.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, FailedReason, message)
+
+	go metrics.RegisterCompletedReleasePostActionsExecuted(
+		r.Status.Processing.StartTime,
+		r.Status.Processing.CompletionTime,
+		FailedReason.String(),
+	)
+}
+
+// MarkReleased marks the Release as released.
+func (r *Release) MarkReleased() {
+	if !r.IsReleasing() || r.HasReleaseFinished() {
 		return
 	}
 
 	r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
-	r.setStatusConditionWithMessage(releaseConditionType, metav1.ConditionFalse, reason, message)
+	conditions.SetCondition(&r.Status.Conditions, releasedConditionType, metav1.ConditionTrue, SucceededReason)
 
-	go metrics.RegisterCompletedRelease(reason.String(), r.Status.ReleaseStrategy, r.Status.Target,
-		r.Status.StartTime, r.Status.CompletionTime, false)
+	go metrics.RegisterCompletedRelease(
+		r.Status.Processing.StartTime,
+		r.Status.Processing.CompletionTime,
+		r.getPhaseReason(deployedConditionType),
+		r.getPhaseReason(postActionsExecutedConditionType),
+		r.getPhaseReason(processedConditionType),
+		SucceededReason.String(),
+		r.Status.Processing.ReleaseStrategy,
+		r.Status.Target,
+		r.getPhaseReason(validatedConditionType),
+	)
 }
 
-// MarkInvalid changes the Succeeded condition to False with the provided reason and message.
-func (r *Release) MarkInvalid(reason ReleaseReason, message string) {
-	if r.IsDone() {
+// MarkReleasing marks the Release as releasing.
+func (r *Release) MarkReleasing(message string) {
+	if r.HasReleaseFinished() {
 		return
 	}
 
-	r.setStatusConditionWithMessage(releaseConditionType, metav1.ConditionFalse, reason, message)
-
-	go metrics.RegisterInvalidRelease(reason.String())
-}
-
-// MarkRunning registers the start time and changes the Succeeded condition to Unknown.
-func (r *Release) MarkRunning() {
-	if r.HasStarted() && r.Status.StartTime != nil {
-		return
+	if !r.IsReleasing() {
+		r.Status.StartTime = &metav1.Time{Time: time.Now()}
 	}
 
-	r.Status.StartTime = &metav1.Time{Time: time.Now()}
-	r.setStatusCondition(releaseConditionType, metav1.ConditionUnknown, ReleaseReasonRunning)
+	conditions.SetConditionWithMessage(&r.Status.Conditions, releasedConditionType, metav1.ConditionFalse, ProgressingReason, message)
 
-	go metrics.RegisterNewRelease(r.GetCreationTimestamp(), r.Status.StartTime)
+	go metrics.RegisterNewRelease()
 }
 
-// MarkSucceeded registers the completion time and changes the Succeeded condition to True.
-func (r *Release) MarkSucceeded() {
-	if !r.HasStarted() || (r.IsDone() && r.Status.CompletionTime != nil) {
+// MarkReleaseFailed marks the Release as failed.
+func (r *Release) MarkReleaseFailed(message string) {
+	if !r.IsReleasing() || r.HasReleaseFinished() {
 		return
 	}
 
 	r.Status.CompletionTime = &metav1.Time{Time: time.Now()}
-	r.setStatusCondition(releaseConditionType, metav1.ConditionTrue, ReleaseReasonSucceeded)
+	conditions.SetConditionWithMessage(&r.Status.Conditions, releasedConditionType, metav1.ConditionFalse, FailedReason, message)
 
-	go metrics.RegisterCompletedRelease(ReleaseReasonSucceeded.String(), r.Status.ReleaseStrategy, r.Status.Target,
-		r.Status.StartTime, r.Status.CompletionTime, true)
+	go metrics.RegisterCompletedRelease(
+		r.Status.Processing.StartTime,
+		r.Status.Processing.CompletionTime,
+		r.getPhaseReason(deployedConditionType),
+		r.getPhaseReason(postActionsExecutedConditionType),
+		r.getPhaseReason(processedConditionType),
+		FailedReason.String(),
+		r.Status.Processing.ReleaseStrategy,
+		r.Status.Target,
+		r.getPhaseReason(validatedConditionType),
+	)
 }
 
-// SetCondition creates a new condition with the given conditionType, status and reason. Then, it sets this new condition,
-// unsetting previous conditions with the same type as necessary.
-func (r *Release) setStatusCondition(conditionType string, status metav1.ConditionStatus, reason ReleaseReason) {
-	r.setStatusConditionWithMessage(conditionType, status, reason, "")
+// MarkValidated marks the Release as validated.
+func (r *Release) MarkValidated() {
+	if r.IsValid() {
+		return
+	}
+
+	r.Status.Validation.Time = &metav1.Time{Time: time.Now()}
+	conditions.SetCondition(&r.Status.Conditions, validatedConditionType, metav1.ConditionTrue, SucceededReason)
 }
 
-// SetCondition creates a new condition with the given conditionType, status, reason and message. Then, it sets this new condition,
-// unsetting previous conditions with the same type as necessary.
-func (r *Release) setStatusConditionWithMessage(conditionType string, status metav1.ConditionStatus, reason ReleaseReason, message string) {
-	meta.SetStatusCondition(&r.Status.Conditions, metav1.Condition{
-		Type:    conditionType,
-		Status:  status,
-		Reason:  reason.String(),
-		Message: message,
-	})
+// MarkValidationFailed marks the Release validation as failed.
+func (r *Release) MarkValidationFailed(message string) {
+	if r.IsValid() {
+		r.Status.Validation.FailedPostValidation = true
+	}
+
+	r.Status.Validation.Time = &metav1.Time{Time: time.Now()}
+	conditions.SetConditionWithMessage(&r.Status.Conditions, validatedConditionType, metav1.ConditionFalse, FailedReason, message)
+}
+
+// getPhaseReason returns the current reason for the given ConditionType or empty string if no condition is found.
+func (r *Release) getPhaseReason(conditionType conditions.ConditionType) string {
+	var reason string
+
+	condition := meta.FindStatusCondition(r.Status.Conditions, conditionType.String())
+	if condition != nil {
+		reason = condition.Reason
+	}
+
+	return reason
+}
+
+// hasPhaseFinished checks whether a Release phase (e.g. deployment or processing) has finished.
+func (r *Release) hasPhaseFinished(conditionType conditions.ConditionType) bool {
+	condition := meta.FindStatusCondition(r.Status.Conditions, conditionType.String())
+
+	switch {
+	case condition == nil:
+		return false
+	case condition.Status == metav1.ConditionTrue:
+		return true
+	default:
+		return condition.Status == metav1.ConditionFalse && condition.Reason != ProgressingReason.String()
+	}
+}
+
+// isPhaseProgressing checks whether a Release phase (e.g. deployment or processing) is progressing.
+func (r *Release) isPhaseProgressing(conditionType conditions.ConditionType) bool {
+	condition := meta.FindStatusCondition(r.Status.Conditions, conditionType.String())
+
+	switch {
+	case condition == nil:
+		return false
+	case condition.Status == metav1.ConditionTrue:
+		return false
+	default:
+		return condition.Status == metav1.ConditionFalse && condition.Reason == ProgressingReason.String()
+	}
 }
 
 // +kubebuilder:object:root=true

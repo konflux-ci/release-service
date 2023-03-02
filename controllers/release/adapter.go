@@ -19,9 +19,7 @@ package release
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
-
+	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/loader"
@@ -32,10 +30,8 @@ import (
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/operator-goodies/reconciler"
 
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-
-	"github.com/go-logr/logr"
 	libhandler "github.com/operator-framework/operator-lib/handler"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -119,99 +115,34 @@ func (a *Adapter) EnsureFinalizerIsAdded() (reconciler.OperationResult, error) {
 	return reconciler.ContinueProcessing()
 }
 
-// EnsureReleasePlanAdmissionEnabled is an operation that will ensure that the ReleasePlanAdmission is enabled.
-// If it is not, no further operations will occur for this Release.
-func (a *Adapter) EnsureReleasePlanAdmissionEnabled() (reconciler.OperationResult, error) {
-	_, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
-
-	if err != nil && strings.Contains(err.Error(), "multiple ReleasePlanAdmissions found") {
-		patch := client.MergeFrom(a.release.DeepCopy())
-		a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-		return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
-	}
-	if err != nil && strings.Contains(err.Error(), "auto-release label set to false") {
-		patch := client.MergeFrom(a.release.DeepCopy())
-		a.release.MarkInvalid(v1alpha1.ReleaseReasonTargetDisabledError, err.Error())
-		return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
-	}
-	return reconciler.ContinueProcessing()
-}
-
-// EnsureReleasePipelineRunExists is an operation that will ensure that a release PipelineRun associated to the Release
-// being processed exists. Otherwise, it will create a new release PipelineRun.
-func (a *Adapter) EnsureReleasePipelineRunExists() (reconciler.OperationResult, error) {
-	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
-	if err != nil && !errors.IsNotFound(err) {
-		return reconciler.RequeueWithError(err)
-	}
-
-	if pipelineRun == nil || !a.release.HasStarted() {
-		releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
-		if err != nil {
-			patch := client.MergeFrom(a.release.DeepCopy())
-			a.release.MarkInvalid(v1alpha1.ReleaseReasonReleasePlanValidationError, err.Error())
-			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
-		}
-
-		releaseStrategy, err := a.loader.GetReleaseStrategy(a.ctx, a.client, releasePlanAdmission)
-		if err != nil {
-			patch := client.MergeFrom(a.release.DeepCopy())
-			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
-		}
-
-		enterpriseContractPolicy, err := a.loader.GetEnterpriseContractPolicy(a.ctx, a.client, releaseStrategy)
-		if err != nil {
-			patch := client.MergeFrom(a.release.DeepCopy())
-			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
-		}
-
-		snapshot, err := a.loader.GetSnapshot(a.ctx, a.client, a.release)
-		if err != nil {
-			patch := client.MergeFrom(a.release.DeepCopy())
-			a.release.MarkInvalid(v1alpha1.ReleaseReasonValidationError, err.Error())
-			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
-		}
-
-		if pipelineRun == nil {
-			pipelineRun, err = a.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
-			if err != nil {
-				return reconciler.RequeueWithError(err)
-			}
-
-			a.logger.Info("Created release PipelineRun",
-				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
-		}
-
-		return reconciler.RequeueOnErrorOrContinue(a.registerReleaseStatusData(pipelineRun, releaseStrategy))
-	}
-
-	return reconciler.ContinueProcessing()
-}
-
-// EnsureReleasePipelineStatusIsTracked is an operation that will ensure that the release PipelineRun status is tracked
-// in the Release being processed.
-func (a *Adapter) EnsureReleasePipelineStatusIsTracked() (reconciler.OperationResult, error) {
-	if !a.release.HasStarted() || a.release.IsDone() {
+// EnsureReleaseIsCompleted is an operation that will ensure that a Release is completed (marked as released) when
+// all required phases (e.g. deployment or processing) have been completed.
+func (a *Adapter) EnsureReleaseIsCompleted() (reconciler.OperationResult, error) {
+	// Do nothing if the release status has been already added
+	if a.release.HasReleaseFinished() {
 		return reconciler.ContinueProcessing()
 	}
 
-	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
-	if err != nil {
-		return reconciler.RequeueWithError(err)
-	}
-	if pipelineRun != nil {
-		return reconciler.RequeueOnErrorOrContinue(a.registerReleasePipelineRunStatus(pipelineRun))
+	// The processing has to complete for a Release to be completed
+	if !a.release.HasProcessingFinished() {
+		return reconciler.ContinueProcessing()
 	}
 
-	return reconciler.ContinueProcessing()
+	// The deployment has to complete if the environment field in the ReleasePlanAdmission is set
+	releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
+	if err == nil && releasePlanAdmission.Spec.Environment != "" && !a.release.HasDeploymentFinished() {
+		return reconciler.ContinueProcessing()
+	}
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+	a.release.MarkReleased()
+	return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 }
 
-// EnsureSnapshotEnvironmentBindingExists is an operation that will ensure that a SnapshotEnvironmentBinding
+// EnsureReleaseIsDeployed is an operation that will ensure that a SnapshotEnvironmentBinding
 // associated to the Release being processed exists. Otherwise, it will create a new one.
-func (a *Adapter) EnsureSnapshotEnvironmentBindingExists() (reconciler.OperationResult, error) {
-	if !a.release.HasSucceeded() || a.release.IsDeployed() {
+func (a *Adapter) EnsureReleaseIsDeployed() (reconciler.OperationResult, error) {
+	if !a.release.IsProcessed() || a.release.HasDeploymentFinished() || a.release.IsDeploying() {
 		return reconciler.ContinueProcessing()
 	}
 
@@ -238,16 +169,13 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingExists() (reconciler.Operation
 	a.logger.Info("Created/updated SnapshotEnvironmentBinding",
 		"SnapshotEnvironmentBinding.Name", binding.Name, "SnapshotEnvironmentBinding.Namespace", binding.Namespace)
 
-	patch := client.MergeFrom(a.release.DeepCopy())
-	a.release.Status.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", binding.Namespace, types.Separator, binding.Name)
-
-	return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+	return reconciler.RequeueOnErrorOrContinue(a.registerDeploymentData(binding, releasePlanAdmission))
 }
 
-// EnsureSnapshotEnvironmentBindingIsTracked is an operation that will ensure that the SnapshotEnvironmentBinding
+// EnsureReleaseDeploymentIsTracked is an operation that will ensure that the SnapshotEnvironmentBinding
 // Deployment status is tracked in the Release being processed.
-func (a *Adapter) EnsureSnapshotEnvironmentBindingIsTracked() (reconciler.OperationResult, error) {
-	if !a.release.HasSucceeded() || a.release.Status.SnapshotEnvironmentBinding == "" || a.release.IsDeployed() {
+func (a *Adapter) EnsureReleaseDeploymentIsTracked() (reconciler.OperationResult, error) {
+	if !a.release.IsDeploying() || a.release.HasDeploymentFinished() {
 		return reconciler.ContinueProcessing()
 	}
 
@@ -263,7 +191,96 @@ func (a *Adapter) EnsureSnapshotEnvironmentBindingIsTracked() (reconciler.Operat
 		return reconciler.ContinueProcessing()
 	}
 
-	return reconciler.RequeueOnErrorOrContinue(a.registerGitOpsDeploymentStatus(binding))
+	return reconciler.RequeueOnErrorOrContinue(a.registerDeploymentStatus(binding))
+}
+
+// EnsureReleaseIsRunning is an operation that will ensure that a Release has not finished already and that
+// it is marked as releasing. If the Release has finished, no other operation after this one will be executed.
+func (a *Adapter) EnsureReleaseIsRunning() (reconciler.OperationResult, error) {
+	if a.release.HasReleaseFinished() {
+		return reconciler.StopProcessing()
+	}
+
+	if !a.release.IsReleasing() {
+		patch := client.MergeFrom(a.release.DeepCopy())
+		a.release.MarkReleasing("")
+		return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+	}
+
+	return reconciler.ContinueProcessing()
+}
+
+// EnsureReleaseIsProcessed is an operation that will ensure that a release PipelineRun associated to the Release
+// being processed exists. Otherwise, it will create a new release PipelineRun.
+func (a *Adapter) EnsureReleaseIsProcessed() (reconciler.OperationResult, error) {
+	if a.release.HasProcessingFinished() {
+		return reconciler.ContinueProcessing()
+	}
+
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
+	if err != nil && !errors.IsNotFound(err) {
+		return reconciler.RequeueWithError(err)
+	}
+
+	if pipelineRun == nil || !a.release.IsProcessing() {
+		resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
+		if err != nil {
+			return reconciler.RequeueWithError(err)
+		}
+
+		if pipelineRun == nil {
+			pipelineRun, err = a.createReleasePipelineRun(resources.ReleaseStrategy, resources.EnterpriseContractPolicy, resources.Snapshot)
+			if err != nil {
+				return reconciler.RequeueWithError(err)
+			}
+
+			a.logger.Info("Created release PipelineRun",
+				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
+		}
+
+		return reconciler.RequeueOnErrorOrContinue(a.registerProcessingData(pipelineRun, resources.ReleaseStrategy))
+	}
+
+	return reconciler.ContinueProcessing()
+}
+
+// EnsureReleaseIsValid is an operation that will ensure that a Release is valid by checking all the resources needed
+// to process it.
+func (a *Adapter) EnsureReleaseIsValid() (reconciler.OperationResult, error) {
+	patch := client.MergeFrom(a.release.DeepCopy())
+	resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
+
+	if err != nil {
+		if resources == nil || resources.ReleasePlanAdmission == nil || errors.IsNotFound(err) {
+			a.release.MarkValidationFailed(err.Error())
+			a.release.MarkReleaseFailed("Release validation failed")
+			return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
+		}
+
+		return reconciler.RequeueWithError(err)
+	}
+
+	a.release.MarkValidated()
+
+	return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+}
+
+// EnsureReleaseProcessingIsTracked is an operation that will ensure that the release PipelineRun status is tracked
+// in the Release being processed.
+func (a *Adapter) EnsureReleaseProcessingIsTracked() (reconciler.OperationResult, error) {
+	if !a.release.IsProcessing() || a.release.HasProcessingFinished() {
+		return reconciler.ContinueProcessing()
+	}
+
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
+	if err != nil {
+		return reconciler.RequeueWithError(err)
+	}
+	if pipelineRun != nil {
+		return reconciler.RequeueOnErrorOrContinue(a.registerProcessingStatus(pipelineRun))
+	}
+
+	return reconciler.ContinueProcessing()
 }
 
 // createReleasePipelineRun creates and returns a new release PipelineRun. The new PipelineRun will include owner
@@ -291,7 +308,7 @@ func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStra
 
 // createSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being processed.
 func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
-	resources, err := a.loader.GetSnapshotEnvironmentBindingResources(a.ctx, a.client, a.release, releasePlanAdmission)
+	resources, err := a.loader.GetDeploymentResources(a.ctx, a.client, a.release, releasePlanAdmission)
 	if err != nil {
 		return nil, err
 	}
@@ -355,9 +372,31 @@ func (a *Adapter) finalizeRelease() error {
 	return nil
 }
 
-// registerGitOpsDeploymentStatus updates the status of the Release being processed by monitoring the status of the
+// registerDeploymentData adds all the Release deployment information to its Status and marks it as processing.
+func (a *Adapter) registerDeploymentData(snapshotEnvironmentBinding *applicationapiv1alpha1.SnapshotEnvironmentBinding,
+	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) error {
+	if snapshotEnvironmentBinding == nil || releasePlanAdmission == nil {
+		return nil
+	}
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+
+	if releasePlanAdmission.Spec.Environment != "" {
+		a.release.Status.Deployment.Environment = fmt.Sprintf("%s%c%s",
+			releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Spec.Environment)
+	}
+
+	a.release.Status.Deployment.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s",
+		snapshotEnvironmentBinding.Namespace, types.Separator, snapshotEnvironmentBinding.Name)
+
+	a.release.MarkDeploying("")
+
+	return a.client.Status().Patch(a.ctx, a.release, patch)
+}
+
+// registerDeploymentStatus updates the status of the Release being processed by monitoring the status of the
 // associated SnapshotEnvironmentBinding and setting the appropriate state in the Release.
-func (a *Adapter) registerGitOpsDeploymentStatus(binding *applicationapiv1alpha1.SnapshotEnvironmentBinding) error {
+func (a *Adapter) registerDeploymentStatus(binding *applicationapiv1alpha1.SnapshotEnvironmentBinding) error {
 	if binding == nil {
 		return nil
 	}
@@ -371,53 +410,57 @@ func (a *Adapter) registerGitOpsDeploymentStatus(binding *applicationapiv1alpha1
 	patch := client.MergeFrom(a.release.DeepCopy())
 
 	if condition.Status == metav1.ConditionTrue {
-		a.release.MarkDeployed(condition.Reason, condition.Message)
+		a.release.MarkDeployed()
 	} else {
-		a.release.MarkDeploying(condition.Status, condition.Reason, condition.Message)
+		if condition.Reason == applicationapiv1alpha1.ComponentDeploymentConditionErrorOccurred {
+			a.release.MarkDeploymentFailed(condition.Message)
+			a.release.MarkReleaseFailed("Release deployment failed")
+		} else {
+			a.release.MarkDeploying(condition.Message)
+		}
 	}
 
 	return a.client.Status().Patch(a.ctx, a.release, patch)
 }
 
-// registerReleasePipelineRunStatus updates the status of the Release being processed by monitoring the status of the
-// associated release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
-// started/succeeded, no action will be taken.
-func (a *Adapter) registerReleasePipelineRunStatus(pipelineRun *v1beta1.PipelineRun) error {
-	if pipelineRun != nil && pipelineRun.IsDone() {
-		patch := client.MergeFrom(a.release.DeepCopy())
-
-		a.release.Status.CompletionTime = &metav1.Time{Time: time.Now()}
-
-		condition := pipelineRun.Status.GetCondition(apis.ConditionSucceeded)
-		if condition.IsTrue() {
-			a.release.MarkSucceeded()
-		} else {
-			a.release.MarkFailed(v1alpha1.ReleaseReasonPipelineFailed, condition.Message)
-		}
-
-		return a.client.Status().Patch(a.ctx, a.release, patch)
-	}
-
-	return nil
-}
-
-// registerReleaseStatusData adds all the Release information to its Status.
-func (a *Adapter) registerReleaseStatusData(releasePipelineRun *v1beta1.PipelineRun, releaseStrategy *v1alpha1.ReleaseStrategy) error {
+// registerProcessingData adds all the Release processing information to its Status and marks it as processing.
+func (a *Adapter) registerProcessingData(releasePipelineRun *v1beta1.PipelineRun, releaseStrategy *v1alpha1.ReleaseStrategy) error {
 	if releasePipelineRun == nil || releaseStrategy == nil {
 		return nil
 	}
 
 	patch := client.MergeFrom(a.release.DeepCopy())
 
-	a.release.Status.ReleasePipelineRun = fmt.Sprintf("%s%c%s",
+	a.release.Status.Processing.PipelineRun = fmt.Sprintf("%s%c%s",
 		releasePipelineRun.Namespace, types.Separator, releasePipelineRun.Name)
-	a.release.Status.ReleaseStrategy = fmt.Sprintf("%s%c%s",
+	a.release.Status.Processing.ReleaseStrategy = fmt.Sprintf("%s%c%s",
 		releaseStrategy.Namespace, types.Separator, releaseStrategy.Name)
 	a.release.Status.Target = releasePipelineRun.Namespace
 
-	a.release.MarkRunning()
+	a.release.MarkProcessing("")
 
 	return a.client.Status().Patch(a.ctx, a.release, patch)
+}
+
+// registerProcessingStatus updates the status of the Release being processed by monitoring the status of the
+// associated release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
+// started/succeeded, no action will be taken.
+func (a *Adapter) registerProcessingStatus(pipelineRun *v1beta1.PipelineRun) error {
+	if pipelineRun != nil && pipelineRun.IsDone() {
+		patch := client.MergeFrom(a.release.DeepCopy())
+
+		condition := pipelineRun.Status.GetCondition(apis.ConditionSucceeded)
+		if condition.IsTrue() {
+			a.release.MarkProcessed()
+		} else {
+			a.release.MarkProcessingFailed(condition.Message)
+			a.release.MarkReleaseFailed("Release processing failed")
+		}
+
+		return a.client.Status().Patch(a.ctx, a.release, patch)
+	}
+
+	return nil
 }
 
 // syncResources sync all the resources needed to trigger the deployment of the Release being processed.
