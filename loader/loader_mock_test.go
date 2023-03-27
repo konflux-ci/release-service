@@ -2,7 +2,8 @@ package loader
 
 import (
 	"errors"
-	v1alpha12 "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
+
+	v1alpha12 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
