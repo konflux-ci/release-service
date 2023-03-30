@@ -208,10 +208,17 @@ var _ = Describe("PipelineRun", func() {
 			Expect(unmarshaledSnapshotSpec.Application).To(Equal(applicationName))
 		})
 
-		It("can add the ReleaseStrategy information to a PipelineRun object and ", func() {
+		It("can add the ReleaseStrategy information and bundle resolver if present to a PipelineRun object ", func() {
 			releasePipelineRun.WithReleaseStrategy(strategy)
-			Expect(releasePipelineRun.Spec.PipelineRef.Name).
-				To(Equal("release-pipeline"))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef).NotTo(Equal(tektonv1beta1.ResolverRef{}))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Resolver).To(Equal(tektonv1beta1.ResolverName("bundles")))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params).To(HaveLen(3))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Name).To(Equal("bundle"))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Value.StringVal).To(Equal(strategy.Spec.Bundle))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Name).To(Equal("kind"))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Value.StringVal).To(Equal("pipeline"))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[2].Name).To(Equal("name"))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[2].Value.StringVal).To(Equal(strategy.Spec.Pipeline))
 		})
 
 		It("can add the reference to the service account that should be used", func() {
@@ -260,6 +267,51 @@ var _ = Describe("PipelineRun", func() {
 				Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("Name", Equal("foo"))))
 				Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("PersistentVolumeClaim.ClaimName", Equal("bar"))))
 			})
+		})
+	})
+
+	Context("When calling getPipelineRef", func() {
+		It("should return a PipelineRef without resolver if the releaseStrategy does not contain a bundle", func() {
+			releaseStrategy := &v1alpha1.ReleaseStrategy{
+				Spec: v1alpha1.ReleaseStrategySpec{
+					Pipeline: "release-pipeline",
+					Policy:   "testpolicy",
+				},
+			}
+
+			pipelineRef := getPipelineRef(releaseStrategy)
+			Expect(pipelineRef.Name).To(Equal(releaseStrategy.Spec.Pipeline))
+			Expect(pipelineRef.ResolverRef).To(Equal(tektonv1beta1.ResolverRef{}))
+		})
+
+		It("should return a PipelineRef with a bundle resolver if the releaseStrategy contains a bundle", func() {
+
+			pipelineRef := getPipelineRef(strategy)
+			Expect(pipelineRef.Name).To(BeEmpty())
+			Expect(pipelineRef.ResolverRef).NotTo(Equal(tektonv1beta1.ResolverRef{}))
+			Expect(pipelineRef.ResolverRef.Resolver).To(Equal(tektonv1beta1.ResolverName("bundles")))
+			Expect(pipelineRef.ResolverRef.Params).To(HaveLen(3))
+			Expect(pipelineRef.ResolverRef.Params[0].Name).To(Equal("bundle"))
+			Expect(pipelineRef.ResolverRef.Params[0].Value.StringVal).To(Equal(strategy.Spec.Bundle))
+			Expect(pipelineRef.ResolverRef.Params[1].Name).To(Equal("kind"))
+			Expect(pipelineRef.ResolverRef.Params[1].Value.StringVal).To(Equal("pipeline"))
+			Expect(pipelineRef.ResolverRef.Params[2].Name).To(Equal("name"))
+			Expect(pipelineRef.ResolverRef.Params[2].Value.StringVal).To(Equal(strategy.Spec.Pipeline))
+		})
+	})
+
+	Context("When calling getBundleResolver", func() {
+		It("should return a bundle resolver referencing the releaseStrategy Bundle and Pipeline", func() {
+			bundleResolver := getBundleResolver(strategy.Spec.Bundle, strategy.Spec.Pipeline)
+			Expect(bundleResolver).NotTo(Equal(tektonv1beta1.ResolverRef{}))
+			Expect(bundleResolver.Resolver).To(Equal(tektonv1beta1.ResolverName("bundles")))
+			Expect(bundleResolver.Params).To(HaveLen(3))
+			Expect(bundleResolver.Params[0].Name).To(Equal("bundle"))
+			Expect(bundleResolver.Params[0].Value.StringVal).To(Equal(strategy.Spec.Bundle))
+			Expect(bundleResolver.Params[1].Name).To(Equal("kind"))
+			Expect(bundleResolver.Params[1].Value.StringVal).To(Equal("pipeline"))
+			Expect(bundleResolver.Params[2].Name).To(Equal("name"))
+			Expect(bundleResolver.Params[2].Value.StringVal).To(Equal(strategy.Spec.Pipeline))
 		})
 	})
 })
