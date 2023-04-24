@@ -19,32 +19,12 @@ spec:
     - jsonPath: .spec.snapshot
       name: Snapshot
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Succeeded")].status
-      name: Succeeded
+    - jsonPath: .spec.releasePlan
+      name: ReleasePlan
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Succeeded")].reason
-      name: Reason
+    - jsonPath: .status.conditions[?(@.type=="Released")].reason
+      name: Release status
       type: string
-    - jsonPath: .status.releasePipelineRun
-      name: PipelineRun
-      priority: 1
-      type: string
-    - jsonPath: .status.startTime
-      name: Start Time
-      priority: 1
-      type: date
-    - jsonPath: .status.completionTime
-      name: Completion Time
-      priority: 1
-      type: date
-    - jsonPath: .status.deploymentStartTime
-      name: Deployment Start Time
-      priority: 1
-      type: date
-    - jsonPath: .status.deploymentCompletionTime
-      name: Deployment Completion Time
-      priority: 1
-      type: date
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -84,7 +64,7 @@ spec:
             description: ReleaseStatus defines the observed state of Release.
             properties:
               completionTime:
-                description: CompletionTime is the time the Release PipelineRun completed
+                description: CompletionTime is the time when a Release was completed
                 format: date-time
                 type: string
               conditions:
@@ -157,34 +137,71 @@ spec:
                   - type
                   type: object
                 type: array
-              deploymentCompletionTime:
-                description: DeploymentCompletionTime is the time when the SnapshotEnvironmentBinding
-                  has all components deployed
-                format: date-time
-                type: string
-              deploymentStartTime:
-                description: DeploymentStartTime is the time when the SnapshotEnvironmentBinding
-                  was created
-                format: date-time
-                type: string
-              releasePipelineRun:
-                description: ReleasePipelineRun contains the namespaced name of the
-                  release PipelineRun executed as part of this release
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
-              releaseStrategy:
-                description: ReleaseStrategy contains the namespaced name of the ReleaseStrategy
-                  used for this release
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
-              snapshotEnvironmentBinding:
-                description: SnapshotEnvironmentBinding contains the namespaced name
-                  of the SnapshotEnvironmentBinding created as part of this release
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
+              deployment:
+                description: Deployment contains information about the deployment
+                properties:
+                  completionTime:
+                    description: CompletionTime is the time when the Release deployment
+                      was completed
+                    format: date-time
+                    type: string
+                  environment:
+                    description: Environment is the environment where the Release
+                      will be deployed to
+                    type: string
+                  snapshotEnvironmentBinding:
+                    description: SnapshotEnvironmentBinding contains the namespaced
+                      name of the SnapshotEnvironmentBinding created as part of this
+                      release
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  startTime:
+                    description: StartTime is the time when the Release deployment
+                      started
+                    format: date-time
+                    type: string
+                type: object
+              postActionsExecution:
+                description: PostActionsExecution contains information about the post-actions
+                  execution
+                properties:
+                  completionTime:
+                    description: CompletionTime is the time when the Release post-actions
+                      execution was completed
+                    format: date-time
+                    type: string
+                  startTime:
+                    description: StartTime is the time when the Release post-actions
+                      execution started
+                    format: date-time
+                    type: string
+                type: object
+              processing:
+                description: Processing contains information about the release processing
+                properties:
+                  completionTime:
+                    description: CompletionTime is the time when the Release processing
+                      was completed
+                    format: date-time
+                    type: string
+                  pipelineRun:
+                    description: PipelineRun contains the namespaced name of the release
+                      PipelineRun executed as part of this release
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  releaseStrategy:
+                    description: ReleaseStrategy contains the namespaced name of the
+                      ReleaseStrategy used for this release
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  startTime:
+                    description: StartTime is the time when the Release processing
+                      started
+                    format: date-time
+                    type: string
+                type: object
               startTime:
-                description: StartTime is the time when the Release PipelineRun was
-                  created and set to run
+                description: StartTime is the time when a Release started
                 format: date-time
                 type: string
               target:
@@ -192,6 +209,19 @@ spec:
                   released to
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
+              validation:
+                description: Validation contains information about the release validation
+                properties:
+                  failedPostValidation:
+                    description: FailedPostValidation indicates whether the Release
+                      was marked as invalid after being initially marked as valid
+                    type: boolean
+                  time:
+                    description: Time is the time when the Release was validated or
+                      when the validation state changed
+                    format: date-time
+                    type: string
+                type: object
             type: object
         type: object
     served: true

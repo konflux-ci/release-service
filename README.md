@@ -57,10 +57,14 @@ $ ENABLE_WEBHOOKS=false make run install
 Apart from the [metrics provided by controller-runtime](https://book.kubebuilder.io/reference/metrics-reference.html)
 by default, this operator exports the following custom metrics:
 
-| Metric name                         | Type      | Description                                                                                                  |
-|-------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------|
-| release_attempt_concurrent_requests | Gauge     | Total number of concurrent release attempts.                                                                 |
-| release_attempt_duration_seconds    | Histogram | Release durations from the moment the release PipelineRun was created til the release is marked as finished. |
-| release_attempt_invalid_total       | Counter   | Number of invalid releases.                                                                                  |
-| release_attempt_running_seconds     | Histogram | Release durations from the moment the release resource was created til the release is marked as running.     |
-| release_attempt_total               | Counter   | Total number of releases processed by the operator.                                                          |
+| Metric name                                      | Type      | Description                                                         |
+|--------------------------------------------------|-----------|---------------------------------------------------------------------|
+| release_concurrent_total                         | Gauge     | Total number of concurrent release attempts.                        |
+| release_concurrent_deployments_total             | Gauge     | Total number of concurrent release deployment attempts.             |
+| release_concurrent_post_actions_executions_total | Gauge     | Total number of concurrent release post actions executions attempts |
+| release_concurrent_processings_total             | Gauge     | Total number of concurrent release processing attempts.             |
+| release_deployment_duration_seconds              | Histogram | How long in seconds a Release deployment takes to complete.         |
+| release_duration_seconds                         | Histogram | How long in seconds a Release takes to complete.                    |
+| release_post_actions_execution_duration_seconds  | Histogram | How long in seconds Release post-actions take to complete.          |
+| release_processing_duration_seconds              | Histogram | How long in seconds a Release processing takes to complete.         |
+| release_total                                    | Counter   | Total number of releases reconciled by the operator.                |

@@ -17,239 +17,267 @@ limitations under the License.
 package metrics
 
 import (
-	"fmt"
-	"strings"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
-
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
-var _ = Describe("Metrics Release", Ordered, func() {
-	BeforeAll(func() {
-		// We need to unregister in advance otherwise it breaks with 'AlreadyRegisteredError'
-		metrics.Registry.Unregister(ReleaseAttemptRunningSeconds)
-		metrics.Registry.Unregister(ReleaseAttemptConcurrentTotal)
-		metrics.Registry.Unregister(ReleaseAttemptDeploymentSeconds)
-		metrics.Registry.Unregister(ReleaseAttemptDurationSeconds)
-	})
-
+var _ = Describe("Release metrics", Ordered, func() {
 	var (
-		AttemptRunningSecondsHeader = inputHeader{
-			Name: "release_attempt_running_seconds",
-			Help: "Release durations from the moment the release resource was created til the release is marked as running",
-		}
-		AttemptDeploymentSecondsHeader = inputHeader{
-			Name: "release_attempt_deployment_seconds",
-			Help: "Release durations from the moment the SnapshotEnvironmentBinding was created til the release is marked as deployed",
-		}
-		AttemptDeploymentTotalHeader = inputHeader{
-			Name: "release_attempt_deployment_total",
-			Help: "Total number of deployments released to managed environments by the operator",
-		}
-		AttemptDurationSecondsHeader = inputHeader{
-			Name: "release_attempt_duration_seconds",
-			Help: "Release durations from the moment the release PipelineRun was created til the release is marked as finished",
-		}
-		AttemptTotalHeader = inputHeader{
-			Name: "release_attempt_total",
-			Help: "Total number of releases processed by the operator",
-		}
+		initializeMetrics func()
 	)
-
-	const (
-		validReleaseReason   = "valid_release_reason"
-		invalidReleaseReason = "invalid_release_reason"
-		strategy             = "nostrategy"
-		deployReason         = "CommitsSynced"
-		deploySuccess        = "True"
-	)
-
-	var defaultNamespace = "default"
-
-	Context("When RegisterNewRelease is called", func() {
-		// As we need to share metrics within the Context, we need to use "per Context" '(Before|After)All'
-		BeforeAll(func() {
-			// Mocking metrics to be able to reset data with each tests. Otherwise, we would have to take previous tests into account.
-			//
-			// 'Help' can't be overridden due to 'https://github.com/prometheus/client_golang/blob/83d56b1144a0c2eb10d399e7abbae3333bebc463/prometheus/registry.go#L314'
-			ReleaseAttemptRunningSeconds = prometheus.NewHistogram(
-				prometheus.HistogramOpts{
-					Name:    "release_attempt_running_seconds",
-					Help:    "Release durations from the moment the release resource was created til the release is marked as running",
-					Buckets: []float64{1, 5, 10, 30},
-				},
-			)
-			ReleaseAttemptConcurrentTotal = prometheus.NewGauge(
-				prometheus.GaugeOpts{
-					Name: "release_attempt_concurrent_requests",
-					Help: "Total number of concurrent release attempts",
-				},
-			)
-			metrics.Registry.MustRegister(ReleaseAttemptRunningSeconds, ReleaseAttemptConcurrentTotal)
-		})
-
-		AfterAll(func() {
-			metrics.Registry.Unregister(ReleaseAttemptRunningSeconds)
-			metrics.Registry.Unregister(ReleaseAttemptConcurrentTotal)
-		})
-
-		// Input seconds for duration of operations less or equal to the following buckets of 1, 5, 10 and 30 seconds
-		inputSeconds := []float64{1, 3, 8, 15}
-		elapsedSeconds := 0.0
-
-		It("increments the 'release_attempt_concurrent_total'.", func() {
-			creationTime := metav1.Time{}
-			for _, seconds := range inputSeconds {
-				startTime := metav1.NewTime(creationTime.Add(time.Second * time.Duration(seconds)))
-				elapsedSeconds += seconds
-				RegisterNewRelease(creationTime, &startTime)
-			}
-			Expect(testutil.ToFloat64(ReleaseAttemptConcurrentTotal)).To(Equal(float64(len(inputSeconds))))
-		})
-
-		It("registers a new observation for 'release_attempt_running_seconds' with the elapsed time from the moment"+
-			"the Release was created to when it started (Release marked as 'Running').", func() {
-			// Defined buckets for ReleaseAttemptRunningSeconds
-			timeBuckets := []string{"1", "5", "10", "30"}
-			data := []int{1, 2, 3, 4}
-			readerData := createHistogramReader(AttemptRunningSecondsHeader, timeBuckets, data, "", elapsedSeconds, len(inputSeconds))
-			Expect(testutil.CollectAndCompare(ReleaseAttemptRunningSeconds, strings.NewReader(readerData))).To(Succeed())
-		})
-	})
 
 	Context("When RegisterCompletedRelease is called", func() {
-		BeforeAll(func() {
-			ReleaseAttemptRunningSeconds = prometheus.NewHistogram(
-				prometheus.HistogramOpts{
-					Name:    "release_attempt_running_seconds",
-					Help:    "Release durations from the moment the release resource was created til the release is marked as running",
-					Buckets: []float64{1, 5, 10, 30},
-				},
+		var completionTime, startTime *metav1.Time
+
+		BeforeEach(func() {
+			initializeMetrics()
+
+			completionTime = &metav1.Time{}
+			startTime = &metav1.Time{Time: completionTime.Add(-60 * time.Second)}
+		})
+
+		It("does nothing if the start time is nil", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedRelease(nil, completionTime, "", "", "", "", "", "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
+		})
+
+		It("does nothing if the completion time is nil", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedRelease(startTime, nil, "", "", "", "", "", "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
+		})
+
+		It("decrements ReleaseConcurrentTotal", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedRelease(startTime, completionTime, "", "", "", "", "", "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(-1)))
+		})
+
+		It("adds an observation to ReleaseDurationSeconds", func() {
+			RegisterCompletedRelease(startTime, completionTime,
+				releaseDurationSecondsLabels[0],
+				releaseDurationSecondsLabels[1],
+				releaseDurationSecondsLabels[2],
+				releaseDurationSecondsLabels[3],
+				releaseDurationSecondsLabels[4],
+				releaseDurationSecondsLabels[5],
+				releaseDurationSecondsLabels[6],
 			)
-			ReleaseAttemptDurationSeconds = prometheus.NewHistogramVec(
-				prometheus.HistogramOpts{
-					Name:    "release_attempt_duration_seconds",
-					Help:    "Release durations from the moment the release PipelineRun was created til the release is marked as finished",
-					Buckets: []float64{60, 600, 1800, 3600},
-				},
-				[]string{"reason", "strategy", "succeeded", "target"},
+			Expect(testutil.CollectAndCompare(ReleaseDurationSeconds,
+				newHistogramReader(
+					releaseDurationSecondsOpts,
+					releaseDurationSecondsLabels,
+					startTime, completionTime,
+				))).To(Succeed())
+		})
+
+		It("increments ReleaseTotal", func() {
+			RegisterCompletedRelease(startTime, completionTime,
+				releaseTotalLabels[0],
+				releaseTotalLabels[1],
+				releaseTotalLabels[2],
+				releaseTotalLabels[3],
+				releaseTotalLabels[4],
+				releaseTotalLabels[5],
+				releaseTotalLabels[6],
 			)
-
-			ReleaseAttemptConcurrentTotal = prometheus.NewGauge(
-				prometheus.GaugeOpts{
-					Name: "release_attempt_concurrent_requests",
-					Help: "Total number of concurrent release attempts",
-				},
-			)
-			metrics.Registry.MustRegister(ReleaseAttemptRunningSeconds, ReleaseAttemptDurationSeconds, ReleaseAttemptConcurrentTotal)
-		})
-
-		AfterAll(func() {
-			metrics.Registry.Unregister(ReleaseAttemptRunningSeconds)
-			metrics.Registry.Unregister(ReleaseAttemptDurationSeconds)
-			metrics.Registry.Unregister(ReleaseAttemptConcurrentTotal)
-		})
-
-		// Input seconds for duration of operations less or equal to the following buckets of 60, 600, 1800 and 3600 seconds
-		inputSeconds := []float64{30, 500, 1500, 3000}
-		elapsedSeconds := 0.0
-		labels := fmt.Sprintf(`reason="%s", strategy="%s", succeeded="true", target="%s",`,
-			validReleaseReason, strategy, defaultNamespace)
-
-		It("increments 'ReleaseAttemptConcurrentTotal' so we can decrement it to a non-negative number in the next test", func() {
-			creationTime := metav1.Time{}
-			for _, seconds := range inputSeconds {
-				startTime := metav1.NewTime(creationTime.Add(time.Second * time.Duration(seconds)))
-				RegisterNewRelease(creationTime, &startTime)
-			}
-			Expect(testutil.ToFloat64(ReleaseAttemptConcurrentTotal)).To(Equal(float64(len(inputSeconds))))
-		})
-
-		It("increments 'ReleaseAttemptTotal' and decrements 'ReleaseAttemptConcurrentTotal'", func() {
-			completionTime := metav1.Time{}
-			for _, seconds := range inputSeconds {
-				completionTime := metav1.NewTime(completionTime.Add(time.Second * time.Duration(seconds)))
-				elapsedSeconds += seconds
-				RegisterCompletedRelease(validReleaseReason, strategy, defaultNamespace, &metav1.Time{}, &completionTime, true)
-			}
-			readerData := createCounterReader(AttemptTotalHeader, labels, true, len(inputSeconds))
-			Expect(testutil.ToFloat64(ReleaseAttemptConcurrentTotal)).To(Equal(0.0))
-			Expect(testutil.CollectAndCompare(ReleaseAttemptTotal, strings.NewReader(readerData))).To(Succeed())
-		})
-
-		It("registers a new observation for 'ReleaseAttemptDurationSeconds' with the elapsed time from the moment the Release attempt started (Release marked as 'Running').", func() {
-			timeBuckets := []string{"60", "600", "1800", "3600"}
-			// For each time bucket how many Releases completed below 4 seconds
-			data := []int{1, 2, 3, 4}
-			readerData := createHistogramReader(AttemptDurationSecondsHeader, timeBuckets, data, labels, elapsedSeconds, len(inputSeconds))
-			Expect(testutil.CollectAndCompare(ReleaseAttemptDurationSeconds, strings.NewReader(readerData))).To(Succeed())
+			Expect(testutil.CollectAndCompare(ReleaseTotal,
+				newCounterReader(
+					releaseTotalOpts,
+					releaseTotalLabels,
+				))).To(Succeed())
 		})
 	})
 
-	Context("When RegisterDeployedRelease is called", func() {
-		BeforeAll(func() {
-			ReleaseAttemptDeploymentSeconds = prometheus.NewHistogram(
-				prometheus.HistogramOpts{
-					Name:    "release_attempt_deployment_seconds",
-					Help:    "Release durations from the moment the SnapshotEnvironmentBinding was created til the release is marked as deployed",
-					Buckets: []float64{1, 5, 10, 30},
-				},
+	Context("When RegisterCompletedReleaseDeployment is called", func() {
+		var completionTime, startTime *metav1.Time
+
+		BeforeEach(func() {
+			initializeMetrics()
+
+			completionTime = &metav1.Time{}
+			startTime = &metav1.Time{Time: completionTime.Add(-60 * time.Second)}
+		})
+
+		It("does nothing if the start time is nil", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedReleaseDeployment(nil, completionTime, "", "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
+		})
+
+		It("does nothing if the completion time is nil", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedReleaseDeployment(startTime, nil, "", "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
+		})
+
+		It("decrements ReleaseConcurrentDeploymentsTotal", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedReleaseDeployment(startTime, completionTime, "", "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(-1)))
+		})
+
+		It("adds an observation to ReleaseDeploymentDurationSeconds", func() {
+			RegisterCompletedReleaseDeployment(startTime, completionTime,
+				releaseDeploymentDurationSecondsLabels[0],
+				releaseDeploymentDurationSecondsLabels[1],
+				releaseDeploymentDurationSecondsLabels[2],
 			)
-			metrics.Registry.MustRegister(ReleaseAttemptDeploymentSeconds)
-		})
-
-		AfterAll(func() {
-			metrics.Registry.Unregister(ReleaseAttemptDeploymentSeconds)
-		})
-
-		// Input seconds for duration of operations less or equal to the following buckets of 1, 5, 10 and 30 seconds
-		inputSeconds := []float64{1, 3, 8, 15}
-		elapsedSeconds := 0.0
-
-		It("increments the 'ReleaseAttemptDeploymentTotal' metric.", func() {
-			startTime := metav1.Time{}
-			for _, seconds := range inputSeconds {
-				completionTime := metav1.NewTime(startTime.Add(time.Second * time.Duration(seconds)))
-				elapsedSeconds += seconds
-				RegisterDeployedRelease(deployReason, "", deploySuccess, &startTime, &completionTime)
-			}
-
-			labels := fmt.Sprintf(`reason="%s", succeeded="%s", target="",`, deployReason, deploySuccess)
-			readerData := createCounterReader(AttemptDeploymentTotalHeader, labels, true, len(inputSeconds))
-			Expect(testutil.CollectAndCompare(ReleaseAttemptDeploymentTotal.WithLabelValues("CommitsSynced", "True", ""),
-				strings.NewReader(readerData))).To(Succeed())
-		})
-
-		It("registers a new observation for 'ReleaseAttemptDeploymentSeconds' with the time difference between the passed "+
-			"start time and finish time.", func() {
-			// Defined buckets for ReleaseAttemptDeploymentSeconds
-			timeBuckets := []string{"1", "5", "10", "30"}
-			data := []int{1, 2, 3, 4}
-			readerData := createHistogramReader(AttemptDeploymentSecondsHeader, timeBuckets, data, "", elapsedSeconds, len(inputSeconds))
-			Expect(testutil.CollectAndCompare(ReleaseAttemptDeploymentSeconds, strings.NewReader(readerData))).To(Succeed())
+			Expect(testutil.CollectAndCompare(ReleaseDeploymentDurationSeconds,
+				newHistogramReader(
+					releaseDeploymentDurationSecondsOpts,
+					releaseDeploymentDurationSecondsLabels,
+					startTime, completionTime,
+				))).To(Succeed())
 		})
 	})
 
-	Context("When RegisterInvalidRelease", func() {
-		It("increments the 'ReleaseAttemptInvalidTotal' metric", func() {
-			for i := 0; i < 10; i++ {
-				RegisterInvalidRelease(invalidReleaseReason)
-			}
-			Expect(testutil.ToFloat64(ReleaseAttemptInvalidTotal)).To(Equal(float64(10)))
+	Context("When RegisterCompletedReleasePostActionsExecuted is called", func() {
+		var completionTime, startTime *metav1.Time
+
+		BeforeEach(func() {
+			initializeMetrics()
+
+			completionTime = &metav1.Time{}
+			startTime = &metav1.Time{Time: completionTime.Add(-60 * time.Second)}
 		})
 
-		It("increments the 'ReleaseAttemptTotal' metric.", func() {
-			labels := fmt.Sprintf(`reason="%s", strategy="", succeeded="false", target="",`, invalidReleaseReason)
-			readerData := createCounterReader(AttemptTotalHeader, labels, true, 10.0)
-			Expect(testutil.CollectAndCompare(ReleaseAttemptTotal.WithLabelValues("invalid_release_reason", "", "false", ""),
-				strings.NewReader(readerData))).To(Succeed())
+		It("does nothing if the start time is nil", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedReleasePostActionsExecuted(nil, completionTime, "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
+		})
+
+		It("does nothing if the completion time is nil", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedReleasePostActionsExecuted(startTime, nil, "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
+		})
+
+		It("decrements ReleaseConcurrentPostActionsExecutionsTotal", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedReleasePostActionsExecuted(startTime, completionTime, "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(-1)))
+		})
+
+		It("adds an observation to ReleasePostActionsExecutionDurationSeconds", func() {
+			RegisterCompletedReleasePostActionsExecuted(startTime, completionTime,
+				releasePostActionsExecutionDurationSecondsLabels[0],
+			)
+			Expect(testutil.CollectAndCompare(ReleasePostActionsExecutionDurationSeconds,
+				newHistogramReader(
+					releasePostActionsExecutionDurationSecondsOpts,
+					releasePostActionsExecutionDurationSecondsLabels,
+					startTime, completionTime,
+				))).To(Succeed())
 		})
 	})
+
+	Context("When RegisterCompletedReleaseProcessing is called", func() {
+		var completionTime, startTime *metav1.Time
+
+		BeforeEach(func() {
+			initializeMetrics()
+
+			completionTime = &metav1.Time{}
+			startTime = &metav1.Time{Time: completionTime.Add(-60 * time.Second)}
+		})
+
+		It("does nothing if the start time is nil", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedReleaseProcessing(nil, completionTime, "", "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
+		})
+
+		It("does nothing if the completion time is nil", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedReleaseProcessing(startTime, nil, "", "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
+		})
+
+		It("decrements ReleaseConcurrentProcessingsTotal", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterCompletedReleaseProcessing(startTime, completionTime, "", "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(-1)))
+		})
+
+		It("adds an observation to ReleaseProcessingDurationSeconds", func() {
+			RegisterCompletedReleaseProcessing(startTime, completionTime,
+				releaseProcessingDurationSecondsLabels[0],
+				releaseProcessingDurationSecondsLabels[1],
+				releaseProcessingDurationSecondsLabels[2],
+			)
+			Expect(testutil.CollectAndCompare(ReleaseProcessingDurationSeconds,
+				newHistogramReader(
+					releaseProcessingDurationSecondsOpts,
+					releaseProcessingDurationSecondsLabels,
+					startTime, completionTime,
+				))).To(Succeed())
+		})
+	})
+
+	Context("When RegisterNewRelease is called", func() {
+		BeforeEach(func() {
+			initializeMetrics()
+		})
+
+		It("increments ReleaseConcurrentTotal", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterNewRelease()
+			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(1)))
+		})
+	})
+
+	Context("When RegisterNewReleaseDeployment is called", func() {
+		BeforeEach(func() {
+			initializeMetrics()
+		})
+
+		It("increments ReleaseConcurrentDeploymentsTotal", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterNewReleaseDeployment()
+			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(1)))
+		})
+	})
+
+	Context("When RegisterNewReleaseProcessing is called", func() {
+		BeforeEach(func() {
+			initializeMetrics()
+		})
+
+		It("increments ReleaseConcurrentProcessingsTotal", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterNewReleaseProcessing()
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(1)))
+		})
+	})
+
+	Context("When RegisterNewReleasePostActionsExecution is called", func() {
+		BeforeEach(func() {
+			initializeMetrics()
+		})
+
+		It("increments ReleaseConcurrentPostActionsExecutionsTotal", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterNewReleasePostActionsExecution()
+			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(1)))
+		})
+	})
+
+	initializeMetrics = func() {
+		ReleaseConcurrentTotal.Reset()
+		ReleaseConcurrentDeploymentsTotal.Reset()
+		ReleaseConcurrentProcessingsTotal.Reset()
+		ReleaseConcurrentPostActionsExecutionsTotal.Reset()
+		ReleaseDeploymentDurationSeconds.Reset()
+		ReleaseDurationSeconds.Reset()
+		ReleaseProcessingDurationSeconds.Reset()
+		ReleasePostActionsExecutionDurationSeconds.Reset()
+		ReleaseTotal.Reset()
+	}
+
 })
