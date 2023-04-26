@@ -18,11 +18,12 @@ package tekton
 
 import (
 	"context"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	goodies "github.com/redhat-appstudio/operator-goodies/test"
 	"go/build"
 	"path/filepath"
 	"testing"
+
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+	goodies "github.com/redhat-appstudio/operator-goodies/test"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -101,8 +102,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&appstudiov1alpha1.Release{}).SetupWebhookWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
+	appstudiov1alpha1.SetupReleaseLowlevelWebhook(k8sManager) // why do we need the webhooks here??
 })
 
 var _ = AfterSuite(func() {

@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -45,6 +46,7 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
+var mgr manager.Manager
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -84,7 +86,7 @@ var _ = BeforeSuite(func() {
 
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
 		Host:               webhookInstallOptions.LocalServingHost,
 		Port:               webhookInstallOptions.LocalServingPort,
@@ -94,7 +96,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	Expect((&Release{}).SetupWebhookWithManager(mgr)).To(Succeed())
+	SetupReleaseLowlevelWebhook(mgr)
 	Expect((&ReleasePlanAdmission{}).SetupWebhookWithManager(mgr)).To(Succeed())
 	Expect((&ReleasePlan{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
