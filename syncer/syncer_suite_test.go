@@ -18,11 +18,12 @@ package syncer
 
 import (
 	"context"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	goodies "github.com/redhat-appstudio/operator-goodies/test"
 	"go/build"
 	"path/filepath"
 	"testing"
+
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+	goodies "github.com/redhat-appstudio/operator-goodies/test"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,7 +36,6 @@ import (
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 
-	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	//+kubebuilder:scaffold:imports
 )
@@ -85,16 +85,6 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             clientsetscheme.Scheme,
-		MetricsBindAddress: "0", // this disables metrics
-		LeaderElection:     false,
-	})
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&appstudiov1alpha1.Release{}).SetupWebhookWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

@@ -18,8 +18,9 @@ package main
 
 import (
 	"flag"
-	"go.uber.org/zap/zapcore"
 	"os"
+
+	"go.uber.org/zap/zapcore"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -115,11 +116,6 @@ func main() {
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		setupLog.Info("setting up webhooks")
 
-		if err = (&appstudiov1alpha1.Release{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Release")
-			os.Exit(1)
-		}
-
 		if err = (&appstudiov1alpha1.ReleasePlanAdmission{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ReleasePlanAdmission")
 			os.Exit(1)
@@ -129,6 +125,8 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ReleasePlan")
 			os.Exit(1)
 		}
+
+		appstudiov1alpha1.SetupReleaseLowlevelWebhook(mgr)
 	}
 
 	//+kubebuilder:scaffold:builder
