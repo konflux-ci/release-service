@@ -89,36 +89,6 @@ func (r *ReleasePipelineRun) AsPipelineRun() *tektonv1beta1.PipelineRun {
 	return &r.PipelineRun
 }
 
-// WithExtraParam adds an extra param to the release PipelineRun. If the parameter is not part of the Pipeline
-// definition, it will be silently ignored.
-func (r *ReleasePipelineRun) WithExtraParam(name string, value tektonv1beta1.ArrayOrString) *ReleasePipelineRun {
-	r.Spec.Params = append(r.Spec.Params, tektonv1beta1.Param{
-		Name:  name,
-		Value: value,
-	})
-
-	return r
-}
-
-// WithSnapshot adds a param containing the Snapshot as a json string to the release PipelineRun.
-func (r *ReleasePipelineRun) WithSnapshot(snapshot *applicationapiv1alpha1.Snapshot) *ReleasePipelineRun {
-	// We ignore the error here because none should be raised when marshalling the spec of a CRD.
-	// If we end up deciding it is useful, we will need to pass the errors trough the chain and
-	// add something like a `Complete` function that returns the final object and error.
-	snapshotString, _ := json.Marshal(snapshot.Spec)
-
-	// Get snapshot.Kind runes to make the first letter lowercase
-	snapshotRunes := []rune(snapshot.Kind)
-	snapshotRunes[0] = unicode.ToLower(snapshotRunes[0])
-
-	r.WithExtraParam(string(snapshotRunes), tektonv1beta1.ArrayOrString{
-		Type:      tektonv1beta1.ParamTypeString,
-		StringVal: string(snapshotString),
-	})
-
-	return r
-}
-
 // WithEnterpriseContractPolicy adds a param containing the EnterpriseContractPolicy Spec as a json string to the release PipelineRun.
 func (r *ReleasePipelineRun) WithEnterpriseContractPolicy(enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy) *ReleasePipelineRun {
 	policyJson, _ := json.Marshal(enterpriseContractPolicy.Spec)
@@ -129,6 +99,17 @@ func (r *ReleasePipelineRun) WithEnterpriseContractPolicy(enterpriseContractPoli
 	r.WithExtraParam(string(policyKindRunes), tektonv1beta1.ArrayOrString{
 		Type:      tektonv1beta1.ParamTypeString,
 		StringVal: string(policyJson),
+	})
+
+	return r
+}
+
+// WithExtraParam adds an extra param to the release PipelineRun. If the parameter is not part of the Pipeline
+// definition, it will be silently ignored.
+func (r *ReleasePipelineRun) WithExtraParam(name string, value tektonv1beta1.ArrayOrString) *ReleasePipelineRun {
+	r.Spec.Params = append(r.Spec.Params, tektonv1beta1.Param{
+		Name:  name,
+		Value: value,
 	})
 
 	return r
@@ -192,6 +173,25 @@ func (r *ReleasePipelineRun) WithServiceAccount(serviceAccount string) *ReleaseP
 	return r
 }
 
+// WithSnapshot adds a param containing the Snapshot as a json string to the release PipelineRun.
+func (r *ReleasePipelineRun) WithSnapshot(snapshot *applicationapiv1alpha1.Snapshot) *ReleasePipelineRun {
+	// We ignore the error here because none should be raised when marshalling the spec of a CRD.
+	// If we end up deciding it is useful, we will need to pass the errors trough the chain and
+	// add something like a `Complete` function that returns the final object and error.
+	snapshotString, _ := json.Marshal(snapshot.Spec)
+
+	// Get snapshot.Kind runes to make the first letter lowercase
+	snapshotRunes := []rune(snapshot.Kind)
+	snapshotRunes[0] = unicode.ToLower(snapshotRunes[0])
+
+	r.WithExtraParam(string(snapshotRunes), tektonv1beta1.ArrayOrString{
+		Type:      tektonv1beta1.ParamTypeString,
+		StringVal: string(snapshotString),
+	})
+
+	return r
+}
+
 // WithWorkspace adds a workspace to the PipelineRun using the given name and PersistentVolumeClaim.
 // If any of those values is empty, no workspace will be added.
 func (r *ReleasePipelineRun) WithWorkspace(name, persistentVolumeClaim string) *ReleasePipelineRun {
@@ -207,19 +207,6 @@ func (r *ReleasePipelineRun) WithWorkspace(name, persistentVolumeClaim string) *
 	})
 
 	return r
-}
-
-// getPipelineRef returns a PipelineRef generated from the information specified in the given ReleaseStrategy.
-func getPipelineRef(strategy *v1alpha1.ReleaseStrategy) *tektonv1beta1.PipelineRef {
-	if strategy.Spec.Bundle == "" {
-		return &tektonv1beta1.PipelineRef{
-			Name: strategy.Spec.Pipeline,
-		}
-	}
-
-	return &tektonv1beta1.PipelineRef{
-		ResolverRef: getBundleResolver(strategy.Spec.Bundle, strategy.Spec.Pipeline),
-	}
 }
 
 // getBundleResolver returns a bundle ResolverRef for the given bundle and pipeline.
@@ -249,5 +236,18 @@ func getBundleResolver(bundle, pipeline string) tektonv1beta1.ResolverRef {
 				},
 			},
 		},
+	}
+}
+
+// getPipelineRef returns a PipelineRef generated from the information specified in the given ReleaseStrategy.
+func getPipelineRef(strategy *v1alpha1.ReleaseStrategy) *tektonv1beta1.PipelineRef {
+	if strategy.Spec.Bundle == "" {
+		return &tektonv1beta1.PipelineRef{
+			Name: strategy.Spec.Pipeline,
+		}
+	}
+
+	return &tektonv1beta1.PipelineRef{
+		ResolverRef: getBundleResolver(strategy.Spec.Bundle, strategy.Spec.Pipeline),
 	}
 }
