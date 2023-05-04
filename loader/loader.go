@@ -8,7 +8,7 @@ import (
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/tekton"
+	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -73,7 +73,7 @@ func (l *loader) GetActiveReleasePlanAdmission(ctx context.Context, cli client.C
 				releasePlan.Spec.Target, releasePlan.Spec.Application)
 		}
 
-		labelValue, found := releasePlanAdmission.GetLabels()[v1alpha1.AutoReleaseLabel]
+		labelValue, found := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]
 		if found && labelValue == "false" {
 			return nil, fmt.Errorf("found ReleasePlanAdmission '%s' with auto-release label set to false",
 				releasePlanAdmission.Name)
@@ -150,8 +150,8 @@ func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, r
 	err := cli.List(ctx, pipelineRuns,
 		client.Limit(1),
 		client.MatchingLabels{
-			tekton.ReleaseNameLabel:      release.Name,
-			tekton.ReleaseNamespaceLabel: release.Namespace,
+			metadata.ReleaseNameLabel:      release.Name,
+			metadata.ReleaseNamespaceLabel: release.Namespace,
 		})
 	if err == nil && len(pipelineRuns.Items) > 0 {
 		return &pipelineRuns.Items[0], nil

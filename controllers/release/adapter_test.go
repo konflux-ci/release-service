@@ -20,13 +20,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
+
 	"github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/loader"
-	"github.com/redhat-appstudio/release-service/tekton"
+	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -761,9 +762,9 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("has release labels", func() {
-			Expect(pipelineRun.GetLabels()[tekton.PipelinesTypeLabel]).To(Equal("release"))
-			Expect(pipelineRun.GetLabels()[tekton.ReleaseNameLabel]).To(Equal(adapter.release.Name))
-			Expect(pipelineRun.GetLabels()[tekton.ReleaseNamespaceLabel]).To(Equal(testNamespace))
+			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal("release"))
+			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
+			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 		})
 
 		It("references the pipeline specified in the ReleaseStrategy", func() {
@@ -1236,7 +1237,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Name:      "release-plan-admission",
 				Namespace: "default",
 				Labels: map[string]string{
-					v1alpha1.AutoReleaseLabel: "true",
+					metadata.AutoReleaseLabel: "true",
 				},
 			},
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{

@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/redhat-appstudio/release-service/metadata"
 	"gomodules.xyz/jsonpatch/v2"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -79,7 +80,7 @@ var _ = Describe("Release webhook", Ordered, func() {
 			Expect(patch.Operation).To(Equal("replace"))
 			Expect(patch.Path).To(Equal("/metadata/labels"))
 			Expect(patch.Value).To(Equal(map[string]interface{}{
-				authorLabel: "admin",
+				metadata.AuthorLabel: "admin",
 			}))
 		})
 		It("should overwrite the author label value when one is provided by user", func() {
@@ -92,7 +93,7 @@ var _ = Describe("Release webhook", Ordered, func() {
 					Name:      "test-release",
 					Namespace: "default",
 					Labels: map[string]string{
-						authorLabel: "user",
+						metadata.AuthorLabel: "user",
 					},
 				},
 				Spec: ReleaseSpec{
@@ -116,7 +117,7 @@ var _ = Describe("Release webhook", Ordered, func() {
 			Expect(patch.Operation).To(Equal("replace"))
 			Expect(patch.Path).To(Equal("/metadata/labels"))
 			Expect(patch.Value).To(Equal(map[string]interface{}{
-				authorLabel: "admin",
+				metadata.AuthorLabel: "admin",
 			}))
 		})
 	})
@@ -156,7 +157,7 @@ var _ = Describe("Release webhook", Ordered, func() {
 		})
 		It("should allow changes to metadata besides the author label", func() {
 			release.ObjectMeta.Labels = map[string]string{
-				authorLabel: "admin",
+				metadata.AuthorLabel: "admin",
 			}
 			releaseMetadataChange := &Release{
 				TypeMeta: metav1.TypeMeta{
@@ -167,7 +168,7 @@ var _ = Describe("Release webhook", Ordered, func() {
 					Name:      "test-release",
 					Namespace: "default",
 					Labels: map[string]string{
-						authorLabel: "admin",
+						metadata.AuthorLabel: "admin",
 					},
 					Annotations: map[string]string{
 						"foo": "bar",
@@ -200,7 +201,7 @@ var _ = Describe("Release webhook", Ordered, func() {
 					Name:      "test-release",
 					Namespace: "default",
 					Labels: map[string]string{
-						authorLabel: "user",
+						metadata.AuthorLabel: "user",
 					},
 				},
 				Spec: ReleaseSpec{
@@ -271,7 +272,7 @@ var _ = Describe("Release webhook", Ordered, func() {
 			Expect(len(jsonPatch)).To(Equal(1))
 			patch := jsonPatch[0]
 			Expect(patch.Value).To(Equal(map[string]interface{}{
-				authorLabel: "a_b",
+				metadata.AuthorLabel: "a_b",
 			}))
 		})
 		It("should convert 'system:serviceaccount' to 'sa' in the author", func() {
@@ -284,7 +285,7 @@ var _ = Describe("Release webhook", Ordered, func() {
 			Expect(len(jsonPatch)).To(Equal(1))
 			patch := jsonPatch[0]
 			Expect(patch.Value).To(Equal(map[string]interface{}{
-				authorLabel: "sa_foo",
+				metadata.AuthorLabel: "sa_foo",
 			}))
 		})
 		It("should convert only use the first 63 characters of the author", func() {
@@ -297,7 +298,7 @@ var _ = Describe("Release webhook", Ordered, func() {
 			Expect(len(jsonPatch)).To(Equal(1))
 			patch := jsonPatch[0]
 			Expect(patch.Value).To(Equal(map[string]interface{}{
-				authorLabel: "abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz_123456789",
+				metadata.AuthorLabel: "abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz_123456789",
 			}))
 		})
 	})

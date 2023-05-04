@@ -17,6 +17,7 @@ limitations under the License.
 package tekton
 
 import (
+	"github.com/redhat-appstudio/release-service/metadata"
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +30,7 @@ func isReleasePipelineRun(object client.Object) bool {
 		return false
 	}
 
-	labelValue, found := object.GetLabels()[PipelinesTypeLabel]
+	labelValue, found := object.GetLabels()[metadata.PipelinesTypeLabel]
 
 	return found && labelValue == PipelineTypeRelease
 }

@@ -18,9 +18,12 @@ package v1alpha1
 
 import (
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/redhat-appstudio/release-service/metadata"
 )
 
 func (rp *ReleasePlanAdmission) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -35,10 +38,10 @@ var _ webhook.Defaulter = &ReleasePlanAdmission{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
 func (rp *ReleasePlanAdmission) Default() {
-	if _, found := rp.GetLabels()[AutoReleaseLabel]; !found {
+	if _, found := rp.GetLabels()[metadata.AutoReleaseLabel]; !found {
 		if rp.Labels == nil {
 			rp.Labels = map[string]string{
-				AutoReleaseLabel: "true",
+				metadata.AutoReleaseLabel: "true",
 			}
 		}
 	}
@@ -65,9 +68,9 @@ func (rp *ReleasePlanAdmission) ValidateDelete() error {
 
 // validateAutoReleaseLabel throws an error if the auto-release label value is set to anything besides true or false.
 func (rp *ReleasePlanAdmission) validateAutoReleaseLabel() error {
-	if value, found := rp.GetLabels()[AutoReleaseLabel]; found {
+	if value, found := rp.GetLabels()[metadata.AutoReleaseLabel]; found {
 		if value != "true" && value != "false" {
-			return fmt.Errorf("'%s' label can only be set to true or false", AutoReleaseLabel)
+			return fmt.Errorf("'%s' label can only be set to true or false", metadata.AutoReleaseLabel)
 		}
 	}
 	return nil

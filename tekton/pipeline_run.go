@@ -18,7 +18,6 @@ package tekton
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"unicode"
 
@@ -38,31 +37,8 @@ import (
 type PipelineType string
 
 const (
-	// appstudioLabelPrefix is the prefix of the application label
-	appstudioLabelPrefix = "appstudio.openshift.io"
-
-	// pipelinesLabelPrefix is the prefix of the pipelines label
-	pipelinesLabelPrefix = "pipelines.appstudio.openshift.io"
-
-	// releaseLabelPrefix is the prefix of the release labels
-	releaseLabelPrefix = "release.appstudio.openshift.io"
-
-	//PipelineTypeRelease is the type for PipelineRuns created to run a release Pipeline
+	// PipelineTypeRelease is the type for PipelineRuns created to run a release Pipeline
 	PipelineTypeRelease = "release"
-)
-
-var (
-	// ApplicationNameLabel is the label used to specify the application associated with the PipelineRun
-	ApplicationNameLabel = fmt.Sprintf("%s/%s", appstudioLabelPrefix, "application")
-
-	// PipelinesTypeLabel is the label used to describe the type of pipeline
-	PipelinesTypeLabel = fmt.Sprintf("%s/%s", pipelinesLabelPrefix, "type")
-
-	// ReleaseNameLabel is the label used to specify the name of the Release associated with the PipelineRun
-	ReleaseNameLabel = fmt.Sprintf("%s/%s", releaseLabelPrefix, "name")
-
-	// ReleaseNamespaceLabel is the label used to specify the namespace of the Release associated with the PipelineRun
-	ReleaseNamespaceLabel = fmt.Sprintf("%s/%s", releaseLabelPrefix, "namespace")
 )
 
 // ReleasePipelineRun is a PipelineRun alias, so we can add new methods to it in this file.
@@ -125,10 +101,10 @@ func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipeli
 // WithReleaseAndApplicationMetadata adds Release and Application metadata to the release PipelineRun.
 func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1.Release, applicationName string) *ReleasePipelineRun {
 	r.ObjectMeta.Labels = map[string]string{
-		PipelinesTypeLabel:    PipelineTypeRelease,
-		ReleaseNameLabel:      release.Name,
-		ReleaseNamespaceLabel: release.Namespace,
-		ApplicationNameLabel:  applicationName,
+		metadata.PipelinesTypeLabel:    PipelineTypeRelease,
+		metadata.ReleaseNameLabel:      release.Name,
+		metadata.ReleaseNamespaceLabel: release.Namespace,
+		metadata.ApplicationNameLabel:  applicationName,
 	}
 	metadata.AddAnnotations(r.AsPipelineRun(), metadata.GetAnnotationsWithPrefix(release, integrationServiceGitopsPkg.PipelinesAsCodePrefix))
 	metadata.AddLabels(r.AsPipelineRun(), metadata.GetLabelsWithPrefix(release, integrationServiceGitopsPkg.PipelinesAsCodePrefix))

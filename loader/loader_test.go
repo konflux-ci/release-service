@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/tekton"
+	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,7 +97,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		It("fails to return an active release plan admission if the auto release label is set to false", func() {
 			disabledReleasePlanAdmission := releasePlanAdmission.DeepCopy()
-			disabledReleasePlanAdmission.Labels[v1alpha1.AutoReleaseLabel] = "false"
+			disabledReleasePlanAdmission.Labels[metadata.AutoReleaseLabel] = "false"
 			disabledReleasePlanAdmission.Name = "disabled-release-plan-admission"
 			disabledReleasePlanAdmission.ResourceVersion = ""
 			Expect(k8sClient.Create(ctx, disabledReleasePlanAdmission)).To(Succeed())
@@ -382,7 +382,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Name:      "release-plan-admission",
 				Namespace: "default",
 				Labels: map[string]string{
-					v1alpha1.AutoReleaseLabel: "true",
+					metadata.AutoReleaseLabel: "true",
 				},
 			},
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
@@ -434,8 +434,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		pipelineRun = &v1beta1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					tekton.ReleaseNameLabel:      release.Name,
-					tekton.ReleaseNamespaceLabel: release.Namespace,
+					metadata.ReleaseNameLabel:      release.Name,
+					metadata.ReleaseNamespaceLabel: release.Namespace,
 				},
 				Name:      "pipeline-run",
 				Namespace: "default",
