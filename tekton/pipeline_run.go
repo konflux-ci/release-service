@@ -18,7 +18,11 @@ package tekton
 
 import (
 	"encoding/json"
+	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"unicode"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
@@ -87,6 +91,20 @@ func (r *ReleasePipelineRun) WithExtraParam(name string, value tektonv1beta1.Arr
 		Name:  name,
 		Value: value,
 	})
+
+	return r
+}
+
+// WithObjectReferences adds new parameters to the PipelineRun for each object passed as an argument to the function.
+// The new parameters will be named after the kind of the object and its values will be a reference to the object itself
+// in the form of "namespace/name".
+func (r *ReleasePipelineRun) WithObjectReferences(objects ...client.Object) *ReleasePipelineRun {
+	for _, object := range objects {
+		r.WithExtraParam(strings.ToLower(object.GetObjectKind().GroupVersionKind().Kind), tektonv1beta1.ArrayOrString{
+			Type:      tektonv1beta1.ParamTypeString,
+			StringVal: fmt.Sprintf("%s%c%s", object.GetNamespace(), types.Separator, object.GetName()),
+		})
+	}
 
 	return r
 }

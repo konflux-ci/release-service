@@ -19,8 +19,11 @@ package tekton
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"reflect"
+	"strings"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -236,6 +239,23 @@ var _ = Describe("PipelineRun", func() {
 			releasePipelineRun.WithEnterpriseContractPolicy(enterpriseContractPolicy)
 			jsonSpec, _ := json.Marshal(enterpriseContractPolicy.Spec)
 			Expect(releasePipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(jsonSpec)))))
+		})
+	})
+
+	Context("When calling WithObjectReferences is called", func() {
+		It("does nothing if no objects are passed", func() {
+			releasePipelineRun.WithObjectReferences()
+			Expect(releasePipelineRun.Spec.Params).To(HaveLen(0))
+		})
+
+		It("adds a new parameter to the Pipeline with a reference to the object", func() {
+			releasePipelineRun.WithObjectReferences(release)
+
+			Expect(releasePipelineRun.Spec.Params).To(HaveLen(1))
+			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal(strings.ToLower(release.Kind)))
+			Expect(releasePipelineRun.Spec.Params[0].Value.Type).To(Equal(tektonv1beta1.ParamTypeString))
+			Expect(releasePipelineRun.Spec.Params[0].Value.StringVal).To(Equal(
+				fmt.Sprintf("%s%c%s", release.Namespace, types.Separator, release.Name)))
 		})
 	})
 

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
@@ -754,6 +755,12 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		It("returns a PipelineRun", func() {
 			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&v1beta1.PipelineRun{})))
+		})
+
+		It("has the release reference", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(adapter.release.Kind))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", adapter.release.Namespace, types.Separator, adapter.release.Name))))
 		})
 
 		It("has owner annotations", func() {
