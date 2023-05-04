@@ -56,11 +56,11 @@ func (r *releaseHandler) Handle(ctx context.Context, req admission.Request) admi
 		var releaseOld, releaseNew Release
 		err := json.Unmarshal(req.Object.Raw, &releaseNew)
 		if err != nil {
-			failedResponse(req.UID, "could not unmarshal the raw incoming Release object")
+			return failedResponse(req.UID, "could not unmarshal the raw incoming Release object")
 		}
 		err = json.Unmarshal(req.OldObject.Raw, &releaseOld)
 		if err != nil {
-			failedResponse(req.UID, "could not unmarshal the raw old Release object")
+			return failedResponse(req.UID, "could not unmarshal the raw old Release object")
 		}
 		if !reflect.DeepEqual(releaseNew.Spec, releaseOld.Spec) {
 			return failedResponse(req.UID, "release resources spec cannot be updated")
@@ -69,9 +69,14 @@ func (r *releaseHandler) Handle(ctx context.Context, req admission.Request) admi
 			return failedResponse(req.UID, "release author label cannnot be updated")
 		}
 	}
+	return successfulResponse(req.UID)
+}
+
+// successfulResponse returns a success admission.Response that allows the requested operation.
+func successfulResponse(uid types.UID) admission.Response {
 	return admission.Response{
 		AdmissionResponse: admissionv1.AdmissionResponse{
-			UID:     req.UID,
+			UID:     uid,
 			Allowed: true,
 			Result: &metav1.Status{
 				Status: "Success",
@@ -80,7 +85,7 @@ func (r *releaseHandler) Handle(ctx context.Context, req admission.Request) admi
 	}
 }
 
-// patchAuthorResponse returns a failed admission.Response that blocks the requested operation.
+// failedResponse returns a failed admission.Response that blocks the requested operation.
 func failedResponse(uid types.UID, message string) admission.Response {
 	return admission.Response{
 		AdmissionResponse: admissionv1.AdmissionResponse{
