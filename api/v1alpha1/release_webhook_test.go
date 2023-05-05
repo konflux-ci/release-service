@@ -239,6 +239,17 @@ var _ = Describe("Release webhook", Ordered, func() {
 		})
 	})
 
+	Context("When successfulResponse is called", func() {
+		It("should return a successful admission response", func() {
+			rsp := successfulResponse(types.UID("111"))
+			Expect(rsp.AdmissionResponse.UID).To(Equal(types.UID("111")))
+			Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
+			Expect(rsp.AdmissionResponse.Result).To(Equal(&metav1.Status{
+				Status: "Success",
+			}))
+		})
+	})
+
 	Context("When failedResponse is called", func() {
 		It("should return a failed admission response", func() {
 			rsp := failedResponse(types.UID("111"), "message")
