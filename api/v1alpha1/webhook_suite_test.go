@@ -96,7 +96,8 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	SetupReleaseLowlevelWebhook(mgr)
+	RegisterAuthorWebhook(mgr, nil)
+	Expect((&Release{}).SetupWebhookWithManager(mgr)).To(Succeed())
 	Expect((&ReleasePlanAdmission{}).SetupWebhookWithManager(mgr)).To(Succeed())
 	Expect((&ReleasePlan{}).SetupWebhookWithManager(mgr)).To(Succeed())
 
