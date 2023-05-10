@@ -1,0 +1,16 @@
+namespace: grafana-operator-system
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  # release-release-attempts
+  #    ^            ^
+  #    |            |
+  #  service      panel
+  - name: grafana-dashboard-release-release-service
+    files:
+      - dashboards/release_service.json
+
+resources:
+  - dashboard.yaml
