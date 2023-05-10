@@ -291,6 +291,7 @@ func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStra
 	enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy,
 	snapshot *applicationapiv1alpha1.Snapshot) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", releaseStrategy.Namespace).
+		WithObjectReferences(a.release).
 		WithOwner(a.release).
 		WithReleaseAndApplicationMetadata(a.release, snapshot.Spec.Application).
 		WithReleaseStrategy(releaseStrategy).
