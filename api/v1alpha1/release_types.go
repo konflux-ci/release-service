@@ -66,6 +66,9 @@ type ReleaseStatus struct {
 	// +optional
 	Target string `json:"target,omitempty"`
 
+	// Automated indicates whether the Release was created as part of an automated process or manually by an end-user
+	Automated bool `json:"automated,omitempty"`
+
 	// CompletionTime is the time when a Release was completed
 	// +optional
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
@@ -173,6 +176,11 @@ func (r *Release) HasProcessingFinished() bool {
 // HasReleaseFinished checks whether the Release has finished, regardless of the result.
 func (r *Release) HasReleaseFinished() bool {
 	return r.hasPhaseFinished(releasedConditionType)
+}
+
+// IsAutomated checks whether the Release was marked as automated.
+func (r *Release) IsAutomated() bool {
+	return r.Status.Automated
 }
 
 // IsDeployed checks whether the Release was successfully deployed.
@@ -446,6 +454,15 @@ func (r *Release) MarkValidationFailed(message string) {
 
 	r.Status.Validation.Time = &metav1.Time{Time: time.Now()}
 	conditions.SetConditionWithMessage(&r.Status.Conditions, validatedConditionType, metav1.ConditionFalse, FailedReason, message)
+}
+
+// SetAutomated marks the Release as automated.
+func (r *Release) SetAutomated() {
+	if r.IsAutomated() {
+		return
+	}
+
+	r.Status.Automated = true
 }
 
 // getPhaseReason returns the current reason for the given ConditionType or empty string if no condition is found.

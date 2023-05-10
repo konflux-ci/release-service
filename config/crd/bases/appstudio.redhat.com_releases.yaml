@@ -63,6 +63,10 @@ spec:
           status:
             description: ReleaseStatus defines the observed state of Release.
             properties:
+              automated:
+                description: Automated indicates whether the Release was created as
+                  part of an automated process or manually by an end-user
+                type: boolean
               completionTime:
                 description: CompletionTime is the time when a Release was completed
                 format: date-time

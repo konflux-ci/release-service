@@ -156,6 +156,28 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	Context("When IsAutomated method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the automated field in the status is True", func() {
+			release.SetAutomated()
+			Expect(release.IsAutomated()).To(BeTrue())
+		})
+
+		It("should return false when the automated field in the status is False", func() {
+			release.Status.Automated = false
+			Expect(release.IsAutomated()).To(BeFalse())
+		})
+
+		It("should return false when the automated field in the status is missing", func() {
+			Expect(release.IsAutomated()).To(BeFalse())
+		})
+	})
+
 	Context("When IsDeployed method is called", func() {
 		var release *Release
 
@@ -1004,6 +1026,19 @@ var _ = Describe("Release type", func() {
 				"Reason":  Equal(FailedReason.String()),
 				"Status":  Equal(metav1.ConditionFalse),
 			}))
+		})
+	})
+
+	Context("When SetAutomated method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should set the automated field in the status to True", func() {
+			release.SetAutomated()
+			Expect(release.Status.Automated).To(BeTrue())
 		})
 	})
 
