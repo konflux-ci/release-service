@@ -31,6 +31,9 @@ var (
 
 	// AuthorLabel is the label name for the user who creates a CR
 	AuthorLabel = fmt.Sprintf("release.%s/author", rhtapDomain)
+
+	// AutomatedLabel is the label name for marking a Release as automated
+	AutomatedLabel = fmt.Sprintf("release.%s/automated", rhtapDomain)
 )
 
 // Prefixes to be used by Release Pipeline Labels
