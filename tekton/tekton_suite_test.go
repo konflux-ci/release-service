@@ -37,7 +37,6 @@ import (
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 
-	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	//+kubebuilder:scaffold:imports
 )
@@ -96,13 +95,6 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: clientsetscheme.Scheme,
-	})
-	Expect(err).NotTo(HaveOccurred())
-
-	appstudiov1alpha1.SetupReleaseLowlevelWebhook(k8sManager) // why do we need the webhooks here??
 })
 
 var _ = AfterSuite(func() {

@@ -22,10 +22,16 @@ import "fmt"
 const (
 	// rhtapDomain is the prefix of the application label
 	rhtapDomain = "appstudio.openshift.io"
+
+	// MaxLabelLength is the maximum allowed characters in a label value
+	MaxLabelLength = 63
 )
 
 // Labels used by the release api package
 var (
+	// AttributionLabel is the label name for the standing-attribution label
+	AttributionLabel = fmt.Sprintf("release.%s/standing-attribution", rhtapDomain)
+
 	// AutoReleaseLabel is the label name for the auto-release setting
 	AutoReleaseLabel = fmt.Sprintf("release.%s/auto-release", rhtapDomain)
 
