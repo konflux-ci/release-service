@@ -387,8 +387,8 @@ func (r *Release) MarkReleased() {
 	conditions.SetCondition(&r.Status.Conditions, releasedConditionType, metav1.ConditionTrue, SucceededReason)
 
 	go metrics.RegisterCompletedRelease(
-		r.Status.Processing.StartTime,
-		r.Status.Processing.CompletionTime,
+		r.Status.StartTime,
+		r.Status.CompletionTime,
 		r.getPhaseReason(deployedConditionType),
 		r.getPhaseReason(postActionsExecutedConditionType),
 		r.getPhaseReason(processedConditionType),
@@ -424,8 +424,8 @@ func (r *Release) MarkReleaseFailed(message string) {
 	conditions.SetConditionWithMessage(&r.Status.Conditions, releasedConditionType, metav1.ConditionFalse, FailedReason, message)
 
 	go metrics.RegisterCompletedRelease(
-		r.Status.Processing.StartTime,
-		r.Status.Processing.CompletionTime,
+		r.Status.StartTime,
+		r.Status.CompletionTime,
 		r.getPhaseReason(deployedConditionType),
 		r.getPhaseReason(postActionsExecutedConditionType),
 		r.getPhaseReason(processedConditionType),
