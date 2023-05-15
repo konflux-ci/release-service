@@ -156,6 +156,23 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	Context("When IsAttributed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when there is an author in the release status", func() {
+			release.Status.Attribution.Author = "user"
+			Expect(release.IsAttributed()).To(BeTrue())
+		})
+
+		It("should return false when there is no author in the release status", func() {
+			Expect(release.IsAttributed()).To(BeFalse())
+		})
+	})
+
 	Context("When IsAutomated method is called", func() {
 		var release *Release
 

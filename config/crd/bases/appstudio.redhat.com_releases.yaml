@@ -63,6 +63,19 @@ spec:
           status:
             description: ReleaseStatus defines the observed state of Release.
             properties:
+              attribution:
+                description: Attribution contains information about the entity authorizing
+                  the release
+                properties:
+                  author:
+                    description: Author is the username that the release is attributed
+                      to
+                    type: string
+                  standingAuthorization:
+                    description: StandingAuthorization indicates whether the release
+                      is attributed through a ReleasePlan
+                    type: boolean
+                type: object
               automated:
                 description: Automated indicates whether the Release was created as
                   part of an automated process or manually by an end-user

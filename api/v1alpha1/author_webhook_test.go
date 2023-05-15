@@ -116,6 +116,36 @@ var _ = Describe("Author webhook", Ordered, func() {
 				Expect(patch.Path).To(ContainSubstring("author"))
 				Expect(patch.Value).To(Equal("admin"))
 			})
+
+			It("should not add the author label if the automated label is present and true", func() {
+				release.Labels = map[string]string{
+					metadata.AutomatedLabel: "true",
+				}
+				admissionRequest.Object.Raw, err = json.Marshal(release)
+				Expect(err).NotTo(HaveOccurred())
+
+				rsp := authWebhook.Handle(ctx, admissionRequest)
+				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
+				Expect(rsp.AdmissionResponse.Patch).To(BeNil())
+				Expect(len(rsp.Patches)).To(Equal(0))
+			})
+
+			It("should add the author label if the automated label is false", func() {
+				release.Labels = map[string]string{
+					metadata.AutomatedLabel: "false",
+				}
+				admissionRequest.Object.Raw, err = json.Marshal(release)
+				Expect(err).NotTo(HaveOccurred())
+
+				rsp := authWebhook.Handle(ctx, admissionRequest)
+				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
+				Expect(len(rsp.Patches)).To(Equal(1))
+				patch := rsp.Patches[0]
+				Expect(patch.Operation).To(Equal("add"))
+				// The json functions replace `/` so checking the entire value does not work
+				Expect(patch.Path).To(ContainSubstring("author"))
+				Expect(patch.Value).To(Equal("admin"))
+			})
 		})
 
 		Context("When a Release is updated", func() {
@@ -222,7 +252,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.AdmissionRequest.Operation = admissionv1.Create
 			})
 
-			It("should add admin as the value for the author labelif attribution is set to true", func() {
+			It("should add admin as the value for the author label if attribution is set to true", func() {
 				releasePlan.Labels = map[string]string{
 					metadata.AttributionLabel: "true",
 				}
