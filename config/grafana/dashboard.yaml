@@ -1,10 +1,10 @@
 apiVersion: integreatly.org/v1alpha1
 kind: GrafanaDashboard
 metadata:
-  name: main-dashboard
+  name: grafana-dashboard-release
   labels:
     app: appstudio-grafana
 spec:
   configMapRef:
-    name: grafana-dashboard-release-release-service
-    key: release_service.json
+    name: grafana-dashboard-release
+    key: release_dashboard.json
