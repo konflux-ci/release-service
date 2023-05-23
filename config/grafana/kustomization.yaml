@@ -1,0 +1,7 @@
+configMapGenerator:
+  - name: grafana-dashboard-release
+    files:
+      - dashboards/release_dashboard.json
+
+resources:
+  - dashboard.yaml

@@ -21,7 +21,9 @@ bases:
 - ../webhook
 # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
 #- ../certmanager
-- ../monitoring
+# [GRAFANA] When deploying through infra-deployments, grafana is included directly by the monitoring component
+#- ../grafana
+- ../prometheus
 
 patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.
