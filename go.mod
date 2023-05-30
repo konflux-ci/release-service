@@ -1,6 +1,6 @@
 module github.com/redhat-appstudio/release-service
 
-go 1.18
+go 1.19
 
 require (
 	github.com/enterprise-contract/enterprise-contract-controller/api v0.0.0-20230327185456-5befd172d558
