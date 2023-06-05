@@ -24,7 +24,7 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 16,
+  "id": 4,
   "links": [],
   "panels": [
     {
@@ -81,7 +81,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(increase(release_total[$__range]))",
+          "expr": "sum by (namespace, release_reason) (release_total)",
           "instant": true,
           "interval": "",
           "legendFormat": "__auto",
@@ -89,7 +89,7 @@
           "refId": "A"
         }
       ],
-      "title": "Releases",
+      "title": "Total releases",
       "type": "stat"
     },
     {
@@ -98,22 +98,21 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "red",
-            "mode": "fixed"
+            "mode": "continuous-RdYlGr"
           },
           "decimals": 0,
           "mappings": [],
-          "min": 0,
+          "noValue": "0%",
           "thresholds": {
-            "mode": "absolute",
+            "mode": "percentage",
             "steps": [
               {
-                "color": "semi-dark-red",
+                "color": "green",
                 "value": null
               }
             ]
           },
-          "unit": "none"
+          "unit": "percentunit"
         },
         "overrides": []
       },
@@ -123,11 +122,11 @@
         "x": 3,
         "y": 0
       },
-      "id": 12,
+      "id": 11,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
-        "justifyMode": "center",
+        "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -148,7 +147,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(increase(release_total{release_reason=\"Failed\"}[$__range]))",
+          "expr": "sum by (namespace, release_reason) (release_total{release_reason=\"Succeeded\"}) / sum by (namespace, release_reason) (release_total)",
           "instant": true,
           "interval": "",
           "legendFormat": "__auto",
@@ -156,7 +155,73 @@
           "refId": "A"
         }
       ],
-      "title": "Failed releases",
+      "title": "Successful releases",
+      "type": "stat"
+    },
+    {
+      "datasource": null,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.5.17",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PF224BEF3374A25F8"
+          },
+          "editorMode": "code",
+          "exemplar": true,
+          "expr": "sum by (namespace) (release_concurrent_total)",
+          "interval": "",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Concurrent releases",
       "type": "stat"
     },
     {
@@ -187,7 +252,7 @@
       "gridPos": {
         "h": 6,
         "w": 9,
-        "x": 6,
+        "x": 9,
         "y": 0
       },
       "id": 16,
@@ -216,7 +281,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum without(instance,namespace,pod) (release_duration_seconds_bucket{release_reason=\"Succeeded\",job=\"release-service-controller-manager-metrics-service\"})",
+          "expr": "sum by (namespace, release_reason, le) (release_duration_seconds_bucket{release_reason=\"Succeeded\"})",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -334,8 +399,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 9,
-        "x": 15,
+        "w": 6,
+        "x": 18,
         "y": 0
       },
       "id": 19,
@@ -413,21 +478,22 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "fixedColor": "red",
+            "mode": "fixed"
           },
           "decimals": 0,
           "mappings": [],
-          "noValue": "0%",
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "semi-dark-red",
                 "value": null
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "none"
         },
         "overrides": []
       },
@@ -437,11 +503,11 @@
         "x": 0,
         "y": 3
       },
-      "id": 11,
+      "id": 12,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -462,7 +528,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(increase(release_total{release_reason=\"Succeeded\"}[$__range])) / sum(increase(release_total[$__range]))",
+          "expr": "sum by (namespace, release_reason) (release_total{release_reason=\"Failed\"})",
           "instant": true,
           "interval": "",
           "legendFormat": "__auto",
@@ -470,7 +536,7 @@
           "refId": "A"
         }
       ],
-      "title": "Successful releases",
+      "title": "Failed releases",
       "type": "stat"
     },
     {
@@ -528,7 +594,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(increase(release_total{deployment_reason=\"Failed\"}[$__range]))",
+          "expr": "sum by (namespace, release_reason) (release_total{deployment_reason=\"Failed\"})",
           "instant": true,
           "interval": "",
           "legendFormat": "__auto",
@@ -537,72 +603,6 @@
         }
       ],
       "title": "Failed deployments",
-      "type": "stat"
-    },
-    {
-      "datasource": null,
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 3,
-        "x": 0,
-        "y": 6
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "7.5.17",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PF224BEF3374A25F8"
-          },
-          "editorMode": "code",
-          "exemplar": true,
-          "expr": "sum(release_concurrent_total)",
-          "interval": "",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Concurrent releases",
       "type": "stat"
     },
     {
@@ -634,8 +634,8 @@
       "gridPos": {
         "h": 3,
         "w": 3,
-        "x": 3,
-        "y": 6
+        "x": 6,
+        "y": 3
       },
       "id": 14,
       "options": {
@@ -662,7 +662,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(increase(release_total{validation_reason=\"Failed\"}[$__range]))",
+          "expr": "sum by (namespace, release_reason) (release_total{validation_reason=\"Failed\"})",
           "instant": true,
           "interval": "",
           "legendFormat": "__auto",
@@ -672,6 +672,114 @@
       ],
       "title": "Invalid releases",
       "type": "stat"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "fill": 10,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 0,
+        "y": 6
+      },
+      "hiddenSeries": false,
+      "id": 23,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null as zero",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.5.17",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [
+        {
+          "$$hashKey": "object:489",
+          "alias": "Failed",
+          "color": "#F2495C"
+        },
+        {
+          "$$hashKey": "object:494",
+          "alias": "Succeeded",
+          "color": "#73BF69"
+        }
+      ],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum by (namespace, release_reason) (rate(release_total{release_reason=~\"Failed\"|\"Succeeded\"}[$__rate_interval]))",
+          "instant": true,
+          "interval": "",
+          "legendFormat": "{{release_reason}}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Releases",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     },
     {
       "datasource": null,
@@ -701,7 +809,7 @@
       "gridPos": {
         "h": 6,
         "w": 9,
-        "x": 6,
+        "x": 9,
         "y": 6
       },
       "id": 15,
@@ -730,7 +838,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum without(instance,pod,strategy,succeeded,target) (release_duration_seconds_bucket{reason=\"Failed\"})",
+          "expr": "sum by(namespace, release_reason, le) (release_duration_seconds_bucket{release_reason=\"Failed\"})",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -794,8 +902,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 9,
-        "x": 15,
+        "w": 6,
+        "x": 18,
         "y": 6
       },
       "id": 18,
@@ -833,7 +941,7 @@
       "type": "timeseries"
     }
   ],
-  "refresh": "10s",
+  "refresh": "1m",
   "schemaVersion": 27,
   "style": "dark",
   "tags": [],
@@ -841,12 +949,12 @@
     "list": []
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-7d",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Release Service",
   "uid": "b065ed16540677415b31adb8574bb4d9aa9f74e3",
-  "version": 2
+  "version": 1
 }
