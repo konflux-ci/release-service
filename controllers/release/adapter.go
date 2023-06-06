@@ -302,7 +302,7 @@ func (a *Adapter) EnsureReleaseProcessingIsTracked() (reconciler.OperationResult
 // PipelineRun.
 func (a *Adapter) createReleasePipelineRun(resources *loader.ProcessingResources) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", resources.ReleaseStrategy.Namespace).
-		WithObjectReferences(a.release).
+		WithObjectReferences(a.release, resources.ReleasePlanAdmission).
 		WithOwner(a.release).
 		WithReleaseAndApplicationMetadata(a.release, resources.Snapshot.Spec.Application).
 		WithReleaseStrategy(resources.ReleaseStrategy).
