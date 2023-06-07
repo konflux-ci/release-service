@@ -76,7 +76,9 @@ func (a *authorWebhook) handleRelease(req admission.Request) admission.Response 
 
 	switch req.AdmissionRequest.Operation {
 	case admissionv1.Create:
-		a.setAuthorLabel(req.UserInfo.Username, release)
+		if release.GetLabels()[metadata.AutomatedLabel] != "true" {
+			a.setAuthorLabel(req.UserInfo.Username, release)
+		}
 
 		return a.patchResponse(req.Object.Raw, release)
 	case admissionv1.Update:

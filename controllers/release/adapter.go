@@ -19,10 +19,13 @@ package release
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/loader"
+	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/redhat-appstudio/release-service/syncer"
 	"github.com/redhat-appstudio/release-service/tekton"
 
@@ -260,6 +263,17 @@ func (a *Adapter) EnsureReleaseIsValid() (reconciler.OperationResult, error) {
 		return reconciler.RequeueWithError(err)
 	}
 
+	err = a.validateAuthor()
+	if err != nil {
+		if strings.Contains(err.Error(), "automated not set in status") {
+			return reconciler.RequeueWithError(err)
+		}
+
+		a.release.MarkValidationFailed(err.Error())
+		a.release.MarkReleaseFailed("Author validation failed")
+		return reconciler.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
+	}
+
 	a.release.MarkValidated()
 
 	return reconciler.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
@@ -477,4 +491,45 @@ func (a *Adapter) syncResources() error {
 	}
 
 	return a.syncer.SyncSnapshot(snapshot, releasePlanAdmission.Namespace)
+}
+
+// registerAttributionData updates the status of the Release being processed with the proper attribution author.
+func (a *Adapter) registerAttributionData(releasePlan *v1alpha1.ReleasePlan) error {
+	if a.release.IsAttributed() {
+		return nil
+	}
+
+	var author string
+	patch := client.MergeFrom(a.release.DeepCopy())
+
+	if a.release.Labels[metadata.AutomatedLabel] == "true" {
+		author = releasePlan.Labels[metadata.AuthorLabel]
+		if author == "" {
+			return fmt.Errorf("no author in the ReleasePlan found for automated release")
+		}
+		a.release.Status.Attribution.StandingAuthorization = true
+	} else {
+		author = a.release.Labels[metadata.AuthorLabel]
+		if author == "" { // webhooks prevent this from happening but they could be disabled in some scenarios
+			return fmt.Errorf("no author found for manual release")
+		}
+	}
+
+	a.release.Status.Attribution.Author = author
+
+	return a.client.Status().Patch(a.ctx, a.release, patch)
+}
+
+// validateAuthor attributes the release to a specific user and ensures that the user is valid in SSO.
+func (a *Adapter) validateAuthor() error {
+	if a.release.Labels[metadata.AutomatedLabel] == "true" && !a.release.IsAutomated() {
+		return fmt.Errorf("automated not set in status for automated release")
+	}
+
+	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+	if err != nil {
+		return err
+	}
+
+	return a.registerAttributionData(releasePlan)
 }

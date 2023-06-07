@@ -41,6 +41,10 @@ type ReleaseSpec struct {
 
 // ReleaseStatus defines the observed state of Release.
 type ReleaseStatus struct {
+	// Attribution contains information about the entity authorizing the release
+	// +optional
+	Attribution AttributionInfo `json:"attribution,omitempty"`
+
 	// Conditions represent the latest available observations for the release
 	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
@@ -67,6 +71,7 @@ type ReleaseStatus struct {
 	Target string `json:"target,omitempty"`
 
 	// Automated indicates whether the Release was created as part of an automated process or manually by an end-user
+	// +optional
 	Automated bool `json:"automated,omitempty"`
 
 	// CompletionTime is the time when a Release was completed
@@ -76,6 +81,17 @@ type ReleaseStatus struct {
 	// StartTime is the time when a Release started
 	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`
+}
+
+// AttributionInfo defines the observed state of the release attribution.
+type AttributionInfo struct {
+	// Author is the username that the release is attributed to
+	// +optional
+	Author string `json:"author,omitempty"`
+
+	// StandingAuthorization indicates whether the release is attributed through a ReleasePlan
+	// +optional
+	StandingAuthorization bool `json:"standingAuthorization,omitempty"`
 }
 
 // DeploymentInfo defines the observed state of the deployment.
@@ -176,6 +192,11 @@ func (r *Release) HasProcessingFinished() bool {
 // HasReleaseFinished checks whether the Release has finished, regardless of the result.
 func (r *Release) HasReleaseFinished() bool {
 	return r.hasPhaseFinished(releasedConditionType)
+}
+
+// IsAttributed checks whether the Release was marked as attributed.
+func (r *Release) IsAttributed() bool {
+	return r.Status.Attribution.Author != ""
 }
 
 // IsAutomated checks whether the Release was marked as automated.

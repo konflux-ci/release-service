@@ -606,6 +606,9 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
 			adapter.release.MarkReleasing("")
+			adapter.release.Labels = map[string]string{
+				metadata.AuthorLabel: "user",
+			}
 		})
 
 		It("should mark the Release as valid if all the resources are found", func() {
@@ -671,6 +674,50 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsValid()).To(BeFalse())
 			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+		})
+
+		It("should stop reconcile if the author cannot be validated", func() {
+			adapter.release.Labels = nil
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						ReleaseStrategy:          releaseStrategy,
+						Snapshot:                 snapshot,
+					},
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+		})
+
+		It("should requeue if the release has the automated label but automated not set in status", func() {
+			adapter.release.Labels = map[string]string{
+				metadata.AutomatedLabel: "true",
+			}
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						ReleaseStrategy:          releaseStrategy,
+						Snapshot:                 snapshot,
+					},
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeFalse())
 		})
 	})
 
@@ -1139,6 +1186,102 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			})
 
 			Expect(adapter.syncResources()).To(Succeed())
+		})
+	})
+
+	Context("When calling registerAttributionData", func() {
+		var adapter *Adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("returns nil if the release is already attributed", func() {
+			adapter.release.Status.Attribution.Author = "user"
+			err := adapter.registerAttributionData(releasePlan)
+			Expect(err).To(BeNil())
+		})
+
+		It("properly sets the Attribution author in the manual release status", func() {
+			adapter.release.Labels = map[string]string{
+				metadata.AuthorLabel: "user",
+			}
+			err := adapter.registerAttributionData(releasePlan)
+			Expect(err).To(BeNil())
+			Expect(adapter.release.Status.Attribution.StandingAuthorization).To(BeFalse())
+			Expect(adapter.release.Status.Attribution.Author).To(Equal("user"))
+		})
+
+		When("the release has the automated label", func() {
+			BeforeEach(func() {
+				adapter.release.Labels = map[string]string{
+					metadata.AutomatedLabel: "true",
+				}
+			})
+
+			It("returns an error if the ReleasePlan has no author", func() {
+				adapter.release.Status.Automated = true
+				err := adapter.registerAttributionData(releasePlan)
+				Expect(err).NotTo(BeNil())
+				Expect(err.Error()).To(ContainSubstring("no author in the ReleasePlan"))
+			})
+
+			It("properly sets the Attribution data in the release status", func() {
+				adapter.release.Status.Automated = true
+				releasePlan.Labels = map[string]string{
+					metadata.AuthorLabel: "user",
+				}
+				err := adapter.registerAttributionData(releasePlan)
+				Expect(err).To(BeNil())
+				Expect(adapter.release.Status.Attribution.StandingAuthorization).To(BeTrue())
+				Expect(adapter.release.Status.Attribution.Author).To(Equal("user"))
+			})
+		})
+	})
+
+	Context("When calling validateAuthor", func() {
+		var adapter *Adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("returns an error if automated label is present but is not set in release status", func() {
+			adapter.release.Labels = map[string]string{
+				metadata.AutomatedLabel: "true",
+			}
+
+			err := adapter.validateAuthor()
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).To(Equal("automated not set in status for automated release"))
+		})
+
+		It("returns an error when the ReleasePlan is missing", func() {
+			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   nil,
+				},
+			})
+			err := adapter.validateAuthor()
+			Expect(err).NotTo(BeNil())
+		})
+
+		It("validates the author", func() {
+			adapter.release.Labels = map[string]string{
+				metadata.AuthorLabel: "user",
+			}
+			err := adapter.validateAuthor()
+			Expect(err).To(BeNil())
+			Expect(adapter.release.Status.Attribution.Author).To(Equal("user"))
 		})
 	})
 
