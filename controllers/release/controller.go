@@ -18,6 +18,7 @@ package release
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -61,6 +62,7 @@ func NewReleaseReconciler(client client.Client, logger *logr.Logger, scheme *run
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=applications/finalizers,verbs=update
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=enterprisecontractpolicies,verbs=get;list;watch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=enterprisecontractpolicies/status,verbs=get
+//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

@@ -3,6 +3,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
@@ -10,6 +11,7 @@ import (
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -19,6 +21,7 @@ type ObjectLoader interface {
 	GetActiveReleasePlanAdmissionFromRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlanAdmission, error)
 	GetApplication(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error)
 	GetApplicationComponents(ctx context.Context, cli client.Client, application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error)
+	GetEnterpriseContractConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error)
 	GetEnterpriseContractPolicy(ctx context.Context, cli client.Client, releaseStrategy *v1alpha1.ReleaseStrategy) (*ecapiv1alpha1.EnterpriseContractPolicy, error)
 	GetEnvironment(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Environment, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
@@ -127,6 +130,21 @@ func (l *loader) GetApplicationComponents(ctx context.Context, cli client.Client
 func (l *loader) GetEnterpriseContractPolicy(ctx context.Context, cli client.Client, releaseStrategy *v1alpha1.ReleaseStrategy) (*ecapiv1alpha1.EnterpriseContractPolicy, error) {
 	enterpriseContractPolicy := &ecapiv1alpha1.EnterpriseContractPolicy{}
 	return enterpriseContractPolicy, getObject(releaseStrategy.Spec.Policy, releaseStrategy.Namespace, cli, ctx, enterpriseContractPolicy)
+}
+
+// GetEnterpriseContractConfigMap returns the defaults ConfigMap in the Enterprise Contract namespace . If the ENTERPRISE_CONTRACT_CONFIG_MAP
+// value is invalid or not set, nil is returned. If the ConfigMap is not found or the Get operation fails, an error is returned.
+func (l *loader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
+	enterpriseContractConfigMap := &corev1.ConfigMap{}
+	namespacedName := os.Getenv("ENTERPRISE_CONTRACT_CONFIG_MAP")
+
+	if index := strings.IndexByte(namespacedName, '/'); index >= 0 {
+		return enterpriseContractConfigMap, getObject(namespacedName[index+1:], namespacedName[:index],
+			cli, ctx, enterpriseContractConfigMap)
+	}
+
+	return nil, nil
+
 }
 
 // GetEnvironment returns the Environment referenced by the given ReleasePlanAdmission. If the Environment is not found
@@ -265,10 +283,11 @@ func (l *loader) GetDeploymentResources(ctx context.Context, cli client.Client, 
 
 // ProcessingResources contains the required resources to process the Release.
 type ProcessingResources struct {
-	EnterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy
-	ReleasePlanAdmission     *v1alpha1.ReleasePlanAdmission
-	ReleaseStrategy          *v1alpha1.ReleaseStrategy
-	Snapshot                 *applicationapiv1alpha1.Snapshot
+	EnterpriseContractConfigMap *corev1.ConfigMap
+	EnterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
+	ReleasePlanAdmission        *v1alpha1.ReleasePlanAdmission
+	ReleaseStrategy             *v1alpha1.ReleaseStrategy
+	Snapshot                    *applicationapiv1alpha1.Snapshot
 }
 
 // GetProcessingResources returns all the resources required to process the Release. If any of those resources cannot
@@ -283,6 +302,11 @@ func (l *loader) GetProcessingResources(ctx context.Context, cli client.Client, 
 	}
 
 	resources.ReleaseStrategy, err = l.GetReleaseStrategy(ctx, cli, resources.ReleasePlanAdmission)
+	if err != nil {
+		return resources, err
+	}
+
+	resources.EnterpriseContractConfigMap, err = l.GetEnterpriseContractConfigMap(ctx, cli)
 	if err != nil {
 		return resources, err
 	}

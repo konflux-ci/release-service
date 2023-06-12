@@ -134,6 +134,12 @@ func main() {
 		appstudiov1alpha1.RegisterAuthorWebhook(mgr, &setupLog)
 	}
 
+	err = os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "enterprise-contract-service/ec-defaults")
+	if err != nil {
+		setupLog.Error(err, "unable to setup ENTERPRISE_CONTRACT_CONFIG_MAP environment variable")
+		os.Exit(1)
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

@@ -2,6 +2,7 @@ package loader
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
@@ -12,6 +13,7 @@ import (
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -23,17 +25,18 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		createResources func()
 		deleteResources func()
 
-		application                *applicationapiv1alpha1.Application
-		component                  *applicationapiv1alpha1.Component
-		enterpriseContractPolicy   *ecapiv1alpha1.EnterpriseContractPolicy
-		environment                *applicationapiv1alpha1.Environment
-		pipelineRun                *v1beta1.PipelineRun
-		release                    *v1alpha1.Release
-		releasePlan                *v1alpha1.ReleasePlan
-		releasePlanAdmission       *v1alpha1.ReleasePlanAdmission
-		releaseStrategy            *v1alpha1.ReleaseStrategy
-		snapshot                   *applicationapiv1alpha1.Snapshot
-		snapshotEnvironmentBinding *applicationapiv1alpha1.SnapshotEnvironmentBinding
+		application                 *applicationapiv1alpha1.Application
+		component                   *applicationapiv1alpha1.Component
+		enterpriseContractConfigMap *corev1.ConfigMap
+		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
+		environment                 *applicationapiv1alpha1.Environment
+		pipelineRun                 *v1beta1.PipelineRun
+		release                     *v1alpha1.Release
+		releasePlan                 *v1alpha1.ReleasePlan
+		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
+		releaseStrategy             *v1alpha1.ReleaseStrategy
+		snapshot                    *applicationapiv1alpha1.Snapshot
+		snapshotEnvironmentBinding  *applicationapiv1alpha1.SnapshotEnvironmentBinding
 	)
 
 	AfterAll(func() {
@@ -145,6 +148,23 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObjects).To(HaveLen(1))
 			Expect(returnedObjects[0].Name).To(Equal(component.Name))
+		})
+	})
+
+	Context("When calling GetEnterpriseContractConfigMap", func() {
+		It("returns nil when the ENTERPRISE_CONTRACT_CONFIG_MAP variable is not set", func() {
+			os.Unsetenv("ENTERPRISE_CONTRACT_CONFIG_MAP")
+			returnedObject, err := loader.GetEnterpriseContractConfigMap(ctx, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).To(BeNil())
+		})
+
+		It("returns the requested enterprise contract configmap", func() {
+			os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "default/ec-defaults")
+			returnedObject, err := loader.GetEnterpriseContractConfigMap(ctx, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&corev1.ConfigMap{}))
+			Expect(returnedObject.Name).To(Equal(enterpriseContractConfigMap.Name))
 		})
 	})
 
@@ -281,13 +301,15 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	Context("When calling GetProcessingResources", func() {
 		It("returns all the relevant resources", func() {
+			os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "default/ec-defaults")
 			resources, err := loader.GetProcessingResources(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*resources).To(MatchFields(IgnoreExtras, Fields{
-				"EnterpriseContractPolicy": Not(BeNil()),
-				"ReleasePlanAdmission":     Not(BeNil()),
-				"ReleaseStrategy":          Not(BeNil()),
-				"Snapshot":                 Not(BeNil()),
+				"EnterpriseContractConfigMap": Not(BeNil()),
+				"EnterpriseContractPolicy":    Not(BeNil()),
+				"ReleasePlanAdmission":        Not(BeNil()),
+				"ReleaseStrategy":             Not(BeNil()),
+				"Snapshot":                    Not(BeNil()),
 			}))
 		})
 
@@ -323,6 +345,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, component)).Should(Succeed())
+
+		enterpriseContractConfigMap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "ec-defaults",
+				Namespace: "default",
+			},
+		}
+		Expect(k8sClient.Create(ctx, enterpriseContractConfigMap)).Should(Succeed())
 
 		enterpriseContractPolicy = &ecapiv1alpha1.EnterpriseContractPolicy{
 			ObjectMeta: metav1.ObjectMeta{
