@@ -66,6 +66,11 @@ spec:
                   release the application
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
+              extraData:
+                description: ExtraData is used for providing extra data for the release
+                  pipeline
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               origin:
                 description: Origin references where the release requests should come
                   from
