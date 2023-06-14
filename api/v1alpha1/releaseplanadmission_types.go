@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // ReleasePlanAdmissionSpec defines the desired state of ReleasePlanAdmission.
@@ -45,6 +46,11 @@ type ReleasePlanAdmissionSpec struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
 	ReleaseStrategy string `json:"releaseStrategy"`
+
+	// ExtraData is used for providing extra data for the release pipeline
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	ExtraData *runtime.RawExtension `json:"extraData,omitempty"`
 }
 
 // ReleasePlanAdmissionStatus defines the observed state of ReleasePlanAdmission.
