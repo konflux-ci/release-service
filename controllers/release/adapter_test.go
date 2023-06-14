@@ -28,6 +28,7 @@ import (
 	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -47,15 +48,16 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		createResources         func()
 		deleteResources         func()
 
-		application                *applicationapiv1alpha1.Application
-		component                  *applicationapiv1alpha1.Component
-		enterpriseContractPolicy   *ecapiv1alpha1.EnterpriseContractPolicy
-		environment                *applicationapiv1alpha1.Environment
-		releasePlan                *v1alpha1.ReleasePlan
-		releasePlanAdmission       *v1alpha1.ReleasePlanAdmission
-		releaseStrategy            *v1alpha1.ReleaseStrategy
-		snapshot                   *applicationapiv1alpha1.Snapshot
-		snapshotEnvironmentBinding *applicationapiv1alpha1.SnapshotEnvironmentBinding
+		application                 *applicationapiv1alpha1.Application
+		component                   *applicationapiv1alpha1.Component
+		enterpriseContractConfigMap *corev1.ConfigMap
+		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
+		environment                 *applicationapiv1alpha1.Environment
+		releasePlan                 *v1alpha1.ReleasePlan
+		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
+		releaseStrategy             *v1alpha1.ReleaseStrategy
+		snapshot                    *applicationapiv1alpha1.Snapshot
+		snapshotEnvironmentBinding  *applicationapiv1alpha1.SnapshotEnvironmentBinding
 	)
 
 	AfterAll(func() {
@@ -94,10 +96,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractPolicy: enterpriseContractPolicy,
-						ReleasePlanAdmission:     releasePlanAdmission,
-						ReleaseStrategy:          releaseStrategy,
-						Snapshot:                 snapshot,
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						ReleaseStrategy:             releaseStrategy,
+						Snapshot:                    snapshot,
 					},
 				},
 			})
@@ -544,10 +547,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractPolicy: enterpriseContractPolicy,
-						ReleasePlanAdmission:     releasePlanAdmission,
-						ReleaseStrategy:          releaseStrategy,
-						Snapshot:                 snapshot,
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						ReleaseStrategy:             releaseStrategy,
+						Snapshot:                    snapshot,
 					},
 				},
 			})
@@ -576,10 +580,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractPolicy: enterpriseContractPolicy,
-						ReleasePlanAdmission:     releasePlanAdmission,
-						ReleaseStrategy:          releaseStrategy,
-						Snapshot:                 snapshot,
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						ReleaseStrategy:             releaseStrategy,
+						Snapshot:                    snapshot,
 					},
 				},
 			})
@@ -616,10 +621,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractPolicy: enterpriseContractPolicy,
-						ReleasePlanAdmission:     releasePlanAdmission,
-						ReleaseStrategy:          releaseStrategy,
-						Snapshot:                 snapshot,
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						ReleaseStrategy:             releaseStrategy,
+						Snapshot:                    snapshot,
 					},
 				},
 			})
@@ -682,10 +688,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractPolicy: enterpriseContractPolicy,
-						ReleasePlanAdmission:     releasePlanAdmission,
-						ReleaseStrategy:          releaseStrategy,
-						Snapshot:                 snapshot,
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						ReleaseStrategy:             releaseStrategy,
+						Snapshot:                    snapshot,
 					},
 				},
 			})
@@ -705,10 +712,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractPolicy: enterpriseContractPolicy,
-						ReleasePlanAdmission:     releasePlanAdmission,
-						ReleaseStrategy:          releaseStrategy,
-						Snapshot:                 snapshot,
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						ReleaseStrategy:             releaseStrategy,
+						Snapshot:                    snapshot,
 					},
 				},
 			})
@@ -793,9 +801,15 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			resources := &loader.ProcessingResources{
+				ReleaseStrategy:             releaseStrategy,
+				EnterpriseContractConfigMap: enterpriseContractConfigMap,
+				EnterpriseContractPolicy:    enterpriseContractPolicy,
+				Snapshot:                    snapshot,
+			}
 
 			var err error
-			pipelineRun, err = adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
+			pipelineRun, err = adapter.createReleasePipelineRun(resources)
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -823,6 +837,11 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		It("references the pipeline specified in the ReleaseStrategy", func() {
 			Expect(pipelineRun.Spec.PipelineRef.Name).To(Equal(releaseStrategy.Spec.Pipeline))
+		})
+
+		It("contains a parameter with the verify ec task bundle", func() {
+			bundle := enterpriseContractConfigMap.Data["verify_ec_task_bundle"]
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(bundle)))))
 		})
 
 		It("contains a parameter with the json representation of the EnterpriseContractPolicy", func() {
@@ -935,7 +954,13 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("finalizes the Release and deletes the PipelineRun", func() {
-			pipelineRun, err := adapter.createReleasePipelineRun(releaseStrategy, enterpriseContractPolicy, snapshot)
+			resources := &loader.ProcessingResources{
+				ReleaseStrategy:             releaseStrategy,
+				EnterpriseContractConfigMap: enterpriseContractConfigMap,
+				EnterpriseContractPolicy:    enterpriseContractPolicy,
+				Snapshot:                    snapshot,
+			}
+			pipelineRun, err := adapter.createReleasePipelineRun(resources)
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1326,6 +1351,17 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, component)).Should(Succeed())
 
+		enterpriseContractConfigMap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "enterprise-contract-cm",
+				Namespace: "default",
+			},
+			Data: map[string]string{
+				"verify_ec_task_bundle": "test-bundle",
+			},
+		}
+		Expect(k8sClient.Create(ctx, enterpriseContractConfigMap)).Should(Succeed())
+
 		enterpriseContractPolicy = &ecapiv1alpha1.EnterpriseContractPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "enterprise-contract-policy",
@@ -1429,6 +1465,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	deleteResources = func() {
 		Expect(k8sClient.Delete(ctx, application)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, component)).Should(Succeed())
+		Expect(k8sClient.Delete(ctx, enterpriseContractConfigMap)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, enterpriseContractPolicy)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, environment)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlan)).To(Succeed())

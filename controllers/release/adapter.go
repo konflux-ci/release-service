@@ -29,7 +29,6 @@ import (
 	"github.com/redhat-appstudio/release-service/syncer"
 	"github.com/redhat-appstudio/release-service/tekton"
 
-	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/operator-goodies/reconciler"
 
@@ -232,7 +231,7 @@ func (a *Adapter) EnsureReleaseIsProcessed() (reconciler.OperationResult, error)
 		}
 
 		if pipelineRun == nil {
-			pipelineRun, err = a.createReleasePipelineRun(resources.ReleaseStrategy, resources.EnterpriseContractPolicy, resources.Snapshot)
+			pipelineRun, err = a.createReleasePipelineRun(resources)
 			if err != nil {
 				return reconciler.RequeueWithError(err)
 			}
@@ -301,16 +300,15 @@ func (a *Adapter) EnsureReleaseProcessingIsTracked() (reconciler.OperationResult
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
 // will be extracted from the given ReleaseStrategy. The Release's Snapshot will also be passed to the release
 // PipelineRun.
-func (a *Adapter) createReleasePipelineRun(releaseStrategy *v1alpha1.ReleaseStrategy,
-	enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy,
-	snapshot *applicationapiv1alpha1.Snapshot) (*v1beta1.PipelineRun, error) {
-	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", releaseStrategy.Namespace).
+func (a *Adapter) createReleasePipelineRun(resources *loader.ProcessingResources) (*v1beta1.PipelineRun, error) {
+	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", resources.ReleaseStrategy.Namespace).
 		WithObjectReferences(a.release).
 		WithOwner(a.release).
-		WithReleaseAndApplicationMetadata(a.release, snapshot.Spec.Application).
-		WithReleaseStrategy(releaseStrategy).
-		WithEnterpriseContractPolicy(enterpriseContractPolicy).
-		WithSnapshot(snapshot).
+		WithReleaseAndApplicationMetadata(a.release, resources.Snapshot.Spec.Application).
+		WithReleaseStrategy(resources.ReleaseStrategy).
+		WithEnterpriseContractConfigMap(resources.EnterpriseContractConfigMap).
+		WithEnterpriseContractPolicy(resources.EnterpriseContractPolicy).
+		WithSnapshot(resources.Snapshot).
 		AsPipelineRun()
 
 	err := a.client.Create(a.ctx, pipelineRun)

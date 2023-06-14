@@ -20,10 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"reflect"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -53,13 +55,14 @@ var _ = Describe("PipelineRun", func() {
 		applicationName       = "test-application"
 	)
 	var (
-		release                  *v1alpha1.Release
-		extraParams              *ExtraParams
-		releasePipelineRun       *ReleasePipelineRun
-		snapshot                 *applicationapiv1alpha1.Snapshot
-		strategy                 *v1alpha1.ReleaseStrategy
-		enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy
-		unmarshaledSnapshotSpec  *applicationapiv1alpha1.SnapshotSpec
+		release                     *v1alpha1.Release
+		extraParams                 *ExtraParams
+		releasePipelineRun          *ReleasePipelineRun
+		snapshot                    *applicationapiv1alpha1.Snapshot
+		strategy                    *v1alpha1.ReleaseStrategy
+		enterpriseContractConfigMap *corev1.ConfigMap
+		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
+		unmarshaledSnapshotSpec     *applicationapiv1alpha1.SnapshotSpec
 	)
 	BeforeEach(func() {
 
@@ -97,6 +100,17 @@ var _ = Describe("PipelineRun", func() {
 				Application: applicationName,
 				DisplayName: "Test application",
 				Components:  []applicationapiv1alpha1.SnapshotComponent{},
+			},
+		}
+		enterpriseContractConfigMap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-cm",
+			},
+			TypeMeta: metav1.TypeMeta{
+				Kind: "ConfigMap",
+			},
+			Data: map[string]string{
+				"verify_ec_task_bundle": "test-bundle",
 			},
 		}
 		enterpriseContractPolicy = &ecapiv1alpha1.EnterpriseContractPolicy{
@@ -233,6 +247,11 @@ var _ = Describe("PipelineRun", func() {
 			releasePipelineRun.WithWorkspace(workspace, persistentVolumeClaim)
 			Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("Name", Equal(workspace))))
 			Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("PersistentVolumeClaim.ClaimName", Equal(persistentVolumeClaim))))
+		})
+
+		It("can add the EC task bundle parameter to the PipelineRun", func() {
+			releasePipelineRun.WithEnterpriseContractConfigMap(enterpriseContractConfigMap)
+			Expect(releasePipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string("test-bundle")))))
 		})
 
 		It("can add an EnterpriseContractPolicy to the PipelineRun", func() {

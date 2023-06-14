@@ -19,11 +19,12 @@ package tekton
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"unicode"
+
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -67,6 +68,20 @@ func NewReleasePipelineRun(prefix, namespace string) *ReleasePipelineRun {
 // AsPipelineRun casts the ReleasePipelineRun to PipelineRun, so it can be used in the Kubernetes client.
 func (r *ReleasePipelineRun) AsPipelineRun() *tektonv1beta1.PipelineRun {
 	return &r.PipelineRun
+}
+
+// WithEnterpriseContractConfigMap adds a param providing the verify ec task bundle to the release PipelineRun.
+func (r *ReleasePipelineRun) WithEnterpriseContractConfigMap(configMap *corev1.ConfigMap) *ReleasePipelineRun {
+	enterpriseContractConfigMapBundleField := "verify_ec_task_bundle"
+
+	ecTaskBundle := configMap.Data[enterpriseContractConfigMapBundleField]
+
+	r.WithExtraParam(enterpriseContractConfigMapBundleField, tektonv1beta1.ArrayOrString{
+		Type:      tektonv1beta1.ParamTypeString,
+		StringVal: string(ecTaskBundle),
+	})
+
+	return r
 }
 
 // WithEnterpriseContractPolicy adds a param containing the EnterpriseContractPolicy Spec as a json string to the release PipelineRun.

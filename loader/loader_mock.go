@@ -7,6 +7,7 @@ import (
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -23,19 +24,20 @@ type (
 )
 
 const (
-	ApplicationComponentsContextKey      contextKey = iota
-	ApplicationContextKey                contextKey = iota
-	DeploymentResourcesContextKey        contextKey = iota
-	EnterpriseContractPolicyContextKey   contextKey = iota
-	EnvironmentContextKey                contextKey = iota
-	ProcessingResourcesContextKey        contextKey = iota
-	ReleaseContextKey                    contextKey = iota
-	ReleasePipelineRunContextKey         contextKey = iota
-	ReleasePlanAdmissionContextKey       contextKey = iota
-	ReleasePlanContextKey                contextKey = iota
-	ReleaseStrategyContextKey            contextKey = iota
-	SnapshotContextKey                   contextKey = iota
-	SnapshotEnvironmentBindingContextKey contextKey = iota
+	ApplicationComponentsContextKey       contextKey = iota
+	ApplicationContextKey                 contextKey = iota
+	DeploymentResourcesContextKey         contextKey = iota
+	EnterpriseContractConfigMapContextKey contextKey = iota
+	EnterpriseContractPolicyContextKey    contextKey = iota
+	EnvironmentContextKey                 contextKey = iota
+	ProcessingResourcesContextKey         contextKey = iota
+	ReleaseContextKey                     contextKey = iota
+	ReleasePipelineRunContextKey          contextKey = iota
+	ReleasePlanAdmissionContextKey        contextKey = iota
+	ReleasePlanContextKey                 contextKey = iota
+	ReleaseStrategyContextKey             contextKey = iota
+	SnapshotContextKey                    contextKey = iota
+	SnapshotEnvironmentBindingContextKey  contextKey = iota
 )
 
 func GetMockedContext(ctx context.Context, data []MockData) context.Context {
@@ -114,6 +116,14 @@ func (l *mockLoader) GetEnterpriseContractPolicy(ctx context.Context, cli client
 		return l.loader.GetEnterpriseContractPolicy(ctx, cli, releaseStrategy)
 	}
 	return getMockedResourceAndErrorFromContext(ctx, EnterpriseContractPolicyContextKey, &ecapiv1alpha1.EnterpriseContractPolicy{})
+}
+
+// GetEnterpriseContractConfigMap returns the resource and error passed as values of the context.
+func (l *mockLoader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
+	if ctx.Value(EnterpriseContractConfigMapContextKey) == nil {
+		return l.loader.GetEnterpriseContractConfigMap(ctx, cli)
+	}
+	return getMockedResourceAndErrorFromContext(ctx, EnterpriseContractConfigMapContextKey, &corev1.ConfigMap{})
 }
 
 // GetEnvironment returns the resource and error passed as values of the context.
