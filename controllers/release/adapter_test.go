@@ -803,6 +803,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter = createReleaseAndAdapter()
 			resources := &loader.ProcessingResources{
 				ReleaseStrategy:             releaseStrategy,
+				ReleasePlanAdmission:        releasePlanAdmission,
 				EnterpriseContractConfigMap: enterpriseContractConfigMap,
 				EnterpriseContractPolicy:    enterpriseContractPolicy,
 				Snapshot:                    snapshot,
@@ -822,6 +823,12 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(adapter.release.Kind))))
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
 				fmt.Sprintf("%s%c%s", adapter.release.Namespace, types.Separator, adapter.release.Name))))
+		})
+
+		It("has the releasePlanAdmission reference", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(releasePlanAdmission.Kind))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Name))))
 		})
 
 		It("has owner annotations", func() {
@@ -956,6 +963,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("finalizes the Release and deletes the PipelineRun", func() {
 			resources := &loader.ProcessingResources{
 				ReleaseStrategy:             releaseStrategy,
+				ReleasePlanAdmission:        releasePlanAdmission,
 				EnterpriseContractConfigMap: enterpriseContractConfigMap,
 				EnterpriseContractPolicy:    enterpriseContractPolicy,
 				Snapshot:                    snapshot,
@@ -1434,6 +1442,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
+		releasePlanAdmission.Kind = "ReleasePlanAdmission"
 
 		snapshot = &applicationapiv1alpha1.Snapshot{
 			ObjectMeta: metav1.ObjectMeta{
