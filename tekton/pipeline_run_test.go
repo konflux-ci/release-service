@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -58,11 +57,9 @@ var _ = Describe("PipelineRun", func() {
 		release                     *v1alpha1.Release
 		extraParams                 *ExtraParams
 		releasePipelineRun          *ReleasePipelineRun
-		snapshot                    *applicationapiv1alpha1.Snapshot
 		strategy                    *v1alpha1.ReleaseStrategy
 		enterpriseContractConfigMap *corev1.ConfigMap
 		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
-		unmarshaledSnapshotSpec     *applicationapiv1alpha1.SnapshotSpec
 	)
 	BeforeEach(func() {
 		extraParams = &ExtraParams{
@@ -84,21 +81,6 @@ var _ = Describe("PipelineRun", func() {
 			Spec: v1alpha1.ReleaseSpec{
 				Snapshot:    "testsnapshot",
 				ReleasePlan: "testreleaseplan",
-			},
-		}
-		snapshot = &applicationapiv1alpha1.Snapshot{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "testsnapshot-",
-				Namespace:    "default",
-			},
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: apiVersion,
-				Kind:       "Snapshot",
-			},
-			Spec: applicationapiv1alpha1.SnapshotSpec{
-				Application: applicationName,
-				DisplayName: "Test application",
-				Components:  []applicationapiv1alpha1.SnapshotComponent{},
 			},
 		}
 		enterpriseContractConfigMap = &corev1.ConfigMap{
@@ -205,23 +187,6 @@ var _ = Describe("PipelineRun", func() {
 		It("can return a PipelineRun object from a PipelineRun object", func() {
 			Expect(reflect.TypeOf(releasePipelineRun.AsPipelineRun())).
 				To(Equal(reflect.TypeOf(&tektonv1beta1.PipelineRun{})))
-		})
-
-		It("can add an Snapshot object as a json string to the PipelineRun", func() {
-			Expect(k8sClient.Create(ctx, snapshot)).Should(Succeed())
-
-			snapshot.TypeMeta.APIVersion = apiVersion
-			snapshot.TypeMeta.Kind = "Snapshot"
-
-			releasePipelineRun.WithSnapshot(snapshot)
-
-			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal("snapshot"))
-			Expect(json.Unmarshal(
-				[]byte(releasePipelineRun.Spec.Params[0].Value.StringVal),
-				&unmarshaledSnapshotSpec)).Should(Succeed())
-
-			// check if the unmarshaled data has what we expect
-			Expect(unmarshaledSnapshotSpec.Application).To(Equal(applicationName))
 		})
 
 		It("can add the ReleaseStrategy information and bundle resolver if present to a PipelineRun object ", func() {

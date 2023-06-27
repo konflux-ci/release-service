@@ -293,6 +293,7 @@ func (l *loader) GetDeploymentResources(ctx context.Context, cli client.Client, 
 type ProcessingResources struct {
 	EnterpriseContractConfigMap *corev1.ConfigMap
 	EnterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
+	ReleasePlan                 *v1alpha1.ReleasePlan
 	ReleasePlanAdmission        *v1alpha1.ReleasePlanAdmission
 	ReleaseStrategy             *v1alpha1.ReleaseStrategy
 	Snapshot                    *applicationapiv1alpha1.Snapshot
@@ -303,6 +304,11 @@ type ProcessingResources struct {
 func (l *loader) GetProcessingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*ProcessingResources, error) {
 	var err error
 	resources := &ProcessingResources{}
+
+	resources.ReleasePlan, err = l.GetReleasePlan(ctx, cli, release)
+	if err != nil {
+		return resources, err
+	}
 
 	resources.ReleasePlanAdmission, err = l.GetActiveReleasePlanAdmissionFromRelease(ctx, cli, release)
 	if err != nil {

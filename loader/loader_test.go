@@ -316,6 +316,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(*resources).To(MatchFields(IgnoreExtras, Fields{
 				"EnterpriseContractConfigMap": Not(BeNil()),
 				"EnterpriseContractPolicy":    Not(BeNil()),
+				"ReleasePlan":                 Not(BeNil()),
 				"ReleasePlanAdmission":        Not(BeNil()),
 				"ReleaseStrategy":             Not(BeNil()),
 				"Snapshot":                    Not(BeNil()),
