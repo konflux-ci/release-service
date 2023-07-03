@@ -1,0 +1,40 @@
+version: 2
+updates:
+    # Reference to the package manager using the relevant YAML value
+  - package-ecosystem: "github-actions"
+    # Location of the package manifests
+    directory: "/"
+    schedule:
+      # How frequently the Dependabot will check for updates
+      interval: "weekly"
+      # Day on which updates are checked for
+      day: "monday"
+    commit-message:
+      # Prefix attached to commit messages with relevant reference to package
+      prefix: "chore(actions): "
+    # List of users permitted to review and approve Dependabot PRs
+    reviewers:
+      - "davidmogar"
+      - "johnbieren"
+      - "theflockers"
+      - "scoheb"
+      - "happybhati"
+      - "mmalina"
+      - "kasemAlem"
+      - "Troy876"
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "chore(go): "
+    reviewers:
+      - "davidmogar"
+      - "johnbieren"
+      - "theflockers"
+      - "scoheb"
+      - "happybhati"
+      - "mmalina"
+      - "kasemAlem"
+      - "Troy876"
