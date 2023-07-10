@@ -19,11 +19,12 @@ import (
 type ObjectLoader interface {
 	GetActiveReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error)
 	GetActiveReleasePlanAdmissionFromRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlanAdmission, error)
-	GetApplication(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error)
-	GetApplicationComponents(ctx context.Context, cli client.Client, application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error)
+	GetApplication(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*applicationapiv1alpha1.Application, error)
 	GetEnterpriseContractConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error)
 	GetEnterpriseContractPolicy(ctx context.Context, cli client.Client, releaseStrategy *v1alpha1.ReleaseStrategy) (*ecapiv1alpha1.EnterpriseContractPolicy, error)
 	GetEnvironment(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Environment, error)
+	GetManagedApplication(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error)
+	GetManagedApplicationComponents(ctx context.Context, cli client.Client, application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
 	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1beta1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
@@ -105,24 +106,11 @@ func (l *loader) GetActiveReleasePlanAdmissionFromRelease(ctx context.Context, c
 	return l.GetActiveReleasePlanAdmission(ctx, cli, releasePlan)
 }
 
-// GetApplication returns the Application referenced by the ReleasePlanAdmission. If the Application is not found or
+// GetApplication returns the Application referenced by the ReleasePlan. If the Application is not found or
 // the Get operation fails, an error will be returned.
-func (l *loader) GetApplication(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error) {
+func (l *loader) GetApplication(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*applicationapiv1alpha1.Application, error) {
 	application := &applicationapiv1alpha1.Application{}
-	return application, getObject(releasePlanAdmission.Spec.Application, releasePlanAdmission.Namespace, cli, ctx, application)
-}
-
-// GetApplicationComponents returns a list of all the Components associated with the given Application.
-func (l *loader) GetApplicationComponents(ctx context.Context, cli client.Client, application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error) {
-	applicationComponents := &applicationapiv1alpha1.ComponentList{}
-	err := cli.List(ctx, applicationComponents,
-		client.InNamespace(application.Namespace),
-		client.MatchingFields{"spec.application": application.Name})
-	if err != nil {
-		return nil, err
-	}
-
-	return applicationComponents.Items, nil
+	return application, getObject(releasePlan.Spec.Application, releasePlan.Namespace, cli, ctx, application)
 }
 
 // GetEnterpriseContractPolicy returns the EnterpriseContractPolicy referenced by the given ReleaseStrategy. If the
@@ -152,6 +140,26 @@ func (l *loader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.
 func (l *loader) GetEnvironment(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Environment, error) {
 	environment := &applicationapiv1alpha1.Environment{}
 	return environment, getObject(releasePlanAdmission.Spec.Environment, releasePlanAdmission.Namespace, cli, ctx, environment)
+}
+
+// GetManagedApplication returns the Application referenced by the ReleasePlanAdmission. If the Application is not found or
+// the Get operation fails, an error will be returned.
+func (l *loader) GetManagedApplication(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error) {
+	application := &applicationapiv1alpha1.Application{}
+	return application, getObject(releasePlanAdmission.Spec.Application, releasePlanAdmission.Namespace, cli, ctx, application)
+}
+
+// GetManagedApplicationComponents returns a list of all the Components associated with the given Application.
+func (l *loader) GetManagedApplicationComponents(ctx context.Context, cli client.Client, application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error) {
+	applicationComponents := &applicationapiv1alpha1.ComponentList{}
+	err := cli.List(ctx, applicationComponents,
+		client.InNamespace(application.Namespace),
+		client.MatchingFields{"spec.application": application.Name})
+	if err != nil {
+		return nil, err
+	}
+
+	return applicationComponents.Items, nil
 }
 
 // GetRelease returns the Release with the given name and namespace. If the Release is not found or the Get operation
@@ -258,12 +266,12 @@ func (l *loader) GetDeploymentResources(ctx context.Context, cli client.Client, 
 	var err error
 	resources := &DeploymentResources{}
 
-	resources.Application, err = l.GetApplication(ctx, cli, releasePlanAdmission)
+	resources.Application, err = l.GetManagedApplication(ctx, cli, releasePlanAdmission)
 	if err != nil {
 		return resources, err
 	}
 
-	resources.ApplicationComponents, err = l.GetApplicationComponents(ctx, cli, resources.Application)
+	resources.ApplicationComponents, err = l.GetManagedApplicationComponents(ctx, cli, resources.Application)
 	if err != nil {
 		return resources, err
 	}

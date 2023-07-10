@@ -123,21 +123,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetApplicationComponents", func() {
-		It("returns the resource and error from the context", func() {
-			var components []applicationapiv1alpha1.Component
-			mockContext := GetMockedContext(ctx, []MockData{
-				{
-					ContextKey: ApplicationComponentsContextKey,
-					Resource:   components,
-				},
-			})
-			resource, err := loader.GetApplicationComponents(mockContext, nil, &applicationapiv1alpha1.Application{})
-			Expect(resource).To(Equal(components))
-			Expect(err).To(BeNil())
-		})
-	})
-
 	Context("When calling GetEnterpriseContractPolicy", func() {
 		It("returns the resource and error from the context", func() {
 			enterpriseContractPolicy := &v1alpha12.EnterpriseContractPolicy{}
@@ -164,6 +149,36 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			})
 			resource, err := loader.GetEnvironment(mockContext, nil, nil)
 			Expect(resource).To(Equal(environment))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("When calling GetManagedApplication", func() {
+		It("returns the resource and error from the context", func() {
+			application := &applicationapiv1alpha1.Application{}
+			mockContext := GetMockedContext(ctx, []MockData{
+				{
+					ContextKey: ApplicationContextKey,
+					Resource:   application,
+				},
+			})
+			resource, err := loader.GetManagedApplication(mockContext, nil, nil)
+			Expect(resource).To(Equal(application))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	Context("When calling GetManagedApplicationComponents", func() {
+		It("returns the resource and error from the context", func() {
+			var components []applicationapiv1alpha1.Component
+			mockContext := GetMockedContext(ctx, []MockData{
+				{
+					ContextKey: ApplicationComponentsContextKey,
+					Resource:   components,
+				},
+			})
+			resource, err := loader.GetManagedApplicationComponents(mockContext, nil, &applicationapiv1alpha1.Application{})
+			Expect(resource).To(Equal(components))
 			Expect(err).To(BeNil())
 		})
 	})

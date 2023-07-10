@@ -135,19 +135,10 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	Context("When calling GetApplication", func() {
 		It("returns the requested application", func() {
-			returnedObject, err := loader.GetApplication(ctx, k8sClient, releasePlanAdmission)
+			returnedObject, err := loader.GetApplication(ctx, k8sClient, releasePlan)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Application{}))
 			Expect(returnedObject.Name).To(Equal(application.Name))
-		})
-	})
-
-	Context("When calling GetApplicationComponents", func() {
-		It("returns the requested list of components", func() {
-			returnedObjects, err := loader.GetApplicationComponents(ctx, k8sClient, application)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObjects).To(HaveLen(1))
-			Expect(returnedObjects[0].Name).To(Equal(component.Name))
 		})
 	})
 
@@ -183,6 +174,24 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Environment{}))
 			Expect(returnedObject.Name).To(Equal(environment.Name))
+		})
+	})
+
+	Context("When calling GetManagedApplication", func() {
+		It("returns the requested application", func() {
+			returnedObject, err := loader.GetManagedApplication(ctx, k8sClient, releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Application{}))
+			Expect(returnedObject.Name).To(Equal(application.Name))
+		})
+	})
+
+	Context("When calling GetManagedApplicationComponents", func() {
+		It("returns the requested list of components", func() {
+			returnedObjects, err := loader.GetManagedApplicationComponents(ctx, k8sClient, application)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObjects).To(HaveLen(1))
+			Expect(returnedObjects[0].Name).To(Equal(component.Name))
 		})
 	})
 

@@ -95,19 +95,11 @@ func (l *mockLoader) GetActiveReleasePlanAdmissionFromRelease(ctx context.Contex
 }
 
 // GetApplication returns the resource and error passed as values of the context.
-func (l *mockLoader) GetApplication(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error) {
+func (l *mockLoader) GetApplication(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*applicationapiv1alpha1.Application, error) {
 	if ctx.Value(ApplicationContextKey) == nil {
-		return l.loader.GetApplication(ctx, cli, releasePlanAdmission)
+		return l.loader.GetApplication(ctx, cli, releasePlan)
 	}
 	return getMockedResourceAndErrorFromContext(ctx, ApplicationContextKey, &applicationapiv1alpha1.Application{})
-}
-
-// GetApplicationComponents returns the resource and error passed as values of the context.
-func (l *mockLoader) GetApplicationComponents(ctx context.Context, cli client.Client, application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error) {
-	if ctx.Value(ApplicationComponentsContextKey) == nil {
-		return l.loader.GetApplicationComponents(ctx, cli, application)
-	}
-	return getMockedResourceAndErrorFromContext(ctx, ApplicationComponentsContextKey, []applicationapiv1alpha1.Component{})
 }
 
 // GetEnterpriseContractPolicy returns the resource and error passed as values of the context.
@@ -132,6 +124,22 @@ func (l *mockLoader) GetEnvironment(ctx context.Context, cli client.Client, rele
 		return l.loader.GetEnvironment(ctx, cli, releasePlanAdmission)
 	}
 	return getMockedResourceAndErrorFromContext(ctx, EnvironmentContextKey, &applicationapiv1alpha1.Environment{})
+}
+
+// GetManagedApplication returns the resource and error passed as values of the context.
+func (l *mockLoader) GetManagedApplication(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error) {
+	if ctx.Value(ApplicationContextKey) == nil {
+		return l.loader.GetManagedApplication(ctx, cli, releasePlanAdmission)
+	}
+	return getMockedResourceAndErrorFromContext(ctx, ApplicationContextKey, &applicationapiv1alpha1.Application{})
+}
+
+// GetManagedApplicationComponents returns the resource and error passed as values of the context.
+func (l *mockLoader) GetManagedApplicationComponents(ctx context.Context, cli client.Client, application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error) {
+	if ctx.Value(ApplicationComponentsContextKey) == nil {
+		return l.loader.GetManagedApplicationComponents(ctx, cli, application)
+	}
+	return getMockedResourceAndErrorFromContext(ctx, ApplicationComponentsContextKey, []applicationapiv1alpha1.Component{})
 }
 
 // GetRelease returns the resource and error passed as values of the context.

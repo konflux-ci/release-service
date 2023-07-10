@@ -35,6 +35,7 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   domain: redhat.com
   group: appstudio
   kind: ReleasePlan
