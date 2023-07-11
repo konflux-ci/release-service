@@ -19,6 +19,7 @@ package controllers
 import (
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/controllers/release"
+	"github.com/redhat-appstudio/release-service/controllers/releaseplan"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -26,6 +27,7 @@ import (
 // setupFunctions is a list of register functions to be invoked so all controllers are added to the Manager
 var setupFunctions = []func(manager.Manager, *logr.Logger) error{
 	release.SetupController,
+	releaseplan.SetupController,
 }
 
 // SetupControllers invoke all SetupController functions defined in setupFunctions, setting all controllers up and
