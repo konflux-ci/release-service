@@ -29,7 +29,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		initializeMetrics func()
 	)
 
-	Context("When RegisterCompletedRelease is called", func() {
+	When("RegisterCompletedRelease is called", func() {
 		var completionTime, startTime *metav1.Time
 
 		BeforeEach(func() {
@@ -93,7 +93,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	Context("When RegisterCompletedReleaseDeployment is called", func() {
+	When("RegisterCompletedReleaseDeployment is called", func() {
 		var completionTime, startTime *metav1.Time
 
 		BeforeEach(func() {
@@ -136,7 +136,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	Context("When RegisterCompletedReleasePostActionsExecuted is called", func() {
+	When("RegisterCompletedReleasePostActionsExecuted is called", func() {
 		var completionTime, startTime *metav1.Time
 
 		BeforeEach(func() {
@@ -177,7 +177,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	Context("When RegisterCompletedReleaseProcessing is called", func() {
+	When("RegisterCompletedReleaseProcessing is called", func() {
 		var completionTime, startTime *metav1.Time
 
 		BeforeEach(func() {
@@ -220,7 +220,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	Context("When RegisterNewRelease is called", func() {
+	When("RegisterNewRelease is called", func() {
 		BeforeEach(func() {
 			initializeMetrics()
 		})
@@ -232,7 +232,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	Context("When RegisterNewReleaseDeployment is called", func() {
+	When("RegisterNewReleaseDeployment is called", func() {
 		BeforeEach(func() {
 			initializeMetrics()
 		})
@@ -244,7 +244,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	Context("When RegisterNewReleaseProcessing is called", func() {
+	When("RegisterNewReleaseProcessing is called", func() {
 		BeforeEach(func() {
 			initializeMetrics()
 		})
@@ -256,7 +256,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	Context("When RegisterNewReleasePostActionsExecution is called", func() {
+	When("RegisterNewReleasePostActionsExecution is called", func() {
 		BeforeEach(func() {
 			initializeMetrics()
 		})

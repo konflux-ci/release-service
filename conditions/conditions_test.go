@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("Release type", func() {
 
-	Context("When setStatusCondition method is called", func() {
+	When("setStatusCondition method is called", func() {
 		It("should update the condition with provided the arguments and an empty message", func() {
 			var conditions []metav1.Condition
 			SetCondition(&conditions, "conditionType", metav1.ConditionTrue, "conditionReason")
@@ -38,7 +38,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When setStatusConditionWithMessage method is called", func() {
+	When("setStatusConditionWithMessage method is called", func() {
 		It("should update condition with provided arguments", func() {
 			var conditions []metav1.Condition
 			SetConditionWithMessage(&conditions, "conditionType", metav1.ConditionTrue, "conditionReason", "message")

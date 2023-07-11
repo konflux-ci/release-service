@@ -68,13 +68,13 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		createResources()
 	})
 
-	Context("When NewAdapter is called", func() {
+	When("NewAdapter is called", func() {
 		It("creates and return a new adapter", func() {
 			Expect(reflect.TypeOf(NewAdapter(ctx, k8sClient, nil, loader.NewLoader(), ctrl.Log))).To(Equal(reflect.TypeOf(&Adapter{})))
 		})
 	})
 
-	Context("When EnsureFinalizersAreCalled is called", func() {
+	When("EnsureFinalizersAreCalled is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -133,7 +133,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When EnsureFinalizerIsAdded is called", func() {
+	When("EnsureFinalizerIsAdded is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -163,7 +163,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When EnsureReleaseIsCompleted is called", func() {
+	When("EnsureReleaseIsCompleted is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -234,7 +234,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When EnsureReleaseIsDeployed is called", func() {
+	When("EnsureReleaseIsDeployed is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -383,7 +383,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When EnsureReleaseDeploymentIsTracked is called", func() {
+	When("EnsureReleaseDeploymentIsTracked is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -456,7 +456,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When EnsureReleaseIsRunning is called", func() {
+	When("EnsureReleaseIsRunning is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -493,7 +493,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When EnsureReleaseIsProcessed is called", func() {
+	When("EnsureReleaseIsProcessed is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -601,7 +601,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When EnsureReleaseIsValid is called", func() {
+	When("EnsureReleaseIsValid is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -729,7 +729,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When EnsureReleaseProcessingIsTracked is called", func() {
+	When("EnsureReleaseProcessingIsTracked is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -787,7 +787,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When createReleasePipelineRun is called", func() {
+	When("createReleasePipelineRun is called", func() {
 		var (
 			adapter     *Adapter
 			pipelineRun *v1beta1.PipelineRun
@@ -862,7 +862,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When createOrUpdateSnapshotEnvironmentBinding is called", func() {
+	When("createOrUpdateSnapshotEnvironmentBinding is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -945,7 +945,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When finalizeRelease is called", func() {
+	When("finalizeRelease is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -979,7 +979,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When registerDeploymentData is called", func() {
+	When("registerDeploymentData is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -1021,7 +1021,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When registerDeploymentStatus is called", func() {
+	When("registerDeploymentStatus is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -1088,7 +1088,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When registerProcessingData is called", func() {
+	When("registerProcessingData is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -1132,7 +1132,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When registerProcessingStatus is called", func() {
+	When("registerProcessingStatus is called", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -1174,7 +1174,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling syncResources", func() {
+	When("calling syncResources", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -1222,7 +1222,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling registerAttributionData", func() {
+	When("calling registerAttributionData", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {
@@ -1276,7 +1276,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling validateAuthor", func() {
+	When("calling validateAuthor", func() {
 		var adapter *Adapter
 
 		AfterEach(func() {

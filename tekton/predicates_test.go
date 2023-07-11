@@ -44,7 +44,6 @@ var _ = Describe("Predicates", func() {
 	var releasePipelineRun *ReleasePipelineRun
 
 	BeforeEach(func() {
-
 		release = &v1alpha1.Release{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: apiVersion,
@@ -85,7 +84,7 @@ var _ = Describe("Predicates", func() {
 		_ = k8sClient.Delete(ctx, releasePipelineRun.AsPipelineRun())
 	})
 
-	Context("when testing ReleasePipelineRunSucceededPredicate predicate", func() {
+	When("testing ReleasePipelineRunSucceededPredicate predicate", func() {
 		instance := ReleasePipelineRunSucceededPredicate()
 
 		It("should ignore creating events", func() {

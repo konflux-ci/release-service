@@ -110,7 +110,7 @@ var _ = Describe("Predicates", Ordered, func() {
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 	})
 
-	Context("when testing DeploymentFinishedPredicate predicate", func() {
+	When("testing DeploymentFinishedPredicate predicate", func() {
 		instance := DeploymentFinishedPredicate()
 
 		It("returns true when the old SnapshotEnvironmentBinding has no AllComponentsDeployed status and the new one has true status", func() {

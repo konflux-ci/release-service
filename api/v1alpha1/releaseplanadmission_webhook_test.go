@@ -55,7 +55,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 	})
 
-	Context("When a ReleasePlanAdmission is created without the auto-release label", func() {
+	When("a ReleasePlanAdmission is created without the auto-release label", func() {
 		It("should get the label added with its value set to true", func() {
 			Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
 			Eventually(func() bool {
@@ -71,7 +71,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 		})
 	})
 
-	Context("When a ReleasePlanAdmission is created with an invalid auto-release label value", func() {
+	When("a ReleasePlanAdmission is created with an invalid auto-release label value", func() {
 		It("should get rejected until the value is valid", func() {
 			releasePlanAdmission.Labels = map[string]string{metadata.AutoReleaseLabel: "foo"}
 			err := k8sClient.Create(ctx, releasePlanAdmission)
@@ -80,7 +80,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 		})
 	})
 
-	Context("When a ReleasePlanAdmission is created with a valid auto-release label value", func() {
+	When("a ReleasePlanAdmission is created with a valid auto-release label value", func() {
 		It("shouldn't be modified", func() {
 			By("setting label to true")
 			localReleasePlanAdmission := releasePlanAdmission.DeepCopy()
@@ -116,7 +116,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 		})
 	})
 
-	Context("When a ReleasePlanAdmission is updated using an invalid auto-release label value", func() {
+	When("a ReleasePlanAdmission is updated using an invalid auto-release label value", func() {
 		It("shouldn't be modified", func() {
 			Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
 			releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel] = "foo"
@@ -126,7 +126,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 		})
 	})
 
-	Describe("When ValidateDelete method is called", func() {
+	When("ValidateDelete method is called", func() {
 		It("should return nil", func() {
 			releaseplanadmission := &ReleasePlanAdmission{}
 			Expect(releaseplanadmission.ValidateDelete()).To(BeNil())

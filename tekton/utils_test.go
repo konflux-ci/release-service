@@ -43,7 +43,6 @@ var _ = Describe("Utils", func() {
 	var releasePipelineRun *ReleasePipelineRun
 
 	BeforeEach(func() {
-
 		release = &v1alpha1.Release{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: apiVersion,
@@ -84,7 +83,7 @@ var _ = Describe("Utils", func() {
 		_ = k8sClient.Delete(ctx, releasePipelineRun.AsPipelineRun())
 	})
 
-	Context("when using utility functions on PipelineRun objects", func() {
+	When("using utility functions on PipelineRun objects", func() {
 		It("is a PipelineRun object and contains the required labels that identifies it as one", func() {
 			Expect(isReleasePipelineRun(releasePipelineRun.
 				WithReleaseAndApplicationMetadata(release, applicationName).
