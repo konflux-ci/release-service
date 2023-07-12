@@ -19,7 +19,7 @@ package releaseplan
 import (
 	"context"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	goodies "github.com/redhat-appstudio/operator-goodies/test"
+	"github.com/redhat-appstudio/operator-toolkit/test"
 	"go/build"
 	"path/filepath"
 	"testing"
@@ -61,7 +61,7 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "config", "crd", "bases"),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", goodies.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
+				"pkg", "mod", test.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
 			),
 		},
 		ErrorIfCRDPathMissing: true,

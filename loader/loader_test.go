@@ -49,23 +49,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		loader = NewLoader()
 	})
 
-	When("calling getObject", func() {
-		It("returns the requested resource if it exists", func() {
-			returnedApplication := &applicationapiv1alpha1.Application{}
-			err := getObject(application.Name, application.Namespace, k8sClient, ctx, returnedApplication)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(application.Spec).To(Equal(returnedApplication.Spec))
-		})
-
-		It("returns and error if the requested resource doesn't exist", func() {
-			returnedObject := &applicationapiv1alpha1.Application{}
-			err := getObject("non-existent-app", "non-existent-app", k8sClient, ctx, returnedObject)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
-			Expect(returnedObject).To(Equal(&applicationapiv1alpha1.Application{}))
-		})
-	})
-
 	When("calling GetActiveReleasePlanAdmission", func() {
 		It("returns an active release plan admission", func() {
 			returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)

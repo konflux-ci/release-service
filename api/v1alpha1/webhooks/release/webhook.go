@@ -14,34 +14,48 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package release
 
 import (
+	"context"
 	"fmt"
+	"github.com/go-logr/logr"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *Release) SetupWebhookWithManager(mgr ctrl.Manager) error {
+// Webhook describes the data structure for the release webhook
+type Webhook struct {
+	client client.Client
+	log    logr.Logger
+}
+
+func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
+	w.client = mgr.GetClient()
+	w.log = log.WithName("release")
+
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&v1alpha1.Release{}).
+		WithValidator(w).
 		Complete()
 }
 
 //+kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1alpha1-release,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releases,verbs=create;update,versions=v1alpha1,name=vrelease.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &Release{}
-
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Release) ValidateCreate() error {
+func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	return nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Release) ValidateUpdate(old runtime.Object) error {
-	if !reflect.DeepEqual(r.Spec, old.(*Release).Spec) {
+func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+	oldRelease := oldObj.(*v1alpha1.Release)
+	newRelease := newObj.(*v1alpha1.Release)
+
+	if !reflect.DeepEqual(newRelease.Spec, oldRelease.Spec) {
 		return fmt.Errorf("release resources spec cannot be updated")
 	}
 
@@ -49,6 +63,6 @@ func (r *Release) ValidateUpdate(old runtime.Object) error {
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Release) ValidateDelete() error {
+func (w *Webhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
 	return nil
 }

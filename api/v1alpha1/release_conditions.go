@@ -1,6 +1,6 @@
 package v1alpha1
 
-import "github.com/redhat-appstudio/release-service/conditions"
+import "github.com/redhat-appstudio/operator-toolkit/conditions"
 
 const (
 	// deployedConditionType is the type used to track the status of a Release deployment

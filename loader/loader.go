@@ -3,6 +3,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 	"os"
 	"strings"
 
@@ -40,15 +41,6 @@ type loader struct{}
 
 func NewLoader() ObjectLoader {
 	return &loader{}
-}
-
-// getObject loads an object from the cluster. This is a generic function that requires the object to be passed as an
-// argument. The object is modified during the invocation.
-func getObject(name, namespace string, cli client.Client, ctx context.Context, object client.Object) error {
-	return cli.Get(ctx, types.NamespacedName{
-		Name:      name,
-		Namespace: namespace,
-	}, object)
 }
 
 // GetActiveReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.
@@ -110,14 +102,14 @@ func (l *loader) GetActiveReleasePlanAdmissionFromRelease(ctx context.Context, c
 // the Get operation fails, an error will be returned.
 func (l *loader) GetApplication(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*applicationapiv1alpha1.Application, error) {
 	application := &applicationapiv1alpha1.Application{}
-	return application, getObject(releasePlan.Spec.Application, releasePlan.Namespace, cli, ctx, application)
+	return application, toolkit.GetObject(releasePlan.Spec.Application, releasePlan.Namespace, cli, ctx, application)
 }
 
 // GetEnterpriseContractPolicy returns the EnterpriseContractPolicy referenced by the given ReleaseStrategy. If the
 // EnterpriseContractPolicy is not found or the Get operation fails, an error is returned.
 func (l *loader) GetEnterpriseContractPolicy(ctx context.Context, cli client.Client, releaseStrategy *v1alpha1.ReleaseStrategy) (*ecapiv1alpha1.EnterpriseContractPolicy, error) {
 	enterpriseContractPolicy := &ecapiv1alpha1.EnterpriseContractPolicy{}
-	return enterpriseContractPolicy, getObject(releaseStrategy.Spec.Policy, releaseStrategy.Namespace, cli, ctx, enterpriseContractPolicy)
+	return enterpriseContractPolicy, toolkit.GetObject(releaseStrategy.Spec.Policy, releaseStrategy.Namespace, cli, ctx, enterpriseContractPolicy)
 }
 
 // GetEnterpriseContractConfigMap returns the defaults ConfigMap in the Enterprise Contract namespace . If the ENTERPRISE_CONTRACT_CONFIG_MAP
@@ -127,7 +119,7 @@ func (l *loader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.
 	namespacedName := os.Getenv("ENTERPRISE_CONTRACT_CONFIG_MAP")
 
 	if index := strings.IndexByte(namespacedName, '/'); index >= 0 {
-		return enterpriseContractConfigMap, getObject(namespacedName[index+1:], namespacedName[:index],
+		return enterpriseContractConfigMap, toolkit.GetObject(namespacedName[index+1:], namespacedName[:index],
 			cli, ctx, enterpriseContractConfigMap)
 	}
 
@@ -139,14 +131,14 @@ func (l *loader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.
 // or the Get operation fails, an error will be returned.
 func (l *loader) GetEnvironment(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Environment, error) {
 	environment := &applicationapiv1alpha1.Environment{}
-	return environment, getObject(releasePlanAdmission.Spec.Environment, releasePlanAdmission.Namespace, cli, ctx, environment)
+	return environment, toolkit.GetObject(releasePlanAdmission.Spec.Environment, releasePlanAdmission.Namespace, cli, ctx, environment)
 }
 
 // GetManagedApplication returns the Application referenced by the ReleasePlanAdmission. If the Application is not found or
 // the Get operation fails, an error will be returned.
 func (l *loader) GetManagedApplication(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error) {
 	application := &applicationapiv1alpha1.Application{}
-	return application, getObject(releasePlanAdmission.Spec.Application, releasePlanAdmission.Namespace, cli, ctx, application)
+	return application, toolkit.GetObject(releasePlanAdmission.Spec.Application, releasePlanAdmission.Namespace, cli, ctx, application)
 }
 
 // GetManagedApplicationComponents returns a list of all the Components associated with the given Application.
@@ -166,7 +158,7 @@ func (l *loader) GetManagedApplicationComponents(ctx context.Context, cli client
 // fails, an error will be returned.
 func (l *loader) GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error) {
 	release := &v1alpha1.Release{}
-	return release, getObject(name, namespace, cli, ctx, release)
+	return release, toolkit.GetObject(name, namespace, cli, ctx, release)
 }
 
 // GetReleasePipelineRun returns the PipelineRun referenced by the given Release or nil if it's not found. In the case
@@ -190,21 +182,21 @@ func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, r
 // the Get operation fails, an error will be returned.
 func (l *loader) GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error) {
 	releasePlan := &v1alpha1.ReleasePlan{}
-	return releasePlan, getObject(release.Spec.ReleasePlan, release.Namespace, cli, ctx, releasePlan)
+	return releasePlan, toolkit.GetObject(release.Spec.ReleasePlan, release.Namespace, cli, ctx, releasePlan)
 }
 
 // GetReleaseStrategy returns the ReleaseStrategy referenced by the given ReleasePlanAdmission. If the ReleaseStrategy
 // is not found or the Get operation fails, an error will be returned.
 func (l *loader) GetReleaseStrategy(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleaseStrategy, error) {
 	releaseStrategy := &v1alpha1.ReleaseStrategy{}
-	return releaseStrategy, getObject(releasePlanAdmission.Spec.ReleaseStrategy, releasePlanAdmission.Namespace, cli, ctx, releaseStrategy)
+	return releaseStrategy, toolkit.GetObject(releasePlanAdmission.Spec.ReleaseStrategy, releasePlanAdmission.Namespace, cli, ctx, releaseStrategy)
 }
 
 // GetSnapshot returns the Snapshot referenced by the given Release. If the Snapshot is not found or the Get
 // operation fails, an error is returned.
 func (l *loader) GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error) {
 	snapshot := &applicationapiv1alpha1.Snapshot{}
-	return snapshot, getObject(release.Spec.Snapshot, release.Namespace, cli, ctx, snapshot)
+	return snapshot, toolkit.GetObject(release.Spec.Snapshot, release.Namespace, cli, ctx, snapshot)
 }
 
 // GetSnapshotEnvironmentBinding returns the SnapshotEnvironmentBinding associated with the given ReleasePlanAdmission.

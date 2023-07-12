@@ -14,64 +14,81 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package releaseplan
 
 import (
+	"context"
 	"fmt"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"github.com/go-logr/logr"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/redhat-appstudio/release-service/metadata"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (rp *ReleasePlan) SetupWebhookWithManager(mgr ctrl.Manager) error {
+// Webhook describes the data structure for the bar webhook
+type Webhook struct {
+	client client.Client
+	log    logr.Logger
+}
+
+// Register registers the webhook with the passed manager and log.
+func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
+	w.client = mgr.GetClient()
+	w.log = log.WithName("releasePlan")
+
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(rp).
+		For(&v1alpha1.ReleasePlan{}).
+		WithDefaulter(w).
+		WithValidator(w).
 		Complete()
 }
 
 // +kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1alpha1-releaseplan,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releaseplans,verbs=create,versions=v1alpha1,name=mreleaseplan.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &ReleasePlan{}
-
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (rp *ReleasePlan) Default() {
-	if _, found := rp.GetLabels()[metadata.AutoReleaseLabel]; !found {
-		if rp.Labels == nil {
-			rp.Labels = map[string]string{
+func (w *Webhook) Default(ctx context.Context, obj runtime.Object) error {
+	releasePlan := obj.(*v1alpha1.ReleasePlan)
+
+	if _, found := releasePlan.GetLabels()[metadata.AutoReleaseLabel]; !found {
+		if releasePlan.Labels == nil {
+			releasePlan.Labels = map[string]string{
 				metadata.AutoReleaseLabel: "true",
 			}
 		}
 	}
+
+	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1alpha1-releaseplan,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releaseplans,verbs=create;update,versions=v1alpha1,name=vreleaseplan.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &ReleasePlan{}
-
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (rp *ReleasePlan) ValidateCreate() error {
-	return rp.validateAutoReleaseLabel()
+func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	return w.validateAutoReleaseLabel(obj)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (rp *ReleasePlan) ValidateUpdate(old runtime.Object) error {
-	return rp.validateAutoReleaseLabel()
+func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+	return w.validateAutoReleaseLabel(newObj)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (rp *ReleasePlan) ValidateDelete() error {
+func (w *Webhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
 	return nil
 }
 
 // validateAutoReleaseLabel throws an error if the auto-release label value is set to anything besides true or false.
-func (rp *ReleasePlan) validateAutoReleaseLabel() error {
-	if value, found := rp.GetLabels()[metadata.AutoReleaseLabel]; found {
+func (w *Webhook) validateAutoReleaseLabel(obj runtime.Object) error {
+	releasePlan := obj.(*v1alpha1.ReleasePlan)
+
+	if value, found := releasePlan.GetLabels()[metadata.AutoReleaseLabel]; found {
 		if value != "true" && value != "false" {
 			return fmt.Errorf("'%s' label can only be set to true or false", metadata.AutoReleaseLabel)
 		}
 	}
+
 	return nil
 }

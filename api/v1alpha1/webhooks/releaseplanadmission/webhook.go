@@ -14,64 +14,81 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package releaseplanadmission
 
 import (
+	"context"
 	"fmt"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"github.com/go-logr/logr"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/redhat-appstudio/release-service/metadata"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (rp *ReleasePlanAdmission) SetupWebhookWithManager(mgr ctrl.Manager) error {
+// Webhook describes the data structure for the bar webhook
+type Webhook struct {
+	client client.Client
+	log    logr.Logger
+}
+
+// Register registers the webhook with the passed manager and log.
+func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
+	w.client = mgr.GetClient()
+	w.log = log.WithName("releasePlan")
+
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(rp).
+		For(&v1alpha1.ReleasePlanAdmission{}).
+		WithDefaulter(w).
+		WithValidator(w).
 		Complete()
 }
 
 // +kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1alpha1-releaseplanadmission,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releaseplanadmissions,verbs=create,versions=v1alpha1,name=mreleaseplanadmission.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &ReleasePlanAdmission{}
-
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (rp *ReleasePlanAdmission) Default() {
-	if _, found := rp.GetLabels()[metadata.AutoReleaseLabel]; !found {
-		if rp.Labels == nil {
-			rp.Labels = map[string]string{
+func (w *Webhook) Default(ctx context.Context, obj runtime.Object) error {
+	releasePlanAdmission := obj.(*v1alpha1.ReleasePlanAdmission)
+
+	if _, found := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]; !found {
+		if releasePlanAdmission.Labels == nil {
+			releasePlanAdmission.Labels = map[string]string{
 				metadata.AutoReleaseLabel: "true",
 			}
 		}
 	}
+
+	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1alpha1-releaseplanadmission,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releaseplanadmissions,verbs=create;update,versions=v1alpha1,name=vreleaseplanadmission.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &ReleasePlanAdmission{}
-
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (rp *ReleasePlanAdmission) ValidateCreate() error {
-	return rp.validateAutoReleaseLabel()
+func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	return w.validateAutoReleaseLabel(obj)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (rp *ReleasePlanAdmission) ValidateUpdate(old runtime.Object) error {
-	return rp.validateAutoReleaseLabel()
+func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+	return w.validateAutoReleaseLabel(newObj)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (rp *ReleasePlanAdmission) ValidateDelete() error {
+func (w *Webhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
 	return nil
 }
 
 // validateAutoReleaseLabel throws an error if the auto-release label value is set to anything besides true or false.
-func (rp *ReleasePlanAdmission) validateAutoReleaseLabel() error {
-	if value, found := rp.GetLabels()[metadata.AutoReleaseLabel]; found {
+func (w *Webhook) validateAutoReleaseLabel(obj runtime.Object) error {
+	releasePlanAdmission := obj.(*v1alpha1.ReleasePlanAdmission)
+
+	if value, found := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]; found {
 		if value != "true" && value != "false" {
 			return fmt.Errorf("'%s' label can only be set to true or false", metadata.AutoReleaseLabel)
 		}
 	}
+
 	return nil
 }
