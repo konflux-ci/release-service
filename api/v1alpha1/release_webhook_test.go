@@ -49,7 +49,7 @@ var _ = Describe("Release validation webhook", func() {
 		_ = k8sClient.Delete(ctx, release)
 	})
 
-	Context("Update Release CR fields", func() {
+	When("release CR fields are updated", func() {
 		It("Should error out when updating the resource", func() {
 			ctx := context.Background()
 
@@ -77,7 +77,7 @@ var _ = Describe("Release validation webhook", func() {
 		})
 	})
 
-	Describe("When ValidateDelete method is called", func() {
+	When("ValidateDelete method is called", func() {
 		It("should return nil", func() {
 			release := &Release{}
 			Expect(release.ValidateDelete()).To(BeNil())

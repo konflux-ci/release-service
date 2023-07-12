@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Release type", func() {
 
-	Context("When HasDeploymentFinished method is called", func() {
+	When("HasDeploymentFinished method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -60,7 +60,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When HasEveryPostActionExecutionFinished method is called", func() {
+	When("HasEveryPostActionExecutionFinished method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -92,7 +92,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When HasProcessingFinished method is called", func() {
+	When("HasProcessingFinished method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -124,7 +124,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When HasReleaseFinished method is called", func() {
+	When("HasReleaseFinished method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -156,7 +156,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsAttributed method is called", func() {
+	When("IsAttributed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -173,7 +173,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsAutomated method is called", func() {
+	When("IsAutomated method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -195,7 +195,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsDeployed method is called", func() {
+	When("IsDeployed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -222,7 +222,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsDeploying method is called", func() {
+	When("IsDeploying method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -254,7 +254,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsEveryPostActionExecuted method is called", func() {
+	When("IsEveryPostActionExecuted method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -281,7 +281,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsEachPostActionExecuting method is called", func() {
+	When("IsEachPostActionExecuting method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -313,7 +313,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsProcessed method is called", func() {
+	When("IsProcessed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -340,7 +340,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsProcessing method is called", func() {
+	When("IsProcessing method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -372,7 +372,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsReleased method is called", func() {
+	When("IsReleased method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -399,7 +399,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsReleasing method is called", func() {
+	When("IsReleasing method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -431,7 +431,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When IsValid method is called", func() {
+	When("IsValid method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -458,7 +458,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkDeployed method is called", func() {
+	When("MarkDeployed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -500,7 +500,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkDeploying method is called", func() {
+	When("MarkDeploying method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -544,7 +544,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkDeploymentFailed method is called", func() {
+	When("MarkDeploymentFailed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -587,7 +587,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkProcessed method is called", func() {
+	When("MarkProcessed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -629,7 +629,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkProcessing method is called", func() {
+	When("MarkProcessing method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -673,7 +673,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkProcessingFailed method is called", func() {
+	When("MarkProcessingFailed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -716,7 +716,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkPostActionsExecuted method is called", func() {
+	When("MarkPostActionsExecuted method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -758,7 +758,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkPostActionsExecuting method is called", func() {
+	When("MarkPostActionsExecuting method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -802,7 +802,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkPostActionsExecutionFailed method is called", func() {
+	When("MarkPostActionsExecutionFailed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -845,7 +845,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkReleased method is called", func() {
+	When("MarkReleased method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -887,7 +887,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkReleasing method is called", func() {
+	When("MarkReleasing method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -931,7 +931,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkReleaseFailed method is called", func() {
+	When("MarkReleaseFailed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -974,7 +974,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkValidated method is called", func() {
+	When("MarkValidated method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -1008,7 +1008,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When MarkValidationFailed method is called", func() {
+	When("MarkValidationFailed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -1046,7 +1046,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When SetAutomated method is called", func() {
+	When("SetAutomated method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -1059,7 +1059,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When getPhaseReason method is called", func() {
+	When("getPhaseReason method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -1076,7 +1076,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When hasPhaseFinished method is called", func() {
+	When("hasPhaseFinished method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -1108,7 +1108,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	Context("When isPhaseProgressing method is called", func() {
+	When("isPhaseProgressing method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {

@@ -30,7 +30,7 @@ import (
 
 var _ = Describe("Release Controller", Ordered, func() {
 
-	Context("When NewReleaseReconciler is called", func() {
+	When("NewReleaseReconciler is called", func() {
 		It("creates and return a new Reconciler", func() {
 			Expect(reflect.TypeOf(NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme))).To(Equal(reflect.TypeOf(&Reconciler{})))
 		})
@@ -39,7 +39,7 @@ var _ = Describe("Release Controller", Ordered, func() {
 	// For the Reconcile function test we don't want to make a successful call as it will call every single operation
 	// defined there. We don't have any control over the operations being executed, and we want to keep a clean env for
 	// the adapter tests.
-	Context("When Reconcile is called", func() {
+	When("Reconcile is called", func() {
 		It("should succeed even if the release is not found", func() {
 			reconciler := NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme)
 			req := ctrl.Request{
@@ -54,7 +54,7 @@ var _ = Describe("Release Controller", Ordered, func() {
 		})
 	})
 
-	Context("When SetupController is called", func() {
+	When("SetupController is called", func() {
 		It("should setup the controller successfully", func() {
 			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
 				Scheme:             scheme.Scheme,
@@ -65,7 +65,7 @@ var _ = Describe("Release Controller", Ordered, func() {
 		})
 	})
 
-	Context("When setupCache is called", func() {
+	When("setupCache is called", func() {
 		It("should setup the cache successfully", func() {
 			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
 				Scheme:             scheme.Scheme,
@@ -76,7 +76,7 @@ var _ = Describe("Release Controller", Ordered, func() {
 		})
 	})
 
-	Context("When setupControllerWithManager is called", func() {
+	When("setupControllerWithManager is called", func() {
 		It("should setup the controller successfully", func() {
 			reconciler := NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme)
 			manager, _ := ctrl.NewManager(cfg, ctrl.Options{

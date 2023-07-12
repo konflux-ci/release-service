@@ -152,7 +152,7 @@ var _ = Describe("Utils", Ordered, func() {
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 	})
 
-	Context("when using utility functions on SnapshotEnvironmentBinding objects", func() {
+	When("using utility functions on SnapshotEnvironmentBinding objects", func() {
 		It("returns false when called with an old object that isn't a SnapshotEnvironmentBinding", func() {
 			Expect(hasDeploymentFinished(pod, bindingTrueStatus)).To(Equal(false))
 		})

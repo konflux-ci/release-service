@@ -65,7 +65,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 			}
 		})
 
-		Context("When a Release is created", func() {
+		When("a Release is created", func() {
 			BeforeAll(func() {
 				admissionRequest.AdmissionRequest.Operation = admissionv1.Create
 			})
@@ -148,7 +148,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 			})
 		})
 
-		Context("When a Release is updated", func() {
+		When("a Release is updated", func() {
 			BeforeAll(func() {
 				admissionRequest.AdmissionRequest.Operation = admissionv1.Update
 			})
@@ -247,7 +247,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 			}
 		})
 
-		Context("When a ReleasePlan is created", func() {
+		When("a ReleasePlan is created", func() {
 			BeforeAll(func() {
 				admissionRequest.AdmissionRequest.Operation = admissionv1.Create
 			})
@@ -293,7 +293,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 			})
 		})
 
-		Context("When a ReleasePlan is updated", func() {
+		When("a ReleasePlan is updated", func() {
 			var previousReleasePlan *ReleasePlan
 			BeforeEach(func() {
 				admissionRequest.AdmissionRequest.Operation = admissionv1.Update
@@ -467,7 +467,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 		})
 	})
 
-	Context("When patchResponse is called", func() {
+	When("patchResponse is called", func() {
 
 		It("should return an admission response with a patch", func() {
 			pod := &corev1.Pod{
@@ -491,7 +491,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 		})
 	})
 
-	Context("When setAuthorLabel is called", func() {
+	When("setAuthorLabel is called", func() {
 
 		It("should add the author label", func() {
 			pod := &corev1.Pod{
@@ -519,7 +519,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 		})
 	})
 
-	Context("When sanitizeLabelValue is called", func() {
+	When("sanitizeLabelValue is called", func() {
 
 		It("should convert : to _", func() {
 			str := authWebhook.sanitizeLabelValue("a:b")

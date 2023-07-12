@@ -65,7 +65,6 @@ var _ = Describe("PipelineRun", func() {
 		unmarshaledSnapshotSpec     *applicationapiv1alpha1.SnapshotSpec
 	)
 	BeforeEach(func() {
-
 		extraParams = &ExtraParams{
 			Name: "extraConfigPath",
 			Value: tektonv1beta1.ArrayOrString{
@@ -173,7 +172,7 @@ var _ = Describe("PipelineRun", func() {
 		_ = k8sClient.Delete(ctx, releasePipelineRun.AsPipelineRun())
 	})
 
-	Context("When managing a new PipelineRun", func() {
+	When("managing a new PipelineRun", func() {
 
 		It("can create a PipelineRun and the returned object name is prefixed with the provided GenerateName", func() {
 			Expect(releasePipelineRun.ObjectMeta.Name).
@@ -261,7 +260,7 @@ var _ = Describe("PipelineRun", func() {
 		})
 	})
 
-	Context("When calling WithObjectReferences is called", func() {
+	When("calling WithObjectReferences is called", func() {
 		It("does nothing if no objects are passed", func() {
 			releasePipelineRun.WithObjectReferences()
 			Expect(releasePipelineRun.Spec.Params).To(HaveLen(0))
@@ -309,7 +308,7 @@ var _ = Describe("PipelineRun", func() {
 		})
 	})
 
-	Context("When calling getPipelineRef", func() {
+	When("calling getPipelineRef", func() {
 		It("should return a PipelineRef without resolver if the releaseStrategy does not contain a bundle", func() {
 			releaseStrategy := &v1alpha1.ReleaseStrategy{
 				Spec: v1alpha1.ReleaseStrategySpec{
@@ -324,7 +323,6 @@ var _ = Describe("PipelineRun", func() {
 		})
 
 		It("should return a PipelineRef with a bundle resolver if the releaseStrategy contains a bundle", func() {
-
 			pipelineRef := getPipelineRef(strategy)
 			Expect(pipelineRef.Name).To(BeEmpty())
 			Expect(pipelineRef.ResolverRef).NotTo(Equal(tektonv1beta1.ResolverRef{}))
@@ -339,7 +337,7 @@ var _ = Describe("PipelineRun", func() {
 		})
 	})
 
-	Context("When calling getBundleResolver", func() {
+	When("calling getBundleResolver", func() {
 		It("should return a bundle resolver referencing the releaseStrategy Bundle and Pipeline", func() {
 			bundleResolver := getBundleResolver(strategy.Spec.Bundle, strategy.Spec.Pipeline)
 			Expect(bundleResolver).NotTo(Equal(tektonv1beta1.ResolverRef{}))

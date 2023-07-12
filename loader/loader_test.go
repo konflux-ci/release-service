@@ -49,7 +49,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		loader = NewLoader()
 	})
 
-	Context("When calling getObject", func() {
+	When("calling getObject", func() {
 		It("returns the requested resource if it exists", func() {
 			returnedApplication := &applicationapiv1alpha1.Application{}
 			err := getObject(application.Name, application.Namespace, k8sClient, ctx, returnedApplication)
@@ -66,7 +66,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetActiveReleasePlanAdmission", func() {
+	When("calling GetActiveReleasePlanAdmission", func() {
 		It("returns an active release plan admission", func() {
 			returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
 			Expect(err).NotTo(HaveOccurred())
@@ -114,7 +114,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetActiveReleasePlanAdmissionFromRelease", func() {
+	When("calling GetActiveReleasePlanAdmissionFromRelease", func() {
 		It("returns an active release plan admission", func() {
 			returnedObject, err := loader.GetActiveReleasePlanAdmissionFromRelease(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
@@ -133,7 +133,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetApplication", func() {
+	When("calling GetApplication", func() {
 		It("returns the requested application", func() {
 			returnedObject, err := loader.GetApplication(ctx, k8sClient, releasePlan)
 			Expect(err).NotTo(HaveOccurred())
@@ -142,7 +142,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetEnterpriseContractConfigMap", func() {
+	When("calling GetEnterpriseContractConfigMap", func() {
 		It("returns nil when the ENTERPRISE_CONTRACT_CONFIG_MAP variable is not set", func() {
 			os.Unsetenv("ENTERPRISE_CONTRACT_CONFIG_MAP")
 			returnedObject, err := loader.GetEnterpriseContractConfigMap(ctx, k8sClient)
@@ -159,7 +159,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetEnterpriseContractPolicy", func() {
+	When("calling GetEnterpriseContractPolicy", func() {
 		It("returns the requested enterprise contract policy", func() {
 			returnedObject, err := loader.GetEnterpriseContractPolicy(ctx, k8sClient, releaseStrategy)
 			Expect(err).NotTo(HaveOccurred())
@@ -168,7 +168,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetEnvironment", func() {
+	When("calling GetEnvironment", func() {
 		It("returns the requested environment", func() {
 			returnedObject, err := loader.GetEnvironment(ctx, k8sClient, releasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
@@ -177,7 +177,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetManagedApplication", func() {
+	When("calling GetManagedApplication", func() {
 		It("returns the requested application", func() {
 			returnedObject, err := loader.GetManagedApplication(ctx, k8sClient, releasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
@@ -186,7 +186,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetManagedApplicationComponents", func() {
+	When("calling GetManagedApplicationComponents", func() {
 		It("returns the requested list of components", func() {
 			returnedObjects, err := loader.GetManagedApplicationComponents(ctx, k8sClient, application)
 			Expect(err).NotTo(HaveOccurred())
@@ -195,7 +195,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetRelease", func() {
+	When("calling GetRelease", func() {
 		It("returns the requested release", func() {
 			returnedObject, err := loader.GetRelease(ctx, k8sClient, release.Name, release.Namespace)
 			Expect(err).NotTo(HaveOccurred())
@@ -204,7 +204,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetReleasePipelineRun", func() {
+	When("calling GetReleasePipelineRun", func() {
 		It("returns a PipelineRun if the labels match with the release data", func() {
 			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
@@ -222,7 +222,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetReleasePlan", func() {
+	When("calling GetReleasePlan", func() {
 		It("returns the requested release plan", func() {
 			returnedObject, err := loader.GetReleasePlan(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
@@ -231,7 +231,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetReleaseStrategy", func() {
+	When("calling GetReleaseStrategy", func() {
 		It("returns the requested release strategy", func() {
 			returnedObject, err := loader.GetReleaseStrategy(ctx, k8sClient, releasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
@@ -240,7 +240,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetSnapshot", func() {
+	When("calling GetSnapshot", func() {
 		It("returns the requested snapshot", func() {
 			returnedObject, err := loader.GetSnapshot(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
@@ -249,7 +249,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetSnapshotEnvironmentBinding", func() {
+	When("calling GetSnapshotEnvironmentBinding", func() {
 		It("returns a snapshot environment binding if the environment field value matches the release plan admission one", func() {
 			returnedObject, err := loader.GetSnapshotEnvironmentBinding(ctx, k8sClient, releasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
@@ -267,7 +267,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetSnapshotEnvironmentBindingFromReleaseStatus", func() {
+	When("calling GetSnapshotEnvironmentBindingFromReleaseStatus", func() {
 		It("fails to return a snapshot environment binding if the reference is not in the release", func() {
 			returnedObject, err := loader.GetSnapshotEnvironmentBindingFromReleaseStatus(ctx, k8sClient, release)
 			Expect(returnedObject).To(BeNil())
@@ -288,7 +288,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	// Composite functions
 
-	Context("When calling GetDeploymentResources", func() {
+	When("calling GetDeploymentResources", func() {
 		It("returns all the relevant resources", func() {
 			resources, err := loader.GetDeploymentResources(ctx, k8sClient, release, releasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
@@ -308,7 +308,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetProcessingResources", func() {
+	When("calling GetProcessingResources", func() {
 		It("returns all the relevant resources", func() {
 			os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "default/ec-defaults")
 			resources, err := loader.GetProcessingResources(ctx, k8sClient, release)

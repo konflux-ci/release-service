@@ -80,7 +80,7 @@ var _ = Describe("Binding", func() {
 		},
 	}
 
-	Context("When calling getComponentBindings with a list of Components", func() {
+	When("calling getComponentBindings with a list of Components", func() {
 		bindingComponents := getComponentBindings(components)
 
 		It("can create and return a new BindingComponent slice", func() {
@@ -97,7 +97,7 @@ var _ = Describe("Binding", func() {
 		})
 	})
 
-	Context("When calling NewSnapshotEnvironmentBinding", func() {
+	When("calling NewSnapshotEnvironmentBinding", func() {
 		It("can create and return a new SnapshotEnvironmentBinding", func() {
 			binding := NewSnapshotEnvironmentBinding(components, snapshot, environment)
 			Expect(reflect.TypeOf(binding)).To(Equal(reflect.TypeOf(&applicationapiv1alpha1.SnapshotEnvironmentBinding{})))

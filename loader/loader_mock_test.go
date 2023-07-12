@@ -21,7 +21,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		loader = NewMockLoader()
 	})
 
-	Context("When calling getMockedResourceAndErrorFromContext", func() {
+	When("calling getMockedResourceAndErrorFromContext", func() {
 		contextErr := errors.New("error")
 		contextResource := &v1alpha1.Release{
 			ObjectMeta: v12.ObjectMeta{
@@ -78,7 +78,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetActiveReleasePlanAdmission", func() {
+	When("calling GetActiveReleasePlanAdmission", func() {
 		It("returns the resource and error from the context", func() {
 			releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -93,7 +93,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetActiveReleasePlanAdmissionFromRelease", func() {
+	When("calling GetActiveReleasePlanAdmissionFromRelease", func() {
 		It("returns the resource and error from the context", func() {
 			releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -108,7 +108,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetApplication", func() {
+	When("calling GetApplication", func() {
 		It("returns the resource and error from the context", func() {
 			application := &applicationapiv1alpha1.Application{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -123,7 +123,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetEnterpriseContractPolicy", func() {
+	When("calling GetEnterpriseContractPolicy", func() {
 		It("returns the resource and error from the context", func() {
 			enterpriseContractPolicy := &v1alpha12.EnterpriseContractPolicy{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -138,7 +138,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetEnvironment", func() {
+	When("calling GetEnvironment", func() {
 		It("returns the resource and error from the context", func() {
 			environment := &applicationapiv1alpha1.Environment{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -153,7 +153,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetManagedApplication", func() {
+	When("calling GetManagedApplication", func() {
 		It("returns the resource and error from the context", func() {
 			application := &applicationapiv1alpha1.Application{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -168,7 +168,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetManagedApplicationComponents", func() {
+	When("calling GetManagedApplicationComponents", func() {
 		It("returns the resource and error from the context", func() {
 			var components []applicationapiv1alpha1.Component
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -183,7 +183,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetRelease", func() {
+	When("calling GetRelease", func() {
 		It("returns the resource and error from the context", func() {
 			release := &v1alpha1.Release{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -198,7 +198,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetReleasePipelineRun", func() {
+	When("calling GetReleasePipelineRun", func() {
 		It("returns the resource and error from the context", func() {
 			pipelineRun := &v1beta1.PipelineRun{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -213,7 +213,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetReleasePlan", func() {
+	When("calling GetReleasePlan", func() {
 		It("returns the resource and error from the context", func() {
 			releasePlan := &v1alpha1.ReleasePlan{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -228,7 +228,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetReleaseStrategy", func() {
+	When("calling GetReleaseStrategy", func() {
 		It("returns the resource and error from the context", func() {
 			releaseStrategy := &v1alpha1.ReleaseStrategy{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -243,7 +243,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetSnapshot", func() {
+	When("calling GetSnapshot", func() {
 		It("returns the resource and error from the context", func() {
 			snapshot := &applicationapiv1alpha1.Snapshot{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -258,7 +258,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetSnapshotEnvironmentBinding", func() {
+	When("calling GetSnapshotEnvironmentBinding", func() {
 		It("returns the resource and error from the context", func() {
 			snapshotEnvironmentBinding := &applicationapiv1alpha1.SnapshotEnvironmentBinding{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -273,7 +273,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetSnapshotEnvironmentBindingFromReleaseStatus", func() {
+	When("calling GetSnapshotEnvironmentBindingFromReleaseStatus", func() {
 		It("returns the resource and error from the context", func() {
 			snapshotEnvironmentBinding := &applicationapiv1alpha1.SnapshotEnvironmentBinding{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -290,7 +290,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	// Composite functions
 
-	Context("When calling GetDeploymentResources", func() {
+	When("calling GetDeploymentResources", func() {
 		It("returns the resource and error from the context", func() {
 			deploymentResources := &DeploymentResources{}
 			mockContext := GetMockedContext(ctx, []MockData{
@@ -305,7 +305,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	Context("When calling GetProcessingResources", func() {
+	When("calling GetProcessingResources", func() {
 		It("returns the resource and error from the context", func() {
 			processingResources := &ProcessingResources{}
 			mockContext := GetMockedContext(ctx, []MockData{
