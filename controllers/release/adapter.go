@@ -30,8 +30,9 @@ import (
 	"github.com/redhat-appstudio/release-service/syncer"
 	"github.com/redhat-appstudio/release-service/tekton"
 
-	libhandler "github.com/operator-framework/operator-lib/handler"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+
+	libhandler "github.com/operator-framework/operator-lib/handler"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -43,12 +44,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// Adapter holds the objects needed to reconcile a Release.
-type Adapter struct {
+// adapter holds the objects needed to reconcile a Release.
+type adapter struct {
 	client  client.Client
 	ctx     context.Context
 	loader  loader.ObjectLoader
-	logger  logr.Logger
+	logger  *logr.Logger
 	release *v1alpha1.Release
 	syncer  *syncer.Syncer
 }
@@ -56,15 +57,15 @@ type Adapter struct {
 // finalizerName is the finalizer name to be added to the Releases
 const finalizerName string = "appstudio.redhat.com/release-finalizer"
 
-// NewAdapter creates and returns an Adapter instance.
-func NewAdapter(ctx context.Context, client client.Client, release *v1alpha1.Release, loader loader.ObjectLoader, logger logr.Logger) *Adapter {
-	return &Adapter{
+// NewAdapter creates and returns an adapter instance.
+func NewAdapter(ctx context.Context, client client.Client, release *v1alpha1.Release, loader loader.ObjectLoader, logger *logr.Logger) *adapter {
+	return &adapter{
 		client:  client,
 		ctx:     ctx,
 		loader:  loader,
 		logger:  logger,
 		release: release,
-		syncer:  syncer.NewSyncerWithContext(client, logger, ctx),
+		syncer:  syncer.NewSyncerWithContext(client, *logger, ctx),
 	}
 }
 
@@ -72,7 +73,7 @@ func NewAdapter(ctx context.Context, client client.Client, release *v1alpha1.Rel
 // processed is marked for deletion. Once finalizers get called, the finalizer will be removed and the Release will go
 // back to the queue, so it gets deleted. If a finalizer function fails its execution or a finalizer fails to be removed,
 // the Release will be requeued with the error attached.
-func (a *Adapter) EnsureFinalizersAreCalled() (controller.OperationResult, error) {
+func (a *adapter) EnsureFinalizersAreCalled() (controller.OperationResult, error) {
 	// Check if the Release is marked for deletion and continue processing other operations otherwise
 	if a.release.GetDeletionTimestamp() == nil {
 		return controller.ContinueProcessing()
@@ -96,7 +97,7 @@ func (a *Adapter) EnsureFinalizersAreCalled() (controller.OperationResult, error
 }
 
 // EnsureFinalizerIsAdded is an operation that will ensure that the Release being processed contains a finalizer.
-func (a *Adapter) EnsureFinalizerIsAdded() (controller.OperationResult, error) {
+func (a *adapter) EnsureFinalizerIsAdded() (controller.OperationResult, error) {
 	var finalizerFound bool
 	for _, finalizer := range a.release.GetFinalizers() {
 		if finalizer == finalizerName {
@@ -118,7 +119,7 @@ func (a *Adapter) EnsureFinalizerIsAdded() (controller.OperationResult, error) {
 
 // EnsureReleaseIsCompleted is an operation that will ensure that a Release is completed (marked as released) when
 // all required phases (e.g. deployment or processing) have been completed.
-func (a *Adapter) EnsureReleaseIsCompleted() (controller.OperationResult, error) {
+func (a *adapter) EnsureReleaseIsCompleted() (controller.OperationResult, error) {
 	// Do nothing if the release status has been already added
 	if a.release.HasReleaseFinished() {
 		return controller.ContinueProcessing()
@@ -142,7 +143,7 @@ func (a *Adapter) EnsureReleaseIsCompleted() (controller.OperationResult, error)
 
 // EnsureReleaseIsDeployed is an operation that will ensure that a SnapshotEnvironmentBinding
 // associated to the Release being processed exists. Otherwise, it will create a new one.
-func (a *Adapter) EnsureReleaseIsDeployed() (controller.OperationResult, error) {
+func (a *adapter) EnsureReleaseIsDeployed() (controller.OperationResult, error) {
 	if !a.release.IsProcessed() || a.release.HasDeploymentFinished() || a.release.IsDeploying() {
 		return controller.ContinueProcessing()
 	}
@@ -175,7 +176,7 @@ func (a *Adapter) EnsureReleaseIsDeployed() (controller.OperationResult, error) 
 
 // EnsureReleaseDeploymentIsTracked is an operation that will ensure that the SnapshotEnvironmentBinding
 // Deployment status is tracked in the Release being processed.
-func (a *Adapter) EnsureReleaseDeploymentIsTracked() (controller.OperationResult, error) {
+func (a *adapter) EnsureReleaseDeploymentIsTracked() (controller.OperationResult, error) {
 	if !a.release.IsDeploying() || a.release.HasDeploymentFinished() {
 		return controller.ContinueProcessing()
 	}
@@ -197,7 +198,7 @@ func (a *Adapter) EnsureReleaseDeploymentIsTracked() (controller.OperationResult
 
 // EnsureReleaseIsRunning is an operation that will ensure that a Release has not finished already and that
 // it is marked as releasing. If the Release has finished, no other operation after this one will be executed.
-func (a *Adapter) EnsureReleaseIsRunning() (controller.OperationResult, error) {
+func (a *adapter) EnsureReleaseIsRunning() (controller.OperationResult, error) {
 	if a.release.HasReleaseFinished() {
 		return controller.StopProcessing()
 	}
@@ -213,7 +214,7 @@ func (a *Adapter) EnsureReleaseIsRunning() (controller.OperationResult, error) {
 
 // EnsureReleaseIsProcessed is an operation that will ensure that a release PipelineRun associated to the Release
 // being processed exists. Otherwise, it will create a new release PipelineRun.
-func (a *Adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error) {
+func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error) {
 	if a.release.HasProcessingFinished() {
 		return controller.ContinueProcessing()
 	}
@@ -247,7 +248,7 @@ func (a *Adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 
 // EnsureReleaseIsValid is an operation that will ensure that a Release is valid by checking all the resources needed
 // to process it.
-func (a *Adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
+func (a *adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
 	patch := client.MergeFrom(a.release.DeepCopy())
 	resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
 
@@ -279,7 +280,7 @@ func (a *Adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
 
 // EnsureReleaseProcessingIsTracked is an operation that will ensure that the release PipelineRun status is tracked
 // in the Release being processed.
-func (a *Adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult, error) {
+func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult, error) {
 	if !a.release.IsProcessing() || a.release.HasProcessingFinished() {
 		return controller.ContinueProcessing()
 	}
@@ -299,7 +300,7 @@ func (a *Adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
 // will be extracted from the given ReleaseStrategy. The Release's Snapshot will also be passed to the release
 // PipelineRun.
-func (a *Adapter) createReleasePipelineRun(resources *loader.ProcessingResources) (*v1beta1.PipelineRun, error) {
+func (a *adapter) createReleasePipelineRun(resources *loader.ProcessingResources) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", resources.ReleaseStrategy.Namespace).
 		WithObjectReferences(a.release, resources.ReleasePlanAdmission).
 		WithOwner(a.release).
@@ -319,7 +320,7 @@ func (a *Adapter) createReleasePipelineRun(resources *loader.ProcessingResources
 }
 
 // createSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being processed.
-func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
+func (a *adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
 	resources, err := a.loader.GetDeploymentResources(a.ctx, a.client, a.release, releasePlanAdmission)
 	if err != nil {
 		return nil, err
@@ -366,7 +367,7 @@ func (a *Adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission 
 }
 
 // finalizeRelease will finalize the Release being processed, removing the associated resources.
-func (a *Adapter) finalizeRelease() error {
+func (a *adapter) finalizeRelease() error {
 	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil {
 		return err
@@ -385,7 +386,7 @@ func (a *Adapter) finalizeRelease() error {
 }
 
 // registerDeploymentData adds all the Release deployment information to its Status and marks it as processing.
-func (a *Adapter) registerDeploymentData(snapshotEnvironmentBinding *applicationapiv1alpha1.SnapshotEnvironmentBinding,
+func (a *adapter) registerDeploymentData(snapshotEnvironmentBinding *applicationapiv1alpha1.SnapshotEnvironmentBinding,
 	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) error {
 	if snapshotEnvironmentBinding == nil || releasePlanAdmission == nil {
 		return nil
@@ -408,7 +409,7 @@ func (a *Adapter) registerDeploymentData(snapshotEnvironmentBinding *application
 
 // registerDeploymentStatus updates the status of the Release being processed by monitoring the status of the
 // associated SnapshotEnvironmentBinding and setting the appropriate state in the Release.
-func (a *Adapter) registerDeploymentStatus(binding *applicationapiv1alpha1.SnapshotEnvironmentBinding) error {
+func (a *adapter) registerDeploymentStatus(binding *applicationapiv1alpha1.SnapshotEnvironmentBinding) error {
 	if binding == nil {
 		return nil
 	}
@@ -436,7 +437,7 @@ func (a *Adapter) registerDeploymentStatus(binding *applicationapiv1alpha1.Snaps
 }
 
 // registerProcessingData adds all the Release processing information to its Status and marks it as processing.
-func (a *Adapter) registerProcessingData(releasePipelineRun *v1beta1.PipelineRun, releaseStrategy *v1alpha1.ReleaseStrategy) error {
+func (a *adapter) registerProcessingData(releasePipelineRun *v1beta1.PipelineRun, releaseStrategy *v1alpha1.ReleaseStrategy) error {
 	if releasePipelineRun == nil || releaseStrategy == nil {
 		return nil
 	}
@@ -457,7 +458,7 @@ func (a *Adapter) registerProcessingData(releasePipelineRun *v1beta1.PipelineRun
 // registerProcessingStatus updates the status of the Release being processed by monitoring the status of the
 // associated release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
-func (a *Adapter) registerProcessingStatus(pipelineRun *v1beta1.PipelineRun) error {
+func (a *adapter) registerProcessingStatus(pipelineRun *v1beta1.PipelineRun) error {
 	if pipelineRun != nil && pipelineRun.IsDone() {
 		patch := client.MergeFrom(a.release.DeepCopy())
 
@@ -476,7 +477,7 @@ func (a *Adapter) registerProcessingStatus(pipelineRun *v1beta1.PipelineRun) err
 }
 
 // syncResources sync all the resources needed to trigger the deployment of the Release being processed.
-func (a *Adapter) syncResources() error {
+func (a *adapter) syncResources() error {
 	releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
 	if err != nil {
 		return err
@@ -491,7 +492,7 @@ func (a *Adapter) syncResources() error {
 }
 
 // registerAttributionData updates the status of the Release being processed with the proper attribution author.
-func (a *Adapter) registerAttributionData(releasePlan *v1alpha1.ReleasePlan) error {
+func (a *adapter) registerAttributionData(releasePlan *v1alpha1.ReleasePlan) error {
 	if a.release.IsAttributed() {
 		return nil
 	}
@@ -518,7 +519,7 @@ func (a *Adapter) registerAttributionData(releasePlan *v1alpha1.ReleasePlan) err
 }
 
 // validateAuthor attributes the release to a specific user and ensures that the user is valid in SSO.
-func (a *Adapter) validateAuthor() error {
+func (a *adapter) validateAuthor() error {
 	if a.release.Labels[metadata.AutomatedLabel] == "true" && !a.release.IsAutomated() {
 		return fmt.Errorf("automated not set in status for automated release")
 	}
