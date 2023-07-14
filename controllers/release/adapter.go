@@ -65,7 +65,7 @@ func NewAdapter(ctx context.Context, client client.Client, release *v1alpha1.Rel
 		loader:  loader,
 		logger:  logger,
 		release: release,
-		syncer:  syncer.NewSyncerWithContext(client, *logger, ctx),
+		syncer:  syncer.NewSyncerWithContext(client, logger, ctx),
 	}
 }
 
