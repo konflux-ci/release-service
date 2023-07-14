@@ -13,10 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha1
+package release
 
 import (
 	"context"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,10 +27,10 @@ import (
 )
 
 var _ = Describe("Release validation webhook", func() {
-	var release *Release
+	var release *v1alpha1.Release
 
 	BeforeEach(func() {
-		release = &Release{
+		release = &v1alpha1.Release{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "appstudio.redhat.com/v1alpha1",
 				Kind:       "Release",
@@ -38,7 +39,7 @@ var _ = Describe("Release validation webhook", func() {
 				GenerateName: "test-release-",
 				Namespace:    "default",
 			},
-			Spec: ReleaseSpec{
+			Spec: v1alpha1.ReleaseSpec{
 				Snapshot:    "test-snapshot",
 				ReleasePlan: "test-releaseplan",
 			},
@@ -79,8 +80,7 @@ var _ = Describe("Release validation webhook", func() {
 
 	When("ValidateDelete method is called", func() {
 		It("should return nil", func() {
-			webhook := &ReleaseWebhook{}
-			release := &Release{}
+			release := &v1alpha1.Release{}
 			Expect(webhook.ValidateDelete(ctx, release)).To(BeNil())
 		})
 	})
