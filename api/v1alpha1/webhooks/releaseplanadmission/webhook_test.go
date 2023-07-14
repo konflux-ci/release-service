@@ -13,11 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha1
+package releaseplanadmission
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -28,10 +29,10 @@ import (
 )
 
 var _ = Describe("ReleasePlanAdmission webhook", func() {
-	var releasePlanAdmission *ReleasePlanAdmission
+	var releasePlanAdmission *v1alpha1.ReleasePlanAdmission
 
 	BeforeEach(func() {
-		releasePlanAdmission = &ReleasePlanAdmission{
+		releasePlanAdmission = &v1alpha1.ReleasePlanAdmission{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "appstudio.redhat.com/v1alpha1",
 				Kind:       "ReleasePlanAdmission",
@@ -40,7 +41,7 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 				Name:      "releaseplanadmission",
 				Namespace: "default",
 			},
-			Spec: ReleasePlanAdmissionSpec{
+			Spec: v1alpha1.ReleasePlanAdmissionSpec{
 				DisplayName:     "Test release plan",
 				Application:     "application",
 				Origin:          "default",
@@ -128,9 +129,8 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 
 	When("ValidateDelete method is called", func() {
 		It("should return nil", func() {
-			webhook := &ReleasePlanAdmissionWebhook{}
-			releaseplanadmission := &ReleasePlanAdmission{}
-			Expect(webhook.ValidateDelete(ctx, releaseplanadmission)).To(BeNil())
+			releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{}
+			Expect(webhook.ValidateDelete(ctx, releasePlanAdmission)).To(BeNil())
 		})
 	})
 })

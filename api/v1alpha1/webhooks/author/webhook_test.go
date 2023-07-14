@@ -13,10 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha1
+package author
 
 import (
 	"encoding/json"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,25 +32,20 @@ import (
 )
 
 var _ = Describe("Author webhook", Ordered, func() {
-	var authWebhook *authorWebhook
 	var admissionRequest admission.Request
 	var err error
 
 	BeforeAll(func() {
-		authWebhook = &authorWebhook{
-			client: mgr.GetClient(),
-		}
-
 		admissionRequest.UserInfo.Username = "admin"
 	})
 
 	Describe("A Release request is made", func() {
-		var release *Release
+		var release *v1alpha1.Release
 
 		BeforeEach(func() {
 			admissionRequest.Kind.Kind = "Release"
 
-			release = &Release{
+			release = &v1alpha1.Release{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "appstudio.redhat.com/v1alpha1",
 					Kind:       "Release",
@@ -58,7 +54,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					Name:      "test-release",
 					Namespace: "default",
 				},
-				Spec: ReleaseSpec{
+				Spec: v1alpha1.ReleaseSpec{
 					Snapshot:    "test-snapshot",
 					ReleasePlan: "test-releaseplan",
 				},
@@ -74,7 +70,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.Object.Raw, err = json.Marshal(release)
 				Expect(err).NotTo(HaveOccurred())
 
-				rsp := authWebhook.Handle(ctx, admissionRequest)
+				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 				Expect(len(rsp.Patches)).To(Equal(1))
 				patch := rsp.Patches[0]
@@ -86,7 +82,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 			})
 
 			It("should overwrite the author label value when one is provided by user", func() {
-				releaseDifferentAuthor := &Release{
+				releaseDifferentAuthor := &v1alpha1.Release{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "appstudio.redhat.com/v1alpha1",
 						Kind:       "Release",
@@ -98,7 +94,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 							metadata.AuthorLabel: "user",
 						},
 					},
-					Spec: ReleaseSpec{
+					Spec: v1alpha1.ReleaseSpec{
 						Snapshot:    "test-snapshot",
 						ReleasePlan: "test-releaseplan",
 					},
@@ -107,7 +103,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.Object.Raw, err = json.Marshal(releaseDifferentAuthor)
 				Expect(err).NotTo(HaveOccurred())
 
-				rsp := authWebhook.Handle(ctx, admissionRequest)
+				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 				Expect(len(rsp.Patches)).To(Equal(1))
 				patch := rsp.Patches[0]
@@ -124,7 +120,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.Object.Raw, err = json.Marshal(release)
 				Expect(err).NotTo(HaveOccurred())
 
-				rsp := authWebhook.Handle(ctx, admissionRequest)
+				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 				Expect(rsp.AdmissionResponse.Patch).To(BeNil())
 				Expect(len(rsp.Patches)).To(Equal(0))
@@ -137,7 +133,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.Object.Raw, err = json.Marshal(release)
 				Expect(err).NotTo(HaveOccurred())
 
-				rsp := authWebhook.Handle(ctx, admissionRequest)
+				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 				Expect(len(rsp.Patches)).To(Equal(1))
 				patch := rsp.Patches[0]
@@ -157,7 +153,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				release.ObjectMeta.Labels = map[string]string{
 					metadata.AuthorLabel: "admin",
 				}
-				releaseMetadataChange := &Release{
+				releaseMetadataChange := &v1alpha1.Release{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "appstudio.redhat.com/v1alpha1",
 						Kind:       "Release",
@@ -172,7 +168,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 							"foo": "bar",
 						},
 					},
-					Spec: ReleaseSpec{
+					Spec: v1alpha1.ReleaseSpec{
 						Snapshot:    "test-snapshot",
 						ReleasePlan: "test-releaseplan",
 					},
@@ -183,7 +179,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.OldObject.Raw, err = json.Marshal(releaseMetadataChange)
 				Expect(err).NotTo(HaveOccurred())
 
-				rsp := authWebhook.Handle(ctx, admissionRequest)
+				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 				Expect(rsp.AdmissionResponse.Result).To(Equal(&metav1.Status{
 					Code:   http.StatusOK,
@@ -192,7 +188,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 			})
 
 			It("should not allow the author label to be set to a different value", func() {
-				releaseMetadataChange := &Release{
+				releaseMetadataChange := &v1alpha1.Release{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "appstudio.redhat.com/v1alpha1",
 						Kind:       "Release",
@@ -204,7 +200,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 							metadata.AuthorLabel: "user",
 						},
 					},
-					Spec: ReleaseSpec{
+					Spec: v1alpha1.ReleaseSpec{
 						Snapshot:    "test-snapshot",
 						ReleasePlan: "test-releaseplan",
 					},
@@ -215,7 +211,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.OldObject.Raw, err = json.Marshal(releaseMetadataChange)
 				Expect(err).NotTo(HaveOccurred())
 
-				rsp := authWebhook.Handle(ctx, admissionRequest)
+				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeFalse())
 				Expect(rsp.AdmissionResponse.Result).To(Equal(&metav1.Status{
 					Code:    http.StatusBadRequest,
@@ -226,12 +222,12 @@ var _ = Describe("Author webhook", Ordered, func() {
 	})
 
 	Describe("A ReleasePlan request is made", func() {
-		var releasePlan *ReleasePlan
+		var releasePlan *v1alpha1.ReleasePlan
 
 		BeforeEach(func() {
 			admissionRequest.Kind.Kind = "ReleasePlan"
 
-			releasePlan = &ReleasePlan{
+			releasePlan = &v1alpha1.ReleasePlan{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "appstudio.redhat.com/v1alpha1",
 					Kind:       "ReleasePlan",
@@ -240,7 +236,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					Name:      "test-releaseplan",
 					Namespace: "default",
 				},
-				Spec: ReleasePlanSpec{
+				Spec: v1alpha1.ReleasePlanSpec{
 					Application: "test-application",
 					Target:      "test-target",
 				},
@@ -259,7 +255,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
 				Expect(err).NotTo(HaveOccurred())
 
-				rsp := authWebhook.Handle(ctx, admissionRequest)
+				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 				Expect(len(rsp.Patches)).To(Equal(1))
 				patch := rsp.Patches[0]
@@ -273,7 +269,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
 				Expect(err).NotTo(HaveOccurred())
 
-				rsp := authWebhook.Handle(ctx, admissionRequest)
+				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 				Expect(rsp.AdmissionResponse.Patch).To(BeNil())
 				Expect(len(rsp.Patches)).To(Equal(0))
@@ -286,7 +282,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
 				Expect(err).NotTo(HaveOccurred())
 
-				rsp := authWebhook.Handle(ctx, admissionRequest)
+				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 				Expect(rsp.AdmissionResponse.Patch).To(BeNil())
 				Expect(len(rsp.Patches)).To(Equal(0))
@@ -294,10 +290,11 @@ var _ = Describe("Author webhook", Ordered, func() {
 		})
 
 		When("a ReleasePlan is updated", func() {
-			var previousReleasePlan *ReleasePlan
+			var previousReleasePlan *v1alpha1.ReleasePlan
+
 			BeforeEach(func() {
 				admissionRequest.AdmissionRequest.Operation = admissionv1.Update
-				previousReleasePlan = &ReleasePlan{
+				previousReleasePlan = &v1alpha1.ReleasePlan{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "appstudio.redhat.com/v1alpha1",
 						Kind:       "ReleasePlan",
@@ -306,7 +303,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 						Name:      "previous-releaseplan",
 						Namespace: "default",
 					},
-					Spec: ReleasePlanSpec{
+					Spec: v1alpha1.ReleasePlanSpec{
 						Application: "test-application",
 						Target:      "test-target",
 					},
@@ -331,7 +328,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
 					Expect(err).NotTo(HaveOccurred())
 
-					rsp := authWebhook.Handle(ctx, admissionRequest)
+					rsp := webhook.Handle(ctx, admissionRequest)
 					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 					Expect(rsp.AdmissionResponse.Patch).To(BeNil())
 					Expect(len(rsp.Patches)).To(Equal(1))
@@ -350,7 +347,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
 					Expect(err).NotTo(HaveOccurred())
 
-					rsp := authWebhook.Handle(ctx, admissionRequest)
+					rsp := webhook.Handle(ctx, admissionRequest)
 					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 					Expect(rsp.AdmissionResponse.Patch).To(BeNil())
 					Expect(len(rsp.Patches)).To(Equal(0))
@@ -364,7 +361,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
 					Expect(err).NotTo(HaveOccurred())
 
-					rsp := authWebhook.Handle(ctx, admissionRequest)
+					rsp := webhook.Handle(ctx, admissionRequest)
 					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 					Expect(rsp.AdmissionResponse.Patch).To(BeNil())
 					Expect(len(rsp.Patches)).To(Equal(0))
@@ -389,7 +386,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
 					Expect(err).NotTo(HaveOccurred())
 
-					rsp := authWebhook.Handle(ctx, admissionRequest)
+					rsp := webhook.Handle(ctx, admissionRequest)
 					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 
 					Expect(len(rsp.Patches)).To(Equal(1))
@@ -417,7 +414,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
 					Expect(err).NotTo(HaveOccurred())
 
-					rsp := authWebhook.Handle(ctx, admissionRequest)
+					rsp := webhook.Handle(ctx, admissionRequest)
 					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 					Expect(len(rsp.Patches)).To(Equal(1))
 					patch := rsp.Patches[0]
@@ -444,7 +441,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
 					Expect(err).NotTo(HaveOccurred())
 
-					rsp := authWebhook.Handle(ctx, admissionRequest)
+					rsp := webhook.Handle(ctx, admissionRequest)
 					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 					Expect(rsp.AdmissionResponse.Patch).To(BeNil())
 					Expect(len(rsp.Patches)).To(Equal(0))
@@ -459,7 +456,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
 				Expect(err).NotTo(HaveOccurred())
 
-				rsp := authWebhook.Handle(ctx, admissionRequest)
+				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 				Expect(rsp.AdmissionResponse.Patch).To(BeNil())
 				Expect(len(rsp.Patches)).To(Equal(0))
@@ -479,7 +476,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				"foo": "bar",
 			}
 
-			rsp := authWebhook.patchResponse(marshalledPod, pod)
+			rsp := webhook.patchResponse(marshalledPod, pod)
 			Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 			Expect(len(rsp.Patches)).To(Equal(1))
 			patch := rsp.Patches[0]
@@ -501,7 +498,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					},
 				},
 			}
-			authWebhook.setAuthorLabel("admin", pod)
+			webhook.setAuthorLabel("admin", pod)
 			Expect(pod.GetLabels()).To(Equal(map[string]string{
 				metadata.AuthorLabel: "admin",
 				"foo":                "bar",
@@ -512,7 +509,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 			pod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{},
 			}
-			authWebhook.setAuthorLabel("admin", pod)
+			webhook.setAuthorLabel("admin", pod)
 			Expect(pod.GetLabels()).To(Equal(map[string]string{
 				metadata.AuthorLabel: "admin",
 			}))
@@ -522,12 +519,12 @@ var _ = Describe("Author webhook", Ordered, func() {
 	When("sanitizeLabelValue is called", func() {
 
 		It("should convert : to _", func() {
-			str := authWebhook.sanitizeLabelValue("a:b")
+			str := webhook.sanitizeLabelValue("a:b")
 			Expect(str).To(Equal("a_b"))
 		})
 
 		It("should trim long author values", func() {
-			str := authWebhook.sanitizeLabelValue("abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz_1234567890")
+			str := webhook.sanitizeLabelValue("abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz_1234567890")
 			Expect(str).To(Equal("abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz_123456789"))
 		})
 	})

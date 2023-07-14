@@ -20,6 +20,7 @@ import (
 	"flag"
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/operator-toolkit/webhook"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks"
 	"os"
 
 	"go.uber.org/zap/zapcore"
@@ -151,7 +152,7 @@ func setUpWebhooks(mgr ctrl.Manager) {
 		return
 	}
 
-	err := webhook.SetupWebhooks(mgr, appstudiov1alpha1.EnabledWebhooks...)
+	err := webhook.SetupWebhooks(mgr, webhooks.EnabledWebhooks...)
 	if err != nil {
 		setupLog.Error(err, "unable to setup webhooks")
 		os.Exit(1)

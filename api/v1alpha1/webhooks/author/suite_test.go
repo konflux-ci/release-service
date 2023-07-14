@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package author
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/redhat-appstudio/operator-toolkit/webhook"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"net"
 	"path/filepath"
 	"testing"
@@ -43,33 +43,30 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var k8sClient client.Client
-var testEnv *envtest.Environment
-var ctx context.Context
-var cancel context.CancelFunc
-var mgr manager.Manager
-
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Release ReleasePlanWebhook Suite")
-}
-
-const (
-	// Timeout for Eventually blocks
-	timeout = time.Second * 10
+var (
+	cancel    context.CancelFunc
+	ctx       context.Context
+	k8sClient client.Client
+	mgr       manager.Manager
+	testEnv   *envtest.Environment
+	webhook   *Webhook
 )
+
+func TestAuthorWebhook(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Author Webhook Suite")
+}
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: false,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
+			Paths: []string{filepath.Join("..", "..", "..", "..", "config", "webhook")},
 		},
 	}
 
@@ -78,7 +75,7 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	scheme := runtime.NewScheme()
-	Expect(AddToScheme(scheme)).To(Succeed())
+	Expect(v1alpha1.AddToScheme(scheme)).To(Succeed())
 	Expect(admissionv1beta1.AddToScheme(scheme)).To(Succeed())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
@@ -97,8 +94,9 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = webhook.SetupWebhooks(mgr, &authorWebhook{}, &ReleaseWebhook{}, &ReleasePlanWebhook{}, &ReleasePlanAdmissionWebhook{})
-	Expect(err).NotTo(HaveOccurred())
+	logger := ctrl.Log.WithName("webhook")
+	webhook = &Webhook{}
+	Expect(webhook.Register(mgr, &logger)).To(Succeed())
 
 	//+kubebuilder:scaffold:webhook
 
@@ -116,7 +114,7 @@ var _ = BeforeSuite(func() {
 		if err != nil {
 			return err
 		}
-		conn.Close()
+		_ = conn.Close()
 		return nil
 	}).Should(Succeed())
 
