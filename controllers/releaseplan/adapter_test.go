@@ -24,7 +24,7 @@ import (
 	"reflect"
 
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-
+	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -64,7 +64,7 @@ var _ = Describe("ReleasePlan Adapter", Ordered, func() {
 		})
 
 		It("should set the owner reference", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ApplicationContextKey,
 					Resource:   application,
@@ -87,7 +87,7 @@ var _ = Describe("ReleasePlan Adapter", Ordered, func() {
 			}
 			Expect(k8sClient.Create(ctx, newApplication)).To(Succeed())
 
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ApplicationContextKey,
 					Resource:   newApplication,

@@ -18,6 +18,8 @@ package main
 
 import (
 	"flag"
+	"github.com/redhat-appstudio/operator-toolkit/controller"
+	"github.com/redhat-appstudio/operator-toolkit/webhook"
 	"os"
 
 	"go.uber.org/zap/zapcore"
@@ -107,32 +109,8 @@ func main() {
 		}
 	}
 
-	err = controllers.SetupControllers(mgr)
-	if err != nil {
-		setupLog.Error(err, "unable to setup controllers")
-		os.Exit(1)
-	}
-
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		setupLog.Info("setting up webhooks")
-
-		if err = (&appstudiov1alpha1.Release{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Release")
-			os.Exit(1)
-		}
-
-		if err = (&appstudiov1alpha1.ReleasePlanAdmission{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ReleasePlanAdmission")
-			os.Exit(1)
-		}
-
-		if err = (&appstudiov1alpha1.ReleasePlan{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ReleasePlan")
-			os.Exit(1)
-		}
-
-		appstudiov1alpha1.RegisterAuthorWebhook(mgr, &setupLog)
-	}
+	setUpControllers(mgr)
+	setUpWebhooks(mgr)
 
 	err = os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "enterprise-contract-service/ec-defaults")
 	if err != nil {
@@ -154,6 +132,28 @@ func main() {
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+}
+
+// setUpControllers sets up controllers.
+func setUpControllers(mgr ctrl.Manager) {
+	err := controller.SetupControllers(mgr, nil, controllers.EnabledControllers...)
+	if err != nil {
+		setupLog.Error(err, "unable to setup controllers")
+		os.Exit(1)
+	}
+}
+
+// setUpWebhooks sets up webhooks.
+func setUpWebhooks(mgr ctrl.Manager) {
+	if os.Getenv("ENABLE_WEBHOOKS") == "false" {
+		return
+	}
+
+	err := webhook.SetupWebhooks(mgr, appstudiov1alpha1.EnabledWebhooks...)
+	if err != nil {
+		setupLog.Error(err, "unable to setup webhooks")
 		os.Exit(1)
 	}
 }

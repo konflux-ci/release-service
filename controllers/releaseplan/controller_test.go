@@ -54,26 +54,15 @@ var _ = Describe("ReleasePlan Controller", Ordered, func() {
 		})
 	})
 
-	Context("When SetupController is called", func() {
-		It("should setup the controller successfully", func() {
-			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
-				Scheme:             scheme.Scheme,
-				MetricsBindAddress: "0", // disable metrics
-				LeaderElection:     false,
-			})
-			Expect(SetupController(manager, &ctrl.Log)).To(Succeed())
-		})
-	})
-
-	Context("When setupControllerWithManager is called", func() {
-		It("should setup the controller successfully", func() {
+	Context("When Register is called", func() {
+		It("should register the controller successfully", func() {
 			reconciler := NewReleasePlanReconciler(k8sClient, &ctrl.Log, scheme.Scheme)
 			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
 				Scheme:             scheme.Scheme,
 				MetricsBindAddress: "0", // disable metrics
 				LeaderElection:     false,
 			})
-			Expect(setupControllerWithManager(manager, reconciler)).To(Succeed())
+			Expect(reconciler.Register(manager, &ctrl.Log, nil)).To(Succeed())
 		})
 	})
 

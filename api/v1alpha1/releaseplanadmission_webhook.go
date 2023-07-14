@@ -17,27 +17,32 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
-
+	"github.com/go-logr/logr"
+	"github.com/redhat-appstudio/release-service/metadata"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
-	"github.com/redhat-appstudio/release-service/metadata"
 )
 
-func (rp *ReleasePlanAdmission) SetupWebhookWithManager(mgr ctrl.Manager) error {
+// ReleasePlanAdmissionWebhook describes the data structure for the bar webhook
+type ReleasePlanAdmissionWebhook struct{}
+
+// Register registers the webhook with the passed manager and log.
+func (w *ReleasePlanAdmissionWebhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(rp).
+		For(&ReleasePlanAdmission{}).
+		WithDefaulter(w).
+		WithValidator(w).
 		Complete()
 }
 
 // +kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1alpha1-releaseplanadmission,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releaseplanadmissions,verbs=create,versions=v1alpha1,name=mreleaseplanadmission.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &ReleasePlanAdmission{}
-
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (rp *ReleasePlanAdmission) Default() {
+func (w *ReleasePlanAdmissionWebhook) Default(ctx context.Context, obj runtime.Object) error {
+	rp := obj.(*ReleasePlanAdmission)
+
 	if _, found := rp.GetLabels()[metadata.AutoReleaseLabel]; !found {
 		if rp.Labels == nil {
 			rp.Labels = map[string]string{
@@ -45,29 +50,31 @@ func (rp *ReleasePlanAdmission) Default() {
 			}
 		}
 	}
+
+	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1alpha1-releaseplanadmission,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releaseplanadmissions,verbs=create;update,versions=v1alpha1,name=vreleaseplanadmission.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &ReleasePlanAdmission{}
-
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (rp *ReleasePlanAdmission) ValidateCreate() error {
-	return rp.validateAutoReleaseLabel()
+func (w *ReleasePlanAdmissionWebhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	return w.validateAutoReleaseLabel(obj)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (rp *ReleasePlanAdmission) ValidateUpdate(old runtime.Object) error {
-	return rp.validateAutoReleaseLabel()
+func (w *ReleasePlanAdmissionWebhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+	return w.validateAutoReleaseLabel(newObj)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (rp *ReleasePlanAdmission) ValidateDelete() error {
+func (w *ReleasePlanAdmissionWebhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
 	return nil
 }
 
 // validateAutoReleaseLabel throws an error if the auto-release label value is set to anything besides true or false.
-func (rp *ReleasePlanAdmission) validateAutoReleaseLabel() error {
+func (w *ReleasePlanAdmissionWebhook) validateAutoReleaseLabel(obj runtime.Object) error {
+	rp := obj.(*ReleasePlanAdmission)
+
 	if value, found := rp.GetLabels()[metadata.AutoReleaseLabel]; found {
 		if value != "true" && value != "false" {
 			return fmt.Errorf("'%s' label can only be set to true or false", metadata.AutoReleaseLabel)

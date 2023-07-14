@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	goodies "github.com/redhat-appstudio/operator-goodies/test"
+	"github.com/redhat-appstudio/operator-toolkit/test"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,11 +64,11 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "config", "crd", "bases"),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", goodies.GetRelativeDependencyPath("tektoncd/pipeline"), "config",
+				"pkg", "mod", test.GetRelativeDependencyPath("tektoncd/pipeline"), "config",
 			),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", goodies.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
+				"pkg", "mod", test.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
 			),
 		},
 		ErrorIfCRDPathMissing: true,
