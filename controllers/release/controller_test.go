@@ -54,29 +54,7 @@ var _ = Describe("Release Controller", Ordered, func() {
 		})
 	})
 
-	When("SetupController is called", func() {
-		It("should setup the controller successfully", func() {
-			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
-				Scheme:             scheme.Scheme,
-				MetricsBindAddress: "0", // disable metrics
-				LeaderElection:     false,
-			})
-			Expect(SetupController(manager, &ctrl.Log)).To(Succeed())
-		})
-	})
-
-	When("setupCache is called", func() {
-		It("should setup the cache successfully", func() {
-			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
-				Scheme:             scheme.Scheme,
-				MetricsBindAddress: "0", // disable metrics
-				LeaderElection:     false,
-			})
-			Expect(setupCache(manager)).To(Succeed())
-		})
-	})
-
-	When("setupControllerWithManager is called", func() {
+	When("Register is called", func() {
 		It("should setup the controller successfully", func() {
 			reconciler := NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme)
 			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
@@ -84,7 +62,19 @@ var _ = Describe("Release Controller", Ordered, func() {
 				MetricsBindAddress: "0", // disable metrics
 				LeaderElection:     false,
 			})
-			Expect(setupControllerWithManager(manager, reconciler)).To(Succeed())
+			Expect(reconciler.Register(manager, &ctrl.Log, nil)).To(Succeed())
+		})
+	})
+
+	When("SetupCache is called", func() {
+		It("should setup the cache successfully", func() {
+			reconciler := NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme)
+			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
+				Scheme:             scheme.Scheme,
+				MetricsBindAddress: "0", // disable metrics
+				LeaderElection:     false,
+			})
+			Expect(reconciler.SetupCache(manager)).To(Succeed())
 		})
 	})
 

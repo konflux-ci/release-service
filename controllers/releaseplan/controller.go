@@ -18,9 +18,10 @@ package releaseplan
 
 import (
 	"context"
+	"github.com/redhat-appstudio/operator-toolkit/controller"
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-appstudio/operator-goodies/reconciler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/loader"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -68,20 +69,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	adapter := NewAdapter(ctx, r.Client, releasePlan, loader.NewLoader(), logger)
 
-	return reconciler.ReconcileHandler([]reconciler.ReconcileOperation{
+	return controller.ReconcileHandler([]controller.Operation{
 		adapter.EnsureOwnerReferenceIsSet,
 	})
 }
 
-// SetupController creates a new ReleasePlan reconciler and adds it to the Manager.
-func SetupController(manager ctrl.Manager, log *logr.Logger) error {
-	return setupControllerWithManager(manager, NewReleasePlanReconciler(manager.GetClient(), log, manager.GetScheme()))
-}
+// Register registers the controller with the passed manager and log.
+func (r *Reconciler) Register(manager ctrl.Manager, log *logr.Logger, _ cluster.Cluster) error {
+	r.Client = manager.GetClient()
+	r.Log = log.WithName("releasePlan")
 
-// setupControllerWithManager sets up the controller with the Manager which monitors new ReleasePlans and filters out
-// status updates.
-func setupControllerWithManager(manager ctrl.Manager, reconciler *Reconciler) error {
 	return ctrl.NewControllerManagedBy(manager).
 		For(&v1alpha1.ReleasePlan{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Complete(reconciler)
+		Complete(r)
 }

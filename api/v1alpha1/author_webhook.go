@@ -41,14 +41,16 @@ type authorWebhook struct {
 
 // +kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1alpha1-author,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releases;releaseplans,verbs=create;update,versions=v1alpha1,name=mauthor.kb.io,admissionReviewVersions=v1
 
-// RegisterAuthorWebhook registers the author webhook with the passed manager and log.
-func RegisterAuthorWebhook(mgr ctrl.Manager, log *logr.Logger) {
+// Register registers the webhook with the passed manager and log.
+func (a *authorWebhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 	mgr.GetWebhookServer().Register("/mutate-appstudio-redhat-com-v1alpha1-author", &webhook.Admission{
 		Handler: &authorWebhook{
 			client: mgr.GetClient(),
 			log:    log,
 		},
 	})
+
+	return nil
 }
 
 // Handle creates an admission response for Release and ReleasePlan requests.
