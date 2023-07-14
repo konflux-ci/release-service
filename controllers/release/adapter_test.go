@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 	"reflect"
 	"strings"
 
@@ -92,7 +93,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should finalize the Release if it's set to be deleted and it has a finalizer", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
@@ -176,7 +177,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should not change the release status if it's set already", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   releasePlanAdmission,
@@ -202,7 +203,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should do nothing if a deployment is required and it's not complete", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   releasePlanAdmission,
@@ -217,7 +218,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should complete the release if all the required phases have completed", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   releasePlanAdmission,
@@ -277,7 +278,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					ReleaseStrategy: "strategy",
 				},
 			}
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   newReleasePlanAdmission,
@@ -294,7 +295,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter.release.MarkProcessing("")
 			adapter.release.MarkProcessed()
 
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Err:        fmt.Errorf("not found"),
@@ -311,7 +312,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter.release.MarkProcessing("")
 			adapter.release.MarkProcessed()
 
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   releasePlanAdmission,
@@ -349,7 +350,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter.release.MarkProcessing("")
 			adapter.release.MarkProcessed()
 
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   releasePlanAdmission,
@@ -441,7 +442,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("tracks the binding if one is found", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.SnapshotEnvironmentBindingContextKey,
 					Resource:   snapshotEnvironmentBinding,
@@ -515,7 +516,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should continue if the PipelineRun exists and the release processing has started", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePipelineRunContextKey,
 					Resource: &v1beta1.PipelineRun{
@@ -534,7 +535,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should register the processing data if the PipelineRun already exists", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePipelineRunContextKey,
 					Resource: &v1beta1.PipelineRun{
@@ -563,7 +564,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should requeue the Release if any of the resources is not found", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Err:        fmt.Errorf("not found"),
@@ -576,7 +577,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should create a pipelineRun and register the processing data if all the required resources are present", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
@@ -617,7 +618,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should mark the Release as valid if all the resources are found", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
@@ -638,7 +639,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should mark the Release as invalid if any of the resources is not found", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Err:        fmt.Errorf("not found"),
@@ -653,7 +654,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should stop reconcile if the ReleasePlanAdmission is found to be disabled", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Err:        fmt.Errorf("auto-release label set to false"),
@@ -668,7 +669,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should stop reconcile if multiple ReleasePlanAdmissions exist", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Err:        fmt.Errorf("multiple ReleasePlanAdmissions found"),
@@ -684,7 +685,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		It("should stop reconcile if the author cannot be validated", func() {
 			adapter.release.Labels = nil
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
@@ -708,7 +709,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter.release.Labels = map[string]string{
 				metadata.AutomatedLabel: "true",
 			}
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
@@ -765,7 +766,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 			}
 			pipelineRun.Status.MarkSucceeded("", "")
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePipelineRunContextKey,
 					Resource:   pipelineRun,
@@ -874,7 +875,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("fails when the required resources are not present", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.DeploymentResourcesContextKey,
 					Err:        fmt.Errorf("not found"),
@@ -887,7 +888,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("creates a new binding owned by the release if the required resources are present", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.SnapshotEnvironmentBindingContextKey,
 				},
@@ -917,7 +918,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("updates a binding and marks it as owned by the release if a binding is already present", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.SnapshotEnvironmentBindingContextKey,
 					Resource:   snapshotEnvironmentBinding,
@@ -1186,7 +1187,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("fails if there's no active ReleasePlanAdmission", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Err:        fmt.Errorf("not found"),
@@ -1197,7 +1198,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("fails if there's no Snapshot", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 				},
@@ -1211,7 +1212,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("should sync resources properly", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   releasePlanAdmission,
@@ -1298,7 +1299,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("returns an error when the ReleasePlan is missing", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanContextKey,
 					Resource:   nil,
