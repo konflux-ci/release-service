@@ -51,7 +51,7 @@ var mgr manager.Manager
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Release Webhook Suite")
+	RunSpecs(t, "Release ReleasePlanWebhook Suite")
 }
 
 const (
