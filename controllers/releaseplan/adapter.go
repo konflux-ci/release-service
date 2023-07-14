@@ -28,30 +28,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// Adapter holds the objects needed to reconcile a ReleasePlan.
-type Adapter struct {
+// adapter holds the objects needed to reconcile a ReleasePlan.
+type adapter struct {
 	client      client.Client
 	ctx         context.Context
 	loader      loader.ObjectLoader
-	logger      logr.Logger
+	logger      *logr.Logger
 	releasePlan *v1alpha1.ReleasePlan
 	syncer      *syncer.Syncer
 }
 
-// NewAdapter creates and returns an Adapter instance.
-func NewAdapter(ctx context.Context, client client.Client, releasePlan *v1alpha1.ReleasePlan, loader loader.ObjectLoader, logger logr.Logger) *Adapter {
-	return &Adapter{
+// NewAdapter creates and returns an adapter instance.
+func NewAdapter(ctx context.Context, client client.Client, releasePlan *v1alpha1.ReleasePlan, loader loader.ObjectLoader, logger *logr.Logger) *adapter {
+	return &adapter{
 		client:      client,
 		ctx:         ctx,
 		loader:      loader,
 		logger:      logger,
 		releasePlan: releasePlan,
-		syncer:      syncer.NewSyncerWithContext(client, logger, ctx),
+		syncer:      syncer.NewSyncerWithContext(client, *logger, ctx),
 	}
 }
 
 // EnsureOwnerReferenceIsSet is an operation that will ensure that the owner reference is set.
-func (a *Adapter) EnsureOwnerReferenceIsSet() (controller.OperationResult, error) {
+func (a *adapter) EnsureOwnerReferenceIsSet() (controller.OperationResult, error) {
 	if len(a.releasePlan.OwnerReferences) > 0 {
 		return controller.ContinueProcessing()
 	}

@@ -24,6 +24,6 @@ import (
 
 // EnabledControllers is a slice containing references to all the controllers that have to be registered
 var EnabledControllers = []controller.Controller{
-	&release.Reconciler{},
-	&releaseplan.Reconciler{},
+	&release.Controller{},
+	&releaseplan.Controller{},
 }
