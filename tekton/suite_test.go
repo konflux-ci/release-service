@@ -49,9 +49,9 @@ var (
 	cancel    context.CancelFunc
 )
 
-func TestPipelineRun(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "PipelineRun Test Suite")
+	RunSpecs(t, "PipelineRun Suite")
 }
 
 var _ = BeforeSuite(func() {

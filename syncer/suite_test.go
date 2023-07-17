@@ -48,9 +48,9 @@ var (
 	cancel    context.CancelFunc
 )
 
-func TestSyncer(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Syncer Test Suite")
+	RunSpecs(t, "Syncer Suite")
 }
 
 var _ = BeforeSuite(func() {

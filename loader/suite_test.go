@@ -50,10 +50,10 @@ var (
 	testEnv   *envtest.Environment
 )
 
-func TestAPIs(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "loader Suite")
+	RunSpecs(t, "Loader Suite")
 }
 
 var _ = BeforeSuite(func() {
