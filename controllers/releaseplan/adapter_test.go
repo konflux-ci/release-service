@@ -47,9 +47,9 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 		createResources()
 	})
 
-	Context("When NewAdapter is called", func() {
+	Context("When newAdapter is called", func() {
 		It("creates and return a new adapter", func() {
-			Expect(reflect.TypeOf(NewAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
+			Expect(reflect.TypeOf(newAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
 		})
 	})
 
@@ -125,7 +125,7 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 		Expect(k8sClient.Create(ctx, releasePlan)).To(Succeed())
 		releasePlan.Kind = "ReleasePlan"
 
-		return NewAdapter(ctx, k8sClient, releasePlan, loader.NewMockLoader(), &ctrl.Log)
+		return newAdapter(ctx, k8sClient, releasePlan, loader.NewMockLoader(), &ctrl.Log)
 	}
 
 	createResources = func() {

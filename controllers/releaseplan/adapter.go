@@ -38,8 +38,8 @@ type adapter struct {
 	syncer      *syncer.Syncer
 }
 
-// NewAdapter creates and returns an adapter instance.
-func NewAdapter(ctx context.Context, client client.Client, releasePlan *v1alpha1.ReleasePlan, loader loader.ObjectLoader, logger *logr.Logger) *adapter {
+// newAdapter creates and returns an adapter instance.
+func newAdapter(ctx context.Context, client client.Client, releasePlan *v1alpha1.ReleasePlan, loader loader.ObjectLoader, logger *logr.Logger) *adapter {
 	return &adapter{
 		client:      client,
 		ctx:         ctx,

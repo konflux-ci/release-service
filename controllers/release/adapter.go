@@ -57,8 +57,8 @@ type adapter struct {
 // finalizerName is the finalizer name to be added to the Releases
 const finalizerName string = "appstudio.redhat.com/release-finalizer"
 
-// NewAdapter creates and returns an adapter instance.
-func NewAdapter(ctx context.Context, client client.Client, release *v1alpha1.Release, loader loader.ObjectLoader, logger *logr.Logger) *adapter {
+// newAdapter creates and returns an adapter instance.
+func newAdapter(ctx context.Context, client client.Client, release *v1alpha1.Release, loader loader.ObjectLoader, logger *logr.Logger) *adapter {
 	return &adapter{
 		client:  client,
 		ctx:     ctx,

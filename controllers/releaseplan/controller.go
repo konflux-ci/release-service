@@ -56,7 +56,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	adapter := NewAdapter(ctx, c.client, releasePlan, loader.NewLoader(), &logger)
+	adapter := newAdapter(ctx, c.client, releasePlan, loader.NewLoader(), &logger)
 
 	return controller.ReconcileHandler([]controller.Operation{
 		adapter.EnsureOwnerReferenceIsSet,

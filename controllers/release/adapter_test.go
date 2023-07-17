@@ -70,9 +70,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 		createResources()
 	})
 
-	When("NewAdapter is called", func() {
+	When("newAdapter is called", func() {
 		It("creates and return a new adapter", func() {
-			Expect(reflect.TypeOf(NewAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
+			Expect(reflect.TypeOf(newAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
 		})
 	})
 
@@ -1340,7 +1340,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		Expect(k8sClient.Create(ctx, release)).To(Succeed())
 		release.Kind = "Release"
 
-		return NewAdapter(ctx, k8sClient, release, loader.NewMockLoader(), &ctrl.Log)
+		return newAdapter(ctx, k8sClient, release, loader.NewMockLoader(), &ctrl.Log)
 	}
 
 	createResources = func() {
