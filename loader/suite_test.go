@@ -14,83 +14,108 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package releaseplan
+package loader
 
 import (
 	"context"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	"github.com/redhat-appstudio/operator-toolkit/test"
 	"go/build"
 	"path/filepath"
 	"testing"
 
-	"k8s.io/client-go/rest"
+	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+	"github.com/redhat-appstudio/operator-toolkit/test"
+	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/cache"
+	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	//+kubebuilder:scaffold:imports
 )
 
 var (
+	cancel    context.CancelFunc
 	cfg       *rest.Config
+	ctx       context.Context
 	k8sClient client.Client
 	testEnv   *envtest.Environment
-	ctx       context.Context
-	cancel    context.CancelFunc
 )
 
-func TestControllerReleasePlan(t *testing.T) {
+func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ReleasePlan Controller Test Suite")
+
+	RunSpecs(t, "loader Suite")
 }
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
 	ctx, cancel = context.WithCancel(context.TODO())
 
-	// add required CRDs
+	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "config", "crd", "bases"),
+			filepath.Join(
+				build.Default.GOPATH,
+				"pkg", "mod", test.GetRelativeDependencyPath("tektoncd/pipeline"), "config",
+			),
 			filepath.Join(
 				build.Default.GOPATH,
 				"pkg", "mod", test.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
+			),
+			filepath.Join(
+				build.Default.GOPATH,
+				"pkg", "mod", test.GetRelativeDependencyPath("enterprise-contract-controller"), "config",
 			),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
 
 	var err error
+	// cfg is defined in this file globally.
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
 	Expect(appstudiov1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(tektonv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(ecapiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(applicationapiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	k8sManager, _ := ctrl.NewManager(cfg, ctrl.Options{
+	//+kubebuilder:scaffold:scheme
+
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0", // disables metrics
+		MetricsBindAddress: "0",
 		LeaderElection:     false,
 	})
-
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient = mgr.GetClient()
 	go func() {
 		defer GinkgoRecover()
-		Expect(k8sManager.Start(ctx)).To(Succeed())
+
+		Expect(cache.SetupComponentCache(mgr)).To(Succeed())
+		Expect(cache.SetupReleasePlanAdmissionCache(mgr)).To(Succeed())
+		Expect(cache.SetupSnapshotEnvironmentBindingCache(mgr)).To(Succeed())
+
+		Expect(mgr.Start(ctx)).To(Succeed())
 	}()
 })
 
 var _ = AfterSuite(func() {
 	cancel()
+
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())

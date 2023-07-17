@@ -19,7 +19,7 @@ package releaseplan
 import (
 	"context"
 	"github.com/go-logr/logr"
-	"github.com/redhat-appstudio/operator-goodies/reconciler"
+	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/syncer"
@@ -28,19 +28,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// Adapter holds the objects needed to reconcile a ReleasePlan.
-type Adapter struct {
+// adapter holds the objects needed to reconcile a ReleasePlan.
+type adapter struct {
 	client      client.Client
 	ctx         context.Context
 	loader      loader.ObjectLoader
-	logger      logr.Logger
+	logger      *logr.Logger
 	releasePlan *v1alpha1.ReleasePlan
 	syncer      *syncer.Syncer
 }
 
-// NewAdapter creates and returns an Adapter instance.
-func NewAdapter(ctx context.Context, client client.Client, releasePlan *v1alpha1.ReleasePlan, loader loader.ObjectLoader, logger logr.Logger) *Adapter {
-	return &Adapter{
+// NewAdapter creates and returns an adapter instance.
+func NewAdapter(ctx context.Context, client client.Client, releasePlan *v1alpha1.ReleasePlan, loader loader.ObjectLoader, logger *logr.Logger) *adapter {
+	return &adapter{
 		client:      client,
 		ctx:         ctx,
 		loader:      loader,
@@ -51,26 +51,26 @@ func NewAdapter(ctx context.Context, client client.Client, releasePlan *v1alpha1
 }
 
 // EnsureOwnerReferenceIsSet is an operation that will ensure that the owner reference is set.
-func (a *Adapter) EnsureOwnerReferenceIsSet() (reconciler.OperationResult, error) {
+func (a *adapter) EnsureOwnerReferenceIsSet() (controller.OperationResult, error) {
 	if len(a.releasePlan.OwnerReferences) > 0 {
-		return reconciler.ContinueProcessing()
+		return controller.ContinueProcessing()
 	}
 
 	application, err := a.loader.GetApplication(a.ctx, a.client, a.releasePlan)
 	if err != nil {
-		return reconciler.RequeueWithError(err)
+		return controller.RequeueWithError(err)
 	}
 
 	patch := client.MergeFrom(a.releasePlan.DeepCopy())
 	err = ctrl.SetControllerReference(application, a.releasePlan, a.client.Scheme())
 	if err != nil {
-		return reconciler.RequeueWithError(err)
+		return controller.RequeueWithError(err)
 	}
 
 	err = a.client.Patch(a.ctx, a.releasePlan, patch)
 	if err != nil && !errors.IsNotFound(err) {
-		return reconciler.RequeueWithError(err)
+		return controller.RequeueWithError(err)
 	}
 
-	return reconciler.ContinueProcessing()
+	return controller.ContinueProcessing()
 }

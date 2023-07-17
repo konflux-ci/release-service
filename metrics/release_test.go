@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/redhat-appstudio/operator-toolkit/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
@@ -68,7 +69,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releaseDurationSecondsLabels[6],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseDurationSeconds,
-				newHistogramReader(
+				test.NewHistogramReader(
 					releaseDurationSecondsOpts,
 					releaseDurationSecondsLabels,
 					startTime, completionTime,
@@ -86,7 +87,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releaseTotalLabels[6],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseTotal,
-				newCounterReader(
+				test.NewCounterReader(
 					releaseTotalOpts,
 					releaseTotalLabels,
 				))).To(Succeed())
@@ -128,7 +129,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releaseDeploymentDurationSecondsLabels[2],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseDeploymentDurationSeconds,
-				newHistogramReader(
+				test.NewHistogramReader(
 					releaseDeploymentDurationSecondsOpts,
 					releaseDeploymentDurationSecondsLabels,
 					startTime, completionTime,
@@ -169,7 +170,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releasePostActionsExecutionDurationSecondsLabels[0],
 			)
 			Expect(testutil.CollectAndCompare(ReleasePostActionsExecutionDurationSeconds,
-				newHistogramReader(
+				test.NewHistogramReader(
 					releasePostActionsExecutionDurationSecondsOpts,
 					releasePostActionsExecutionDurationSecondsLabels,
 					startTime, completionTime,
@@ -212,7 +213,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releaseProcessingDurationSecondsLabels[2],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseProcessingDurationSeconds,
-				newHistogramReader(
+				test.NewHistogramReader(
 					releaseProcessingDurationSecondsOpts,
 					releaseProcessingDurationSecondsLabels,
 					startTime, completionTime,

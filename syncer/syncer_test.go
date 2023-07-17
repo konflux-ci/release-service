@@ -75,25 +75,25 @@ var _ = Describe("Syncer", Ordered, func() {
 	})
 
 	It("can create a new Syncer without specifying a context", func() {
-		syncer := NewSyncer(k8sClient, ctrl.Log)
+		syncer := NewSyncer(k8sClient, &ctrl.Log)
 		Expect(reflect.TypeOf(syncer)).To(Equal(reflect.TypeOf(&Syncer{})))
 	})
 
 	It("can create a new Syncer specifying a context", func() {
-		syncer := NewSyncerWithContext(k8sClient, ctrl.Log, context.TODO())
+		syncer := NewSyncerWithContext(k8sClient, &ctrl.Log, context.TODO())
 		Expect(reflect.TypeOf(syncer)).To(Equal(reflect.TypeOf(&Syncer{})))
 	})
 
 	It("can modify the context being used", func() {
 		syncerContext := context.WithValue(context.TODO(), syncerContextKey, "bar")
-		syncer := NewSyncerWithContext(k8sClient, ctrl.Log, syncerContext)
+		syncer := NewSyncerWithContext(k8sClient, &ctrl.Log, syncerContext)
 		Expect(syncer.ctx.Value(syncerContextKey)).To(Equal("bar"))
 		syncer.SetContext(context.TODO())
 		Expect(syncer.ctx.Value(syncerContextKey)).To(BeNil())
 	})
 
 	It("can sync an snapshot into a given namespace", func() {
-		syncer := NewSyncer(k8sClient, ctrl.Log)
+		syncer := NewSyncer(k8sClient, &ctrl.Log)
 
 		Expect(syncer.SyncSnapshot(snapshot, targetNamespace)).To(Succeed())
 

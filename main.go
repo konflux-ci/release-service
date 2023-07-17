@@ -18,7 +18,12 @@ package main
 
 import (
 	"flag"
+	"github.com/redhat-appstudio/operator-toolkit/controller"
+	"github.com/redhat-appstudio/operator-toolkit/webhook"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks"
+	"github.com/redhat-appstudio/release-service/controllers"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	"go.uber.org/zap/zapcore"
 
@@ -33,13 +38,11 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -59,6 +62,23 @@ func init() {
 }
 
 func main() {
+	mgr := createManager()
+	setEnvironmentVariablesDefaults()
+	setUpControllers(mgr)
+	setUpWebhooks(mgr)
+
+	//+kubebuilder:scaffold:builder
+
+	setHealthAndReadyChecks(mgr)
+
+	setupLog.Info("starting manager")
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+}
+
+func createManager() ctrl.Manager {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
@@ -84,11 +104,17 @@ func main() {
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "f3d4c01a.redhat.com",
 	})
+
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
+	return mgr
+}
+
+// setEnvironmentVariablesDefaults set defaults values for the declared environment variables
+func setEnvironmentVariablesDefaults() {
 	// Set a default value for the DEFAULT_RELEASE_PVC environment variable
 	if os.Getenv("DEFAULT_RELEASE_PVC") == "" {
 		err := os.Setenv("DEFAULT_RELEASE_PVC", "release-pvc")
@@ -107,41 +133,18 @@ func main() {
 		}
 	}
 
-	err = controllers.SetupControllers(mgr)
-	if err != nil {
-		setupLog.Error(err, "unable to setup controllers")
-		os.Exit(1)
-	}
-
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		setupLog.Info("setting up webhooks")
-
-		if err = (&appstudiov1alpha1.Release{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Release")
+	// Set a default value for the ENTERPRISE_CONTRACT_CONFIG_MAP environment variable
+	if os.Getenv("ENTERPRISE_CONTRACT_CONFIG_MAP") == "" {
+		err := os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "enterprise-contract-service/ec-defaults")
+		if err != nil {
+			setupLog.Error(err, "unable to setup ENTERPRISE_CONTRACT_CONFIG_MAP environment variable")
 			os.Exit(1)
 		}
-
-		if err = (&appstudiov1alpha1.ReleasePlanAdmission{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ReleasePlanAdmission")
-			os.Exit(1)
-		}
-
-		if err = (&appstudiov1alpha1.ReleasePlan{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ReleasePlan")
-			os.Exit(1)
-		}
-
-		appstudiov1alpha1.RegisterAuthorWebhook(mgr, &setupLog)
 	}
+}
 
-	err = os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "enterprise-contract-service/ec-defaults")
-	if err != nil {
-		setupLog.Error(err, "unable to setup ENTERPRISE_CONTRACT_CONFIG_MAP environment variable")
-		os.Exit(1)
-	}
-
-	//+kubebuilder:scaffold:builder
-
+// setHealthAndReadyChecks sets health and ready checks for the given manager.
+func setHealthAndReadyChecks(mgr ctrl.Manager) {
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
@@ -150,10 +153,26 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
+}
 
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
+// setUpControllers sets up controllers.
+func setUpControllers(mgr ctrl.Manager) {
+	err := controller.SetupControllers(mgr, nil, controllers.EnabledControllers...)
+	if err != nil {
+		setupLog.Error(err, "unable to setup controllers")
+		os.Exit(1)
+	}
+}
+
+// setUpWebhooks sets up webhooks.
+func setUpWebhooks(mgr ctrl.Manager) {
+	if os.Getenv("ENABLE_WEBHOOKS") == "false" {
+		return
+	}
+
+	err := webhook.SetupWebhooks(mgr, webhooks.EnabledWebhooks...)
+	if err != nil {
+		setupLog.Error(err, "unable to setup webhooks")
 		os.Exit(1)
 	}
 }

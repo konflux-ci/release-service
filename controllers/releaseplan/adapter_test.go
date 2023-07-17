@@ -19,6 +19,7 @@ package releaseplan
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/loader"
 	"reflect"
@@ -29,9 +30,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("ReleasePlan Adapter", Ordered, func() {
+var _ = Describe("ReleasePlan adapter", Ordered, func() {
 	var (
-		createReleasePlanAndAdapter func() *Adapter
+		createReleasePlanAndAdapter func() *adapter
 		createResources             func()
 		deleteResources             func()
 
@@ -48,12 +49,12 @@ var _ = Describe("ReleasePlan Adapter", Ordered, func() {
 
 	Context("When NewAdapter is called", func() {
 		It("creates and return a new adapter", func() {
-			Expect(reflect.TypeOf(NewAdapter(ctx, k8sClient, nil, loader.NewLoader(), ctrl.Log))).To(Equal(reflect.TypeOf(&Adapter{})))
+			Expect(reflect.TypeOf(NewAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
 		})
 	})
 
 	Context("When EnsureOwnerReferenceIsSet is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.releasePlan)
@@ -64,7 +65,7 @@ var _ = Describe("ReleasePlan Adapter", Ordered, func() {
 		})
 
 		It("should set the owner reference", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ApplicationContextKey,
 					Resource:   application,
@@ -87,7 +88,7 @@ var _ = Describe("ReleasePlan Adapter", Ordered, func() {
 			}
 			Expect(k8sClient.Create(ctx, newApplication)).To(Succeed())
 
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ApplicationContextKey,
 					Resource:   newApplication,
@@ -110,7 +111,7 @@ var _ = Describe("ReleasePlan Adapter", Ordered, func() {
 		})
 	})
 
-	createReleasePlanAndAdapter = func() *Adapter {
+	createReleasePlanAndAdapter = func() *adapter {
 		releasePlan := &v1alpha1.ReleasePlan{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "releaseplan-",
@@ -124,7 +125,7 @@ var _ = Describe("ReleasePlan Adapter", Ordered, func() {
 		Expect(k8sClient.Create(ctx, releasePlan)).To(Succeed())
 		releasePlan.Kind = "ReleasePlan"
 
-		return NewAdapter(ctx, k8sClient, releasePlan, loader.NewMockLoader(), ctrl.Log)
+		return NewAdapter(ctx, k8sClient, releasePlan, loader.NewMockLoader(), &ctrl.Log)
 	}
 
 	createResources = func() {

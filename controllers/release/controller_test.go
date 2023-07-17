@@ -30,61 +30,58 @@ import (
 
 var _ = Describe("Release Controller", Ordered, func() {
 
-	When("NewReleaseReconciler is called", func() {
-		It("creates and return a new Reconciler", func() {
-			Expect(reflect.TypeOf(NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme))).To(Equal(reflect.TypeOf(&Reconciler{})))
-		})
-	})
-
 	// For the Reconcile function test we don't want to make a successful call as it will call every single operation
 	// defined there. We don't have any control over the operations being executed, and we want to keep a clean env for
 	// the adapter tests.
 	When("Reconcile is called", func() {
 		It("should succeed even if the release is not found", func() {
-			reconciler := NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme)
+			controller := &Controller{
+				client: k8sClient,
+				log:    ctrl.Log,
+			}
+
 			req := ctrl.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      "non-existent",
 					Namespace: "default",
 				},
 			}
-			result, err := reconciler.Reconcile(ctx, req)
+			result, err := controller.Reconcile(ctx, req)
 			Expect(reflect.TypeOf(result)).To(Equal(reflect.TypeOf(reconcile.Result{})))
 			Expect(err).To(BeNil())
 		})
 	})
 
-	When("SetupController is called", func() {
-		It("should setup the controller successfully", func() {
-			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
-				Scheme:             scheme.Scheme,
-				MetricsBindAddress: "0", // disable metrics
-				LeaderElection:     false,
-			})
-			Expect(SetupController(manager, &ctrl.Log)).To(Succeed())
-		})
-	})
-
-	When("setupCache is called", func() {
+	When("SetupCache is called", func() {
 		It("should setup the cache successfully", func() {
+			controller := &Controller{
+				client: k8sClient,
+				log:    ctrl.Log,
+			}
+
 			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
 				Scheme:             scheme.Scheme,
 				MetricsBindAddress: "0", // disable metrics
 				LeaderElection:     false,
 			})
-			Expect(setupCache(manager)).To(Succeed())
+			Expect(controller.SetupCache(manager)).To(Succeed())
 		})
 	})
 
-	When("setupControllerWithManager is called", func() {
+	When("Register is called", func() {
+
 		It("should setup the controller successfully", func() {
-			reconciler := NewReleaseReconciler(k8sClient, &ctrl.Log, scheme.Scheme)
-			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
+			controller := &Controller{
+				client: k8sClient,
+				log:    ctrl.Log,
+			}
+
+			mgr, _ := ctrl.NewManager(cfg, ctrl.Options{
 				Scheme:             scheme.Scheme,
 				MetricsBindAddress: "0", // disable metrics
 				LeaderElection:     false,
 			})
-			Expect(setupControllerWithManager(manager, reconciler)).To(Succeed())
+			Expect(controller.Register(mgr, &ctrl.Log, nil)).To(Succeed())
 		})
 	})
 

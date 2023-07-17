@@ -14,23 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package conditions
+package metrics
 
 import (
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	//+kubebuilder:scaffold:imports
 )
 
-func TestAPIs(t *testing.T) {
+func TestMetricsRelease(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "conditions Suite")
+	RunSpecs(t, "metrics Suite")
 }
 
 var _ = BeforeSuite(func() {
