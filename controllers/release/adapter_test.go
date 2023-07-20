@@ -98,6 +98,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource: &loader.ProcessingResources{
 						EnterpriseContractConfigMap: enterpriseContractConfigMap,
 						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlan:                 releasePlan,
 						ReleasePlanAdmission:        releasePlanAdmission,
 						ReleaseStrategy:             releaseStrategy,
 						Snapshot:                    snapshot,
@@ -582,6 +583,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource: &loader.ProcessingResources{
 						EnterpriseContractConfigMap: enterpriseContractConfigMap,
 						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlan:                 releasePlan,
 						ReleasePlanAdmission:        releasePlanAdmission,
 						ReleaseStrategy:             releaseStrategy,
 						Snapshot:                    snapshot,
@@ -803,6 +805,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			adapter = createReleaseAndAdapter()
 			resources := &loader.ProcessingResources{
 				ReleaseStrategy:             releaseStrategy,
+				ReleasePlan:                 releasePlan,
 				ReleasePlanAdmission:        releasePlanAdmission,
 				EnterpriseContractConfigMap: enterpriseContractConfigMap,
 				EnterpriseContractPolicy:    enterpriseContractPolicy,
@@ -825,10 +828,28 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				fmt.Sprintf("%s%c%s", adapter.release.Namespace, types.Separator, adapter.release.Name))))
 		})
 
+		It("has the releasePlan reference", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(releasePlan.Kind))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", releasePlan.Namespace, types.Separator, releasePlan.Name))))
+		})
+
 		It("has the releasePlanAdmission reference", func() {
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(releasePlanAdmission.Kind))))
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
 				fmt.Sprintf("%s%c%s", releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Name))))
+		})
+
+		It("has the releaseStrategy reference", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(releaseStrategy.Kind))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", releaseStrategy.Namespace, types.Separator, releaseStrategy.Name))))
+		})
+
+		It("has the snapshot reference", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(snapshot.Kind))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", snapshot.Namespace, types.Separator, snapshot.Name))))
 		})
 
 		It("has owner annotations", func() {
@@ -853,11 +874,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		It("contains a parameter with the json representation of the EnterpriseContractPolicy", func() {
 			jsonSpec, _ := json.Marshal(enterpriseContractPolicy.Spec)
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(jsonSpec)))))
-		})
-
-		It("contains a parameter with the json representation of the Snapshot", func() {
-			jsonSpec, _ := json.Marshal(snapshot.Spec)
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(jsonSpec)))))
 		})
 	})
@@ -963,6 +979,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("finalizes the Release and deletes the PipelineRun", func() {
 			resources := &loader.ProcessingResources{
 				ReleaseStrategy:             releaseStrategy,
+				ReleasePlan:                 releasePlan,
 				ReleasePlanAdmission:        releasePlanAdmission,
 				EnterpriseContractConfigMap: enterpriseContractConfigMap,
 				EnterpriseContractPolicy:    enterpriseContractPolicy,
@@ -1292,27 +1309,16 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				metadata.AutomatedLabel: "true",
 			}
 
-			err := adapter.validateAuthor()
+			err := adapter.validateAuthor(releasePlan)
 			Expect(err).NotTo(BeNil())
 			Expect(err.Error()).To(Equal("automated not set in status for automated release"))
-		})
-
-		It("returns an error when the ReleasePlan is missing", func() {
-			adapter.ctx = loader.GetMockedContext(ctx, []loader.MockData{
-				{
-					ContextKey: loader.ReleasePlanContextKey,
-					Resource:   nil,
-				},
-			})
-			err := adapter.validateAuthor()
-			Expect(err).NotTo(BeNil())
 		})
 
 		It("validates the author", func() {
 			adapter.release.Labels = map[string]string{
 				metadata.AuthorLabel: "user",
 			}
-			err := adapter.validateAuthor()
+			err := adapter.validateAuthor(releasePlan)
 			Expect(err).To(BeNil())
 			Expect(adapter.release.Status.Attribution.Author).To(Equal("user"))
 		})

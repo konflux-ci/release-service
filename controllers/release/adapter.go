@@ -262,7 +262,7 @@ func (a *Adapter) EnsureReleaseIsValid() (reconciler.OperationResult, error) {
 		return reconciler.RequeueWithError(err)
 	}
 
-	err = a.validateAuthor()
+	err = a.validateAuthor(resources.ReleasePlan)
 	if err != nil {
 		if strings.Contains(err.Error(), "automated not set in status") {
 			return reconciler.RequeueWithError(err)
@@ -302,13 +302,13 @@ func (a *Adapter) EnsureReleaseProcessingIsTracked() (reconciler.OperationResult
 // PipelineRun.
 func (a *Adapter) createReleasePipelineRun(resources *loader.ProcessingResources) (*v1beta1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", resources.ReleaseStrategy.Namespace).
-		WithObjectReferences(a.release, resources.ReleasePlanAdmission).
+		WithObjectReferences(a.release, resources.ReleasePlan,
+			resources.ReleasePlanAdmission, resources.ReleaseStrategy, resources.Snapshot).
 		WithOwner(a.release).
 		WithReleaseAndApplicationMetadata(a.release, resources.Snapshot.Spec.Application).
 		WithReleaseStrategy(resources.ReleaseStrategy).
 		WithEnterpriseContractConfigMap(resources.EnterpriseContractConfigMap).
 		WithEnterpriseContractPolicy(resources.EnterpriseContractPolicy).
-		WithSnapshot(resources.Snapshot).
 		AsPipelineRun()
 
 	err := a.client.Create(a.ctx, pipelineRun)
@@ -519,14 +519,9 @@ func (a *Adapter) registerAttributionData(releasePlan *v1alpha1.ReleasePlan) err
 }
 
 // validateAuthor attributes the release to a specific user and ensures that the user is valid in SSO.
-func (a *Adapter) validateAuthor() error {
+func (a *Adapter) validateAuthor(releasePlan *v1alpha1.ReleasePlan) error {
 	if a.release.Labels[metadata.AutomatedLabel] == "true" && !a.release.IsAutomated() {
 		return fmt.Errorf("automated not set in status for automated release")
-	}
-
-	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
-	if err != nil {
-		return err
 	}
 
 	return a.registerAttributionData(releasePlan)

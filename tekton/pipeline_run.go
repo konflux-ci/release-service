@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/metadata"
 
 	libhandler "github.com/operator-framework/operator-lib/handler"
@@ -178,25 +177,6 @@ func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrat
 // execution of the different Pipeline tasks.
 func (r *ReleasePipelineRun) WithServiceAccount(serviceAccount string) *ReleasePipelineRun {
 	r.Spec.ServiceAccountName = serviceAccount
-
-	return r
-}
-
-// WithSnapshot adds a param containing the Snapshot as a json string to the release PipelineRun.
-func (r *ReleasePipelineRun) WithSnapshot(snapshot *applicationapiv1alpha1.Snapshot) *ReleasePipelineRun {
-	// We ignore the error here because none should be raised when marshalling the spec of a CRD.
-	// If we end up deciding it is useful, we will need to pass the errors trough the chain and
-	// add something like a `Complete` function that returns the final object and error.
-	snapshotString, _ := json.Marshal(snapshot.Spec)
-
-	// Get snapshot.Kind runes to make the first letter lowercase
-	snapshotRunes := []rune(snapshot.Kind)
-	snapshotRunes[0] = unicode.ToLower(snapshotRunes[0])
-
-	r.WithExtraParam(string(snapshotRunes), tektonv1beta1.ArrayOrString{
-		Type:      tektonv1beta1.ParamTypeString,
-		StringVal: string(snapshotString),
-	})
 
 	return r
 }
