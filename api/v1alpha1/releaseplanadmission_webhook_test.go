@@ -128,8 +128,9 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 
 	When("ValidateDelete method is called", func() {
 		It("should return nil", func() {
+			webhook := &ReleasePlanAdmissionWebhook{}
 			releaseplanadmission := &ReleasePlanAdmission{}
-			Expect(releaseplanadmission.ValidateDelete()).To(BeNil())
+			Expect(webhook.ValidateDelete(ctx, releaseplanadmission)).To(BeNil())
 		})
 	})
 })

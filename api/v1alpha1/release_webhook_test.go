@@ -79,8 +79,9 @@ var _ = Describe("Release validation webhook", func() {
 
 	When("ValidateDelete method is called", func() {
 		It("should return nil", func() {
+			webhook := &ReleaseWebhook{}
 			release := &Release{}
-			Expect(release.ValidateDelete()).To(BeNil())
+			Expect(webhook.ValidateDelete(ctx, release)).To(BeNil())
 		})
 	})
 })
