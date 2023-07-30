@@ -733,7 +733,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum by (namespace, release_reason) (rate(release_total{release_reason=~\"Failed\"|\"Succeeded\"}[$__rate_interval]))",
+          "expr": "sum by (namespace, release_reason) (rate(release_total{release_reason=~\"Failed|Succeeded\"}[$__rate_interval]))",
           "instant": true,
           "interval": "",
           "legendFormat": "{{release_reason}}",
