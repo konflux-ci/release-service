@@ -20,8 +20,22 @@ jobs:
           fetch-depth: 1
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Run Gosec Security Scanner
+        id: gosec
         uses: securego/gosec@master
         with:
-          args: -exclude-generated ./...
+          # we let the report trigger a failure using the GitHub Security features.
+          args: -exclude-generated -fmt sarif -out results.sarif ./...
         env:
           GOROOT: ""
+        continue-on-error: true
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: results.sarif
+      - name: Check gosec result
+        run: |
+          if [ "${{ steps.gosec.outcome }}" != "success" ]
+          then
+            echo "Gosec failed. The errors and warnings should be displayed in the PR."
+            exit 1
+          fi
