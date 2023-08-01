@@ -19,19 +19,20 @@ package releaseplan
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/loader"
 	"reflect"
 
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("ReleasePlan Adapter", Ordered, func() {
+var _ = Describe("ReleasePlan adapter", Ordered, func() {
 	var (
-		createReleasePlanAndAdapter func() *Adapter
+		createReleasePlanAndAdapter func() *adapter
 		createResources             func()
 		deleteResources             func()
 
@@ -46,14 +47,14 @@ var _ = Describe("ReleasePlan Adapter", Ordered, func() {
 		createResources()
 	})
 
-	Context("When NewAdapter is called", func() {
+	Context("When newAdapter is called", func() {
 		It("creates and return a new adapter", func() {
-			Expect(reflect.TypeOf(NewAdapter(ctx, k8sClient, nil, loader.NewLoader(), ctrl.Log))).To(Equal(reflect.TypeOf(&Adapter{})))
+			Expect(reflect.TypeOf(newAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
 		})
 	})
 
 	Context("When EnsureOwnerReferenceIsSet is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.releasePlan)
@@ -110,7 +111,7 @@ var _ = Describe("ReleasePlan Adapter", Ordered, func() {
 		})
 	})
 
-	createReleasePlanAndAdapter = func() *Adapter {
+	createReleasePlanAndAdapter = func() *adapter {
 		releasePlan := &v1alpha1.ReleasePlan{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "releaseplan-",
@@ -124,7 +125,7 @@ var _ = Describe("ReleasePlan Adapter", Ordered, func() {
 		Expect(k8sClient.Create(ctx, releasePlan)).To(Succeed())
 		releasePlan.Kind = "ReleasePlan"
 
-		return NewAdapter(ctx, k8sClient, releasePlan, loader.NewMockLoader(), ctrl.Log)
+		return newAdapter(ctx, k8sClient, releasePlan, loader.NewMockLoader(), &ctrl.Log)
 	}
 
 	createResources = func() {

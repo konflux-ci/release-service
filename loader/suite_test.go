@@ -1,5 +1,5 @@
 /*
-Copyright 2022 Red Hat Inc.
+Copyright 2022.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package syncer
+package loader
 
 import (
 	"context"
@@ -22,73 +22,100 @@ import (
 	"path/filepath"
 	"testing"
 
+	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/operator-toolkit/test"
+	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/cache"
+	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
-	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
-
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
+	cancel    context.CancelFunc
 	cfg       *rest.Config
+	ctx       context.Context
 	k8sClient client.Client
 	testEnv   *envtest.Environment
-	ctx       context.Context
-	cancel    context.CancelFunc
 )
 
-func TestSyncer(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Syncer Test Suite")
+
+	RunSpecs(t, "Loader Suite")
 }
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
 	ctx, cancel = context.WithCancel(context.TODO())
 
+	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "config", "crd", "bases"),
 			filepath.Join(
 				build.Default.GOPATH,
+				"pkg", "mod", test.GetRelativeDependencyPath("tektoncd/pipeline"), "config",
+			),
+			filepath.Join(
+				build.Default.GOPATH,
 				"pkg", "mod", test.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
+			),
+			filepath.Join(
+				build.Default.GOPATH,
+				"pkg", "mod", test.GetRelativeDependencyPath("enterprise-contract-controller"), "config",
 			),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
 
 	var err error
+	// cfg is defined in this file globally.
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = appstudiov1alpha1.AddToScheme(clientsetscheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = applicationapiv1alpha1.AddToScheme(clientsetscheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(appstudiov1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(tektonv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(ecapiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(applicationapiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	//+kubebuilder:scaffold:scheme
-	k8sClient, err = client.New(cfg, client.Options{
-		Scheme: clientsetscheme.Scheme,
+
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme.Scheme,
+		MetricsBindAddress: "0",
+		LeaderElection:     false,
 	})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+
+	k8sClient = mgr.GetClient()
+	go func() {
+		defer GinkgoRecover()
+
+		Expect(cache.SetupComponentCache(mgr)).To(Succeed())
+		Expect(cache.SetupReleasePlanAdmissionCache(mgr)).To(Succeed())
+		Expect(cache.SetupSnapshotEnvironmentBindingCache(mgr)).To(Succeed())
+
+		Expect(mgr.Start(ctx)).To(Succeed())
+	}()
 })
 
 var _ = AfterSuite(func() {
 	cancel()
+
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())

@@ -55,9 +55,9 @@ var (
 	cancel    context.CancelFunc
 )
 
-func TestControllerRelease(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Release Controller Test Suite")
+	RunSpecs(t, "Release Controller Suite")
 }
 
 var _ = BeforeSuite(func() {

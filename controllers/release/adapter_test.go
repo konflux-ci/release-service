@@ -20,9 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 	"reflect"
 	"strings"
+
+	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 
 	"github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
@@ -43,9 +44,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("Release Adapter", Ordered, func() {
+var _ = Describe("Release adapter", Ordered, func() {
 	var (
-		createReleaseAndAdapter func() *Adapter
+		createReleaseAndAdapter func() *adapter
 		createResources         func()
 		deleteResources         func()
 
@@ -69,14 +70,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		createResources()
 	})
 
-	When("NewAdapter is called", func() {
+	When("newAdapter is called", func() {
 		It("creates and return a new adapter", func() {
-			Expect(reflect.TypeOf(NewAdapter(ctx, k8sClient, nil, loader.NewLoader(), ctrl.Log))).To(Equal(reflect.TypeOf(&Adapter{})))
+			Expect(reflect.TypeOf(newAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
 		})
 	})
 
 	When("EnsureFinalizersAreCalled is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -136,7 +137,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("EnsureFinalizerIsAdded is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -166,7 +167,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("EnsureReleaseIsCompleted is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -237,7 +238,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("EnsureReleaseIsDeployed is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -386,7 +387,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("EnsureReleaseDeploymentIsTracked is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -459,7 +460,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("EnsureReleaseIsRunning is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -496,7 +497,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("EnsureReleaseIsProcessed is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -605,7 +606,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("EnsureReleaseIsValid is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -733,7 +734,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("EnsureReleaseProcessingIsTracked is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -792,7 +793,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("createReleasePipelineRun is called", func() {
 		var (
-			adapter     *Adapter
+			adapter     *adapter
 			pipelineRun *v1beta1.PipelineRun
 		)
 
@@ -880,7 +881,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("createOrUpdateSnapshotEnvironmentBinding is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -963,7 +964,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("finalizeRelease is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -998,7 +999,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("registerDeploymentData is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -1040,7 +1041,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("registerDeploymentStatus is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -1107,7 +1108,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("registerProcessingData is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -1151,7 +1152,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("registerProcessingStatus is called", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -1193,7 +1194,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("calling syncResources", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -1241,7 +1242,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("calling registerAttributionData", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -1295,7 +1296,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("calling validateAuthor", func() {
-		var adapter *Adapter
+		var adapter *adapter
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -1325,7 +1326,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	createReleaseAndAdapter = func() *Adapter {
+	createReleaseAndAdapter = func() *adapter {
 		release := &v1alpha1.Release{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "release-",
@@ -1339,7 +1340,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(k8sClient.Create(ctx, release)).To(Succeed())
 		release.Kind = "Release"
 
-		return NewAdapter(ctx, k8sClient, release, loader.NewMockLoader(), ctrl.Log)
+		return newAdapter(ctx, k8sClient, release, loader.NewMockLoader(), &ctrl.Log)
 	}
 
 	createResources = func() {

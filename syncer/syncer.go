@@ -28,16 +28,16 @@ import (
 type Syncer struct {
 	client client.Client
 	ctx    context.Context
-	logger logr.Logger
+	logger *logr.Logger
 }
 
 // NewSyncer creates a new Syncer with the given client and logger.
-func NewSyncer(client client.Client, logger logr.Logger) *Syncer {
+func NewSyncer(client client.Client, logger *logr.Logger) *Syncer {
 	return NewSyncerWithContext(client, logger, context.TODO())
 }
 
 // NewSyncerWithContext creates a new Syncer with the given client, logger and context.
-func NewSyncerWithContext(client client.Client, logger logr.Logger, ctx context.Context) *Syncer {
+func NewSyncerWithContext(client client.Client, logger *logr.Logger, ctx context.Context) *Syncer {
 	return &Syncer{
 		client: client,
 		ctx:    ctx,

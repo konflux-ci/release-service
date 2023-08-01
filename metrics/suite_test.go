@@ -25,10 +25,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestMetricsRelease(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "metrics Suite")
+	RunSpecs(t, "Metrics Suite")
 }
 
 var _ = BeforeSuite(func() {

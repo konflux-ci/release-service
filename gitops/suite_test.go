@@ -48,9 +48,9 @@ var (
 	cancel    context.CancelFunc
 )
 
-func TestGitOps(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GitOps Test Suite")
+	RunSpecs(t, "GitOps Suite")
 }
 
 var _ = BeforeSuite(func() {
