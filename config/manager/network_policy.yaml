@@ -20,7 +20,9 @@ spec:
           protocol: TCP
     - to:
       - ipBlock:
-          cidr: 172.20.0.1/32
+          cidr: 172.20.0.1/32  # CIDR of Kubernetes API Endpoint.
       ports:
         - port: 6443
+          protocol: TCP
+        - port: 443
           protocol: TCP
