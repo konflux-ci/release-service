@@ -28,7 +28,7 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - releasePlans
+  - releaseplans
   verbs:
   - create
   - delete
@@ -40,13 +40,13 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - releasePlans/finalizers
+  - releaseplans/finalizers
   verbs:
   - update
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - releasePlans/status
+  - releaseplans/status
   verbs:
   - get
   - patch
