@@ -19,9 +19,8 @@ package release
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"github.com/redhat-appstudio/operator-toolkit/controller"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
@@ -307,7 +306,7 @@ func (a *adapter) createReleasePipelineRun(resources *loader.ProcessingResources
 			resources.ReleasePlanAdmission, resources.ReleaseStrategy, resources.Snapshot).
 		WithOwner(a.release).
 		WithReleaseAndApplicationMetadata(a.release, resources.Snapshot.Spec.Application).
-		WithReleaseStrategy(resources.ReleaseStrategy, a.release).
+		WithReleaseStrategy(resources.ReleaseStrategy).
 		WithEnterpriseContractConfigMap(resources.EnterpriseContractConfigMap).
 		WithEnterpriseContractPolicy(resources.EnterpriseContractPolicy).
 		AsPipelineRun()

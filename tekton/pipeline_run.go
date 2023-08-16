@@ -145,7 +145,7 @@ func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1
 }
 
 // WithReleaseStrategy adds Pipeline reference and parameters to the release PipelineRun.
-func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrategy, release *v1alpha1.Release) *ReleasePipelineRun {
+func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrategy) *ReleasePipelineRun {
 	r.Spec.PipelineRef = getPipelineRef(strategy)
 
 	valueType := tektonv1beta1.ParamTypeString
@@ -163,9 +163,9 @@ func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrat
 	}
 
 	if strategy.Spec.PersistentVolumeClaim == "" {
-		r.WithWorkspace(os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"), os.Getenv("DEFAULT_RELEASE_PVC"), release.Name)
+		r.WithWorkspace(os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"), os.Getenv("DEFAULT_RELEASE_PVC"))
 	} else {
-		r.WithWorkspace(os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"), strategy.Spec.PersistentVolumeClaim, release.Name)
+		r.WithWorkspace(os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"), strategy.Spec.PersistentVolumeClaim)
 	}
 
 	r.WithServiceAccount(strategy.Spec.ServiceAccount)
@@ -182,10 +182,9 @@ func (r *ReleasePipelineRun) WithServiceAccount(serviceAccount string) *ReleaseP
 }
 
 // WithWorkspace adds a workspace to the PipelineRun using the given name and PersistentVolumeClaim.
-// A subdir consisting of the provided Release name and the PipelineRun uid context variable.
 // If any of those values is empty, no workspace will be added.
-func (r *ReleasePipelineRun) WithWorkspace(name, persistentVolumeClaim string, releaseName string) *ReleasePipelineRun {
-	if name == "" || persistentVolumeClaim == "" || releaseName == "" {
+func (r *ReleasePipelineRun) WithWorkspace(name, persistentVolumeClaim string) *ReleasePipelineRun {
+	if name == "" || persistentVolumeClaim == "" {
 		return r
 	}
 
@@ -194,7 +193,6 @@ func (r *ReleasePipelineRun) WithWorkspace(name, persistentVolumeClaim string, r
 		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 			ClaimName: persistentVolumeClaim,
 		},
-		SubPath: releaseName + "-$(context.pipelineRun.uid)",
 	})
 
 	return r
