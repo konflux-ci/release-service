@@ -172,6 +172,7 @@ var _ = Describe("PipelineRun", func() {
 		It("can append owner release information to the object as annotations", func() {
 			releasePipelineRun.WithOwner(release)
 			Expect(releasePipelineRun.Annotations).NotTo(BeNil())
+			Expect(releasePipelineRun.Finalizers).NotTo(BeEmpty())
 		})
 
 		It("can append the release Name, Namespace, and Application to a PipelineRun object and that these label key names match the correct label format", func() {

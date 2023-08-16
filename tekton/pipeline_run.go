@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
 	"unicode"
 
@@ -123,9 +124,10 @@ func (r *ReleasePipelineRun) WithObjectReferences(objects ...client.Object) *Rel
 	return r
 }
 
-// WithOwner set's owner annotations to the release PipelineRun.
+// WithOwner sets owner annotations to the release PipelineRun and a finalizer to prevent its deletion.
 func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipelineRun {
 	_ = libhandler.SetOwnerAnnotations(release, r)
+	controllerutil.AddFinalizer(r, metadata.ReleaseFinalizer)
 
 	return r
 }

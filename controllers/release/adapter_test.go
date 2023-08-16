@@ -20,21 +20,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"strings"
-
-	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
-
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/operator-framework/operator-lib/handler"
+	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"reflect"
+	"strings"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -127,7 +124,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
-			Expect(pipelineRun).To(BeNil())
+			Expect(pipelineRun).To(Or(BeNil(), HaveField("DeletionTimestamp", Not(BeNil()))))
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = adapter.loader.GetRelease(adapter.ctx, adapter.client, adapter.release.Name, adapter.release.Namespace)
@@ -151,14 +148,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result, err := adapter.EnsureFinalizerIsAdded()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Finalizers).To(ContainElement(finalizerName))
+			Expect(adapter.release.Finalizers).To(ContainElement(metadata.ReleaseFinalizer))
 		})
 
 		It("shouldn't fail if the Release already has the finalizer added", func() {
 			result, err := adapter.EnsureFinalizerIsAdded()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Finalizers).To(ContainElement(finalizerName))
+			Expect(adapter.release.Finalizers).To(ContainElement(metadata.ReleaseFinalizer))
 
 			result, err = adapter.EnsureFinalizerIsAdded()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
@@ -782,6 +779,37 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.HasProcessingFinished()).To(BeTrue())
 		})
 
+		It("removes the finalizer if present", func() {
+			adapter.release.MarkProcessing("")
+
+			pipelineRun := &v1beta1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "pipeline-run",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+			// The resource needs to be created as it will get patched
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+
+			pipelineRun.Status.MarkSucceeded("", "")
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource:   pipelineRun,
+				},
+			})
+
+			result, err := adapter.EnsureReleaseProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pipelineRun.Finalizers).To(BeEmpty())
+
+			// Clean up at the end
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+
 		It("should continue if the PipelineRun doesn't exist", func() {
 			adapter.release.MarkProcessing("")
 
@@ -993,8 +1021,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			Expect(adapter.finalizeRelease()).To(Succeed())
 			pipelineRun, err = adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
-			Expect(pipelineRun).To(BeNil())
 			Expect(err).NotTo(HaveOccurred())
+			Expect(pipelineRun).To(BeNil())
 		})
 	})
 
