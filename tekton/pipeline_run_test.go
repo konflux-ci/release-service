@@ -190,7 +190,7 @@ var _ = Describe("PipelineRun", func() {
 		})
 
 		It("can add the ReleaseStrategy information and bundle resolver if present to a PipelineRun object ", func() {
-			releasePipelineRun.WithReleaseStrategy(strategy, release)
+			releasePipelineRun.WithReleaseStrategy(strategy)
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef).NotTo(Equal(tektonv1beta1.ResolverRef{}))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Resolver).To(Equal(tektonv1beta1.ResolverName("bundles")))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params).To(HaveLen(3))
@@ -208,10 +208,9 @@ var _ = Describe("PipelineRun", func() {
 		})
 
 		It("can add a workspace to the PipelineRun using the given name and PVC", func() {
-			releasePipelineRun.WithWorkspace(workspace, persistentVolumeClaim, release.Name)
+			releasePipelineRun.WithWorkspace(workspace, persistentVolumeClaim)
 			Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("Name", Equal(workspace))))
 			Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("PersistentVolumeClaim.ClaimName", Equal(persistentVolumeClaim))))
-			Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("SubPath", Equal(release.Name+"-$(context.pipelineRun.uid)"))))
 		})
 
 		It("can add the EC task bundle parameter to the PipelineRun", func() {
@@ -249,7 +248,7 @@ var _ = Describe("PipelineRun", func() {
 				os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "")
 				os.Setenv("DEFAULT_RELEASE_PVC", "bar")
 				strategy.Spec.PersistentVolumeClaim = ""
-				releasePipelineRun.WithReleaseStrategy(strategy, release)
+				releasePipelineRun.WithReleaseStrategy(strategy)
 				Expect(releasePipelineRun.Spec.Workspaces).To(BeNil())
 			})
 		})
@@ -258,7 +257,7 @@ var _ = Describe("PipelineRun", func() {
 				os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "foo")
 				os.Setenv("DEFAULT_RELEASE_PVC", "")
 				strategy.Spec.PersistentVolumeClaim = ""
-				releasePipelineRun.WithReleaseStrategy(strategy, release)
+				releasePipelineRun.WithReleaseStrategy(strategy)
 				Expect(releasePipelineRun.Spec.Workspaces).To(BeNil())
 			})
 		})
@@ -267,7 +266,7 @@ var _ = Describe("PipelineRun", func() {
 				os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "foo")
 				os.Setenv("DEFAULT_RELEASE_PVC", "bar")
 				strategy.Spec.PersistentVolumeClaim = ""
-				releasePipelineRun.WithReleaseStrategy(strategy, release)
+				releasePipelineRun.WithReleaseStrategy(strategy)
 				Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("Name", Equal("foo"))))
 				Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("PersistentVolumeClaim.ClaimName", Equal("bar"))))
 			})
