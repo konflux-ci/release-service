@@ -15,7 +15,7 @@ class ConventionalCommitsFormat(CommitRule):
         """Validate the given commit checking that the title has a
         proper prefix and the description starts with a lowercase."""
 
-        regex_string = "^(chore|docs|feat|fix|refactor|style|test)(\(.*\))?: [a-z].*$"
+        regex_string = "^(chore|docs|feat|fix|refactor|style|test|revert)(\(.*\))?: [a-z].*$"
         pattern = re.compile(regex_string)
         if not pattern.match(commit.message.title):
             return [
