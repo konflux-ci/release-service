@@ -25,6 +25,7 @@ const (
 	ReleasePipelineRunContextKey          toolkit.ContextKey = iota
 	ReleasePlanAdmissionContextKey        toolkit.ContextKey = iota
 	ReleasePlanContextKey                 toolkit.ContextKey = iota
+	ReleaseServiceConfigContextKey        toolkit.ContextKey = iota
 	ReleaseStrategyContextKey             toolkit.ContextKey = iota
 	SnapshotContextKey                    toolkit.ContextKey = iota
 	SnapshotEnvironmentBindingContextKey  toolkit.ContextKey = iota
@@ -126,6 +127,14 @@ func (l *mockLoader) GetReleasePlan(ctx context.Context, cli client.Client, rele
 		return l.loader.GetReleasePlan(ctx, cli, release)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleasePlanContextKey, &v1alpha1.ReleasePlan{})
+}
+
+// GetReleaseServiceConfig returns the resource and error passed as values of the context.
+func (l *mockLoader) GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error) {
+	if ctx.Value(ReleaseServiceConfigContextKey) == nil {
+		return l.loader.GetReleaseServiceConfig(ctx, cli, name, namespace)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleaseServiceConfigContextKey, &v1alpha1.ReleaseServiceConfig{})
 }
 
 // GetReleaseStrategy returns the resource and error passed as values of the context.

@@ -30,6 +30,7 @@ type ObjectLoader interface {
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
 	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
+	GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error)
 	GetReleaseStrategy(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleaseStrategy, error)
 	GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error)
 	GetSnapshotEnvironmentBinding(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error)
@@ -184,6 +185,13 @@ func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, r
 func (l *loader) GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error) {
 	releasePlan := &v1alpha1.ReleasePlan{}
 	return releasePlan, toolkit.GetObject(release.Spec.ReleasePlan, release.Namespace, cli, ctx, releasePlan)
+}
+
+// GetReleaseServiceConfig returns the ReleaseServiceConfig with the given name and namespace. If the ReleaseServiceConfig is not
+// found or the Get operation fails, an error will be returned.
+func (l *loader) GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error) {
+	releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{}
+	return releaseServiceConfig, toolkit.GetObject(name, namespace, cli, ctx, releaseServiceConfig)
 }
 
 // GetReleaseStrategy returns the ReleaseStrategy referenced by the given ReleasePlanAdmission. If the ReleaseStrategy

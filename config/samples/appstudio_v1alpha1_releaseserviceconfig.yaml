@@ -1,0 +1,6 @@
+apiVersion: appstudio.redhat.com/v1alpha1
+kind: ReleaseServiceConfig
+metadata:
+  name: releaseserviceconfig-sample
+spec:
+  # TODO(user): Add fields here

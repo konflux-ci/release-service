@@ -70,5 +70,9 @@ spec:
               key: DEFAULT_RELEASE_WORKSPACE_NAME
               name: manager-properties
               optional: true
+        - name: SERVICE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
