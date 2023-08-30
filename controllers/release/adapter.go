@@ -19,8 +19,8 @@ package release
 import (
 	"context"
 	"fmt"
+
 	"github.com/redhat-appstudio/operator-toolkit/controller"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
@@ -243,36 +243,34 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 	return controller.ContinueProcessing()
 }
 
-// EnsureReleaseIsValid is an operation that will ensure that a Release is valid by checking all the resources needed
-// to process it.
+// EnsureReleaseIsValid is an operation that will ensure that a Release is valid by performing all
+// validation checks.
 func (a *adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
 	patch := client.MergeFrom(a.release.DeepCopy())
-	resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
 
-	if err != nil {
-		if resources == nil || resources.ReleasePlanAdmission == nil || errors.IsNotFound(err) {
-			a.release.MarkValidationFailed(err.Error())
-			a.release.MarkReleaseFailed("Release validation failed")
-			return controller.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
-		}
-
-		return controller.RequeueWithError(err)
+	validationFuncs := []func() (bool, error){
+		a.validateAuthor,
+		a.validateProcessingResources,
 	}
 
-	err = a.validateAuthor(resources.ReleasePlan)
-	if err != nil {
-		if strings.Contains(err.Error(), "automated not set in status") {
+	for _, validationFunc := range validationFuncs {
+		valid, err := validationFunc()
+		if err != nil {
 			return controller.RequeueWithError(err)
 		}
-
-		a.release.MarkValidationFailed(err.Error())
-		a.release.MarkReleaseFailed("Author validation failed")
-		return controller.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
+		if !valid {
+			a.release.MarkReleaseFailed("Release validation failed")
+			break
+		}
 	}
 
-	a.release.MarkValidated()
+	// IsReleasing will be false if MarkReleaseFailed was called
+	if a.release.IsReleasing() {
+		a.release.MarkValidated()
+		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+	}
 
-	return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+	return controller.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 }
 
 // EnsureReleaseProcessingIsTracked is an operation that will ensure that the release PipelineRun status is tracked
@@ -515,38 +513,60 @@ func (a *adapter) syncResources() error {
 	return a.syncer.SyncSnapshot(snapshot, releasePlanAdmission.Namespace)
 }
 
-// registerAttributionData updates the status of the Release being processed with the proper attribution author.
-func (a *adapter) registerAttributionData(releasePlan *v1alpha1.ReleasePlan) error {
+// validateAuthor will ensure that a valid author exists for the Release and add it to its status. If the Release
+// has the automated label but doesn't have automated set in its status, this function will return an error so the
+// operation knows to requeue the Release.
+func (a *adapter) validateAuthor() (valid bool, err error) {
 	if a.release.IsAttributed() {
-		return nil
+		return true, nil
+	}
+
+	if a.release.Labels[metadata.AutomatedLabel] == "true" && !a.release.IsAutomated() {
+		err := fmt.Errorf("automated not set in status for automated release")
+		a.release.MarkValidationFailed(err.Error())
+		return false, err
+	}
+
+	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			a.release.MarkValidationFailed(err.Error())
+			return false, nil
+		}
+		return false, err
 	}
 
 	var author string
-	patch := client.MergeFrom(a.release.DeepCopy())
 
 	if a.release.Labels[metadata.AutomatedLabel] == "true" {
 		author = releasePlan.Labels[metadata.AuthorLabel]
 		if author == "" {
-			return fmt.Errorf("no author in the ReleasePlan found for automated release")
+			a.release.MarkValidationFailed("no author in the ReleasePlan found for automated release")
+			return false, nil
 		}
 		a.release.Status.Attribution.StandingAuthorization = true
 	} else {
 		author = a.release.Labels[metadata.AuthorLabel]
 		if author == "" { // webhooks prevent this from happening but they could be disabled in some scenarios
-			return fmt.Errorf("no author found for manual release")
+			a.release.MarkValidationFailed("no author found for manual release")
+			return false, nil
 		}
 	}
 
 	a.release.Status.Attribution.Author = author
-
-	return a.client.Status().Patch(a.ctx, a.release, patch)
+	return true, nil
 }
 
-// validateAuthor attributes the release to a specific user and ensures that the user is valid in SSO.
-func (a *adapter) validateAuthor(releasePlan *v1alpha1.ReleasePlan) error {
-	if a.release.Labels[metadata.AutomatedLabel] == "true" && !a.release.IsAutomated() {
-		return fmt.Errorf("automated not set in status for automated release")
-	}
+// validateProcessingResources will ensure that all the resources needed to process the Release exist.
+func (a *adapter) validateProcessingResources() (valid bool, err error) {
+	resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
+	if err != nil {
+		if resources == nil || resources.ReleasePlanAdmission == nil || errors.IsNotFound(err) {
+			a.release.MarkValidationFailed(err.Error())
+			return false, nil
+		}
 
-	return a.registerAttributionData(releasePlan)
+		return false, err
+	}
+	return true, nil
 }
