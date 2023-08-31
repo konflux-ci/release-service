@@ -29,6 +29,7 @@ import (
 	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 	"strings"
@@ -612,12 +613,76 @@ var _ = Describe("Release adapter", Ordered, func() {
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
 			adapter.release.MarkReleasing("")
+			Expect(adapter.client.Status().Update(adapter.ctx, adapter.release)).To(Succeed())
+		})
+
+		It("should requeue if validateAuthor fails with error", func() {
+			adapter.release.Labels = map[string]string{
+				metadata.AutomatedLabel: "true",
+			}
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeFalse())
+		})
+
+		It("should stop reconcile if validateAuthor marks the release invalid", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+		})
+
+		It("should requeue if validateProcessingResources fails with error", func() {
 			adapter.release.Labels = map[string]string{
 				metadata.AuthorLabel: "user",
 			}
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Err:        fmt.Errorf("internal error"),
+					Resource: &loader.ProcessingResources{
+						ReleasePlanAdmission: releasePlanAdmission,
+					},
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeFalse())
 		})
 
-		It("should mark the Release as valid if all the resources are found", func() {
+		It("should stop reconcile if validateProcessingResources marks the release invalid", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+		})
+
+		It("should mark the release as validated if all checks pass", func() {
+			adapter.release.Labels = map[string]string{
+				metadata.AuthorLabel: "user",
+			}
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
@@ -638,76 +703,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.HasReleaseFinished()).To(BeFalse())
 		})
 
-		It("should mark the Release as invalid if any of the resources is not found", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ProcessingResourcesContextKey,
-					Err:        fmt.Errorf("not found"),
-				},
-			})
-
-			result, err := adapter.EnsureReleaseIsValid()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.IsValid()).To(BeFalse())
-			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
-		})
-
-		It("should stop reconcile if the ReleasePlanAdmission is found to be disabled", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Err:        fmt.Errorf("auto-release label set to false"),
-				},
-			})
-
-			result, err := adapter.EnsureReleaseIsValid()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.IsValid()).To(BeFalse())
-			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
-		})
-
-		It("should stop reconcile if multiple ReleasePlanAdmissions exist", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Err:        fmt.Errorf("multiple ReleasePlanAdmissions found"),
-				},
-			})
-
-			result, err := adapter.EnsureReleaseIsValid()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.IsValid()).To(BeFalse())
-			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
-		})
-
-		It("should stop reconcile if the author cannot be validated", func() {
-			adapter.release.Labels = nil
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ProcessingResourcesContextKey,
-					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						ReleaseStrategy:             releaseStrategy,
-						Snapshot:                    snapshot,
-					},
-				},
-			})
-
-			result, err := adapter.EnsureReleaseIsValid()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.IsValid()).To(BeFalse())
-			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
-		})
-
-		It("should requeue if the release has the automated label but automated not set in status", func() {
+		It("does not clear the release status", func() {
 			adapter.release.Labels = map[string]string{
-				metadata.AutomatedLabel: "true",
+				metadata.AuthorLabel: "user",
 			}
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
@@ -723,10 +721,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 
 			result, err := adapter.EnsureReleaseIsValid()
-			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).To(HaveOccurred())
-			Expect(adapter.release.IsValid()).To(BeFalse())
-			Expect(adapter.release.HasReleaseFinished()).To(BeFalse())
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.Status.StartTime).NotTo(BeNil())
 		})
 	})
 
@@ -1269,8 +1266,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 	})
 
-	When("calling registerAttributionData", func() {
+	When("calling validateAuthor", func() {
 		var adapter *adapter
+		var conditionMsg string
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -1278,22 +1276,32 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   releasePlan,
+				},
+			})
 		})
 
-		It("returns nil if the release is already attributed", func() {
+		It("returns valid and no error if the release is already attributed", func() {
 			adapter.release.Status.Attribution.Author = "user"
-			err := adapter.registerAttributionData(releasePlan)
-			Expect(err).To(BeNil())
+			valid, err := adapter.validateAuthor()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("properly sets the Attribution author in the manual release status", func() {
-			adapter.release.Labels = map[string]string{
-				metadata.AuthorLabel: "user",
-			}
-			err := adapter.registerAttributionData(releasePlan)
-			Expect(err).To(BeNil())
-			Expect(adapter.release.Status.Attribution.StandingAuthorization).To(BeFalse())
-			Expect(adapter.release.Status.Attribution.Author).To(Equal("user"))
+		It("should return invalid and no error if the ReleasePlan is not found", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			valid, err := adapter.validateAuthor()
+			Expect(valid).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		When("the release has the automated label", func() {
@@ -1303,11 +1311,29 @@ var _ = Describe("Release adapter", Ordered, func() {
 				}
 			})
 
-			It("returns an error if the ReleasePlan has no author", func() {
+			It("returns invalid and an error if automated label is present but is not set in release status", func() {
+				valid, err := adapter.validateAuthor()
+				Expect(valid).To(BeFalse())
+				Expect(err).To(HaveOccurred())
+				for i := range adapter.release.Status.Conditions {
+					if adapter.release.Status.Conditions[i].Type == "Validated" {
+						conditionMsg = adapter.release.Status.Conditions[i].Message
+					}
+				}
+				Expect(conditionMsg).To(Equal("automated not set in status for automated release"))
+			})
+
+			It("returns invalid and an error if the ReleasePlan has no author", func() {
 				adapter.release.Status.Automated = true
-				err := adapter.registerAttributionData(releasePlan)
-				Expect(err).NotTo(BeNil())
-				Expect(err.Error()).To(ContainSubstring("no author in the ReleasePlan"))
+				valid, err := adapter.validateAuthor()
+				Expect(valid).To(BeFalse())
+				Expect(err).NotTo(HaveOccurred())
+				for i := range adapter.release.Status.Conditions {
+					if adapter.release.Status.Conditions[i].Type == "Validated" {
+						conditionMsg = adapter.release.Status.Conditions[i].Message
+					}
+				}
+				Expect(conditionMsg).To(Equal("no author in the ReleasePlan found for automated release"))
 			})
 
 			It("properly sets the Attribution data in the release status", func() {
@@ -1315,15 +1341,43 @@ var _ = Describe("Release adapter", Ordered, func() {
 				releasePlan.Labels = map[string]string{
 					metadata.AuthorLabel: "user",
 				}
-				err := adapter.registerAttributionData(releasePlan)
-				Expect(err).To(BeNil())
+				valid, err := adapter.validateAuthor()
+				Expect(valid).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
 				Expect(adapter.release.Status.Attribution.StandingAuthorization).To(BeTrue())
 				Expect(adapter.release.Status.Attribution.Author).To(Equal("user"))
 			})
 		})
+
+		It("returns invalid and an error if the Release has the automated label and no author", func() {
+			adapter.release.Labels = map[string]string{
+				metadata.AutomatedLabel: "false",
+				metadata.AuthorLabel:    "",
+			}
+			valid, err := adapter.validateAuthor()
+			Expect(valid).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+			for i := range adapter.release.Status.Conditions {
+				if adapter.release.Status.Conditions[i].Type == "Validated" {
+					conditionMsg = adapter.release.Status.Conditions[i].Message
+				}
+			}
+			Expect(conditionMsg).To(Equal("no author found for manual release"))
+		})
+
+		It("properly sets the Attribution author in the manual release status", func() {
+			adapter.release.Labels = map[string]string{
+				metadata.AuthorLabel: "user",
+			}
+			valid, err := adapter.validateAuthor()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.Status.Attribution.StandingAuthorization).To(BeFalse())
+			Expect(adapter.release.Status.Attribution.Author).To(Equal("user"))
+		})
 	})
 
-	When("calling validateAuthor", func() {
+	When("validateProcessingResources is called", func() {
 		var adapter *adapter
 
 		AfterEach(func() {
@@ -1332,25 +1386,81 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			adapter.release.MarkReleasing("")
 		})
 
-		It("returns an error if automated label is present but is not set in release status", func() {
-			adapter.release.Labels = map[string]string{
-				metadata.AutomatedLabel: "true",
-			}
+		It("should return valid and no error if all the resources are found", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						ReleaseStrategy:             releaseStrategy,
+						Snapshot:                    snapshot,
+					},
+				},
+			})
 
-			err := adapter.validateAuthor(releasePlan)
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(Equal("automated not set in status for automated release"))
+			valid, err := adapter.validateProcessingResources()
+			Expect(valid).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("validates the author", func() {
-			adapter.release.Labels = map[string]string{
-				metadata.AuthorLabel: "user",
-			}
-			err := adapter.validateAuthor(releasePlan)
-			Expect(err).To(BeNil())
-			Expect(adapter.release.Status.Attribution.Author).To(Equal("user"))
+		It("should return invalid and no error if any of the resources are not found", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			valid, err := adapter.validateProcessingResources()
+			Expect(valid).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return invalid and no error if the ReleasePlanAdmission is found to be disabled", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Err:        fmt.Errorf("auto-release label set to false"),
+				},
+			})
+
+			valid, err := adapter.validateProcessingResources()
+			Expect(valid).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return invalid and no error if multiple ReleasePlanAdmissions exist", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Err:        fmt.Errorf("multiple ReleasePlanAdmissions found"),
+				},
+			})
+
+			valid, err := adapter.validateProcessingResources()
+			Expect(valid).To(BeFalse())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return invalid and an error if some other type of error occurs", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Err:        fmt.Errorf("internal error"),
+					Resource: &loader.ProcessingResources{
+						ReleasePlanAdmission: releasePlanAdmission,
+					},
+				},
+			})
+
+			valid, err := adapter.validateProcessingResources()
+			Expect(valid).To(BeFalse())
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
