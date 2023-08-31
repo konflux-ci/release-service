@@ -54,9 +54,6 @@ type adapter struct {
 	syncer  *syncer.Syncer
 }
 
-// finalizerName is the finalizer name to be added to the Releases
-const finalizerName string = "appstudio.redhat.com/release-finalizer"
-
 // newAdapter creates and returns an adapter instance.
 func newAdapter(ctx context.Context, client client.Client, release *v1alpha1.Release, loader loader.ObjectLoader, logger *logr.Logger) *adapter {
 	return &adapter{
@@ -79,13 +76,13 @@ func (a *adapter) EnsureFinalizersAreCalled() (controller.OperationResult, error
 		return controller.ContinueProcessing()
 	}
 
-	if controllerutil.ContainsFinalizer(a.release, finalizerName) {
+	if controllerutil.ContainsFinalizer(a.release, metadata.ReleaseFinalizer) {
 		if err := a.finalizeRelease(); err != nil {
 			return controller.RequeueWithError(err)
 		}
 
 		patch := client.MergeFrom(a.release.DeepCopy())
-		controllerutil.RemoveFinalizer(a.release, finalizerName)
+		controllerutil.RemoveFinalizer(a.release, metadata.ReleaseFinalizer)
 		err := a.client.Patch(a.ctx, a.release, patch)
 		if err != nil {
 			return controller.RequeueWithError(err)
@@ -100,7 +97,7 @@ func (a *adapter) EnsureFinalizersAreCalled() (controller.OperationResult, error
 func (a *adapter) EnsureFinalizerIsAdded() (controller.OperationResult, error) {
 	var finalizerFound bool
 	for _, finalizer := range a.release.GetFinalizers() {
-		if finalizer == finalizerName {
+		if finalizer == metadata.ReleaseFinalizer {
 			finalizerFound = true
 		}
 	}
@@ -108,7 +105,7 @@ func (a *adapter) EnsureFinalizerIsAdded() (controller.OperationResult, error) {
 	if !finalizerFound {
 		a.logger.Info("Adding Finalizer to the Release")
 		patch := client.MergeFrom(a.release.DeepCopy())
-		controllerutil.AddFinalizer(a.release, finalizerName)
+		controllerutil.AddFinalizer(a.release, metadata.ReleaseFinalizer)
 		err := a.client.Patch(a.ctx, a.release, patch)
 
 		return controller.RequeueOnErrorOrContinue(err)
@@ -290,7 +287,20 @@ func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult
 		return controller.RequeueWithError(err)
 	}
 	if pipelineRun != nil {
-		return controller.RequeueOnErrorOrContinue(a.registerProcessingStatus(pipelineRun))
+		err = a.registerProcessingStatus(pipelineRun)
+		if err != nil {
+			return controller.RequeueWithError(err)
+		}
+	}
+
+	// This condition can only be true if the call to registerProcessingStatus changed the state
+	if a.release.HasProcessingFinished() {
+		// At this point it's safe to remove the PipelineRun, so the finalizer can be removed
+		if controllerutil.ContainsFinalizer(pipelineRun, metadata.ReleaseFinalizer) {
+			patch := client.MergeFrom(pipelineRun.DeepCopy())
+			controllerutil.RemoveFinalizer(pipelineRun, metadata.ReleaseFinalizer)
+			return controller.RequeueOnErrorOrContinue(a.client.Patch(a.ctx, pipelineRun, patch))
+		}
 	}
 
 	return controller.ContinueProcessing()
@@ -374,6 +384,20 @@ func (a *adapter) finalizeRelease() error {
 	}
 
 	if pipelineRun != nil {
+		// The finalizer could still exist at this point in the case of the PipelineRun not having succeeded at the time
+		// of finalizing the Release.
+		if controllerutil.ContainsFinalizer(pipelineRun, metadata.ReleaseFinalizer) {
+			patch := client.MergeFrom(pipelineRun.DeepCopy())
+			removedFinalizer := controllerutil.RemoveFinalizer(pipelineRun, metadata.ReleaseFinalizer)
+			if !removedFinalizer {
+				return fmt.Errorf("finalizer not removed")
+			}
+			err := a.client.Patch(a.ctx, pipelineRun, patch)
+			if err != nil {
+				return err
+			}
+		}
+
 		err = a.client.Delete(a.ctx, pipelineRun)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
