@@ -20,9 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
 	"unicode"
+
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,16 +71,16 @@ func (r *ReleasePipelineRun) AsPipelineRun() *tektonv1beta1.PipelineRun {
 	return &r.PipelineRun
 }
 
-// WithEnterpriseContractConfigMap adds a param providing the verify ec task bundle to the release PipelineRun.
-func (r *ReleasePipelineRun) WithEnterpriseContractConfigMap(configMap *corev1.ConfigMap) *ReleasePipelineRun {
-	enterpriseContractConfigMapBundleField := "verify_ec_task_bundle"
+// WithEnterpriseContractConfigMap adds a param providing the verify ec task git resolver information to the release PipelineRun.
+func (r *ReleasePipelineRun) WithEnterpriseContractConfigMap(ecConfig *corev1.ConfigMap) *ReleasePipelineRun {
+	gitResolverFields := []string{"verify_ec_task_git_url", "verify_ec_task_git_revision", "verify_ec_task_git_pathInRepo"}
 
-	ecTaskBundle := configMap.Data[enterpriseContractConfigMapBundleField]
-
-	r.WithExtraParam(enterpriseContractConfigMapBundleField, tektonv1beta1.ArrayOrString{
-		Type:      tektonv1beta1.ParamTypeString,
-		StringVal: string(ecTaskBundle),
-	})
+	for _, field := range gitResolverFields {
+		r.WithExtraParam(field, tektonv1beta1.ArrayOrString{
+			Type:      tektonv1beta1.ParamTypeString,
+			StringVal: ecConfig.Data[string(field)],
+		})
+	}
 
 	return r
 }
