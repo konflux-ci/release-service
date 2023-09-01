@@ -46,17 +46,18 @@ import (
 
 // adapter holds the objects needed to reconcile a Release.
 type adapter struct {
-	client  client.Client
-	ctx     context.Context
-	loader  loader.ObjectLoader
-	logger  *logr.Logger
-	release *v1alpha1.Release
-	syncer  *syncer.Syncer
+	client      client.Client
+	ctx         context.Context
+	loader      loader.ObjectLoader
+	logger      *logr.Logger
+	release     *v1alpha1.Release
+	syncer      *syncer.Syncer
+	validations []controller.ValidationFunction
 }
 
 // newAdapter creates and returns an adapter instance.
 func newAdapter(ctx context.Context, client client.Client, release *v1alpha1.Release, loader loader.ObjectLoader, logger *logr.Logger) *adapter {
-	return &adapter{
+	releaseAdapter := &adapter{
 		client:  client,
 		ctx:     ctx,
 		loader:  loader,
@@ -64,6 +65,13 @@ func newAdapter(ctx context.Context, client client.Client, release *v1alpha1.Rel
 		release: release,
 		syncer:  syncer.NewSyncerWithContext(client, logger, ctx),
 	}
+
+	releaseAdapter.validations = []controller.ValidationFunction{
+		releaseAdapter.validateProcessingResources,
+		releaseAdapter.validateAuthor,
+	}
+
+	return releaseAdapter
 }
 
 // EnsureFinalizersAreCalled is an operation that will ensure that finalizers are called whenever the Release being
@@ -248,20 +256,12 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 func (a *adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
 	patch := client.MergeFrom(a.release.DeepCopy())
 
-	validationFuncs := []func() (bool, error){
-		a.validateAuthor,
-		a.validateProcessingResources,
-	}
-
-	for _, validationFunc := range validationFuncs {
-		valid, err := validationFunc()
-		if err != nil {
-			return controller.RequeueWithError(err)
+	result := controller.Validate(a.validations...)
+	if !result.Valid {
+		if result.Err != nil {
+			return controller.RequeueWithError(result.Err)
 		}
-		if !valid {
-			a.release.MarkReleaseFailed("Release validation failed")
-			break
-		}
+		a.release.MarkReleaseFailed("Release validation failed")
 	}
 
 	// IsReleasing will be false if MarkReleaseFailed was called
@@ -516,24 +516,24 @@ func (a *adapter) syncResources() error {
 // validateAuthor will ensure that a valid author exists for the Release and add it to its status. If the Release
 // has the automated label but doesn't have automated set in its status, this function will return an error so the
 // operation knows to requeue the Release.
-func (a *adapter) validateAuthor() (valid bool, err error) {
+func (a *adapter) validateAuthor() *controller.ValidationResult {
 	if a.release.IsAttributed() {
-		return true, nil
+		return &controller.ValidationResult{Valid: true}
 	}
 
 	if a.release.Labels[metadata.AutomatedLabel] == "true" && !a.release.IsAutomated() {
 		err := fmt.Errorf("automated not set in status for automated release")
 		a.release.MarkValidationFailed(err.Error())
-		return false, err
+		return &controller.ValidationResult{Err: err}
 	}
 
 	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			a.release.MarkValidationFailed(err.Error())
-			return false, nil
+			return &controller.ValidationResult{Valid: false}
 		}
-		return false, err
+		return &controller.ValidationResult{Err: err}
 	}
 
 	var author string
@@ -542,31 +542,31 @@ func (a *adapter) validateAuthor() (valid bool, err error) {
 		author = releasePlan.Labels[metadata.AuthorLabel]
 		if author == "" {
 			a.release.MarkValidationFailed("no author in the ReleasePlan found for automated release")
-			return false, nil
+			return &controller.ValidationResult{Valid: false}
 		}
 		a.release.Status.Attribution.StandingAuthorization = true
 	} else {
 		author = a.release.Labels[metadata.AuthorLabel]
 		if author == "" { // webhooks prevent this from happening but they could be disabled in some scenarios
 			a.release.MarkValidationFailed("no author found for manual release")
-			return false, nil
+			return &controller.ValidationResult{Valid: false}
 		}
 	}
 
 	a.release.Status.Attribution.Author = author
-	return true, nil
+	return &controller.ValidationResult{Valid: true}
 }
 
 // validateProcessingResources will ensure that all the resources needed to process the Release exist.
-func (a *adapter) validateProcessingResources() (valid bool, err error) {
+func (a *adapter) validateProcessingResources() *controller.ValidationResult {
 	resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
 	if err != nil {
 		if resources == nil || resources.ReleasePlanAdmission == nil || errors.IsNotFound(err) {
 			a.release.MarkValidationFailed(err.Error())
-			return false, nil
+			return &controller.ValidationResult{Valid: false}
 		}
 
-		return false, err
+		return &controller.ValidationResult{Err: err}
 	}
-	return true, nil
+	return &controller.ValidationResult{Valid: true}
 }
