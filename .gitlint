@@ -7,7 +7,7 @@ ignore=T5
 line-length=72
 
 [body-max-line-length]
-line-length=72
+line-length=88
 
 [body-first-line-empty]
 
