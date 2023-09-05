@@ -20,6 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/operator-framework/operator-lib/handler"
@@ -32,8 +35,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
-	"strings"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -831,9 +832,28 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.PipelineRef.Name).To(Equal(releaseStrategy.Spec.Pipeline))
 		})
 
-		It("contains a parameter with the verify ec task bundle", func() {
-			bundle := enterpriseContractConfigMap.Data["verify_ec_task_bundle"]
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(bundle)))))
+		It("contains parameters with the verify ec task git resolver information", func() {
+			url := enterpriseContractConfigMap.Data["verify_ec_task_git_url"]
+			revision := enterpriseContractConfigMap.Data["verify_ec_task_git_revision"]
+			pathInRepo := enterpriseContractConfigMap.Data["verify_ec_task_git_pathInRepo"]
+			params := pipelineRun.Spec.Params
+			checked := 0
+
+			for i := range params {
+				if params[i].Name == "verify_ec_task_git_url" {
+					Expect(params[i].Value.StringVal).To(Equal(string(url)))
+					checked++
+				}
+				if params[i].Name == "verify_ec_task_git_revision" {
+					Expect(params[i].Value.StringVal).To(Equal(string(revision)))
+					checked++
+				}
+				if params[i].Name == "verify_ec_task_git_pathInRepo" {
+					Expect(params[i].Value.StringVal).To(Equal(string(pathInRepo)))
+					checked++
+				}
+			}
+			Expect(checked).To(Equal(3))
 		})
 
 		It("contains a parameter with the json representation of the EnterpriseContractPolicy", func() {
@@ -1448,7 +1468,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Namespace: "default",
 			},
 			Data: map[string]string{
-				"verify_ec_task_bundle": "test-bundle",
+				"verify_ec_task_git_url":        "https://github.com/org/repo.git",
+				"verify_ec_task_git_revision":   "abcdefghijklmnopqrstuvwxyz",
+				"verify_ec_task_git_pathInRepo": "catalog/tasks/verify-ec/task.yaml",
 			},
 		}
 		Expect(k8sClient.Create(ctx, enterpriseContractConfigMap)).Should(Succeed())
