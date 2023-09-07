@@ -12,7 +12,7 @@ import (
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/metadata"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +30,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		enterpriseContractConfigMap *corev1.ConfigMap
 		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
 		environment                 *applicationapiv1alpha1.Environment
-		pipelineRun                 *v1beta1.PipelineRun
+		pipelineRun                 *tektonv1.PipelineRun
 		release                     *v1alpha1.Release
 		releasePlan                 *v1alpha1.ReleasePlan
 		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
@@ -191,7 +191,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("returns a PipelineRun if the labels match with the release data", func() {
 			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&v1beta1.PipelineRun{}))
+			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
 			Expect(returnedObject.Name).To(Equal(pipelineRun.Name))
 		})
 
@@ -454,7 +454,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, release)).To(Succeed())
 
-		pipelineRun = &v1beta1.PipelineRun{
+		pipelineRun = &tektonv1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
 					metadata.ReleaseNameLabel:      release.Name,

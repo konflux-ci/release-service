@@ -35,7 +35,7 @@ import (
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
-	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -90,7 +90,7 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	Expect(appstudiov1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(tektonv1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(tektonv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(ecapiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(applicationapiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 

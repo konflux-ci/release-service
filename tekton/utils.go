@@ -18,14 +18,14 @@ package tekton
 
 import (
 	"github.com/redhat-appstudio/release-service/metadata"
-	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // isReleasePipelineRun returns a boolean indicating whether the object passed is a release PipelineRun or not.
 func isReleasePipelineRun(object client.Object) bool {
-	_, ok := object.(*tektonv1beta1.PipelineRun)
+	_, ok := object.(*tektonv1.PipelineRun)
 	if !ok {
 		return false
 	}
@@ -38,7 +38,7 @@ func isReleasePipelineRun(object client.Object) bool {
 // hasPipelineSucceeded returns a boolean indicating whether the PipelineRun succeeded or not.
 // If the object passed to this function is not a PipelineRun, the function will return false.
 func hasPipelineSucceeded(object client.Object) bool {
-	if pipelineRun, ok := object.(*tektonv1beta1.PipelineRun); ok {
+	if pipelineRun, ok := object.(*tektonv1.PipelineRun); ok {
 		return !pipelineRun.Status.GetCondition(apis.ConditionSucceeded).IsUnknown()
 	}
 

@@ -18,6 +18,7 @@ package release
 
 import (
 	"context"
+
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/operator-toolkit/predicates"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
@@ -30,7 +31,7 @@ import (
 	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/tekton"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -99,7 +100,7 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 				Group: "appstudio.redhat.com",
 			},
 		}, builder.WithPredicates(predicates.GenerationUnchangedOnUpdatePredicate{}, gitops.DeploymentFinishedPredicate())).
-		Watches(&source.Kind{Type: &v1beta1.PipelineRun{}}, &libhandler.EnqueueRequestForAnnotation{
+		Watches(&source.Kind{Type: &tektonv1.PipelineRun{}}, &libhandler.EnqueueRequestForAnnotation{
 			Type: schema.GroupKind{
 				Kind:  "Release",
 				Group: "appstudio.redhat.com",

@@ -3,15 +3,16 @@ package loader
 import (
 	"context"
 	"fmt"
-	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 	"os"
 	"strings"
+
+	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/metadata"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,7 +28,7 @@ type ObjectLoader interface {
 	GetManagedApplication(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error)
 	GetManagedApplicationComponents(ctx context.Context, cli client.Client, application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
-	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1beta1.PipelineRun, error)
+	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
 	GetReleaseStrategy(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleaseStrategy, error)
 	GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error)
@@ -163,8 +164,8 @@ func (l *loader) GetRelease(ctx context.Context, cli client.Client, name, namesp
 
 // GetReleasePipelineRun returns the PipelineRun referenced by the given Release or nil if it's not found. In the case
 // the List operation fails, an error will be returned.
-func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1beta1.PipelineRun, error) {
-	pipelineRuns := &v1beta1.PipelineRunList{}
+func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error) {
+	pipelineRuns := &tektonv1.PipelineRunList{}
 	err := cli.List(ctx, pipelineRuns,
 		client.Limit(1),
 		client.MatchingLabels{
