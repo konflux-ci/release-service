@@ -31,7 +31,7 @@ import (
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/metadata"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -521,7 +521,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePipelineRunContextKey,
-					Resource: &v1beta1.PipelineRun{
+					Resource: &tektonv1.PipelineRun{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "pipeline-run",
 							Namespace: "default",
@@ -540,7 +540,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePipelineRunContextKey,
-					Resource: &v1beta1.PipelineRun{
+					Resource: &tektonv1.PipelineRun{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "pipeline-run",
 							Namespace: "default",
@@ -694,7 +694,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("should track the status if the PipelineRun exists", func() {
 			adapter.release.MarkProcessing("")
 
-			pipelineRun := &v1beta1.PipelineRun{
+			pipelineRun := &tektonv1.PipelineRun{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pipeline-run",
 					Namespace: "default",
@@ -717,7 +717,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("removes the finalizer if present", func() {
 			adapter.release.MarkProcessing("")
 
-			pipelineRun := &v1beta1.PipelineRun{
+			pipelineRun := &tektonv1.PipelineRun{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "pipeline-run",
 					Namespace:  "default",
@@ -757,7 +757,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 	When("createReleasePipelineRun is called", func() {
 		var (
 			adapter     *adapter
-			pipelineRun *v1beta1.PipelineRun
+			pipelineRun *tektonv1.PipelineRun
 		)
 
 		AfterEach(func() {
@@ -784,7 +784,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("returns a PipelineRun", func() {
-			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&v1beta1.PipelineRun{})))
+			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1.PipelineRun{})))
 		})
 
 		It("has the release reference", func() {
@@ -1106,7 +1106,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("does nothing if there is no ReleaseStrategy", func() {
-			pipelineRun := &v1beta1.PipelineRun{
+			pipelineRun := &tektonv1.PipelineRun{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pipeline-run",
 					Namespace: "default",
@@ -1117,7 +1117,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("registers the Release processing data", func() {
-			pipelineRun := &v1beta1.PipelineRun{
+			pipelineRun := &tektonv1.PipelineRun{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "pipeline-run",
 					Namespace: "default",
@@ -1150,13 +1150,13 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("does nothing if the PipelineRun is not done", func() {
-			pipelineRun := &v1beta1.PipelineRun{}
+			pipelineRun := &tektonv1.PipelineRun{}
 			Expect(adapter.registerProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.Status.Processing.CompletionTime).To(BeNil())
 		})
 
 		It("sets the Release as succeeded if the PipelineRun succeeded", func() {
-			pipelineRun := &v1beta1.PipelineRun{}
+			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkSucceeded("", "")
 			adapter.release.MarkProcessing("")
 
@@ -1165,7 +1165,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("sets the Release as failed if the PipelineRun didn't succeed", func() {
-			pipelineRun := &v1beta1.PipelineRun{}
+			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkFailed("", "")
 			adapter.release.MarkProcessing("")
 

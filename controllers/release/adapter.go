@@ -33,7 +33,7 @@ import (
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
 	libhandler "github.com/operator-framework/operator-lib/handler"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -308,7 +308,7 @@ func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
 // will be extracted from the given ReleaseStrategy. The Release's Snapshot will also be passed to the release
 // PipelineRun.
-func (a *adapter) createReleasePipelineRun(resources *loader.ProcessingResources) (*v1beta1.PipelineRun, error) {
+func (a *adapter) createReleasePipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
 	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", resources.ReleaseStrategy.Namespace).
 		WithObjectReferences(a.release, resources.ReleasePlan,
 			resources.ReleasePlanAdmission, resources.ReleaseStrategy, resources.Snapshot).
@@ -459,7 +459,7 @@ func (a *adapter) registerDeploymentStatus(binding *applicationapiv1alpha1.Snaps
 }
 
 // registerProcessingData adds all the Release processing information to its Status and marks it as processing.
-func (a *adapter) registerProcessingData(releasePipelineRun *v1beta1.PipelineRun, releaseStrategy *v1alpha1.ReleaseStrategy) error {
+func (a *adapter) registerProcessingData(releasePipelineRun *tektonv1.PipelineRun, releaseStrategy *v1alpha1.ReleaseStrategy) error {
 	if releasePipelineRun == nil || releaseStrategy == nil {
 		return nil
 	}
@@ -480,7 +480,7 @@ func (a *adapter) registerProcessingData(releasePipelineRun *v1beta1.PipelineRun
 // registerProcessingStatus updates the status of the Release being processed by monitoring the status of the
 // associated release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
-func (a *adapter) registerProcessingStatus(pipelineRun *v1beta1.PipelineRun) error {
+func (a *adapter) registerProcessingStatus(pipelineRun *tektonv1.PipelineRun) error {
 	if pipelineRun != nil && pipelineRun.IsDone() {
 		patch := client.MergeFrom(a.release.DeepCopy())
 

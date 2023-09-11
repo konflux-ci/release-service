@@ -18,10 +18,11 @@ package main
 
 import (
 	"flag"
+	"os"
+
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/operator-toolkit/webhook"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks"
-	"os"
 
 	"go.uber.org/zap/zapcore"
 
@@ -39,7 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/controllers"
@@ -56,7 +57,7 @@ func init() {
 	utilruntime.Must(appstudiov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(applicationapiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(ecapiv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(tektonv1beta1.AddToScheme(scheme))
+	utilruntime.Must(tektonv1.AddToScheme(scheme))
 
 	//+kubebuilder:scaffold:scheme
 }

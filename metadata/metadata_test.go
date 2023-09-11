@@ -21,7 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -132,7 +132,7 @@ var _ = Describe("Metadata", func() {
 
 	Context("AddAnnotations function", func() {
 		When("called with a pipelineRun containing nil Annotations", func() {
-			pipelineRun := &v1beta1.PipelineRun{
+			pipelineRun := &tektonv1.PipelineRun{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: nil,
 					Labels:      nil,

@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
-	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -86,7 +86,7 @@ var _ = BeforeSuite(func() {
 	err = applicationapiv1alpha1.AddToScheme(clientsetscheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = tektonv1beta1.AddToScheme(clientsetscheme.Scheme)
+	err = tektonv1.AddToScheme(clientsetscheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
