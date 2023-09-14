@@ -14,21 +14,21 @@ import (
 )
 
 const (
-	ApplicationComponentsContextKey       toolkit.ContextKey = iota
-	ApplicationContextKey                 toolkit.ContextKey = iota
-	DeploymentResourcesContextKey         toolkit.ContextKey = iota
-	EnterpriseContractConfigMapContextKey toolkit.ContextKey = iota
-	EnterpriseContractPolicyContextKey    toolkit.ContextKey = iota
-	EnvironmentContextKey                 toolkit.ContextKey = iota
-	ProcessingResourcesContextKey         toolkit.ContextKey = iota
-	ReleaseContextKey                     toolkit.ContextKey = iota
-	ReleasePipelineRunContextKey          toolkit.ContextKey = iota
-	ReleasePlanAdmissionContextKey        toolkit.ContextKey = iota
-	ReleasePlanContextKey                 toolkit.ContextKey = iota
-	ReleaseServiceConfigContextKey        toolkit.ContextKey = iota
-	ReleaseStrategyContextKey             toolkit.ContextKey = iota
-	SnapshotContextKey                    toolkit.ContextKey = iota
-	SnapshotEnvironmentBindingContextKey  toolkit.ContextKey = iota
+	ApplicationComponentsContextKey toolkit.ContextKey = iota
+	ApplicationContextKey
+	DeploymentResourcesContextKey
+	EnterpriseContractConfigMapContextKey
+	EnterpriseContractPolicyContextKey
+	EnvironmentContextKey
+	ProcessingResourcesContextKey
+	ReleaseContextKey
+	ReleasePipelineRunContextKey
+	ReleasePlanAdmissionContextKey
+	ReleasePlanContextKey
+	ReleaseServiceConfigContextKey
+	ReleaseStrategyContextKey
+	SnapshotContextKey
+	SnapshotEnvironmentBindingContextKey
 )
 
 type mockLoader struct {
