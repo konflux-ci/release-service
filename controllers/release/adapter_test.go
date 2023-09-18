@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 
@@ -57,6 +58,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		environment                 *applicationapiv1alpha1.Environment
 		releasePlan                 *v1alpha1.ReleasePlan
 		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
+		releaseServiceConfig        *v1alpha1.ReleaseServiceConfig
 		releaseStrategy             *v1alpha1.ReleaseStrategy
 		snapshot                    *applicationapiv1alpha1.Snapshot
 		snapshotEnvironmentBinding  *applicationapiv1alpha1.SnapshotEnvironmentBinding
@@ -73,6 +75,46 @@ var _ = Describe("Release adapter", Ordered, func() {
 	When("newAdapter is called", func() {
 		It("creates and return a new adapter", func() {
 			Expect(reflect.TypeOf(newAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
+		})
+	})
+
+	Context("When calling EnsureConfigIsLoaded", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("returns an error if SERVICE_NAMESPACE is not set", func() {
+			adapter.release.MarkReleasing("")
+			result, err := adapter.EnsureConfigIsLoaded()
+			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+			Expect(adapter.releaseServiceConfig).To(BeNil())
+		})
+
+		It("loads the ReleaseServiceConfig and assigns it to the adapter", func() {
+			os.Setenv("SERVICE_NAMESPACE", "default")
+			result, err := adapter.EnsureConfigIsLoaded()
+			Expect(!result.CancelRequest && !result.RequeueRequest).To(BeTrue())
+			Expect(err).To(BeNil())
+			Expect(adapter.releaseServiceConfig).NotTo(BeNil())
+			Expect(adapter.releaseServiceConfig.Namespace).To(Equal("default"))
+		})
+
+		It("creates and assigns an empty ReleaseServiceConfig if none is found", func() {
+			os.Setenv("SERVICE_NAMESPACE", "test")
+			result, err := adapter.EnsureConfigIsLoaded()
+			Expect(!result.CancelRequest && !result.RequeueRequest).To(BeTrue())
+			Expect(err).To(BeNil())
+			Expect(adapter.releaseServiceConfig).NotTo(BeNil())
+			Expect(adapter.releaseServiceConfig.Namespace).To(Equal("test"))
 		})
 	})
 
@@ -829,7 +871,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("references the pipeline specified in the ReleaseStrategy", func() {
-			Expect(pipelineRun.Spec.PipelineRef.Name).To(Equal(releaseStrategy.Spec.Pipeline))
+			var pipelineName string
+			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+			for i := range resolverParams {
+				if resolverParams[i].Name == "name" {
+					pipelineName = resolverParams[i].Value.StringVal
+				}
+			}
+			Expect(pipelineName).To(Equal(releaseStrategy.Spec.Pipeline))
 		})
 
 		It("contains parameters with the verify ec task git resolver information", func() {
@@ -977,6 +1026,25 @@ var _ = Describe("Release adapter", Ordered, func() {
 			pipelineRun, err = adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pipelineRun).To(BeNil())
+		})
+	})
+
+	When("getEmptyReleaseServiceConfig is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("should return a ReleaseServiceConfig without Spec and with the right ObjectMeta", func() {
+			releaseServiceConfig := adapter.getEmptyReleaseServiceConfig("namespace")
+			Expect(releaseServiceConfig).NotTo(BeNil())
+			Expect(releaseServiceConfig.Name).To(Equal(v1alpha1.ReleaseServiceConfigResourceName))
+			Expect(releaseServiceConfig.Namespace).To(Equal("namespace"))
 		})
 	})
 
@@ -1259,6 +1327,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result := adapter.validateAuthor()
 			Expect(result.Valid).To(BeFalse())
 			Expect(result.Err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
 		})
 
 		When("the release has the automated label", func() {
@@ -1376,6 +1445,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result := adapter.validateProcessingResources()
 			Expect(result.Valid).To(BeFalse())
 			Expect(result.Err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
 		})
 
 		It("should return invalid and no error if the ReleasePlanAdmission is found to be disabled", func() {
@@ -1389,6 +1459,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result := adapter.validateProcessingResources()
 			Expect(result.Valid).To(BeFalse())
 			Expect(result.Err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
 		})
 
 		It("should return invalid and no error if multiple ReleasePlanAdmissions exist", func() {
@@ -1402,6 +1473,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result := adapter.validateProcessingResources()
 			Expect(result.Valid).To(BeFalse())
 			Expect(result.Err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
 		})
 
 		It("should return invalid and an error if some other type of error occurs", func() {
@@ -1418,6 +1490,149 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result := adapter.validateProcessingResources()
 			Expect(result.Valid).To(BeFalse())
 			Expect(result.Err).To(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+		})
+	})
+
+	When("validatePipelineRef is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+			releaseServiceConfig.Spec = v1alpha1.ReleaseServiceConfigSpec{}
+			adapter.releaseServiceConfig = releaseServiceConfig
+		})
+
+		It("should return invalid and no error if the ReleasePlanAdmission is not found", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result := adapter.validatePipelineRef()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+		})
+
+		It("should return invalid and an error if some other type of error occurs when retrieving the ReleasePlanAdmission", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Err:        fmt.Errorf("internal error"),
+					Resource:   releasePlanAdmission,
+				},
+			})
+
+			result := adapter.validatePipelineRef()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).To(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+		})
+
+		It("should return invalid and no error if the ReleaseStrategy is not found", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+				{
+					ContextKey: loader.ReleaseStrategyContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result := adapter.validatePipelineRef()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+		})
+
+		It("should return invalid and an error if some other type of error occurs when retrieving the ReleaseStrategy", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+				{
+					ContextKey: loader.ReleaseStrategyContextKey,
+					Err:        fmt.Errorf("internal error"),
+					Resource:   releaseStrategy,
+				},
+			})
+
+			result := adapter.validatePipelineRef()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).To(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+		})
+
+		It("returns invalid and no error if debug is false and RS has no bundle value", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+				{
+					ContextKey: loader.ReleaseStrategyContextKey,
+					Resource: &v1alpha1.ReleaseStrategy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-strategy",
+							Namespace: "default",
+						},
+						Spec: v1alpha1.ReleaseStrategySpec{
+							Pipeline: "release-pipeline",
+							Policy:   enterpriseContractPolicy.Name,
+						},
+					},
+				},
+			})
+			adapter.releaseServiceConfig.Spec.Debug = false
+
+			result := adapter.validatePipelineRef()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).To(BeNil())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+		})
+
+		It("returns valid and no error if debug mode is enabled in the ReleaseServiceConfig", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+				{
+					ContextKey: loader.ReleaseStrategyContextKey,
+					Resource:   releaseStrategy,
+				},
+			})
+			adapter.releaseServiceConfig.Spec.Debug = true
+
+			result := adapter.validatePipelineRef()
+			Expect(result.Valid).To(BeTrue())
+			Expect(result.Err).To(BeNil())
+		})
+
+		It("returns valid and no error if debug mode is disabled and the RS has a bundle value", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+				{
+					ContextKey: loader.ReleaseStrategyContextKey,
+					Resource:   releaseStrategy,
+				},
+			})
+			result := adapter.validatePipelineRef()
+			Expect(result.Valid).To(BeTrue())
+			Expect(result.Err).To(BeNil())
 		})
 	})
 
@@ -1519,6 +1734,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, releasePlan)).To(Succeed())
 
+		releaseServiceConfig = &v1alpha1.ReleaseServiceConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      v1alpha1.ReleaseServiceConfigResourceName,
+				Namespace: "default",
+			},
+		}
+		Expect(k8sClient.Create(ctx, releaseServiceConfig)).To(Succeed())
+
 		releaseStrategy = &v1alpha1.ReleaseStrategy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "release-strategy",
@@ -1527,6 +1750,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Spec: v1alpha1.ReleaseStrategySpec{
 				Pipeline: "release-pipeline",
 				Policy:   enterpriseContractPolicy.Name,
+				Bundle:   "quay.io/some/bundle",
 			},
 		}
 		Expect(k8sClient.Create(ctx, releaseStrategy)).Should(Succeed())
@@ -1584,6 +1808,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		Expect(k8sClient.Delete(ctx, environment)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlan)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlanAdmission)).Should(Succeed())
+		Expect(k8sClient.Delete(ctx, releaseServiceConfig)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, releaseStrategy)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshot)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshotEnvironmentBinding)).To(Succeed())

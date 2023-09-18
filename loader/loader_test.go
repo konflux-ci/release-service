@@ -34,6 +34,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		release                     *v1alpha1.Release
 		releasePlan                 *v1alpha1.ReleasePlan
 		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
+		releaseServiceConfig        *v1alpha1.ReleaseServiceConfig
 		releaseStrategy             *v1alpha1.ReleaseStrategy
 		snapshot                    *applicationapiv1alpha1.Snapshot
 		snapshotEnvironmentBinding  *applicationapiv1alpha1.SnapshotEnvironmentBinding
@@ -214,6 +215,15 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
+	When("calling GetReleaseServiceConfig", func() {
+		It("returns the requested ReleaseServiceConfig", func() {
+			returnedObject, err := loader.GetReleaseServiceConfig(ctx, k8sClient, releaseServiceConfig.Name, releaseServiceConfig.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleaseServiceConfig{}))
+			Expect(returnedObject.Name).To(Equal(releaseServiceConfig.Name))
+		})
+	})
+
 	When("calling GetReleaseStrategy", func() {
 		It("returns the requested release strategy", func() {
 			returnedObject, err := loader.GetReleaseStrategy(ctx, k8sClient, releasePlanAdmission)
@@ -387,6 +397,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, releasePlan)).To(Succeed())
+
+		releaseServiceConfig = &v1alpha1.ReleaseServiceConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      v1alpha1.ReleaseServiceConfigResourceName,
+				Namespace: "default",
+			},
+		}
+		Expect(k8sClient.Create(ctx, releaseServiceConfig)).To(Succeed())
 
 		releaseStrategy = &v1alpha1.ReleaseStrategy{
 			ObjectMeta: metav1.ObjectMeta{

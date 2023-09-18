@@ -19,6 +19,7 @@ package release
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 
@@ -46,13 +47,14 @@ import (
 
 // adapter holds the objects needed to reconcile a Release.
 type adapter struct {
-	client      client.Client
-	ctx         context.Context
-	loader      loader.ObjectLoader
-	logger      *logr.Logger
-	release     *v1alpha1.Release
-	syncer      *syncer.Syncer
-	validations []controller.ValidationFunction
+	client               client.Client
+	ctx                  context.Context
+	loader               loader.ObjectLoader
+	logger               *logr.Logger
+	release              *v1alpha1.Release
+	releaseServiceConfig *v1alpha1.ReleaseServiceConfig
+	syncer               *syncer.Syncer
+	validations          []controller.ValidationFunction
 }
 
 // newAdapter creates and returns an adapter instance.
@@ -69,9 +71,34 @@ func newAdapter(ctx context.Context, client client.Client, release *v1alpha1.Rel
 	releaseAdapter.validations = []controller.ValidationFunction{
 		releaseAdapter.validateProcessingResources,
 		releaseAdapter.validateAuthor,
+		releaseAdapter.validatePipelineRef,
 	}
 
 	return releaseAdapter
+}
+
+// EnsureConfigIsLoaded is an operation that will load the service ReleaseServiceConfig from the manager namespace. If not found,
+// an empty ReleaseServiceConfig resource will be generated and attached to the adapter.
+func (a *adapter) EnsureConfigIsLoaded() (controller.OperationResult, error) {
+	namespace := os.Getenv("SERVICE_NAMESPACE")
+	if namespace == "" {
+		patch := client.MergeFrom(a.release.DeepCopy())
+		a.release.MarkValidationFailed("SERVICE_NAMESPACE env var not set")
+		a.release.MarkReleaseFailed("Release validation failed")
+		return controller.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
+	}
+
+	var err error
+	a.releaseServiceConfig, err = a.loader.GetReleaseServiceConfig(a.ctx, a.client, v1alpha1.ReleaseServiceConfigResourceName, namespace)
+	if err != nil && !errors.IsNotFound(err) {
+		return controller.RequeueWithError(err)
+	}
+
+	if err != nil {
+		a.releaseServiceConfig = a.getEmptyReleaseServiceConfig(namespace)
+	}
+
+	return controller.ContinueProcessing()
 }
 
 // EnsureFinalizersAreCalled is an operation that will ensure that finalizers are called whenever the Release being
@@ -407,6 +434,16 @@ func (a *adapter) finalizeRelease() error {
 	return nil
 }
 
+// getEmptyReleaseServiceConfig creates and returns an empty ReleaseServiceConfig resource.
+func (a *adapter) getEmptyReleaseServiceConfig(namespace string) *v1alpha1.ReleaseServiceConfig {
+	return &v1alpha1.ReleaseServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v1alpha1.ReleaseServiceConfigResourceName,
+			Namespace: namespace,
+		},
+	}
+}
+
 // registerDeploymentData adds all the Release deployment information to its Status and marks it as processing.
 func (a *adapter) registerDeploymentData(snapshotEnvironmentBinding *applicationapiv1alpha1.SnapshotEnvironmentBinding,
 	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) error {
@@ -568,5 +605,33 @@ func (a *adapter) validateProcessingResources() *controller.ValidationResult {
 
 		return &controller.ValidationResult{Err: err}
 	}
+	return &controller.ValidationResult{Valid: true}
+}
+
+// validatePipelineRef checks that the release PipelineRun ref passes the checks from the ReleaseServiceConfig.
+func (a *adapter) validatePipelineRef() *controller.ValidationResult {
+	releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			a.release.MarkValidationFailed(err.Error())
+			return &controller.ValidationResult{Valid: false}
+		}
+		return &controller.ValidationResult{Err: err}
+	}
+
+	releaseStrategy, err := a.loader.GetReleaseStrategy(a.ctx, a.client, releasePlanAdmission)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			a.release.MarkValidationFailed(err.Error())
+			return &controller.ValidationResult{Valid: false}
+		}
+		return &controller.ValidationResult{Err: err}
+	}
+
+	if !a.releaseServiceConfig.Spec.Debug && releaseStrategy.Spec.Bundle == "" {
+		a.release.MarkValidationFailed("tried using debug only options while debug mode is disabled in the ReleaseServiceConfig")
+		return &controller.ValidationResult{Valid: false}
+	}
+
 	return &controller.ValidationResult{Valid: true}
 }

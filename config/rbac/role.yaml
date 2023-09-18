@@ -78,6 +78,13 @@ rules:
   - patch
   - update
 - apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releaseserviceconfigs
+  verbs:
+  - get
+  - list
+- apiGroups:
   - ""
   resources:
   - configmaps

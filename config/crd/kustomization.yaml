@@ -6,6 +6,7 @@ resources:
 - bases/appstudio.redhat.com_releaseplanadmissions.yaml
 - bases/appstudio.redhat.com_releaseplans.yaml
 - bases/appstudio.redhat.com_releasestrategies.yaml
+- bases/appstudio.redhat.com_releaseserviceconfigs.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 # the following config is for teaching kustomize how to do kustomization for CRDs.
