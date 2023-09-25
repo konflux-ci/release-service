@@ -206,11 +206,6 @@ spec:
                       PipelineRun executed as part of this release
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
-                  releaseStrategy:
-                    description: ReleaseStrategy contains the namespaced name of the
-                      ReleaseStrategy used for this release
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                    type: string
                   startTime:
                     description: StartTime is the time when the Release processing
                       started

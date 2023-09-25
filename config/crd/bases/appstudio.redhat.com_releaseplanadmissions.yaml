@@ -16,18 +16,8 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.displayName
-      name: Display Name
-      priority: 1
-      type: string
-    - jsonPath: .spec.application
-      name: Application
-      type: string
     - jsonPath: .spec.environment
       name: Environment
-      type: string
-    - jsonPath: .spec.releaseStrategy
-      name: Strategy
       type: string
     - jsonPath: .spec.origin
       name: Origin
@@ -53,38 +43,70 @@ spec:
           spec:
             description: ReleasePlanAdmissionSpec defines the desired state of ReleasePlanAdmission.
             properties:
-              application:
-                description: Application is a reference to the application to be released
-                  in the managed namespace
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
-              displayName:
-                description: DisplayName is the long name of the ReleasePlanAdmission
-                type: string
-              environment:
-                description: Environment defines which Environment will be used to
-                  release the application
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
-              extraData:
-                description: ExtraData is used for providing extra data for the release
-                  pipeline
+              applications:
+                description: Applications is a list of references to application to
+                  be released in the managed namespace
+                items:
+                  type: string
+                type: array
+              data:
+                description: Data is an unstructured key used for providing data for
+                  the release Pipeline
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              environment:
+                description: Environment defines which Environment will be used to
+                  release the Application
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
               origin:
                 description: Origin references where the release requests should come
                   from
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
-              releaseStrategy:
-                description: ReleaseStrategy defines which strategy will be used to
-                  release the application
+              pipelineRef:
+                description: PipelineRef is a reference to the Pipeline to be executed
+                  by the release PipelineRun
+                properties:
+                  params:
+                    description: Params is a slice of parameters for a given resolver
+                    items:
+                      description: Param defines the parameters for a given resolver
+                        in PipelineRef
+                      properties:
+                        name:
+                          description: Name is the name of the parameter
+                          type: string
+                        value:
+                          description: Value is the value of the parameter
+                          type: string
+                      required:
+                      - name
+                      - value
+                      type: object
+                    type: array
+                  resolver:
+                    description: Resolver is the name of a Tekton resolver to be used
+                      (e.g. git)
+                    type: string
+                required:
+                - params
+                - resolver
+                type: object
+              policy:
+                description: Policy to validate before releasing an artifact
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+              serviceAccount:
+                description: ServiceAccount is the name of the service account to
+                  use in the release PipelineRun to gain elevated privileges
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
             required:
-            - application
+            - applications
             - origin
-            - releaseStrategy
+            - pipelineRef
+            - policy
             type: object
           status:
             description: ReleasePlanAdmissionStatus defines the observed state of

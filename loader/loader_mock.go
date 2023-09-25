@@ -26,7 +26,6 @@ const (
 	ReleasePlanAdmissionContextKey
 	ReleasePlanContextKey
 	ReleaseServiceConfigContextKey
-	ReleaseStrategyContextKey
 	SnapshotContextKey
 	SnapshotEnvironmentBindingContextKey
 )
@@ -66,9 +65,9 @@ func (l *mockLoader) GetApplication(ctx context.Context, cli client.Client, rele
 }
 
 // GetEnterpriseContractPolicy returns the resource and error passed as values of the context.
-func (l *mockLoader) GetEnterpriseContractPolicy(ctx context.Context, cli client.Client, releaseStrategy *v1alpha1.ReleaseStrategy) (*ecapiv1alpha1.EnterpriseContractPolicy, error) {
+func (l *mockLoader) GetEnterpriseContractPolicy(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*ecapiv1alpha1.EnterpriseContractPolicy, error) {
 	if ctx.Value(EnterpriseContractPolicyContextKey) == nil {
-		return l.loader.GetEnterpriseContractPolicy(ctx, cli, releaseStrategy)
+		return l.loader.GetEnterpriseContractPolicy(ctx, cli, releasePlanAdmission)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, EnterpriseContractPolicyContextKey, &ecapiv1alpha1.EnterpriseContractPolicy{})
 }
@@ -90,9 +89,9 @@ func (l *mockLoader) GetEnvironment(ctx context.Context, cli client.Client, rele
 }
 
 // GetManagedApplication returns the resource and error passed as values of the context.
-func (l *mockLoader) GetManagedApplication(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Application, error) {
+func (l *mockLoader) GetManagedApplication(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*applicationapiv1alpha1.Application, error) {
 	if ctx.Value(ApplicationContextKey) == nil {
-		return l.loader.GetManagedApplication(ctx, cli, releasePlanAdmission)
+		return l.loader.GetManagedApplication(ctx, cli, releasePlan)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ApplicationContextKey, &applicationapiv1alpha1.Application{})
 }
@@ -135,14 +134,6 @@ func (l *mockLoader) GetReleaseServiceConfig(ctx context.Context, cli client.Cli
 		return l.loader.GetReleaseServiceConfig(ctx, cli, name, namespace)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleaseServiceConfigContextKey, &v1alpha1.ReleaseServiceConfig{})
-}
-
-// GetReleaseStrategy returns the resource and error passed as values of the context.
-func (l *mockLoader) GetReleaseStrategy(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleaseStrategy, error) {
-	if ctx.Value(ReleaseStrategyContextKey) == nil {
-		return l.loader.GetReleaseStrategy(ctx, cli, releasePlanAdmission)
-	}
-	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleaseStrategyContextKey, &v1alpha1.ReleaseStrategy{})
 }
 
 // GetSnapshot returns the resource and error passed as values of the context.

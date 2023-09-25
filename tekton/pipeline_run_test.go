@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
-	"os"
 	"reflect"
 	"strings"
 
@@ -58,7 +57,7 @@ var _ = Describe("PipelineRun", func() {
 		release                     *v1alpha1.Release
 		extraParams                 *ExtraParams
 		releasePipelineRun          *ReleasePipelineRun
-		strategy                    *v1alpha1.ReleaseStrategy
+		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
 		enterpriseContractConfigMap *corev1.ConfigMap
 		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
 	)
@@ -115,9 +114,10 @@ var _ = Describe("PipelineRun", func() {
 				},
 			},
 		}
-		strategy = &v1alpha1.ReleaseStrategy{
-			Spec: v1alpha1.ReleaseStrategySpec{
-				PipelineRef: tektonutils.PipelineRef{
+		releasePlanAdmission = &v1alpha1.ReleasePlanAdmission{
+			Spec: v1alpha1.ReleasePlanAdmissionSpec{
+				Applications: []string{"application"},
+				PipelineRef: &tektonutils.PipelineRef{
 					Resolver: "bundles",
 					Params: []tektonutils.Param{
 						{Name: "bundle", Value: "testbundle"},
@@ -125,15 +125,8 @@ var _ = Describe("PipelineRun", func() {
 						{Name: "kind", Value: "pipeline"},
 					},
 				},
-				Policy:                "testpolicy",
-				PersistentVolumeClaim: persistentVolumeClaim,
-				ServiceAccount:        serviceAccountName,
-				Params: []v1alpha1.Params{
-					{
-						Name:   "testparam1",
-						Values: []string{"val1", "val2"},
-					},
-				},
+				Policy:         "testpolicy",
+				ServiceAccount: serviceAccountName,
 			},
 		}
 
@@ -199,15 +192,15 @@ var _ = Describe("PipelineRun", func() {
 				To(Equal(reflect.TypeOf(&tektonv1.PipelineRun{})))
 		})
 
-		It("can add the ReleaseStrategy information and bundle resolver if present to a PipelineRun object ", func() {
-			releasePipelineRun.WithReleaseStrategy(strategy)
+		It("can add the PipelineRef to a PipelineRun object ", func() {
+			releasePipelineRun.WithPipelineRef(releasePlanAdmission.Spec.PipelineRef.ToTektonPipelineRef())
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef).NotTo(Equal(tektonv1.ResolverRef{}))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Resolver).To(Equal(tektonv1.ResolverName("bundles")))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params).To(HaveLen(3))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Name).To(Equal("bundle"))
-			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Value.StringVal).To(Equal(strategy.Spec.PipelineRef.Params[0].Value))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Value.StringVal).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[0].Value))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Name).To(Equal("name"))
-			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Value.StringVal).To(Equal(strategy.Spec.PipelineRef.Params[1].Value))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Value.StringVal).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[1].Value))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[2].Name).To(Equal("kind"))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[2].Value.StringVal).To(Equal("pipeline"))
 		})
@@ -266,37 +259,6 @@ var _ = Describe("PipelineRun", func() {
 			Expect(releasePipelineRun.Spec.Params[0].Value.Type).To(Equal(tektonv1.ParamTypeString))
 			Expect(releasePipelineRun.Spec.Params[0].Value.StringVal).To(Equal(
 				fmt.Sprintf("%s%c%s", release.Namespace, types.Separator, release.Name)))
-		})
-	})
-
-	Context("WithReleaseStrategy handles all limbs of PVC conditional branch", func() {
-		When("strategy.Spec.PersistentVolumeClaim is empty", func() {
-			It("nothing happens when the DEFAULT_RELEASE_WORKSPACE_NAME environment variable is empty", func() {
-				os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "")
-				os.Setenv("DEFAULT_RELEASE_PVC", "bar")
-				strategy.Spec.PersistentVolumeClaim = ""
-				releasePipelineRun.WithReleaseStrategy(strategy)
-				Expect(releasePipelineRun.Spec.Workspaces).To(BeNil())
-			})
-		})
-		When("strategy.Spec.PersistentVolumeClaim is empty", func() {
-			It("nothing happens when the DEFAULT_RELEASE_PVC environment variable is empty", func() {
-				os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "foo")
-				os.Setenv("DEFAULT_RELEASE_PVC", "")
-				strategy.Spec.PersistentVolumeClaim = ""
-				releasePipelineRun.WithReleaseStrategy(strategy)
-				Expect(releasePipelineRun.Spec.Workspaces).To(BeNil())
-			})
-		})
-		When("strategy.Spec.PersistentVolumeClaim is empty", func() {
-			It("sets the ClaimName from the DEFAULT_RELEASE_PVC environment variable", func() {
-				os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "foo")
-				os.Setenv("DEFAULT_RELEASE_PVC", "bar")
-				strategy.Spec.PersistentVolumeClaim = ""
-				releasePipelineRun.WithReleaseStrategy(strategy)
-				Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("Name", Equal("foo"))))
-				Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("PersistentVolumeClaim.ClaimName", Equal("bar"))))
-			})
 		})
 	})
 })

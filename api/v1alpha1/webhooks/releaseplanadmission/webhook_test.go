@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -42,11 +43,18 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
-				DisplayName:     "Test release plan",
-				Application:     "application",
-				Origin:          "default",
-				Environment:     "environment",
-				ReleaseStrategy: "strategy",
+				Applications: []string{"application"},
+				Origin:       "default",
+				Environment:  "environment",
+				PipelineRef: &tektonutils.PipelineRef{
+					Resolver: "bundles",
+					Params: []tektonutils.Param{
+						{Name: "bundle", Value: "quay.io/some/bundle"},
+						{Name: "name", Value: "release-pipeline"},
+						{Name: "kind", Value: "pipeline"},
+					},
+				},
+				Policy: "policy",
 			},
 		}
 	})
