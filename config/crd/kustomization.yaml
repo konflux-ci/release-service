@@ -5,7 +5,6 @@ resources:
 - bases/appstudio.redhat.com_releases.yaml
 - bases/appstudio.redhat.com_releaseplanadmissions.yaml
 - bases/appstudio.redhat.com_releaseplans.yaml
-- bases/appstudio.redhat.com_releasestrategies.yaml
 - bases/appstudio.redhat.com_releaseserviceconfigs.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 

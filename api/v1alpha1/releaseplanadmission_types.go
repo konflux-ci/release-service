@@ -17,40 +17,46 @@ limitations under the License.
 package v1alpha1
 
 import (
+	shared "github.com/redhat-appstudio/shared-utils/tekton"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // ReleasePlanAdmissionSpec defines the desired state of ReleasePlanAdmission.
 type ReleasePlanAdmissionSpec struct {
-	// DisplayName is the long name of the ReleasePlanAdmission
-	// +optional
-	DisplayName string `json:"displayName"`
-
-	// Application is a reference to the application to be released in the managed namespace
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// Applications is a list of references to application to be released in the managed namespace
 	// +required
-	Application string `json:"application"`
+	Applications []string `json:"applications"`
+
+	// Data is an unstructured key used for providing data for the release Pipeline
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	Data *runtime.RawExtension `json:"data,omitempty"`
+
+	// Environment defines which Environment will be used to release the Application
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	Environment string `json:"environment,omitempty"`
 
 	// Origin references where the release requests should come from
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
 	Origin string `json:"origin"`
 
-	// Environment defines which Environment will be used to release the application
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-	// +optional
-	Environment string `json:"environment,omitempty"`
+	// PipelineRef is a reference to the Pipeline to be executed by the release PipelineRun
+	// +required
+	PipelineRef *shared.PipelineRef `json:"pipelineRef"`
 
-	// ReleaseStrategy defines which strategy will be used to release the application
+	// Policy to validate before releasing an artifact
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
-	ReleaseStrategy string `json:"releaseStrategy"`
+	Policy string `json:"policy"`
 
-	// ExtraData is used for providing extra data for the release pipeline
-	// +kubebuilder:pruning:PreserveUnknownFields
+	// ServiceAccount is the name of the service account to use in the
+	// release PipelineRun to gain elevated privileges
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
-	ExtraData *runtime.RawExtension `json:"extraData,omitempty"`
+	ServiceAccount string `json:"serviceAccount,omitempty"`
 }
 
 // ReleasePlanAdmissionStatus defines the observed state of ReleasePlanAdmission.
@@ -59,10 +65,7 @@ type ReleasePlanAdmissionStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Display Name",type=string,priority=1,JSONPath=`.spec.displayName`
-// +kubebuilder:printcolumn:name="Application",type=string,JSONPath=`.spec.application`
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
-// +kubebuilder:printcolumn:name="Strategy",type=string,JSONPath=`.spec.releaseStrategy`
 // +kubebuilder:printcolumn:name="Origin",type=string,JSONPath=`.spec.origin`
 
 // ReleasePlanAdmission is the Schema for the ReleasePlanAdmissions API.

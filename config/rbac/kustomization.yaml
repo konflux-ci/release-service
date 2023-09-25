@@ -23,9 +23,6 @@ resources:
 - releaseplan_editor_role.yaml
 - releaseplan_role_binding.yaml
 - releaseplan_viewer_role.yaml
-- releasestrategy_editor_role.yaml
-- releasestrategy_role_binding.yaml
-- releasestrategy_viewer_role.yaml
 - snapshotenvironmentbinding_editor_role.yaml
 - snapshotenvironmentbinding_role_binding.yaml
 - snapshot_editor_role.yaml

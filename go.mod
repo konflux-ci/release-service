@@ -10,6 +10,7 @@ require (
 	github.com/operator-framework/operator-lib v0.10.0
 	github.com/redhat-appstudio/application-api v0.0.0-20230427114540-a91722251e0a
 	github.com/redhat-appstudio/operator-toolkit v0.0.0-20230901144515-eeb937692f03
+	github.com/redhat-appstudio/shared-utils v0.0.0-20231002103625-9176b2cb3c73
 	github.com/tektoncd/pipeline v0.49.0
 	k8s.io/api v0.26.1
 	k8s.io/apimachinery v0.26.5
