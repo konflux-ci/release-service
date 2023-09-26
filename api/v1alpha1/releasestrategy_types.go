@@ -17,19 +17,15 @@ limitations under the License.
 package v1alpha1
 
 import (
+	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ReleaseStrategySpec defines the desired state of ReleaseStrategy
 type ReleaseStrategySpec struct {
-	// Release Tekton Pipeline to execute
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// PipelineRef is a reference to the Pipeline to be executed by the release PipelineRun
 	// +required
-	Pipeline string `json:"pipeline"`
-
-	// Bundle is a reference to the Tekton bundle where to find the pipeline
-	// +optional
-	Bundle string `json:"bundle,omitempty"`
+	PipelineRef tektonutils.PipelineRef `json:"pipelineRef"`
 
 	// Params to pass to the pipeline
 	// +optional

@@ -149,7 +149,7 @@ func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1
 
 // WithReleaseStrategy adds Pipeline reference and parameters to the release PipelineRun.
 func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrategy) *ReleasePipelineRun {
-	r.Spec.PipelineRef = getPipelineRef(strategy)
+	r.Spec.PipelineRef = strategy.Spec.PipelineRef.ToTektonPipelineRef()
 
 	valueType := tektonv1.ParamTypeString
 
@@ -199,47 +199,4 @@ func (r *ReleasePipelineRun) WithWorkspace(name, persistentVolumeClaim string) *
 	})
 
 	return r
-}
-
-// getBundleResolver returns a bundle ResolverRef for the given bundle and pipeline.
-func getBundleResolver(bundle, pipeline string) tektonv1.ResolverRef {
-	return tektonv1.ResolverRef{
-		Resolver: "bundles",
-		Params: []tektonv1.Param{
-			{
-				Name: "bundle",
-				Value: tektonv1.ParamValue{
-					Type:      tektonv1.ParamTypeString,
-					StringVal: bundle,
-				},
-			},
-			{
-				Name: "kind",
-				Value: tektonv1.ParamValue{
-					Type:      tektonv1.ParamTypeString,
-					StringVal: "pipeline",
-				},
-			},
-			{
-				Name: "name",
-				Value: tektonv1.ParamValue{
-					Type:      tektonv1.ParamTypeString,
-					StringVal: pipeline,
-				},
-			},
-		},
-	}
-}
-
-// getPipelineRef returns a PipelineRef generated from the information specified in the given ReleaseStrategy.
-func getPipelineRef(strategy *v1alpha1.ReleaseStrategy) *tektonv1.PipelineRef {
-	if strategy.Spec.Bundle == "" {
-		return &tektonv1.PipelineRef{
-			Name: strategy.Spec.Pipeline,
-		}
-	}
-
-	return &tektonv1.PipelineRef{
-		ResolverRef: getBundleResolver(strategy.Spec.Bundle, strategy.Spec.Pipeline),
-	}
 }
