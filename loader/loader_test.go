@@ -2,6 +2,7 @@ package loader
 
 import (
 	"fmt"
+	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 	"os"
 	"strings"
 
@@ -412,8 +413,15 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ReleaseStrategySpec{
-				Pipeline: "release-pipeline",
-				Policy:   enterpriseContractPolicy.Name,
+				PipelineRef: tektonutils.PipelineRef{
+					Resolver: "bundles",
+					Params: []tektonutils.Param{
+						{Name: "bundle", Value: "testbundle"},
+						{Name: "name", Value: "release-pipeline"},
+						{Name: "kind", Value: "pipeline"},
+					},
+				},
+				Policy: enterpriseContractPolicy.Name,
 			},
 		}
 		Expect(k8sClient.Create(ctx, releaseStrategy)).Should(Succeed())

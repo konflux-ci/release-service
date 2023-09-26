@@ -19,6 +19,7 @@ package utils
 import tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 
 // PipelineRef represents a reference to a Pipeline using a resolver.
+// +kubebuilder:object:generate=true
 type PipelineRef struct {
 	// Resolver is the name of a Tekton resolver to be used (e.g. git)
 	Resolver string `json:"resolver"`
@@ -37,7 +38,7 @@ type Param struct {
 }
 
 // ToTektonPipelineRef converts a PipelineRef object to Tekton's own PipelineRef type and returns it.
-func (pr PipelineRef) ToTektonPipelineRef() tektonv1.PipelineRef {
+func (pr PipelineRef) ToTektonPipelineRef() *tektonv1.PipelineRef {
 	params := tektonv1.Params{}
 
 	for _, p := range pr.Params {
@@ -50,7 +51,7 @@ func (pr PipelineRef) ToTektonPipelineRef() tektonv1.PipelineRef {
 		})
 	}
 
-	tektonPipelineRef := tektonv1.PipelineRef{
+	tektonPipelineRef := &tektonv1.PipelineRef{
 		ResolverRef: tektonv1.ResolverRef{
 			Resolver: tektonv1.ResolverName(pr.Resolver),
 			Params:   params,

@@ -628,7 +628,7 @@ func (a *adapter) validatePipelineRef() *controller.ValidationResult {
 		return &controller.ValidationResult{Err: err}
 	}
 
-	if !a.releaseServiceConfig.Spec.Debug && releaseStrategy.Spec.Bundle == "" {
+	if !a.releaseServiceConfig.Spec.Debug && releaseStrategy.Spec.PipelineRef.IsClusterScoped() {
 		a.release.MarkValidationFailed("tried using debug only options while debug mode is disabled in the ReleaseServiceConfig")
 		return &controller.ValidationResult{Valid: false}
 	}
