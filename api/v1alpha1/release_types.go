@@ -20,7 +20,7 @@ import (
 	"github.com/redhat-appstudio/operator-toolkit/conditions"
 	"time"
 
-	"github.com/redhat-appstudio/release-service/metrics"
+	"github.com/davidmogar/release-service/metrics"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

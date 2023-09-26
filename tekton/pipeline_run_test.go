@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	tektonutils "github.com/davidmogar/release-service/tekton/utils"
 	"os"
 	"reflect"
 	"strings"
@@ -32,7 +33,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/davidmogar/release-service/api/v1alpha1"
 
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -116,8 +117,14 @@ var _ = Describe("PipelineRun", func() {
 		}
 		strategy = &v1alpha1.ReleaseStrategy{
 			Spec: v1alpha1.ReleaseStrategySpec{
-				Pipeline:              "release-pipeline",
-				Bundle:                "testbundle",
+				PipelineRef: tektonutils.PipelineRef{
+					Resolver: "bundles",
+					Params: []tektonutils.Param{
+						{Name: "bundle", Value: "testbundle"},
+						{Name: "name", Value: "release-pipeline"},
+						{Name: "kind", Value: "pipeline"},
+					},
+				},
 				Policy:                "testpolicy",
 				PersistentVolumeClaim: persistentVolumeClaim,
 				ServiceAccount:        serviceAccountName,
@@ -198,11 +205,11 @@ var _ = Describe("PipelineRun", func() {
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Resolver).To(Equal(tektonv1.ResolverName("bundles")))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params).To(HaveLen(3))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Name).To(Equal("bundle"))
-			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Value.StringVal).To(Equal(strategy.Spec.Bundle))
-			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Name).To(Equal("kind"))
-			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Value.StringVal).To(Equal("pipeline"))
-			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[2].Name).To(Equal("name"))
-			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[2].Value.StringVal).To(Equal(strategy.Spec.Pipeline))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Value.StringVal).To(Equal(strategy.Spec.PipelineRef.Params[0].Value))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Name).To(Equal("name"))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Value.StringVal).To(Equal(strategy.Spec.PipelineRef.Params[1].Value))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[2].Name).To(Equal("kind"))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[2].Value.StringVal).To(Equal("pipeline"))
 		})
 
 		It("can add the reference to the service account that should be used", func() {
@@ -290,50 +297,6 @@ var _ = Describe("PipelineRun", func() {
 				Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("Name", Equal("foo"))))
 				Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("PersistentVolumeClaim.ClaimName", Equal("bar"))))
 			})
-		})
-	})
-
-	When("calling getPipelineRef", func() {
-		It("should return a PipelineRef without resolver if the releaseStrategy does not contain a bundle", func() {
-			releaseStrategy := &v1alpha1.ReleaseStrategy{
-				Spec: v1alpha1.ReleaseStrategySpec{
-					Pipeline: "release-pipeline",
-					Policy:   "testpolicy",
-				},
-			}
-
-			pipelineRef := getPipelineRef(releaseStrategy)
-			Expect(pipelineRef.Name).To(Equal(releaseStrategy.Spec.Pipeline))
-			Expect(pipelineRef.ResolverRef).To(Equal(tektonv1.ResolverRef{}))
-		})
-
-		It("should return a PipelineRef with a bundle resolver if the releaseStrategy contains a bundle", func() {
-			pipelineRef := getPipelineRef(strategy)
-			Expect(pipelineRef.Name).To(BeEmpty())
-			Expect(pipelineRef.ResolverRef).NotTo(Equal(tektonv1.ResolverRef{}))
-			Expect(pipelineRef.ResolverRef.Resolver).To(Equal(tektonv1.ResolverName("bundles")))
-			Expect(pipelineRef.ResolverRef.Params).To(HaveLen(3))
-			Expect(pipelineRef.ResolverRef.Params[0].Name).To(Equal("bundle"))
-			Expect(pipelineRef.ResolverRef.Params[0].Value.StringVal).To(Equal(strategy.Spec.Bundle))
-			Expect(pipelineRef.ResolverRef.Params[1].Name).To(Equal("kind"))
-			Expect(pipelineRef.ResolverRef.Params[1].Value.StringVal).To(Equal("pipeline"))
-			Expect(pipelineRef.ResolverRef.Params[2].Name).To(Equal("name"))
-			Expect(pipelineRef.ResolverRef.Params[2].Value.StringVal).To(Equal(strategy.Spec.Pipeline))
-		})
-	})
-
-	When("calling getBundleResolver", func() {
-		It("should return a bundle resolver referencing the releaseStrategy Bundle and Pipeline", func() {
-			bundleResolver := getBundleResolver(strategy.Spec.Bundle, strategy.Spec.Pipeline)
-			Expect(bundleResolver).NotTo(Equal(tektonv1.ResolverRef{}))
-			Expect(bundleResolver.Resolver).To(Equal(tektonv1.ResolverName("bundles")))
-			Expect(bundleResolver.Params).To(HaveLen(3))
-			Expect(bundleResolver.Params[0].Name).To(Equal("bundle"))
-			Expect(bundleResolver.Params[0].Value.StringVal).To(Equal(strategy.Spec.Bundle))
-			Expect(bundleResolver.Params[1].Name).To(Equal("kind"))
-			Expect(bundleResolver.Params[1].Value.StringVal).To(Equal("pipeline"))
-			Expect(bundleResolver.Params[2].Name).To(Equal("name"))
-			Expect(bundleResolver.Params[2].Value.StringVal).To(Equal(strategy.Spec.Pipeline))
 		})
 	})
 })

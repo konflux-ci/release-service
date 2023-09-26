@@ -16,13 +16,13 @@
 package releaseplanadmission
 
 import (
+	"github.com/davidmogar/release-service/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/redhat-appstudio/release-service/metadata"
+	"github.com/davidmogar/release-service/metadata"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//+kubebuilder:scaffold:imports

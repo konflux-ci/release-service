@@ -23,13 +23,13 @@ import (
 
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 
+	"github.com/davidmogar/release-service/api/v1alpha1"
+	"github.com/davidmogar/release-service/gitops"
+	"github.com/davidmogar/release-service/loader"
+	"github.com/davidmogar/release-service/metadata"
+	"github.com/davidmogar/release-service/syncer"
+	"github.com/davidmogar/release-service/tekton"
 	"github.com/go-logr/logr"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/gitops"
-	"github.com/redhat-appstudio/release-service/loader"
-	"github.com/redhat-appstudio/release-service/metadata"
-	"github.com/redhat-appstudio/release-service/syncer"
-	"github.com/redhat-appstudio/release-service/tekton"
 
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
@@ -628,7 +628,7 @@ func (a *adapter) validatePipelineRef() *controller.ValidationResult {
 		return &controller.ValidationResult{Err: err}
 	}
 
-	if !a.releaseServiceConfig.Spec.Debug && releaseStrategy.Spec.Bundle == "" {
+	if !a.releaseServiceConfig.Spec.Debug && releaseStrategy.Spec.PipelineRef.IsClusterScoped() {
 		a.release.MarkValidationFailed("tried using debug only options while debug mode is disabled in the ReleaseServiceConfig")
 		return &controller.ValidationResult{Valid: false}
 	}

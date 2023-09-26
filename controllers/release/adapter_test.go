@@ -20,18 +20,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	tektonutils "github.com/davidmogar/release-service/tekton/utils"
 	"os"
 	"reflect"
 	"strings"
 
+	"github.com/davidmogar/release-service/api/v1alpha1"
+	"github.com/davidmogar/release-service/loader"
+	"github.com/davidmogar/release-service/metadata"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/operator-framework/operator-lib/handler"
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/loader"
-	"github.com/redhat-appstudio/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -878,7 +879,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					pipelineName = resolverParams[i].Value.StringVal
 				}
 			}
-			Expect(pipelineName).To(Equal(releaseStrategy.Spec.Pipeline))
+			Expect(pipelineName).To(Equal(releaseStrategy.Spec.PipelineRef.Params[1].Value))
 		})
 
 		It("contains parameters with the verify ec task git resolver information", func() {
@@ -1573,7 +1574,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.IsValid()).To(BeFalse())
 		})
 
-		It("returns invalid and no error if debug is false and RS has no bundle value", func() {
+		It("returns invalid and no error if debug is false and RS uses a cluster resolver", func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
@@ -1587,8 +1588,15 @@ var _ = Describe("Release adapter", Ordered, func() {
 							Namespace: "default",
 						},
 						Spec: v1alpha1.ReleaseStrategySpec{
-							Pipeline: "release-pipeline",
-							Policy:   enterpriseContractPolicy.Name,
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "cluster",
+								Params: []tektonutils.Param{
+									{Name: "name", Value: "release-pipeline"},
+									{Name: "namespace", Value: "default"},
+									{Name: "kind", Value: "pipeline"},
+								},
+							},
+							Policy: enterpriseContractPolicy.Name,
 						},
 					},
 				},
@@ -1748,9 +1756,15 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ReleaseStrategySpec{
-				Pipeline: "release-pipeline",
-				Policy:   enterpriseContractPolicy.Name,
-				Bundle:   "quay.io/some/bundle",
+				PipelineRef: tektonutils.PipelineRef{
+					Resolver: "bundles",
+					Params: []tektonutils.Param{
+						{Name: "bundle", Value: "quay.io/some/bundle"},
+						{Name: "name", Value: "release-pipeline"},
+						{Name: "kind", Value: "pipeline"},
+					},
+				},
+				Policy: enterpriseContractPolicy.Name,
 			},
 		}
 		Expect(k8sClient.Create(ctx, releaseStrategy)).Should(Succeed())

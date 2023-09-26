@@ -20,7 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/davidmogar/release-service/api/v1alpha1"
 	"net"
 	"path/filepath"
 	"testing"

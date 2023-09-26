@@ -18,11 +18,11 @@ package releaseplan
 
 import (
 	"context"
+	"github.com/davidmogar/release-service/api/v1alpha1"
+	"github.com/davidmogar/release-service/loader"
+	"github.com/davidmogar/release-service/syncer"
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/operator-toolkit/controller"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/loader"
-	"github.com/redhat-appstudio/release-service/syncer"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

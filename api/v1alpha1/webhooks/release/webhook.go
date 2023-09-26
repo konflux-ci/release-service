@@ -19,8 +19,8 @@ package release
 import (
 	"context"
 	"fmt"
+	"github.com/davidmogar/release-service/api/v1alpha1"
 	"github.com/go-logr/logr"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"

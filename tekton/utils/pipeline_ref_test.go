@@ -50,7 +50,7 @@ var _ = Describe("Release type", func() {
 			Params: []Param{
 				{Name: "bundle", Value: "my-bundle"},
 				{Name: "name", Value: "my-pipeline"},
-				{Name: "kind", Value: "Pipeline"},
+				{Name: "kind", Value: "pipeline"},
 			},
 		}
 	})
@@ -85,7 +85,7 @@ var _ = Describe("Release type", func() {
 			Expect(params[1].Name).To(Equal("name"))
 			Expect(params[1].Value.StringVal).To(Equal("my-pipeline"))
 			Expect(params[2].Name).To(Equal("kind"))
-			Expect(params[2].Value.StringVal).To(Equal("Pipeline"))
+			Expect(params[2].Value.StringVal).To(Equal("pipeline"))
 		})
 	})
 

@@ -17,12 +17,12 @@ package author
 
 import (
 	"encoding/json"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/davidmogar/release-service/api/v1alpha1"
 	"net/http"
 
+	"github.com/davidmogar/release-service/metadata"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-appstudio/release-service/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	admissionv1 "k8s.io/api/admission/v1"

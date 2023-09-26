@@ -8,10 +8,10 @@ import (
 
 	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 
+	"github.com/davidmogar/release-service/api/v1alpha1"
+	"github.com/davidmogar/release-service/metadata"
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
