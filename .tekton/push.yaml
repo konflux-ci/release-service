@@ -15,15 +15,11 @@ spec:
       value: "{{ revision }}"
     - name: output-image
       value: 'quay.io/redhat-appstudio/release-service:{{ revision }}'
-    - name: infra-deployment-update-script
-      value: |
-        sed -i -e 's|\(https://github.com/redhat-appstudio/release-service/config/default?ref=\)\(.*\)|\1{{ revision }}|' -e 's/\(newTag: \).*/\1{{ revision }}/' components/release/kustomization.yaml
-        sed -i -e 's|\(https://github.com/redhat-appstudio/release-service/config/grafana/?ref=\)\(.*\)|\1{{ revision }}|' -e 's//\1{{ revision }}/' components/monitoring/grafana/base/dashboards/release/kustomization.yaml
   pipelineRef:
     params:
       - name: bundle
         value: >-
-          quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
+          quay.io/redhat-appstudio-tekton-catalog/pipeline-docker-build:568297791556c58d8ad9d999bf2ccbbcf96ce868
       - name: name
         value: docker-build
       - name: kind

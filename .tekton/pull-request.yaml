@@ -19,7 +19,7 @@ spec:
     params:
       - name: bundle
         value: >-
-          quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
+          quay.io/redhat-appstudio-tekton-catalog/pipeline-docker-build:568297791556c58d8ad9d999bf2ccbbcf96ce868
       - name: name
         value: docker-build
       - name: kind
