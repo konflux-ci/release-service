@@ -35,10 +35,6 @@ spec:
           spec:
             description: ReleaseStrategySpec defines the desired state of ReleaseStrategy
             properties:
-              bundle:
-                description: Bundle is a reference to the Tekton bundle where to find
-                  the pipeline
-                type: string
               params:
                 description: Params to pass to the pipeline
                 items:
@@ -65,10 +61,35 @@ spec:
                   pipeline namespace
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
-              pipeline:
-                description: Release Tekton Pipeline to execute
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
+              pipelineRef:
+                description: PipelineRef is a reference to the Pipeline to be executed
+                  by the release PipelineRun
+                properties:
+                  params:
+                    description: Params is a slice of parameters for a given resolver
+                    items:
+                      description: Param defines the parameters for a given resolver
+                        in PipelineRef
+                      properties:
+                        name:
+                          description: Name is the name of the parameter
+                          type: string
+                        value:
+                          description: Value is the value of the parameter
+                          type: string
+                      required:
+                      - name
+                      - value
+                      type: object
+                    type: array
+                  resolver:
+                    description: Resolver is the name of a Tekton resolver to be used
+                      (e.g. git)
+                    type: string
+                required:
+                - params
+                - resolver
+                type: object
               policy:
                 description: Policy to validate before releasing an artifact
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -79,7 +100,7 @@ spec:
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
             required:
-            - pipeline
+            - pipelineRef
             - policy
             type: object
           status:
