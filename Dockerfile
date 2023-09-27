@@ -30,6 +30,13 @@ ENV ENABLE_WEBHOOKS=${ENABLE_WEBHOOKS}
 # See https://catalog.redhat.com/software/containers/ubi9/ubi-micro/615bdf943f6014fa45ae1b58
 FROM registry.access.redhat.com/ubi9/ubi-micro:9.1.0
 COPY --from=builder /opt/app-root/src/manager /
+
+# It is mandatory to set these labels
+LABEL description="RHTAP Release Service"
+LABEL io.k8s.description="RHTAP Release Service"
+LABEL io.k8s.display-name="release-service"
+LABEL summary="RHTAP Release Service"
+
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]
