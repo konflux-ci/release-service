@@ -42,19 +42,19 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("does nothing if the start time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(nil, completionTime, "", "", "", "", "", "", "")
+			RegisterCompletedRelease(nil, completionTime, "", "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("does nothing if the completion time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(startTime, nil, "", "", "", "", "", "", "")
+			RegisterCompletedRelease(startTime, nil, "", "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("decrements ReleaseConcurrentTotal", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(startTime, completionTime, "", "", "", "", "", "", "")
+			RegisterCompletedRelease(startTime, completionTime, "", "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(-1)))
 		})
 
@@ -66,7 +66,6 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releaseDurationSecondsLabels[3],
 				releaseDurationSecondsLabels[4],
 				releaseDurationSecondsLabels[5],
-				releaseDurationSecondsLabels[6],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseDurationSeconds,
 				test.NewHistogramReader(
@@ -84,7 +83,6 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releaseTotalLabels[3],
 				releaseTotalLabels[4],
 				releaseTotalLabels[5],
-				releaseTotalLabels[6],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseTotal,
 				test.NewCounterReader(
@@ -190,19 +188,19 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("does nothing if the start time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleaseProcessing(nil, completionTime, "", "", "")
+			RegisterCompletedReleaseProcessing(nil, completionTime, "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("does nothing if the completion time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleaseProcessing(startTime, nil, "", "", "")
+			RegisterCompletedReleaseProcessing(startTime, nil, "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("decrements ReleaseConcurrentProcessingsTotal", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleaseProcessing(startTime, completionTime, "", "", "")
+			RegisterCompletedReleaseProcessing(startTime, completionTime, "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(-1)))
 		})
 
@@ -210,7 +208,6 @@ var _ = Describe("Release metrics", Ordered, func() {
 			RegisterCompletedReleaseProcessing(startTime, completionTime,
 				releaseProcessingDurationSecondsLabels[0],
 				releaseProcessingDurationSecondsLabels[1],
-				releaseProcessingDurationSecondsLabels[2],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseProcessingDurationSeconds,
 				test.NewHistogramReader(

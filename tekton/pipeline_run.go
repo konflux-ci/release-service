@@ -19,7 +19,6 @@ package tekton
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"unicode"
 
@@ -133,6 +132,13 @@ func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipeli
 	return r
 }
 
+// WithPipelineRef sets the PipelineRef for the release PipelineRun.
+func (r *ReleasePipelineRun) WithPipelineRef(pipelineRef *tektonv1.PipelineRef) *ReleasePipelineRun {
+	r.Spec.PipelineRef = pipelineRef
+
+	return r
+}
+
 // WithReleaseAndApplicationMetadata adds Release and Application metadata to the release PipelineRun.
 func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1.Release, applicationName string) *ReleasePipelineRun {
 	r.ObjectMeta.Labels = map[string]string{
@@ -143,35 +149,6 @@ func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1
 	}
 	metadata.AddAnnotations(r.AsPipelineRun(), metadata.GetAnnotationsWithPrefix(release, integrationServiceGitopsPkg.PipelinesAsCodePrefix))
 	metadata.AddLabels(r.AsPipelineRun(), metadata.GetLabelsWithPrefix(release, integrationServiceGitopsPkg.PipelinesAsCodePrefix))
-
-	return r
-}
-
-// WithReleaseStrategy adds Pipeline reference and parameters to the release PipelineRun.
-func (r *ReleasePipelineRun) WithReleaseStrategy(strategy *v1alpha1.ReleaseStrategy) *ReleasePipelineRun {
-	r.Spec.PipelineRef = strategy.Spec.PipelineRef.ToTektonPipelineRef()
-
-	valueType := tektonv1.ParamTypeString
-
-	for _, param := range strategy.Spec.Params {
-		if len(param.Values) > 0 {
-			valueType = tektonv1.ParamTypeArray
-		}
-
-		r.WithExtraParam(param.Name, tektonv1.ParamValue{
-			Type:      valueType,
-			StringVal: param.Value,
-			ArrayVal:  param.Values,
-		})
-	}
-
-	if strategy.Spec.PersistentVolumeClaim == "" {
-		r.WithWorkspace(os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"), os.Getenv("DEFAULT_RELEASE_PVC"))
-	} else {
-		r.WithWorkspace(os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"), strategy.Spec.PersistentVolumeClaim)
-	}
-
-	r.WithServiceAccount(strategy.Spec.ServiceAccount)
 
 	return r
 }

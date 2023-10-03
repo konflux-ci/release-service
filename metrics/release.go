@@ -79,7 +79,6 @@ var (
 		"post_actions_reason",
 		"processing_reason",
 		"release_reason",
-		"release_strategy",
 		"target",
 		"validation_reason",
 	}
@@ -108,7 +107,6 @@ var (
 	)
 	releaseProcessingDurationSecondsLabels = []string{
 		"reason",
-		"release_strategy",
 		"target",
 	}
 	releaseProcessingDurationSecondsOpts = prometheus.HistogramOpts{
@@ -126,7 +124,6 @@ var (
 		"post_actions_reason",
 		"processing_reason",
 		"release_reason",
-		"release_strategy",
 		"target",
 		"validation_reason",
 	}
@@ -140,7 +137,7 @@ var (
 // observation for the Release duration and increasing the total number of releases. If either the startTime or the
 // completionTime parameters are nil, no action will be taken.
 func RegisterCompletedRelease(startTime, completionTime *metav1.Time,
-	deploymentReason, postActionsReason, processingReason, releaseReason, releaseStrategy, target, validationReason string) {
+	deploymentReason, postActionsReason, processingReason, releaseReason, target, validationReason string) {
 	if startTime == nil || completionTime == nil {
 		return
 	}
@@ -150,7 +147,6 @@ func RegisterCompletedRelease(startTime, completionTime *metav1.Time,
 		"post_actions_reason": postActionsReason,
 		"processing_reason":   processingReason,
 		"release_reason":      releaseReason,
-		"release_strategy":    releaseStrategy,
 		"target":              target,
 		"validation_reason":   validationReason,
 	}
@@ -198,16 +194,15 @@ func RegisterCompletedReleasePostActionsExecuted(startTime, completionTime *meta
 // RegisterCompletedReleaseProcessing registers a Release processing as complete, adding a new observation for the
 // Release processing duration and decreasing the number of concurrent processings. If either the startTime or the
 // completionTime parameters are nil, no action will be taken.
-func RegisterCompletedReleaseProcessing(startTime, completionTime *metav1.Time, reason, releaseStrategy, target string) {
+func RegisterCompletedReleaseProcessing(startTime, completionTime *metav1.Time, reason, target string) {
 	if startTime == nil || completionTime == nil {
 		return
 	}
 
 	ReleaseProcessingDurationSeconds.
 		With(prometheus.Labels{
-			"reason":           reason,
-			"release_strategy": releaseStrategy,
-			"target":           target,
+			"reason": reason,
+			"target": target,
 		}).
 		Observe(completionTime.Sub(startTime.Time).Seconds())
 	ReleaseConcurrentProcessingsTotal.WithLabelValues().Dec()
