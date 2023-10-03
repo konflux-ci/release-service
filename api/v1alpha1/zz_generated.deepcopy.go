@@ -22,7 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/redhat-appstudio/shared-utils/tekton"
+	"github.com/redhat-appstudio/release-service/tekton/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -271,7 +271,7 @@ func (in *ReleasePlanAdmissionSpec) DeepCopyInto(out *ReleasePlanAdmissionSpec) 
 	}
 	if in.PipelineRef != nil {
 		in, out := &in.PipelineRef, &out.PipelineRef
-		*out = new(tekton.PipelineRef)
+		*out = new(utils.PipelineRef)
 		(*in).DeepCopyInto(*out)
 	}
 }
@@ -343,7 +343,7 @@ func (in *ReleasePlanSpec) DeepCopyInto(out *ReleasePlanSpec) {
 	}
 	if in.PipelineRef != nil {
 		in, out := &in.PipelineRef, &out.PipelineRef
-		*out = new(tekton.PipelineRef)
+		*out = new(utils.PipelineRef)
 		(*in).DeepCopyInto(*out)
 	}
 }

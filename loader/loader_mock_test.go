@@ -185,21 +185,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	When("calling GetReleaseStrategy", func() {
-		It("returns the resource and error from the context", func() {
-			releaseStrategy := &v1alpha1.ReleaseStrategy{}
-			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: ReleaseStrategyContextKey,
-					Resource:   releaseStrategy,
-				},
-			})
-			resource, err := loader.GetReleaseStrategy(mockContext, nil, nil)
-			Expect(resource).To(Equal(releaseStrategy))
-			Expect(err).To(BeNil())
-		})
-	})
-
 	When("calling GetSnapshot", func() {
 		It("returns the resource and error from the context", func() {
 			snapshot := &applicationapiv1alpha1.Snapshot{}

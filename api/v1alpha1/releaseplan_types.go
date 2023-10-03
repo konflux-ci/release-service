@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	shared "github.com/redhat-appstudio/shared-utils/tekton"
+	shared "github.com/redhat-appstudio/release-service/tekton/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -35,7 +35,7 @@ type ReleasePlanSpec struct {
 	Data *runtime.RawExtension `json:"data,omitempty"`
 
 	// PipelineRef is an optional reference to a Pipeline that would be executed
-	// before the release Pipeline.
+	// before the release Pipeline
 	// +optional
 	PipelineRef *shared.PipelineRef `json:"pipelineRef,omitempty"`
 

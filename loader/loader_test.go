@@ -2,7 +2,7 @@ package loader
 
 import (
 	"fmt"
-	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
+	shared "github.com/redhat-appstudio/release-service/tekton/utils"
 	"os"
 	"strings"
 
@@ -36,7 +36,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		releasePlan                 *v1alpha1.ReleasePlan
 		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
 		releaseServiceConfig        *v1alpha1.ReleaseServiceConfig
-		releaseStrategy             *v1alpha1.ReleaseStrategy
 		snapshot                    *applicationapiv1alpha1.Snapshot
 		snapshotEnvironmentBinding  *applicationapiv1alpha1.SnapshotEnvironmentBinding
 	)
@@ -146,7 +145,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetEnterpriseContractPolicy", func() {
 		It("returns the requested enterprise contract policy", func() {
-			returnedObject, err := loader.GetEnterpriseContractPolicy(ctx, k8sClient, releaseStrategy)
+			returnedObject, err := loader.GetEnterpriseContractPolicy(ctx, k8sClient, releasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&ecapiv1alpha1.EnterpriseContractPolicy{}))
 			Expect(returnedObject.Name).To(Equal(enterpriseContractPolicy.Name))
@@ -164,7 +163,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetManagedApplication", func() {
 		It("returns the requested application", func() {
-			returnedObject, err := loader.GetManagedApplication(ctx, k8sClient, releasePlanAdmission)
+			returnedObject, err := loader.GetManagedApplication(ctx, k8sClient, releasePlan)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Application{}))
 			Expect(returnedObject.Name).To(Equal(application.Name))
@@ -222,15 +221,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleaseServiceConfig{}))
 			Expect(returnedObject.Name).To(Equal(releaseServiceConfig.Name))
-		})
-	})
-
-	When("calling GetReleaseStrategy", func() {
-		It("returns the requested release strategy", func() {
-			returnedObject, err := loader.GetReleaseStrategy(ctx, k8sClient, releasePlanAdmission)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleaseStrategy{}))
-			Expect(returnedObject.Name).To(Equal(releaseStrategy.Name))
 		})
 	})
 
@@ -294,11 +284,19 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("fails if any resource fails to be fetched", func() {
-			modifiedReleasePlanAdmission := releasePlanAdmission.DeepCopy()
-			modifiedReleasePlanAdmission.Spec.Application = "non-existent-application"
+			newReleasePlan := releasePlan.DeepCopy()
+			newReleasePlan.Name = "new-release-plan"
+			newReleasePlan.ResourceVersion = ""
+			newReleasePlan.Spec.Application = "non-existent-application"
+			Expect(k8sClient.Create(ctx, newReleasePlan)).To(Succeed())
 
-			_, err := loader.GetDeploymentResources(ctx, k8sClient, release, modifiedReleasePlanAdmission)
+			modifiedRelease := release.DeepCopy()
+			modifiedRelease.Spec.ReleasePlan = newReleasePlan.Name
+
+			_, err := loader.GetDeploymentResources(ctx, k8sClient, modifiedRelease, releasePlanAdmission)
 			Expect(err).To(HaveOccurred())
+
+			Expect(k8sClient.Delete(ctx, newReleasePlan)).To(Succeed())
 		})
 	})
 
@@ -312,7 +310,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				"EnterpriseContractPolicy":    Not(BeNil()),
 				"ReleasePlan":                 Not(BeNil()),
 				"ReleasePlanAdmission":        Not(BeNil()),
-				"ReleaseStrategy":             Not(BeNil()),
 				"Snapshot":                    Not(BeNil()),
 			}))
 		})
@@ -407,25 +404,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, releaseServiceConfig)).To(Succeed())
 
-		releaseStrategy = &v1alpha1.ReleaseStrategy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "release-strategy",
-				Namespace: "default",
-			},
-			Spec: v1alpha1.ReleaseStrategySpec{
-				PipelineRef: tektonutils.PipelineRef{
-					Resolver: "bundles",
-					Params: []tektonutils.Param{
-						{Name: "bundle", Value: "testbundle"},
-						{Name: "name", Value: "release-pipeline"},
-						{Name: "kind", Value: "pipeline"},
-					},
-				},
-				Policy: enterpriseContractPolicy.Name,
-			},
-		}
-		Expect(k8sClient.Create(ctx, releaseStrategy)).Should(Succeed())
-
 		releasePlanAdmission = &v1alpha1.ReleasePlanAdmission{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "release-plan-admission",
@@ -435,10 +413,18 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 			},
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
-				Application:     application.Name,
-				Origin:          "default",
-				Environment:     environment.Name,
-				ReleaseStrategy: releaseStrategy.Name,
+				Applications: []string{application.Name},
+				Environment:  environment.Name,
+				Origin:       "default",
+				PipelineRef: &shared.PipelineRef{
+					Resolver: "bundles",
+					Params: []shared.Param{
+						{Name: "bundle", Value: "testbundle"},
+						{Name: "name", Value: "release-pipeline"},
+						{Name: "kind", Value: "pipeline"},
+					},
+				},
+				Policy: enterpriseContractPolicy.Name,
 			},
 		}
 		Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
@@ -502,7 +488,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(k8sClient.Delete(ctx, release)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlan)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlanAdmission)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, releaseStrategy)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshot)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshotEnvironmentBinding)).To(Succeed())
 	}
