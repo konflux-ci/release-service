@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	shared "github.com/redhat-appstudio/release-service/tekton/utils"
+	shared "github.com/davidmogar/release-service/tekton/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )

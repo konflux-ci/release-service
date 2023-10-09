@@ -310,6 +310,7 @@ github.com/redhat-appstudio/integration-service v0.0.0-20221130110641-f5453dea96
 github.com/redhat-appstudio/operator-goodies v0.0.0-20221127150647-a39dc9da8d18 h1:406ioF+WblVzI6S6SzaSrzpcE86nj9rMEJzbE0iOhHY=
 github.com/redhat-appstudio/operator-toolkit v0.0.0-20230901144515-eeb937692f03 h1:3cHK+a1D+VwhzGoAnC2HXbjkywT/b8jDDaiew2KgpPw=
 github.com/redhat-appstudio/operator-toolkit v0.0.0-20230901144515-eeb937692f03/go.mod h1:7cX2+4KGZLJ4Yoj+1v0iV5hkCGBzbSd9wkNJQjCdDJs=
+github.com/redhat-appstudio/release-service v0.0.0-20221116195308-308d82e909fa h1:04xP6GQmZ7Qgo8X3I86iAM8wF8jp35J1nr0Nx0hOsAA=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=

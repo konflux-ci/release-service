@@ -20,7 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	shared "github.com/redhat-appstudio/release-service/tekton/utils"
+	shared "github.com/davidmogar/release-service/tekton/utils"
 	"reflect"
 	"strings"
 
@@ -32,7 +32,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/davidmogar/release-service/api/v1alpha1"
 
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -27,12 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/davidmogar/release-service/metadata"
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/metadata"
 
+	"github.com/davidmogar/release-service/api/v1alpha1"
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	integrationServiceGitopsPkg "github.com/redhat-appstudio/integration-service/gitops"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

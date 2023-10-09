@@ -2,17 +2,17 @@ package loader
 
 import (
 	"fmt"
-	shared "github.com/redhat-appstudio/release-service/tekton/utils"
+	shared "github.com/davidmogar/release-service/tekton/utils"
 	"os"
 	"strings"
 
+	"github.com/davidmogar/release-service/api/v1alpha1"
+	"github.com/davidmogar/release-service/metadata"
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

@@ -1,4 +1,4 @@
-module github.com/redhat-appstudio/release-service
+module github.com/davidmogar/release-service
 
 go 1.19
 
@@ -25,6 +25,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	golang.org/x/exp v0.0.0-20230307190834-24139beb5833 // indirect
+
 )
 
 require (

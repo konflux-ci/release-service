@@ -14,7 +14,7 @@ resources:
   domain: redhat.com
   group: appstudio
   kind: Release
-  path: github.com/redhat-appstudio/release-service/api/v1alpha1
+  path: github.com/davidmogar/release-service/api/v1alpha1
   version: v1alpha1
   webhooks:
     validation: true
@@ -31,7 +31,7 @@ resources:
   domain: redhat.com
   group: appstudio
   kind: ReleasePlan
-  path: github.com/redhat-appstudio/release-service/api/v1alpha1
+  path: github.com/davidmogar/release-service/api/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -43,7 +43,7 @@ resources:
   domain: redhat.com
   group: appstudio
   kind: ReleasePlanAdmission
-  path: github.com/redhat-appstudio/release-service/api/v1alpha1
+  path: github.com/davidmogar/release-service/api/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -55,6 +55,6 @@ resources:
   domain: redhat.com
   group: appstudio
   kind: ReleaseServiceConfig
-  path: github.com/redhat-appstudio/release-service/api/v1alpha1
+  path: github.com/davidmogar/release-service/api/v1alpha1
   version: v1alpha1
 version: "3"
