@@ -137,11 +137,6 @@ type ProcessingInfo struct {
 	// +optional
 	PipelineRun string `json:"pipelineRun,omitempty"`
 
-	// ReleaseStrategy contains the namespaced name of the ReleaseStrategy used for this release
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-	// +optional
-	ReleaseStrategy string `json:"releaseStrategy,omitempty"`
-
 	// StartTime is the time when the Release processing started
 	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`
@@ -313,7 +308,6 @@ func (r *Release) MarkProcessed() {
 		r.Status.Processing.StartTime,
 		r.Status.Processing.CompletionTime,
 		SucceededReason.String(),
-		r.Status.Processing.ReleaseStrategy,
 		r.Status.Target,
 	)
 }
@@ -346,7 +340,6 @@ func (r *Release) MarkProcessingFailed(message string) {
 		r.Status.Processing.StartTime,
 		r.Status.Processing.CompletionTime,
 		FailedReason.String(),
-		r.Status.Processing.ReleaseStrategy,
 		r.Status.Target,
 	)
 }
@@ -414,7 +407,6 @@ func (r *Release) MarkReleased() {
 		r.getPhaseReason(postActionsExecutedConditionType),
 		r.getPhaseReason(processedConditionType),
 		SucceededReason.String(),
-		r.Status.Processing.ReleaseStrategy,
 		r.Status.Target,
 		r.getPhaseReason(validatedConditionType),
 	)
@@ -451,7 +443,6 @@ func (r *Release) MarkReleaseFailed(message string) {
 		r.getPhaseReason(postActionsExecutedConditionType),
 		r.getPhaseReason(processedConditionType),
 		FailedReason.String(),
-		r.Status.Processing.ReleaseStrategy,
 		r.Status.Target,
 		r.getPhaseReason(validatedConditionType),
 	)

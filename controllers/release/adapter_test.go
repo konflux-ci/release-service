@@ -60,7 +60,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 		releasePlan                 *v1alpha1.ReleasePlan
 		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
 		releaseServiceConfig        *v1alpha1.ReleaseServiceConfig
-		releaseStrategy             *v1alpha1.ReleaseStrategy
 		snapshot                    *applicationapiv1alpha1.Snapshot
 		snapshotEnvironmentBinding  *applicationapiv1alpha1.SnapshotEnvironmentBinding
 	)
@@ -145,7 +144,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 						EnterpriseContractPolicy:    enterpriseContractPolicy,
 						ReleasePlan:                 releasePlan,
 						ReleasePlanAdmission:        releasePlanAdmission,
-						ReleaseStrategy:             releaseStrategy,
 						Snapshot:                    snapshot,
 					},
 				},
@@ -318,9 +316,17 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
-					Application:     "app",
-					Origin:          "default",
-					ReleaseStrategy: "strategy",
+					Applications: []string{"app"},
+					Origin:       "default",
+					PipelineRef: &tektonutils.PipelineRef{
+						Resolver: "bundles",
+						Params: []tektonutils.Param{
+							{Name: "bundle", Value: "quay.io/some/bundle"},
+							{Name: "name", Value: "release-pipeline"},
+							{Name: "kind", Value: "pipeline"},
+						},
+					},
+					Policy: enterpriseContractPolicy.Name,
 				},
 			}
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
@@ -596,7 +602,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 						EnterpriseContractConfigMap: enterpriseContractConfigMap,
 						EnterpriseContractPolicy:    enterpriseContractPolicy,
 						ReleasePlanAdmission:        releasePlanAdmission,
-						ReleaseStrategy:             releaseStrategy,
 						Snapshot:                    snapshot,
 					},
 				},
@@ -630,7 +635,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 						EnterpriseContractPolicy:    enterpriseContractPolicy,
 						ReleasePlan:                 releasePlan,
 						ReleasePlanAdmission:        releasePlanAdmission,
-						ReleaseStrategy:             releaseStrategy,
 						Snapshot:                    snapshot,
 					},
 				},
@@ -812,7 +816,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
 			resources := &loader.ProcessingResources{
-				ReleaseStrategy:             releaseStrategy,
 				ReleasePlan:                 releasePlan,
 				ReleasePlanAdmission:        releasePlanAdmission,
 				EnterpriseContractConfigMap: enterpriseContractConfigMap,
@@ -848,12 +851,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 				fmt.Sprintf("%s%c%s", releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Name))))
 		})
 
-		It("has the releaseStrategy reference", func() {
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(releaseStrategy.Kind))))
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
-				fmt.Sprintf("%s%c%s", releaseStrategy.Namespace, types.Separator, releaseStrategy.Name))))
-		})
-
 		It("has the snapshot reference", func() {
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(snapshot.Kind))))
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
@@ -871,7 +868,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 		})
 
-		It("references the pipeline specified in the ReleaseStrategy", func() {
+		It("references the pipeline specified in the ReleasePlanAdmission", func() {
 			var pipelineName string
 			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
 			for i := range resolverParams {
@@ -879,7 +876,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					pipelineName = resolverParams[i].Value.StringVal
 				}
 			}
-			Expect(pipelineName).To(Equal(releaseStrategy.Spec.PipelineRef.Params[1].Value))
+			Expect(pipelineName).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[1].Value))
 		})
 
 		It("contains parameters with the verify ec task git resolver information", func() {
@@ -1012,7 +1009,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		It("finalizes the Release and deletes the PipelineRun", func() {
 			resources := &loader.ProcessingResources{
-				ReleaseStrategy:             releaseStrategy,
 				ReleasePlan:                 releasePlan,
 				ReleasePlanAdmission:        releasePlanAdmission,
 				EnterpriseContractConfigMap: enterpriseContractConfigMap,
@@ -1170,18 +1166,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("does nothing if there is no PipelineRun", func() {
-			Expect(adapter.registerProcessingData(nil, releaseStrategy)).To(Succeed())
-			Expect(adapter.release.Status.Processing.PipelineRun).To(BeEmpty())
-		})
-
-		It("does nothing if there is no ReleaseStrategy", func() {
-			pipelineRun := &tektonv1.PipelineRun{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "pipeline-run",
-					Namespace: "default",
-				},
-			}
-			Expect(adapter.registerProcessingData(pipelineRun, nil)).To(Succeed())
+			Expect(adapter.registerProcessingData(nil)).To(Succeed())
 			Expect(adapter.release.Status.Processing.PipelineRun).To(BeEmpty())
 		})
 
@@ -1192,11 +1177,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Namespace: "default",
 				},
 			}
-			Expect(adapter.registerProcessingData(pipelineRun, releaseStrategy)).To(Succeed())
+			Expect(adapter.registerProcessingData(pipelineRun)).To(Succeed())
 			Expect(adapter.release.Status.Processing.PipelineRun).To(Equal(fmt.Sprintf("%s%c%s",
 				pipelineRun.Namespace, types.Separator, pipelineRun.Name)))
-			Expect(adapter.release.Status.Processing.ReleaseStrategy).To(Equal(fmt.Sprintf("%s%c%s",
-				releaseStrategy.Namespace, types.Separator, releaseStrategy.Name)))
 			Expect(adapter.release.Status.Target).To(Equal(pipelineRun.Namespace))
 			Expect(adapter.release.IsProcessing()).To(BeTrue())
 		})
@@ -1424,7 +1407,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 						EnterpriseContractConfigMap: enterpriseContractConfigMap,
 						EnterpriseContractPolicy:    enterpriseContractPolicy,
 						ReleasePlanAdmission:        releasePlanAdmission,
-						ReleaseStrategy:             releaseStrategy,
 						Snapshot:                    snapshot,
 					},
 				},
@@ -1537,58 +1519,23 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.IsValid()).To(BeFalse())
 		})
 
-		It("should return invalid and no error if the ReleaseStrategy is not found", func() {
+		It("returns invalid and no error if debug is false and the PipelineRef uses a cluster resolver", func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Resource:   releasePlanAdmission,
-				},
-				{
-					ContextKey: loader.ReleaseStrategyContextKey,
-					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
-				},
-			})
-
-			result := adapter.validatePipelineRef()
-			Expect(result.Valid).To(BeFalse())
-			Expect(result.Err).NotTo(HaveOccurred())
-			Expect(adapter.release.IsValid()).To(BeFalse())
-		})
-
-		It("should return invalid and an error if some other type of error occurs when retrieving the ReleaseStrategy", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Resource:   releasePlanAdmission,
-				},
-				{
-					ContextKey: loader.ReleaseStrategyContextKey,
-					Err:        fmt.Errorf("internal error"),
-					Resource:   releaseStrategy,
-				},
-			})
-
-			result := adapter.validatePipelineRef()
-			Expect(result.Valid).To(BeFalse())
-			Expect(result.Err).To(HaveOccurred())
-			Expect(adapter.release.IsValid()).To(BeFalse())
-		})
-
-		It("returns invalid and no error if debug is false and RS uses a cluster resolver", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Resource:   releasePlanAdmission,
-				},
-				{
-					ContextKey: loader.ReleaseStrategyContextKey,
-					Resource: &v1alpha1.ReleaseStrategy{
+					Resource: &v1alpha1.ReleasePlanAdmission{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "release-strategy",
+							Name:      "release-plan-admission",
 							Namespace: "default",
+							Labels: map[string]string{
+								metadata.AutoReleaseLabel: "true",
+							},
 						},
-						Spec: v1alpha1.ReleaseStrategySpec{
-							PipelineRef: tektonutils.PipelineRef{
+						Spec: v1alpha1.ReleasePlanAdmissionSpec{
+							Applications: []string{application.Name},
+							Origin:       "default",
+							Environment:  environment.Name,
+							PipelineRef: &tektonutils.PipelineRef{
 								Resolver: "cluster",
 								Params: []tektonutils.Param{
 									{Name: "name", Value: "release-pipeline"},
@@ -1615,10 +1562,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   releasePlanAdmission,
 				},
-				{
-					ContextKey: loader.ReleaseStrategyContextKey,
-					Resource:   releaseStrategy,
-				},
 			})
 			adapter.releaseServiceConfig.Spec.Debug = true
 
@@ -1627,15 +1570,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(result.Err).To(BeNil())
 		})
 
-		It("returns valid and no error if debug mode is disabled and the RS has a bundle value", func() {
+		It("returns valid and no error if debug mode is disabled and the PipelineRef uses a bundle resolver", func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
 					Resource:   releasePlanAdmission,
-				},
-				{
-					ContextKey: loader.ReleaseStrategyContextKey,
-					Resource:   releaseStrategy,
 				},
 			})
 			result := adapter.validatePipelineRef()
@@ -1750,25 +1689,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, releaseServiceConfig)).To(Succeed())
 
-		releaseStrategy = &v1alpha1.ReleaseStrategy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "release-strategy",
-				Namespace: "default",
-			},
-			Spec: v1alpha1.ReleaseStrategySpec{
-				PipelineRef: tektonutils.PipelineRef{
-					Resolver: "bundles",
-					Params: []tektonutils.Param{
-						{Name: "bundle", Value: "quay.io/some/bundle"},
-						{Name: "name", Value: "release-pipeline"},
-						{Name: "kind", Value: "pipeline"},
-					},
-				},
-				Policy: enterpriseContractPolicy.Name,
-			},
-		}
-		Expect(k8sClient.Create(ctx, releaseStrategy)).Should(Succeed())
-
 		releasePlanAdmission = &v1alpha1.ReleasePlanAdmission{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "release-plan-admission",
@@ -1778,10 +1698,18 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			},
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
-				Application:     application.Name,
-				Origin:          "default",
-				Environment:     environment.Name,
-				ReleaseStrategy: releaseStrategy.Name,
+				Applications: []string{application.Name},
+				Origin:       "default",
+				Environment:  environment.Name,
+				PipelineRef: &tektonutils.PipelineRef{
+					Resolver: "bundles",
+					Params: []tektonutils.Param{
+						{Name: "bundle", Value: "quay.io/some/bundle"},
+						{Name: "name", Value: "release-pipeline"},
+						{Name: "kind", Value: "pipeline"},
+					},
+				},
+				Policy: enterpriseContractPolicy.Name,
 			},
 		}
 		Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
@@ -1823,7 +1751,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 		Expect(k8sClient.Delete(ctx, releasePlan)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlanAdmission)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, releaseServiceConfig)).Should(Succeed())
-		Expect(k8sClient.Delete(ctx, releaseStrategy)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshot)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshotEnvironmentBinding)).To(Succeed())
 	}

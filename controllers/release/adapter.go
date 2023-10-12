@@ -272,7 +272,7 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
 		}
 
-		return controller.RequeueOnErrorOrContinue(a.registerProcessingData(pipelineRun, resources.ReleaseStrategy))
+		return controller.RequeueOnErrorOrContinue(a.registerProcessingData(pipelineRun))
 	}
 
 	return controller.ContinueProcessing()
@@ -336,12 +336,14 @@ func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult
 // will be extracted from the given ReleaseStrategy. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createReleasePipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
-	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", resources.ReleaseStrategy.Namespace).
+	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", resources.ReleasePlanAdmission.Namespace).
 		WithObjectReferences(a.release, resources.ReleasePlan,
-			resources.ReleasePlanAdmission, resources.ReleaseStrategy, resources.Snapshot).
+			resources.ReleasePlanAdmission, resources.Snapshot).
 		WithOwner(a.release).
 		WithReleaseAndApplicationMetadata(a.release, resources.Snapshot.Spec.Application).
-		WithReleaseStrategy(resources.ReleaseStrategy).
+		WithWorkspace(os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"), os.Getenv("DEFAULT_RELEASE_PVC")).
+		WithServiceAccount(resources.ReleasePlanAdmission.Spec.ServiceAccount).
+		WithPipelineRef(resources.ReleasePlanAdmission.Spec.PipelineRef.ToTektonPipelineRef()).
 		WithEnterpriseContractConfigMap(resources.EnterpriseContractConfigMap).
 		WithEnterpriseContractPolicy(resources.EnterpriseContractPolicy).
 		AsPipelineRun()
@@ -496,8 +498,8 @@ func (a *adapter) registerDeploymentStatus(binding *applicationapiv1alpha1.Snaps
 }
 
 // registerProcessingData adds all the Release processing information to its Status and marks it as processing.
-func (a *adapter) registerProcessingData(releasePipelineRun *tektonv1.PipelineRun, releaseStrategy *v1alpha1.ReleaseStrategy) error {
-	if releasePipelineRun == nil || releaseStrategy == nil {
+func (a *adapter) registerProcessingData(releasePipelineRun *tektonv1.PipelineRun) error {
+	if releasePipelineRun == nil {
 		return nil
 	}
 
@@ -505,8 +507,6 @@ func (a *adapter) registerProcessingData(releasePipelineRun *tektonv1.PipelineRu
 
 	a.release.Status.Processing.PipelineRun = fmt.Sprintf("%s%c%s",
 		releasePipelineRun.Namespace, types.Separator, releasePipelineRun.Name)
-	a.release.Status.Processing.ReleaseStrategy = fmt.Sprintf("%s%c%s",
-		releaseStrategy.Namespace, types.Separator, releaseStrategy.Name)
 	a.release.Status.Target = releasePipelineRun.Namespace
 
 	a.release.MarkProcessing("")
@@ -619,16 +619,7 @@ func (a *adapter) validatePipelineRef() *controller.ValidationResult {
 		return &controller.ValidationResult{Err: err}
 	}
 
-	releaseStrategy, err := a.loader.GetReleaseStrategy(a.ctx, a.client, releasePlanAdmission)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			a.release.MarkValidationFailed(err.Error())
-			return &controller.ValidationResult{Valid: false}
-		}
-		return &controller.ValidationResult{Err: err}
-	}
-
-	if !a.releaseServiceConfig.Spec.Debug && releaseStrategy.Spec.PipelineRef.IsClusterScoped() {
+	if !a.releaseServiceConfig.Spec.Debug && releasePlanAdmission.Spec.PipelineRef.IsClusterScoped() {
 		a.release.MarkValidationFailed("tried using debug only options while debug mode is disabled in the ReleaseServiceConfig")
 		return &controller.ValidationResult{Valid: false}
 	}

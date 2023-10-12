@@ -16,10 +16,6 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.displayName
-      name: Display Name
-      priority: 1
-      type: string
     - jsonPath: .spec.application
       name: Application
       type: string
@@ -51,8 +47,44 @@ spec:
                   in the managed namespace
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
-              displayName:
-                description: DisplayName is the long name of the ReleasePlan
+              data:
+                description: Data is an unstructured key used for providing data for
+                  the release Pipeline
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              pipelineRef:
+                description: PipelineRef is an optional reference to a Pipeline that
+                  would be executed before the release Pipeline
+                properties:
+                  params:
+                    description: Params is a slice of parameters for a given resolver
+                    items:
+                      description: Param defines the parameters for a given resolver
+                        in PipelineRef
+                      properties:
+                        name:
+                          description: Name is the name of the parameter
+                          type: string
+                        value:
+                          description: Value is the value of the parameter
+                          type: string
+                      required:
+                      - name
+                      - value
+                      type: object
+                    type: array
+                  resolver:
+                    description: Resolver is the name of a Tekton resolver to be used
+                      (e.g. git)
+                    type: string
+                required:
+                - params
+                - resolver
+                type: object
+              serviceAccount:
+                description: ServiceAccount is the name of the service account to
+                  use in the Pipeline to gain elevated privileges
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
               target:
                 description: Target references where to send the release requests

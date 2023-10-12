@@ -17,19 +17,33 @@ limitations under the License.
 package v1alpha1
 
 import (
+	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // ReleasePlanSpec defines the desired state of ReleasePlan.
 type ReleasePlanSpec struct {
-	// DisplayName is the long name of the ReleasePlan
-	// +optional
-	DisplayName string `json:"displayName"`
-
 	// Application is a reference to the application to be released in the managed namespace
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
 	Application string `json:"application"`
+
+	// Data is an unstructured key used for providing data for the release Pipeline
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	Data *runtime.RawExtension `json:"data,omitempty"`
+
+	// PipelineRef is an optional reference to a Pipeline that would be executed
+	// before the release Pipeline
+	// +optional
+	PipelineRef *tektonutils.PipelineRef `json:"pipelineRef,omitempty"`
+
+	// ServiceAccount is the name of the service account to use in the
+	// Pipeline to gain elevated privileges
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	ServiceAccount string `json:"serviceAccount,omitempty"`
 
 	// Target references where to send the release requests
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -43,7 +57,6 @@ type ReleasePlanStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Display Name",type=string,priority=1,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Application",type=string,JSONPath=`.spec.application`
 // +kubebuilder:printcolumn:name="Target",type=string,JSONPath=`.spec.target`
 

@@ -43,7 +43,6 @@ var _ = Describe("ReleasePlan webhook", func() {
 				Namespace: "default",
 			},
 			Spec: v1alpha1.ReleasePlanSpec{
-				DisplayName: "Test release plan",
 				Application: "application",
 				Target:      "default",
 			},
