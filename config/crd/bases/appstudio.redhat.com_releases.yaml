@@ -48,6 +48,11 @@ spec:
           spec:
             description: ReleaseSpec defines the desired state of Release.
             properties:
+              data:
+                description: Data is an unstructured key used for providing data for
+                  the release Pipeline
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               releasePlan:
                 description: ReleasePlan to use for this particular Release
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
