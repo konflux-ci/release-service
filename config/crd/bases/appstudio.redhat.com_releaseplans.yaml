@@ -92,7 +92,6 @@ spec:
                 type: string
             required:
             - application
-            - target
             type: object
           status:
             description: ReleasePlanStatus defines the observed state of ReleasePlan.

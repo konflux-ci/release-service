@@ -47,7 +47,7 @@ type ReleasePlanSpec struct {
 
 	// Target references where to send the release requests
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-	// +required
+	// +optional
 	Target string `json:"target"`
 }
 
