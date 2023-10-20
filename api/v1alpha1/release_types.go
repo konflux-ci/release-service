@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/release-service/metrics"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +38,11 @@ type ReleaseSpec struct {
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
 	ReleasePlan string `json:"releasePlan"`
+
+	// Data is an unstructured key used for providing data for the release Pipeline
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	Data *runtime.RawExtension `json:"data,omitempty"`
 }
 
 // ReleaseStatus defines the observed state of Release.
