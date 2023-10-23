@@ -20,9 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 	"reflect"
 	"strings"
+
+	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -91,9 +92,7 @@ var _ = Describe("PipelineRun", func() {
 				Kind: "ConfigMap",
 			},
 			Data: map[string]string{
-				"verify_ec_task_git_url":        "https://github.com/org/repo.git",
-				"verify_ec_task_git_revision":   "abcdefghijklmnopqrstuvwxyz",
-				"verify_ec_task_git_pathInRepo": "catalog/tasks/verify-ec/task.yaml",
+				"verify_ec_task_bundle": "test-bundle",
 			},
 		}
 		enterpriseContractPolicy = &ecapiv1alpha1.EnterpriseContractPolicy{
@@ -216,26 +215,9 @@ var _ = Describe("PipelineRun", func() {
 			Expect(releasePipelineRun.Spec.Workspaces).Should(ContainElement(HaveField("PersistentVolumeClaim.ClaimName", Equal(persistentVolumeClaim))))
 		})
 
-		It("can add the EC task git resolver parameters to the PipelineRun", func() {
+		It("can add the EC task bundle parameter to the PipelineRun", func() {
 			releasePipelineRun.WithEnterpriseContractConfigMap(enterpriseContractConfigMap)
-			params := releasePipelineRun.Spec.Params
-			checked := 0
-
-			for i := range params {
-				if params[i].Name == "verify_ec_task_git_url" {
-					Expect(params[i].Value.StringVal).To(Equal("https://github.com/org/repo.git"))
-					checked++
-				}
-				if params[i].Name == "verify_ec_task_git_revision" {
-					Expect(params[i].Value.StringVal).To(Equal("abcdefghijklmnopqrstuvwxyz"))
-					checked++
-				}
-				if params[i].Name == "verify_ec_task_git_pathInRepo" {
-					Expect(params[i].Value.StringVal).To(Equal("catalog/tasks/verify-ec/task.yaml"))
-					checked++
-				}
-			}
-			Expect(checked).To(Equal(3))
+			Expect(releasePipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string("test-bundle")))))
 		})
 
 		It("can add an EnterpriseContractPolicy to the PipelineRun", func() {
