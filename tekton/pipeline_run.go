@@ -70,16 +70,16 @@ func (r *ReleasePipelineRun) AsPipelineRun() *tektonv1.PipelineRun {
 	return &r.PipelineRun
 }
 
-// WithEnterpriseContractConfigMap adds a param providing the verify ec task git resolver information to the release PipelineRun.
+// WithEnterpriseContractConfigMap adds a param providing the verify ec task bundle to the release PipelineRun.
 func (r *ReleasePipelineRun) WithEnterpriseContractConfigMap(ecConfig *corev1.ConfigMap) *ReleasePipelineRun {
-	gitResolverFields := []string{"verify_ec_task_git_url", "verify_ec_task_git_revision", "verify_ec_task_git_pathInRepo"}
+	enterpriseContractConfigMapBundleField := "verify_ec_task_bundle"
 
-	for _, field := range gitResolverFields {
-		r.WithExtraParam(field, tektonv1.ParamValue{
-			Type:      tektonv1.ParamTypeString,
-			StringVal: ecConfig.Data[string(field)],
-		})
-	}
+	ecTaskBundle := ecConfig.Data[enterpriseContractConfigMapBundleField]
+
+	r.WithExtraParam(enterpriseContractConfigMapBundleField, tektonv1.ParamValue{
+		Type:      tektonv1.ParamTypeString,
+		StringVal: string(ecTaskBundle),
+	})
 
 	return r
 }
