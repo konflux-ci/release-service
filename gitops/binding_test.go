@@ -27,6 +27,8 @@ import (
 )
 
 var _ = Describe("Binding", func() {
+	var replicas int = 2
+
 	components := []applicationapiv1alpha1.Component{
 		{
 			Spec: applicationapiv1alpha1.ComponentSpec{
@@ -45,7 +47,7 @@ var _ = Describe("Binding", func() {
 			Spec: applicationapiv1alpha1.ComponentSpec{
 				Application:   "app",
 				ComponentName: "bar",
-				Replicas:      2,
+				Replicas:      &replicas,
 				Source: applicationapiv1alpha1.ComponentSource{
 					ComponentSourceUnion: applicationapiv1alpha1.ComponentSourceUnion{
 						GitSource: &applicationapiv1alpha1.GitSource{
@@ -90,9 +92,13 @@ var _ = Describe("Binding", func() {
 
 		It("respect the number of replicas defined in the components", func() {
 			for i, component := range components {
-				Expect(bindingComponents[i].Configuration.Replicas).To(
-					Equal(int(math.Max(1, float64(component.Spec.Replicas)))),
-				)
+				var replicas int
+				if component.Spec.Replicas != nil {
+					replicas = int(math.Max(1, float64(*component.Spec.Replicas)))
+				} else {
+					replicas = 1
+				}
+				Expect(bindingComponents[i].Configuration.Replicas).To(Equal(&replicas))
 			}
 		})
 	})

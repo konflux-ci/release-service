@@ -22,6 +22,7 @@ import (
 	"github.com/redhat-appstudio/operator-toolkit/test"
 	"go/build"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"testing"
 
 	"k8s.io/client-go/rest"
@@ -76,9 +77,11 @@ var _ = BeforeSuite(func() {
 	Expect(applicationapiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	k8sManager, _ := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0", // disables metrics
-		LeaderElection:     false,
+		Scheme: scheme.Scheme,
+		Metrics: server.Options{
+			BindAddress: "0", // disables metrics
+		},
+		LeaderElection: false,
 	})
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})

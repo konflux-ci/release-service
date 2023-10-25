@@ -25,6 +25,8 @@ import (
 	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks/author"
 	"net"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 	"testing"
 	"time"
 
@@ -87,12 +89,16 @@ var _ = BeforeSuite(func() {
 	// start webhook server using Manager
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
+		LeaderElection: false,
+		Metrics: server.Options{
+			BindAddress: "0",
+		},
+		WebhookServer: crwebhook.NewServer(crwebhook.Options{
+			CertDir: webhookInstallOptions.LocalServingCertDir,
+			Host:    webhookInstallOptions.LocalServingHost,
+			Port:    webhookInstallOptions.LocalServingPort,
+		}),
+		Scheme: scheme,
 	})
 	Expect(err).NotTo(HaveOccurred())
 

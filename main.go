@@ -17,8 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/operator-toolkit/webhook"
@@ -64,10 +67,12 @@ func init() {
 
 func main() {
 	var metricsAddr string
+	var enableHttp2 bool
 	var enableLeaderElection bool
 	var probeAddr string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&enableHttp2, "enable-http2", false, "Enable HTTP/2 for the metrics and webhook servers.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -81,12 +86,23 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "f3d4c01a.redhat.com",
+		Metrics: server.Options{
+			BindAddress: metricsAddr,
+		},
+		WebhookServer: crwebhook.NewServer(crwebhook.Options{
+			Port: 9443,
+			TLSOpts: []func(*tls.Config){
+				func(c *tls.Config) {
+					if !enableHttp2 {
+						c.NextProtos = []string{"http/1.1"}
+					}
+				},
+			},
+		}),
+		Scheme: scheme,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

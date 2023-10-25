@@ -18,6 +18,7 @@ package release
 
 import (
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -60,9 +61,11 @@ var _ = Describe("Release Controller", Ordered, func() {
 			}
 
 			manager, _ := ctrl.NewManager(cfg, ctrl.Options{
-				Scheme:             scheme.Scheme,
-				MetricsBindAddress: "0", // disable metrics
-				LeaderElection:     false,
+				Scheme: scheme.Scheme,
+				Metrics: server.Options{
+					BindAddress: "0", // disables metrics
+				},
+				LeaderElection: false,
 			})
 			Expect(controller.SetupCache(manager)).To(Succeed())
 		})
@@ -77,9 +80,11 @@ var _ = Describe("Release Controller", Ordered, func() {
 			}
 
 			mgr, _ := ctrl.NewManager(cfg, ctrl.Options{
-				Scheme:             scheme.Scheme,
-				MetricsBindAddress: "0", // disable metrics
-				LeaderElection:     false,
+				Scheme: scheme.Scheme,
+				Metrics: server.Options{
+					BindAddress: "0", // disables metrics
+				},
+				LeaderElection: false,
 			})
 			Expect(controller.Register(mgr, &ctrl.Log, nil)).To(Succeed())
 		})

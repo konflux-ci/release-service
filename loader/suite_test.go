@@ -20,6 +20,7 @@ import (
 	"context"
 	"go/build"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"testing"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
@@ -95,9 +96,11 @@ var _ = BeforeSuite(func() {
 	//+kubebuilder:scaffold:scheme
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0",
-		LeaderElection:     false,
+		Scheme: scheme.Scheme,
+		Metrics: server.Options{
+			BindAddress: "0", // disables metrics
+		},
+		LeaderElection: false,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
