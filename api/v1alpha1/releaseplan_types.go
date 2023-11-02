@@ -53,6 +53,15 @@ type ReleasePlanSpec struct {
 
 // ReleasePlanStatus defines the observed state of ReleasePlan.
 type ReleasePlanStatus struct {
+	// Conditions represent the latest available observations for the releasePlan
+	// +optional
+	Conditions []metav1.Condition `json:"conditions"`
+
+	// ReleasePlanAdmission contains the namespaced name of the releasePlanAdmission this ReleasePlan is
+	// matched to
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	ReleasePlanAdmission string `json:"releasePlanAdmission,omitempty"`
 }
 
 // +kubebuilder:object:root=true

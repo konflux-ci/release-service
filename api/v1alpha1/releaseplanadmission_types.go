@@ -24,7 +24,7 @@ import (
 
 // ReleasePlanAdmissionSpec defines the desired state of ReleasePlanAdmission.
 type ReleasePlanAdmissionSpec struct {
-	// Applications is a list of references to application to be released in the managed namespace
+	// Applications is a list of references to applications to be released in the managed namespace
 	// +required
 	Applications []string `json:"applications"`
 
@@ -61,6 +61,13 @@ type ReleasePlanAdmissionSpec struct {
 
 // ReleasePlanAdmissionStatus defines the observed state of ReleasePlanAdmission.
 type ReleasePlanAdmissionStatus struct {
+	// Conditions represent the latest available observations for the releasePlanAdmission
+	// +optional
+	Conditions []metav1.Condition `json:"conditions"`
+
+	// ReleasePlan is a list of references to releasePlans matched to the ReleasePlanAdmission
+	// +optional
+	ReleasePlans []string `json:"releasePlans"`
 }
 
 // +kubebuilder:object:root=true
