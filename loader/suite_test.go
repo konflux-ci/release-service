@@ -20,8 +20,9 @@ import (
 	"context"
 	"go/build"
 	"path/filepath"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"testing"
+
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -109,6 +110,7 @@ var _ = BeforeSuite(func() {
 		defer GinkgoRecover()
 
 		Expect(cache.SetupComponentCache(mgr)).To(Succeed())
+		Expect(cache.SetupReleasePlanCache(mgr)).To(Succeed())
 		Expect(cache.SetupReleasePlanAdmissionCache(mgr)).To(Succeed())
 		Expect(cache.SetupSnapshotEnvironmentBindingCache(mgr)).To(Succeed())
 

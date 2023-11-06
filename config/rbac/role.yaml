@@ -28,6 +28,22 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
+  - releaseplanadmissions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releaseplanadmissions/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
   - releaseplans
   verbs:
   - create
@@ -51,6 +67,18 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - appstudio.redhat.com
+  resources:
+  - releaseplansadmissions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - appstudio.redhat.com
   resources:

@@ -175,10 +175,18 @@ spec:
                   type: object
                 type: array
               releasePlanAdmission:
-                description: ReleasePlanAdmission contains the namespaced name of
-                  the releasePlanAdmission this ReleasePlan is matched to
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
+                description: ReleasePlanAdmission contains the information of the
+                  releasePlanAdmission this ReleasePlan is matched to
+                properties:
+                  active:
+                    description: Active indicates whether the ReleasePlanAdmission
+                      is set to auto-release or not
+                    type: boolean
+                  name:
+                    description: Name contains the namespaced name of the releasePlanAdmission
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                type: object
             type: object
         type: object
     served: true

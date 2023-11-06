@@ -2,9 +2,10 @@ package loader
 
 import (
 	"fmt"
-	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 	"os"
 	"strings"
+
+	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -58,42 +59,22 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(returnedObject.Name).To(Equal(releasePlanAdmission.Name))
 		})
 
-		It("fails to return an active release plan admission if the target does not match", func() {
-			modifiedReleasePlan := releasePlan.DeepCopy()
-			modifiedReleasePlan.Spec.Target = "non-existent-target"
-
-			returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("no ReleasePlanAdmission found in the target"))
-			Expect(returnedObject).To(BeNil())
-		})
-
-		It("fails to return an active release plan admission if multiple matches are found", func() {
-			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
-			newReleasePlanAdmission.Name = "new-release-plan-admission"
-			newReleasePlanAdmission.ResourceVersion = ""
-			Expect(k8sClient.Create(ctx, newReleasePlanAdmission)).To(Succeed())
-
-			Eventually(func() bool {
-				returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
-				return returnedObject == nil && err != nil && strings.Contains(err.Error(), "multiple ReleasePlanAdmissions")
-			})
-
-			Expect(k8sClient.Delete(ctx, newReleasePlanAdmission)).To(Succeed())
-		})
-
 		It("fails to return an active release plan admission if the auto release label is set to false", func() {
+			// Use a new application for this test so we don't have timing issues
 			disabledReleasePlanAdmission := releasePlanAdmission.DeepCopy()
 			disabledReleasePlanAdmission.Labels[metadata.AutoReleaseLabel] = "false"
 			disabledReleasePlanAdmission.Name = "disabled-release-plan-admission"
+			disabledReleasePlanAdmission.Spec.Applications = []string{"auto-release-test"}
 			disabledReleasePlanAdmission.ResourceVersion = ""
 			Expect(k8sClient.Create(ctx, disabledReleasePlanAdmission)).To(Succeed())
+			releasePlan.Spec.Application = "auto-release-test"
 
 			Eventually(func() bool {
 				returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
 				return returnedObject == nil && err != nil && strings.Contains(err.Error(), "with auto-release label set to false")
 			})
 
+			releasePlan.Spec.Application = application.Name
 			Expect(k8sClient.Delete(ctx, disabledReleasePlanAdmission)).To(Succeed())
 		})
 	})
@@ -176,6 +157,80 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObjects).To(HaveLen(1))
 			Expect(returnedObjects[0].Name).To(Equal(component.Name))
+		})
+	})
+
+	When("calling GetMatchingReleasePlanAdmission", func() {
+		It("returns a release plan admission", func() {
+			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, releasePlan)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleasePlanAdmission{}))
+			Expect(returnedObject.Name).To(Equal(releasePlanAdmission.Name))
+		})
+
+		It("fails to return a release plan admission if the target does not match", func() {
+			modifiedReleasePlan := releasePlan.DeepCopy()
+			modifiedReleasePlan.Spec.Target = "non-existent-target"
+
+			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no ReleasePlanAdmission found in namespace"))
+			Expect(returnedObject).To(BeNil())
+		})
+
+		It("fails to return a release plan admission if multiple matches are found", func() {
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Name = "new-release-plan-admission"
+			newReleasePlanAdmission.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, newReleasePlanAdmission)).To(Succeed())
+
+			Eventually(func() bool {
+				returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, releasePlan)
+				return returnedObject == nil && err != nil && strings.Contains(err.Error(), "multiple ReleasePlanAdmissions")
+			})
+
+			Expect(k8sClient.Delete(ctx, newReleasePlanAdmission)).To(Succeed())
+		})
+	})
+
+	When("calling GetMatchingReleasePlans", func() {
+		var releasePlanTwo, releasePlanDiffApp *v1alpha1.ReleasePlan
+
+		BeforeEach(func() {
+			releasePlanTwo = releasePlan.DeepCopy()
+			releasePlanTwo.Name = "rp-two"
+			releasePlanTwo.ResourceVersion = ""
+			releasePlanDiffApp = releasePlan.DeepCopy()
+			releasePlanDiffApp.Name = "rp-diff"
+			releasePlanDiffApp.Spec.Application = "some-other-app"
+			releasePlanDiffApp.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, releasePlanTwo)).To(Succeed())
+			Expect(k8sClient.Create(ctx, releasePlanDiffApp)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(ctx, releasePlanTwo)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, releasePlanDiffApp)).To(Succeed())
+		})
+
+		It("returns the requested list of release plans", func() {
+			Eventually(func() bool {
+				returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, releasePlanAdmission)
+				return returnedObject != &v1alpha1.ReleasePlanList{} && err == nil && len(returnedObject.Items) == 2
+			})
+		})
+
+		It("does not return a ReleasePlan with a different application", func() {
+			Eventually(func() bool {
+				returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, releasePlanAdmission)
+				contains := false
+				for _, releasePlan := range returnedObject.Items {
+					if releasePlan.Spec.Application == "some-other-app" {
+						contains = true
+					}
+				}
+				return returnedObject != &v1alpha1.ReleasePlanList{} && err == nil && contains == false
+			})
 		})
 	})
 

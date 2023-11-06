@@ -190,10 +190,21 @@ spec:
                   type: object
                 type: array
               releasePlans:
-                description: ReleasePlan is a list of references to releasePlans matched
-                  to the ReleasePlanAdmission
+                description: ReleasePlan is a list of releasePlans matched to the
+                  ReleasePlanAdmission
                 items:
-                  type: string
+                  description: MatchedReleasePlan defines the relevant information
+                    for a matched ReleasePlan.
+                  properties:
+                    active:
+                      description: Active indicates whether the ReleasePlan is set
+                        to auto-release or not
+                      type: boolean
+                    name:
+                      description: Name contains the namespaced name of the ReleasePlan
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                  type: object
                 type: array
             type: object
         type: object

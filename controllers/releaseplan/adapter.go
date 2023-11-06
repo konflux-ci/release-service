@@ -18,6 +18,8 @@ package releaseplan
 
 import (
 	"context"
+	"reflect"
+
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
@@ -73,4 +75,27 @@ func (a *adapter) EnsureOwnerReferenceIsSet() (controller.OperationResult, error
 	}
 
 	return controller.ContinueProcessing()
+}
+
+// EnsureMatchingInformationIsSet is an operation that will ensure that the ReleasePlan has updated matching
+// information in its status.
+func (a *adapter) EnsureMatchingInformationIsSet() (controller.OperationResult, error) {
+	// If an error occurs getting the ReleasePlanAdmission, mark the ReleasePlan as unmatched
+	releasePlanAdmission, _ := a.loader.GetMatchingReleasePlanAdmission(a.ctx, a.client, a.releasePlan)
+
+	existingReleasePlanAdmission := a.releasePlan.Status.ReleasePlanAdmission
+	patch := client.MergeFrom(a.releasePlan.DeepCopy())
+
+	if releasePlanAdmission == nil {
+		a.releasePlan.MarkUnmatched()
+	} else {
+		a.releasePlan.MarkMatched(releasePlanAdmission)
+	}
+
+	if reflect.DeepEqual(existingReleasePlanAdmission, a.releasePlan.Status.ReleasePlanAdmission) {
+		// No change in matched ReleasePlanAdmission
+		return controller.ContinueProcessing()
+	}
+
+	return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.releasePlan, patch))
 }
