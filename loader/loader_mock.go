@@ -20,6 +20,8 @@ const (
 	EnterpriseContractConfigMapContextKey
 	EnterpriseContractPolicyContextKey
 	EnvironmentContextKey
+	MatchedReleasePlansContextKey
+	MatchedReleasePlanAdmissionContextKey
 	ProcessingResourcesContextKey
 	ReleaseContextKey
 	ReleasePipelineRunContextKey
@@ -102,6 +104,22 @@ func (l *mockLoader) GetManagedApplicationComponents(ctx context.Context, cli cl
 		return l.loader.GetManagedApplicationComponents(ctx, cli, application)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ApplicationComponentsContextKey, []applicationapiv1alpha1.Component{})
+}
+
+// GetMatchingReleasePlanAdmission returns the resource and error passed as values of the context.
+func (l *mockLoader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error) {
+	if ctx.Value(MatchedReleasePlanAdmissionContextKey) == nil {
+		return l.loader.GetMatchingReleasePlanAdmission(ctx, cli, releasePlan)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, MatchedReleasePlanAdmissionContextKey, &v1alpha1.ReleasePlanAdmission{})
+}
+
+// GetMatchingReleasePlans returns the resource and error passed as values of the context.
+func (l *mockLoader) GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error) {
+	if ctx.Value(MatchedReleasePlansContextKey) == nil {
+		return l.loader.GetMatchingReleasePlans(ctx, cli, releasePlanAdmission)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, MatchedReleasePlansContextKey, &v1alpha1.ReleasePlanList{})
 }
 
 // GetRelease returns the resource and error passed as values of the context.

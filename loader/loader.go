@@ -3,9 +3,10 @@ package loader
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/strings/slices"
 	"os"
 	"strings"
+
+	"k8s.io/utils/strings/slices"
 
 	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 
@@ -28,6 +29,8 @@ type ObjectLoader interface {
 	GetEnvironment(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Environment, error)
 	GetManagedApplication(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*applicationapiv1alpha1.Application, error)
 	GetManagedApplicationComponents(ctx context.Context, cli client.Client, application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error)
+	GetMatchingReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error)
+	GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
 	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
@@ -48,43 +51,20 @@ func NewLoader() ObjectLoader {
 // GetActiveReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.
 // Only ReleasePlanAdmissions with the 'auto-release' label set to true (or missing the label, which is
 // treated the same as having the label and it being set to true) will be searched for. If a matching
-// ReleasePlanAdmission is not found or the List operation fails, an error will be returned. If more than
-// one matching ReleasePlanAdmission objects is found, an error will be returned.
+// ReleasePlanAdmission is not found or the List operation fails, an error will be returned.
 func (l *loader) GetActiveReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error) {
-	releasePlanAdmissions := &v1alpha1.ReleasePlanAdmissionList{}
-	err := cli.List(ctx, releasePlanAdmissions,
-		client.InNamespace(releasePlan.Spec.Target),
-		client.MatchingFields{"spec.origin": releasePlan.Namespace})
+	releasePlanAdmission, err := l.GetMatchingReleasePlanAdmission(ctx, cli, releasePlan)
 	if err != nil {
 		return nil, err
 	}
 
-	var activeReleasePlanAdmission *v1alpha1.ReleasePlanAdmission
-
-	for i, releasePlanAdmission := range releasePlanAdmissions.Items {
-		if !slices.Contains(releasePlanAdmission.Spec.Applications, releasePlan.Spec.Application) {
-			continue
-		}
-
-		if activeReleasePlanAdmission != nil {
-			return nil, fmt.Errorf("multiple ReleasePlanAdmissions found with the target (%+v) for application '%s'",
-				releasePlan.Spec.Target, releasePlan.Spec.Application)
-		}
-
-		labelValue, found := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]
-		if found && labelValue == "false" {
-			return nil, fmt.Errorf("found ReleasePlanAdmission '%s' with auto-release label set to false",
-				releasePlanAdmission.Name)
-		}
-		activeReleasePlanAdmission = &releasePlanAdmissions.Items[i]
+	labelValue, found := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]
+	if found && labelValue == "false" {
+		return nil, fmt.Errorf("found ReleasePlanAdmission '%s' with auto-release label set to false",
+			releasePlanAdmission.Name)
 	}
 
-	if activeReleasePlanAdmission == nil {
-		return nil, fmt.Errorf("no ReleasePlanAdmission found in the target (%+v) for application '%s'",
-			releasePlan.Spec.Target, releasePlan.Spec.Application)
-	}
-
-	return activeReleasePlanAdmission, nil
+	return releasePlanAdmission, nil
 }
 
 // GetActiveReleasePlanAdmissionFromRelease returns the ReleasePlanAdmission targeted by the ReleasePlan referenced by
@@ -154,6 +134,64 @@ func (l *loader) GetManagedApplicationComponents(ctx context.Context, cli client
 	}
 
 	return applicationComponents.Items, nil
+}
+
+// GetMatchingReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.
+// If a matching ReleasePlanAdmission is not found or the List operation fails, an error will be returned.
+// If more than one matching ReleasePlanAdmission objects is found, an error will be returned.
+func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error) {
+	releasePlanAdmissions := &v1alpha1.ReleasePlanAdmissionList{}
+	err := cli.List(ctx, releasePlanAdmissions,
+		client.InNamespace(releasePlan.Spec.Target),
+		client.MatchingFields{"spec.origin": releasePlan.Namespace})
+	if err != nil {
+		return nil, err
+	}
+
+	var foundReleasePlanAdmission *v1alpha1.ReleasePlanAdmission
+
+	for i, releasePlanAdmission := range releasePlanAdmissions.Items {
+		if !slices.Contains(releasePlanAdmission.Spec.Applications, releasePlan.Spec.Application) {
+			continue
+		}
+
+		if foundReleasePlanAdmission != nil {
+			return nil, fmt.Errorf("multiple ReleasePlanAdmissions found in namespace (%+s) with the origin (%+s) for application '%s'",
+				releasePlan.Spec.Target, releasePlan.Namespace, releasePlan.Spec.Application)
+		}
+
+		foundReleasePlanAdmission = &releasePlanAdmissions.Items[i]
+	}
+
+	if foundReleasePlanAdmission == nil {
+		return nil, fmt.Errorf("no ReleasePlanAdmission found in namespace (%+s) with the origin (%+s) for application '%s'",
+			releasePlan.Spec.Target, releasePlan.Namespace, releasePlan.Spec.Application)
+	}
+
+	return foundReleasePlanAdmission, nil
+}
+
+// GetMatchingReleasePlans returns a list of all ReleasePlans that target the given ReleasePlanAdmission's
+// namespace, specify an application that is included in the ReleasePlanAdmission's application list, and
+// are in the namespace specified by the ReleasePlanAdmission's origin. If the List operation fails, an
+// error will be returned.
+func (l *loader) GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error) {
+	releasePlans := &v1alpha1.ReleasePlanList{}
+	err := cli.List(ctx, releasePlans,
+		client.InNamespace(releasePlanAdmission.Spec.Origin),
+		client.MatchingFields{"spec.target": releasePlanAdmission.Namespace})
+	if err != nil {
+		return nil, err
+	}
+
+	for i := len(releasePlans.Items) - 1; i >= 0; i-- {
+		if !slices.Contains(releasePlanAdmission.Spec.Applications, releasePlans.Items[i].Spec.Application) {
+			// Remove ReleasePlans that do not have matching applications from the list
+			releasePlans.Items = append(releasePlans.Items[:i], releasePlans.Items[i+1:]...)
+		}
+	}
+
+	return releasePlans, nil
 }
 
 // GetRelease returns the Release with the given name and namespace. If the Release is not found or the Get operation

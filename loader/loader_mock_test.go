@@ -125,6 +125,36 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
+	When("calling GetMatchingReleasePlanAdmission", func() {
+		It("returns the resource and error from the context", func() {
+			releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{}
+			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: MatchedReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+			})
+			resource, err := loader.GetMatchingReleasePlanAdmission(mockContext, nil, nil)
+			Expect(resource).To(Equal(releasePlanAdmission))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	When("calling GetMatchingReleasePlans", func() {
+		It("returns the resource and error from the context", func() {
+			releasePlans := &v1alpha1.ReleasePlanList{}
+			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: MatchedReleasePlansContextKey,
+					Resource:   releasePlans,
+				},
+			})
+			resource, err := loader.GetMatchingReleasePlans(mockContext, nil, nil)
+			Expect(resource).To(Equal(releasePlans))
+			Expect(err).To(BeNil())
+		})
+	})
+
 	When("calling GetRelease", func() {
 		It("returns the resource and error from the context", func() {
 			release := &v1alpha1.Release{}
