@@ -43,10 +43,16 @@ func getComponentBindings(components []applicationapiv1alpha1.Component) []appli
 	var bindingComponents []applicationapiv1alpha1.BindingComponent
 
 	for _, component := range components {
+		var replicas int
+		if component.Spec.Replicas != nil {
+			replicas = int(math.Max(1, float64(*component.Spec.Replicas)))
+		} else {
+			replicas = 1
+		}
 		bindingComponents = append(bindingComponents, applicationapiv1alpha1.BindingComponent{
 			Name: component.Name,
 			Configuration: applicationapiv1alpha1.BindingComponentConfiguration{
-				Replicas: int(math.Max(1, float64(component.Spec.Replicas))),
+				Replicas: &replicas,
 			},
 		})
 	}

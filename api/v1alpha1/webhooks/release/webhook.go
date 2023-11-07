@@ -25,6 +25,7 @@ import (
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // Webhook describes the data structure for the release webhook
@@ -46,23 +47,23 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
-	return nil
+func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
 	oldRelease := oldObj.(*v1alpha1.Release)
 	newRelease := newObj.(*v1alpha1.Release)
 
 	if !reflect.DeepEqual(newRelease.Spec, oldRelease.Spec) {
-		return fmt.Errorf("release resources spec cannot be updated")
+		return nil, fmt.Errorf("release resources spec cannot be updated")
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (w *Webhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
-	return nil
+func (w *Webhook) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
+	return nil, nil
 }

@@ -18,8 +18,10 @@ package release
 
 import (
 	"context"
+	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"go/build"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"testing"
 
 	"github.com/redhat-appstudio/operator-toolkit/test"
@@ -34,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
-	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -95,9 +96,11 @@ var _ = BeforeSuite(func() {
 	Expect(applicationapiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	k8sManager, _ := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0", // disables metrics
-		LeaderElection:     false,
+		Scheme: scheme.Scheme,
+		Metrics: server.Options{
+			BindAddress: "0", // disables metrics
+		},
+		LeaderElection: false,
 	})
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})

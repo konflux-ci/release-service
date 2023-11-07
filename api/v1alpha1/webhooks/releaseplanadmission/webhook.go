@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // Webhook describes the data structure for the bar webhook
@@ -64,28 +65,28 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	return w.validateAutoReleaseLabel(obj)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
 	return w.validateAutoReleaseLabel(newObj)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (w *Webhook) ValidateDelete(ctx context.Context, obj runtime.Object) error {
-	return nil
+func (w *Webhook) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
+	return nil, nil
 }
 
 // validateAutoReleaseLabel throws an error if the auto-release label value is set to anything besides true or false.
-func (w *Webhook) validateAutoReleaseLabel(obj runtime.Object) error {
+func (w *Webhook) validateAutoReleaseLabel(obj runtime.Object) (warnings admission.Warnings, err error) {
 	releasePlanAdmission := obj.(*v1alpha1.ReleasePlanAdmission)
 
 	if value, found := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]; found {
 		if value != "true" && value != "false" {
-			return fmt.Errorf("'%s' label can only be set to true or false", metadata.AutoReleaseLabel)
+			return nil, fmt.Errorf("'%s' label can only be set to true or false", metadata.AutoReleaseLabel)
 		}
 	}
-	return nil
+	return nil, nil
 }

@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // Controller reconciles a Release object
@@ -96,13 +95,13 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Release{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&source.Kind{Type: &applicationapiv1alpha1.SnapshotEnvironmentBinding{}}, &libhandler.EnqueueRequestForAnnotation{
+		Watches(&applicationapiv1alpha1.SnapshotEnvironmentBinding{}, &libhandler.EnqueueRequestForAnnotation{
 			Type: schema.GroupKind{
 				Kind:  "Release",
 				Group: "appstudio.redhat.com",
 			},
 		}, builder.WithPredicates(predicates.GenerationUnchangedOnUpdatePredicate{}, gitops.DeploymentFinishedPredicate())).
-		Watches(&source.Kind{Type: &tektonv1.PipelineRun{}}, &libhandler.EnqueueRequestForAnnotation{
+		Watches(&tektonv1.PipelineRun{}, &libhandler.EnqueueRequestForAnnotation{
 			Type: schema.GroupKind{
 				Kind:  "Release",
 				Group: "appstudio.redhat.com",

@@ -181,10 +181,8 @@ var _ = Describe("Author webhook", Ordered, func() {
 
 				rsp := webhook.Handle(ctx, admissionRequest)
 				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
-				Expect(rsp.AdmissionResponse.Result).To(Equal(&metav1.Status{
-					Code:   http.StatusOK,
-					Reason: "Success",
-				}))
+				Expect(rsp.AdmissionResponse.Result.Code).To(Equal(int32(http.StatusOK)))
+				Expect(rsp.AdmissionResponse.Result.Message).To(Equal(metav1.StatusSuccess))
 			})
 
 			It("should not allow the author label to be set to a different value", func() {
