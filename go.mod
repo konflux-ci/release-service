@@ -3,7 +3,7 @@ module github.com/redhat-appstudio/release-service
 go 1.19
 
 require (
-	github.com/enterprise-contract/enterprise-contract-controller/api v0.0.0-20230327185456-5befd172d558
+	github.com/enterprise-contract/enterprise-contract-controller/api v0.0.0-20230331151951-a44c4f60da41
 	github.com/go-logr/logr v1.2.4
 	github.com/onsi/ginkgo/v2 v2.6.0
 	github.com/onsi/gomega v1.24.1
@@ -11,9 +11,9 @@ require (
 	github.com/redhat-appstudio/application-api v0.0.0-20230427114540-a91722251e0a
 	github.com/redhat-appstudio/operator-toolkit v0.0.0-20230901144515-eeb937692f03
 	github.com/tektoncd/pipeline v0.49.0
-	k8s.io/api v0.26.1
+	k8s.io/api v0.26.3
 	k8s.io/apimachinery v0.26.5
-	k8s.io/client-go v0.26.1
+	k8s.io/client-go v0.26.3
 	knative.dev/pkg v0.0.0-20230221145627-8efb3485adcf
 	sigs.k8s.io/controller-runtime v0.14.6
 )
@@ -89,8 +89,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.26.1 // indirect
-	k8s.io/component-base v0.26.1 // indirect
+	k8s.io/apiextensions-apiserver v0.26.3 // indirect
+	k8s.io/component-base v0.26.3 // indirect
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
