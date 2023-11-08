@@ -343,6 +343,7 @@ func (a *adapter) createReleasePipelineRun(resources *loader.ProcessingResources
 		WithReleaseAndApplicationMetadata(a.release, resources.Snapshot.Spec.Application).
 		WithWorkspace(os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"), os.Getenv("DEFAULT_RELEASE_PVC")).
 		WithServiceAccount(resources.ReleasePlanAdmission.Spec.ServiceAccount).
+		WithTimeout(resources.ReleasePlanAdmission.Spec.PipelineRef.Timeout).
 		WithPipelineRef(resources.ReleasePlanAdmission.Spec.PipelineRef.ToTektonPipelineRef()).
 		WithEnterpriseContractConfigMap(resources.EnterpriseContractConfigMap).
 		WithEnterpriseContractPolicy(resources.EnterpriseContractPolicy).

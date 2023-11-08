@@ -880,6 +880,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineName).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[1].Value))
 		})
 
+		It("contains the proper timeout value", func() {
+			timeout := releasePlanAdmission.Spec.PipelineRef.Timeout
+			Expect(pipelineRun.Spec.Timeouts.Pipeline.Duration.String()).To(Equal(string(timeout)))
+		})
+
 		It("contains a parameter with the verify ec task bundle", func() {
 			bundle := enterpriseContractConfigMap.Data["verify_ec_task_bundle"]
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(bundle)))))
@@ -1688,6 +1693,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 						{Name: "name", Value: "release-pipeline"},
 						{Name: "kind", Value: "pipeline"},
 					},
+					Timeout: "2h0m0s",
 				},
 				Policy: enterpriseContractPolicy.Name,
 			},

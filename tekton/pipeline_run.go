@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -157,6 +158,17 @@ func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1
 // execution of the different Pipeline tasks.
 func (r *ReleasePipelineRun) WithServiceAccount(serviceAccount string) *ReleasePipelineRun {
 	r.Spec.TaskRunTemplate.ServiceAccountName = serviceAccount
+
+	return r
+}
+
+// WithTimeout overwrites the PipelineRun's default timeout value.
+func (r *ReleasePipelineRun) WithTimeout(timeout string) *ReleasePipelineRun {
+	duration, err := time.ParseDuration(timeout)
+	if err == nil {
+		r.Spec.Timeouts = &tektonv1.TimeoutFields{}
+		r.Spec.Timeouts.Pipeline = &v1.Duration{Duration: duration}
+	}
 
 	return r
 }

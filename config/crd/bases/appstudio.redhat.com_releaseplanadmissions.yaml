@@ -89,6 +89,11 @@ spec:
                     description: Resolver is the name of a Tekton resolver to be used
                       (e.g. git)
                     type: string
+                  timeout:
+                    default: "0"
+                    description: Timeout is value to use to override the tekton default
+                      Pipelinerun timeout
+                    type: string
                 required:
                 - params
                 - resolver
