@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/enterprise-contract/enterprise-contract-controller/api v0.0.0-20231030162654-830b71ea12be
-	github.com/go-logr/logr v1.2.4
+	github.com/go-logr/logr v1.3.0
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.28.1
 	github.com/operator-framework/operator-lib v0.11.1-0.20231020142438-152ee1fb7f83
