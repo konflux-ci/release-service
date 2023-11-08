@@ -51,6 +51,7 @@ var _ = Describe("PipelineRun", func() {
 		workspace             = "test-workspace"
 		persistentVolumeClaim = "test-pvc"
 		serviceAccountName    = "test-service-account"
+		timeout               = "1h0m0s"
 		apiVersion            = "appstudio.redhat.com/v1alpha1"
 		applicationName       = "test-application"
 	)
@@ -207,6 +208,11 @@ var _ = Describe("PipelineRun", func() {
 		It("can add the reference to the service account that should be used", func() {
 			releasePipelineRun.WithServiceAccount(serviceAccountName)
 			Expect(releasePipelineRun.Spec.TaskRunTemplate.ServiceAccountName).To(Equal(serviceAccountName))
+		})
+
+		It("can add the timeout that should be used", func() {
+			releasePipelineRun.WithTimeout(timeout)
+			Expect(releasePipelineRun.Spec.Timeouts.Pipeline.Duration.String()).To(Equal(timeout))
 		})
 
 		It("can add a workspace to the PipelineRun using the given name and PVC", func() {

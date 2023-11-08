@@ -26,6 +26,11 @@ type PipelineRef struct {
 
 	// Params is a slice of parameters for a given resolver
 	Params []Param `json:"params"`
+
+	// Timeout is value to use to override the tekton default Pipelinerun timeout
+	// +kubebuilder:default="0"
+	// +optional
+	Timeout string `json:"timeout,omitempty"`
 }
 
 // Param defines the parameters for a given resolver in PipelineRef
