@@ -12,6 +12,8 @@ spec:
     kind: ReleaseServiceConfig
     listKind: ReleaseServiceConfigList
     plural: releaseserviceconfigs
+    shortNames:
+    - rsc
     singular: releaseserviceconfig
   scope: Namespaced
   versions:
