@@ -35,6 +35,7 @@ type ReleaseServiceConfigStatus struct {
 }
 
 //+kubebuilder:object:root=true
+//+kubebuilder:resource:shortName=rsc
 //+kubebuilder:subresource:status
 
 // ReleaseServiceConfig is the Schema for the releaseserviceconfigs API

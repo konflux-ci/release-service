@@ -12,6 +12,8 @@ spec:
     kind: ReleasePlan
     listKind: ReleasePlanList
     plural: releaseplans
+    shortNames:
+    - rp
     singular: releaseplan
   scope: Namespaced
   versions:

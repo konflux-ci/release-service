@@ -159,6 +159,7 @@ type ValidationInfo struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=rel
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Snapshot",type=string,JSONPath=`.spec.snapshot`
 // +kubebuilder:printcolumn:name="ReleasePlan",type=string,JSONPath=`.spec.releasePlan`

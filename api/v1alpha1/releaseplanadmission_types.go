@@ -71,6 +71,7 @@ type ReleasePlanAdmissionStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=rpa
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
 // +kubebuilder:printcolumn:name="Origin",type=string,JSONPath=`.spec.origin`

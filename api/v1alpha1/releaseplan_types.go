@@ -65,6 +65,7 @@ type ReleasePlanStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=rp
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Application",type=string,JSONPath=`.spec.application`
 // +kubebuilder:printcolumn:name="Target",type=string,JSONPath=`.spec.target`

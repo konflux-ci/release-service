@@ -12,6 +12,8 @@ spec:
     kind: ReleasePlanAdmission
     listKind: ReleasePlanAdmissionList
     plural: releaseplanadmissions
+    shortNames:
+    - rpa
     singular: releaseplanadmission
   scope: Namespaced
   versions:
