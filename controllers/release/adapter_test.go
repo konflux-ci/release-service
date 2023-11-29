@@ -319,12 +319,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
 					Applications: []string{"app"},
 					Origin:       "default",
-					PipelineRef: &tektonutils.PipelineRef{
-						Resolver: "bundles",
-						Params: []tektonutils.Param{
-							{Name: "bundle", Value: "quay.io/some/bundle"},
-							{Name: "name", Value: "release-pipeline"},
-							{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "quay.io/some/bundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
 						},
 					},
 					Policy: enterpriseContractPolicy.Name,
@@ -879,11 +881,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 					pipelineName = resolverParams[i].Value.StringVal
 				}
 			}
-			Expect(pipelineName).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[1].Value))
+			Expect(pipelineName).To(Equal(releasePlanAdmission.Spec.Pipeline.PipelineRef.Params[1].Value))
 		})
 
 		It("contains the proper timeout value", func() {
-			timeout := releasePlanAdmission.Spec.PipelineRef.Timeout
+			timeout := releasePlanAdmission.Spec.Pipeline.Timeout
 			Expect(pipelineRun.Spec.Timeouts.Pipeline.Duration.String()).To(Equal(string(timeout)))
 		})
 
@@ -1524,12 +1526,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 							Applications: []string{application.Name},
 							Origin:       "default",
 							Environment:  environment.Name,
-							PipelineRef: &tektonutils.PipelineRef{
-								Resolver: "cluster",
-								Params: []tektonutils.Param{
-									{Name: "name", Value: "release-pipeline"},
-									{Name: "namespace", Value: "default"},
-									{Name: "kind", Value: "pipeline"},
+							Pipeline: &tektonutils.Pipeline{
+								PipelineRef: tektonutils.PipelineRef{
+									Resolver: "cluster",
+									Params: []tektonutils.Param{
+										{Name: "name", Value: "release-pipeline"},
+										{Name: "namespace", Value: "default"},
+										{Name: "kind", Value: "pipeline"},
+									},
 								},
 							},
 							Policy: enterpriseContractPolicy.Name,
@@ -1688,12 +1692,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Applications: []string{application.Name},
 				Origin:       "default",
 				Environment:  environment.Name,
-				PipelineRef: &tektonutils.PipelineRef{
-					Resolver: "bundles",
-					Params: []tektonutils.Param{
-						{Name: "bundle", Value: "quay.io/some/bundle"},
-						{Name: "name", Value: "release-pipeline"},
-						{Name: "kind", Value: "pipeline"},
+				Pipeline: &tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "bundles",
+						Params: []tektonutils.Param{
+							{Name: "bundle", Value: "quay.io/some/bundle"},
+							{Name: "name", Value: "release-pipeline"},
+							{Name: "kind", Value: "pipeline"},
+						},
 					},
 					Timeout: "2h0m0s",
 				},

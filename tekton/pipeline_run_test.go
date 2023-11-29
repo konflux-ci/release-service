@@ -117,16 +117,18 @@ var _ = Describe("PipelineRun", func() {
 		releasePlanAdmission = &v1alpha1.ReleasePlanAdmission{
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
 				Applications: []string{"application"},
-				PipelineRef: &tektonutils.PipelineRef{
-					Resolver: "bundles",
-					Params: []tektonutils.Param{
-						{Name: "bundle", Value: "testbundle"},
-						{Name: "name", Value: "release-pipeline"},
-						{Name: "kind", Value: "pipeline"},
+				Pipeline: &tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "bundles",
+						Params: []tektonutils.Param{
+							{Name: "bundle", Value: "testbundle"},
+							{Name: "name", Value: "release-pipeline"},
+							{Name: "kind", Value: "pipeline"},
+						},
 					},
+					ServiceAccount: serviceAccountName,
 				},
-				Policy:         "testpolicy",
-				ServiceAccount: serviceAccountName,
+				Policy: "testpolicy",
 			},
 		}
 
@@ -195,14 +197,14 @@ var _ = Describe("PipelineRun", func() {
 		})
 
 		It("can add the PipelineRef to a PipelineRun object ", func() {
-			releasePipelineRun.WithPipelineRef(releasePlanAdmission.Spec.PipelineRef.ToTektonPipelineRef())
+			releasePipelineRun.WithPipelineRef(releasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef())
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef).NotTo(Equal(tektonv1.ResolverRef{}))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Resolver).To(Equal(tektonv1.ResolverName("bundles")))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params).To(HaveLen(3))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Name).To(Equal("bundle"))
-			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Value.StringVal).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[0].Value))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[0].Value.StringVal).To(Equal(releasePlanAdmission.Spec.Pipeline.PipelineRef.Params[0].Value))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Name).To(Equal("name"))
-			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Value.StringVal).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[1].Value))
+			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Value.StringVal).To(Equal(releasePlanAdmission.Spec.Pipeline.PipelineRef.Params[1].Value))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[2].Name).To(Equal("kind"))
 			Expect(releasePipelineRun.Spec.PipelineRef.ResolverRef.Params[2].Value.StringVal).To(Equal("pipeline"))
 		})
