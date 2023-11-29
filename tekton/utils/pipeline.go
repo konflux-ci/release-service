@@ -18,21 +18,6 @@ package utils
 
 import tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 
-// PipelineRef represents a reference to a Pipeline using a resolver.
-// +kubebuilder:object:generate=true
-type PipelineRef struct {
-	// Resolver is the name of a Tekton resolver to be used (e.g. git)
-	Resolver string `json:"resolver"`
-
-	// Params is a slice of parameters for a given resolver
-	Params []Param `json:"params"`
-
-	// Timeout is value to use to override the tekton default Pipelinerun timeout
-	// +kubebuilder:default="0"
-	// +optional
-	Timeout string `json:"timeout,omitempty"`
-}
-
 // Param defines the parameters for a given resolver in PipelineRef
 type Param struct {
 	// Name is the name of the parameter
@@ -42,8 +27,43 @@ type Param struct {
 	Value string `json:"value"`
 }
 
+// PipelineRef represents a reference to a Pipeline using a resolver.
+// +kubebuilder:object:generate=true
+type PipelineRef struct {
+	// Resolver is the name of a Tekton resolver to be used (e.g. git)
+	Resolver string `json:"resolver"`
+
+	// Params is a slice of parameters for a given resolver
+	Params []Param `json:"params"`
+}
+
+// Pipeline contains a reference to a Pipeline and the name of the service account to use while executing it.
+// +kubebuilder:object:generate=true
+type Pipeline struct {
+	// PipelineRef is the reference to the Pipeline
+	PipelineRef PipelineRef `json:"pipelineRef"`
+
+	// ServiceAccount is the ServiceAccount to use during the execution of the Pipeline
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	ServiceAccount string `json:"serviceAccountName,omitempty"`
+
+	// Timeout is value to use to override the tekton default Pipelinerun timeout
+	// +kubebuilder:default="0"
+	// +optional
+	Timeout string `json:"timeout,omitempty"`
+}
+
+// ParameterizedPipeline is an extension of the Pipeline struct, adding an array of parameters that will be passed to
+// the Pipeline.
+// +kubebuilder:object:generate=true
+type ParameterizedPipeline struct {
+	Pipeline
+	Params []Param `json:"params,omitempty"`
+}
+
 // ToTektonPipelineRef converts a PipelineRef object to Tekton's own PipelineRef type and returns it.
-func (pr PipelineRef) ToTektonPipelineRef() *tektonv1.PipelineRef {
+func (pr *PipelineRef) ToTektonPipelineRef() *tektonv1.PipelineRef {
 	params := tektonv1.Params{}
 
 	for _, p := range pr.Params {
@@ -67,6 +87,6 @@ func (pr PipelineRef) ToTektonPipelineRef() *tektonv1.PipelineRef {
 }
 
 // IsClusterScoped returns whether the PipelineRef uses a cluster resolver or not.
-func (pr PipelineRef) IsClusterScoped() bool {
+func (pr *PipelineRef) IsClusterScoped() bool {
 	return pr.Resolver == "cluster"
 }

@@ -342,10 +342,10 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithOwner(a.release).
 		WithReleaseAndApplicationMetadata(a.release, resources.Snapshot.Spec.Application).
 		WithWorkspace(os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"), os.Getenv("DEFAULT_RELEASE_PVC")).
-		WithServiceAccount(resources.ReleasePlanAdmission.Spec.ServiceAccount).
-		WithTimeout(resources.ReleasePlanAdmission.Spec.PipelineRef.Timeout).
-		WithPipelineRef(resources.ReleasePlanAdmission.Spec.PipelineRef.ToTektonPipelineRef()).
-		WithTaskGitPipelineParameters(resources.ReleasePlanAdmission.Spec.PipelineRef).
+		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccount).
+		WithTimeout(resources.ReleasePlanAdmission.Spec.Pipeline.Timeout).
+		WithPipelineRef(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
+		WithTaskGitPipelineParameters(&resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef).
 		WithEnterpriseContractConfigMap(resources.EnterpriseContractConfigMap).
 		WithEnterpriseContractPolicy(resources.EnterpriseContractPolicy).
 		AsPipelineRun()
@@ -621,7 +621,7 @@ func (a *adapter) validatePipelineRef() *controller.ValidationResult {
 		return &controller.ValidationResult{Err: err}
 	}
 
-	if !a.releaseServiceConfig.Spec.Debug && releasePlanAdmission.Spec.PipelineRef.IsClusterScoped() {
+	if !a.releaseServiceConfig.Spec.Debug && releasePlanAdmission.Spec.Pipeline.PipelineRef.IsClusterScoped() {
 		a.release.MarkValidationFailed("tried using debug only options while debug mode is disabled in the ReleaseServiceConfig")
 		return &controller.ValidationResult{Valid: false}
 	}
