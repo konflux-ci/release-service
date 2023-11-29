@@ -8,10 +8,10 @@ TAG_NAME ?= next
 CERT_MANAGER_VERSION ?= v1.8.0
 ENABLE_WEBHOOKS ?= true
 
-# DEFAULT_PERSISTENT_VOLUME_CLAIM defines the default PVC to be used in the Release pipeline workspace declaration.
+# DEFAULT_PERSISTENT_VOLUME_CLAIM defines the default PVC to be used in the managed Release Pipeline workspace declaration.
 DEFAULT_RELEASE_PVC ?= release-pvc
 
-# DEFAULT_WORKSPACE_NAME defines the default name for the workspace that will be used in the Release pipeline.
+# DEFAULT_WORKSPACE_NAME defines the default name for the workspace that will be used in the managed Release Pipeline.
 DEFAULT_RELEASE_WORKSPACE_NAME ?= release-workspace
 
 # CHANNELS define the bundle channels used in the bundle.

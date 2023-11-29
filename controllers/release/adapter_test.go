@@ -168,7 +168,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
-			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			pipelineRun, err := adapter.loader.GetManagedReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			Expect(pipelineRun).To(Or(BeNil(), HaveField("DeletionTimestamp", Not(BeNil()))))
 			Expect(err).NotTo(HaveOccurred())
 
@@ -646,7 +646,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsProcessing()).To(BeTrue())
 
-			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			pipelineRun, err := adapter.loader.GetManagedReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
@@ -802,7 +802,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 	})
 
-	When("createReleasePipelineRun is called", func() {
+	When("createManagedPipelineRun is called", func() {
 		var (
 			adapter     *adapter
 			pipelineRun *tektonv1.PipelineRun
@@ -825,13 +825,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 			}
 
 			var err error
-			pipelineRun, err = adapter.createReleasePipelineRun(resources)
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("returns a PipelineRun", func() {
+		It("returns a PipelineRun with the right prefix", func() {
 			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1.PipelineRun{})))
+			Expect(pipelineRun.Name).To(HavePrefix("managed-release"))
 		})
 
 		It("has the release reference", func() {
@@ -1003,12 +1004,12 @@ var _ = Describe("Release adapter", Ordered, func() {
 				EnterpriseContractPolicy:    enterpriseContractPolicy,
 				Snapshot:                    snapshot,
 			}
-			pipelineRun, err := adapter.createReleasePipelineRun(resources)
+			pipelineRun, err := adapter.createManagedPipelineRun(resources)
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(adapter.finalizeRelease()).To(Succeed())
-			pipelineRun, err = adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			pipelineRun, err = adapter.loader.GetManagedReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pipelineRun).To(BeNil())
 		})

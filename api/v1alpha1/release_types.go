@@ -39,7 +39,7 @@ type ReleaseSpec struct {
 	// +required
 	ReleasePlan string `json:"releasePlan"`
 
-	// Data is an unstructured key used for providing data for the release Pipeline
+	// Data is an unstructured key used for providing data for the managed Release Pipeline
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Data *runtime.RawExtension `json:"data,omitempty"`
@@ -138,7 +138,7 @@ type ProcessingInfo struct {
 	// +optional
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 
-	// PipelineRun contains the namespaced name of the release PipelineRun executed as part of this release
+	// PipelineRun contains the namespaced name of the managed Release PipelineRun executed as part of this release
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
 	PipelineRun string `json:"pipelineRun,omitempty"`

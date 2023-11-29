@@ -43,7 +43,7 @@ import (
 type PipelineType string
 
 const (
-	// PipelineTypeRelease is the type for PipelineRuns created to run a release Pipeline
+	// PipelineTypeRelease is the type for PipelineRuns created to run a managed Release Pipeline
 	PipelineTypeRelease = "release"
 )
 
@@ -71,7 +71,7 @@ func (r *ReleasePipelineRun) AsPipelineRun() *tektonv1.PipelineRun {
 	return &r.PipelineRun
 }
 
-// WithEnterpriseContractConfigMap adds a param providing the verify ec task bundle to the release PipelineRun.
+// WithEnterpriseContractConfigMap adds a param providing the verify ec task bundle to the managed Release PipelineRun.
 func (r *ReleasePipelineRun) WithEnterpriseContractConfigMap(ecConfig *corev1.ConfigMap) *ReleasePipelineRun {
 	enterpriseContractConfigMapBundleField := "verify_ec_task_bundle"
 
@@ -85,7 +85,7 @@ func (r *ReleasePipelineRun) WithEnterpriseContractConfigMap(ecConfig *corev1.Co
 	return r
 }
 
-// WithEnterpriseContractPolicy adds a param containing the EnterpriseContractPolicy Spec as a json string to the release PipelineRun.
+// WithEnterpriseContractPolicy adds a param containing the EnterpriseContractPolicy Spec as a json string to the managed Release PipelineRun.
 func (r *ReleasePipelineRun) WithEnterpriseContractPolicy(enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy) *ReleasePipelineRun {
 	policyJson, _ := json.Marshal(enterpriseContractPolicy.Spec)
 
@@ -100,7 +100,7 @@ func (r *ReleasePipelineRun) WithEnterpriseContractPolicy(enterpriseContractPoli
 	return r
 }
 
-// WithExtraParam adds an extra param to the release PipelineRun. If the parameter is not part of the Pipeline
+// WithExtraParam adds an extra param to the managed Release PipelineRun. If the parameter is not part of the Pipeline
 // definition, it will be silently ignored.
 func (r *ReleasePipelineRun) WithExtraParam(name string, value tektonv1.ParamValue) *ReleasePipelineRun {
 	r.Spec.Params = append(r.Spec.Params, tektonv1.Param{
@@ -125,7 +125,7 @@ func (r *ReleasePipelineRun) WithObjectReferences(objects ...client.Object) *Rel
 	return r
 }
 
-// WithOwner sets owner annotations to the release PipelineRun and a finalizer to prevent its deletion.
+// WithOwner sets owner annotations to the managed Release PipelineRun and a finalizer to prevent its deletion.
 func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipelineRun {
 	_ = libhandler.SetOwnerAnnotations(release, r)
 	controllerutil.AddFinalizer(r, metadata.ReleaseFinalizer)
@@ -133,14 +133,14 @@ func (r *ReleasePipelineRun) WithOwner(release *v1alpha1.Release) *ReleasePipeli
 	return r
 }
 
-// WithPipelineRef sets the PipelineRef for the release PipelineRun.
+// WithPipelineRef sets the PipelineRef for the managed Release PipelineRun.
 func (r *ReleasePipelineRun) WithPipelineRef(pipelineRef *tektonv1.PipelineRef) *ReleasePipelineRun {
 	r.Spec.PipelineRef = pipelineRef
 
 	return r
 }
 
-// WithReleaseAndApplicationMetadata adds Release and Application metadata to the release PipelineRun.
+// WithReleaseAndApplicationMetadata adds Release and Application metadata to the managed Release PipelineRun.
 func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1.Release, applicationName string) *ReleasePipelineRun {
 	r.ObjectMeta.Labels = map[string]string{
 		metadata.PipelinesTypeLabel:    PipelineTypeRelease,

@@ -22,7 +22,7 @@ import (
 )
 
 // ReleasePipelineRunSucceededPredicate returns a predicate which filters out all objects except
-// release PipelineRuns which have just succeeded.
+// managed Release PipelineRuns which have just succeeded.
 func ReleasePipelineRunSucceededPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(createEvent event.CreateEvent) bool {
