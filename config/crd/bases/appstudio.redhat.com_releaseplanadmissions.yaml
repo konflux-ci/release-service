@@ -66,30 +66,42 @@ spec:
                   from
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
-              pipelineRef:
-                description: PipelineRef is a reference to the Pipeline to be executed
-                  by the managed Release PipelineRun
+              pipeline:
+                description: Pipeline contains all the information about the managed
+                  Pipeline
                 properties:
-                  params:
-                    description: Params is a slice of parameters for a given resolver
-                    items:
-                      description: Param defines the parameters for a given resolver
-                        in PipelineRef
-                      properties:
-                        name:
-                          description: Name is the name of the parameter
-                          type: string
-                        value:
-                          description: Value is the value of the parameter
-                          type: string
-                      required:
-                      - name
-                      - value
-                      type: object
-                    type: array
-                  resolver:
-                    description: Resolver is the name of a Tekton resolver to be used
-                      (e.g. git)
+                  pipelineRef:
+                    description: PipelineRef is the reference to the Pipeline
+                    properties:
+                      params:
+                        description: Params is a slice of parameters for a given resolver
+                        items:
+                          description: Param defines the parameters for a given resolver
+                            in PipelineRef
+                          properties:
+                            name:
+                              description: Name is the name of the parameter
+                              type: string
+                            value:
+                              description: Value is the value of the parameter
+                              type: string
+                          required:
+                          - name
+                          - value
+                          type: object
+                        type: array
+                      resolver:
+                        description: Resolver is the name of a Tekton resolver to
+                          be used (e.g. git)
+                        type: string
+                    required:
+                    - params
+                    - resolver
+                    type: object
+                  serviceAccountName:
+                    description: ServiceAccount is the ServiceAccount to use during
+                      the execution of the Pipeline
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
                   timeout:
                     default: "0"
@@ -97,22 +109,16 @@ spec:
                       Pipelinerun timeout
                     type: string
                 required:
-                - params
-                - resolver
+                - pipelineRef
                 type: object
               policy:
                 description: Policy to validate before releasing an artifact
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
-              serviceAccount:
-                description: ServiceAccount is the name of the service account to
-                  use in the managed Release PipelineRun to gain elevated privileges
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
             required:
             - applications
             - origin
-            - pipelineRef
+            - pipeline
             - policy
             type: object
           status:

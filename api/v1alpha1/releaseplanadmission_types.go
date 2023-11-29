@@ -49,20 +49,14 @@ type ReleasePlanAdmissionSpec struct {
 	// +required
 	Origin string `json:"origin"`
 
-	// PipelineRef is a reference to the Pipeline to be executed by the managed Release PipelineRun
+	// Pipeline contains all the information about the managed Pipeline
 	// +required
-	PipelineRef *tektonutils.PipelineRef `json:"pipelineRef"`
+	Pipeline *tektonutils.Pipeline `json:"pipeline"`
 
 	// Policy to validate before releasing an artifact
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
 	Policy string `json:"policy"`
-
-	// ServiceAccount is the name of the service account to use in the
-	// managed Release PipelineRun to gain elevated privileges
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-	// +optional
-	ServiceAccount string `json:"serviceAccount,omitempty"`
 }
 
 // MatchedReleasePlan defines the relevant information for a matched ReleasePlan.

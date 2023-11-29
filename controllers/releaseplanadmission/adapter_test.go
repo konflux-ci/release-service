@@ -210,15 +210,17 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
 				Applications: []string{"application"},
 				Origin:       "default",
-				Policy:       "policy",
-				PipelineRef: &tektonutils.PipelineRef{
-					Resolver: "bundles",
-					Params: []tektonutils.Param{
-						{Name: "bundle", Value: "quay.io/some/bundle"},
-						{Name: "name", Value: "release-pipeline"},
-						{Name: "kind", Value: "pipeline"},
+				Pipeline: &tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "bundles",
+						Params: []tektonutils.Param{
+							{Name: "bundle", Value: "quay.io/some/bundle"},
+							{Name: "name", Value: "release-pipeline"},
+							{Name: "kind", Value: "pipeline"},
+						},
 					},
 				},
+				Policy: "policy",
 			},
 		}
 		Expect(k8sClient.Create(ctx, releasePlanAdmission)).To(Succeed())
