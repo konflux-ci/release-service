@@ -24,6 +24,7 @@ import (
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 var _ = Describe("PipelineRun builder", func() {
@@ -336,6 +337,19 @@ var _ = Describe("PipelineRun builder", func() {
 			serviceAccount := "sampleServiceAccount"
 			builder.WithServiceAccount(serviceAccount)
 			Expect(builder.pipelineRun.Spec.TaskRunTemplate.ServiceAccountName).To(Equal(serviceAccount))
+		})
+	})
+
+	When("WithTimeouts method is called", func() {
+		It("should set the timeouts for the PipelineRun", func() {
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			timeouts := &tektonv1.TimeoutFields{
+				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
+				Tasks:    &metav1.Duration{Duration: 1 * time.Hour},
+				Finally:  &metav1.Duration{Duration: 1 * time.Hour},
+			}
+			builder.WithTimeouts(timeouts)
+			Expect(builder.pipelineRun.Spec.Timeouts).To(Equal(timeouts))
 		})
 	})
 

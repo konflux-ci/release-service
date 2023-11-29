@@ -48,10 +48,17 @@ type Pipeline struct {
 	// +optional
 	ServiceAccount string `json:"serviceAccountName,omitempty"`
 
-	// Timeout is value to use to override the tekton default Pipelinerun timeout
+	// Timeout is a value to use to override the tekton default Pipelinerun timeout
+	//
+	// This field is DEPRECATED and will be replaced by Timeouts in a future change.
+	//
 	// +kubebuilder:default="0"
 	// +optional
 	Timeout string `json:"timeout,omitempty"`
+
+	// Timeouts defines the different Timeouts to use in the PipelineRun execution
+	// +optional
+	Timeouts tektonv1.TimeoutFields `json:"timeouts,omitempty"`
 }
 
 // ParameterizedPipeline is an extension of the Pipeline struct, adding an array of parameters that will be passed to

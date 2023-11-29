@@ -105,9 +105,28 @@ spec:
                     type: string
                   timeout:
                     default: "0"
-                    description: Timeout is value to use to override the tekton default
-                      Pipelinerun timeout
+                    description: "Timeout is a value to use to override the tekton
+                      default Pipelinerun timeout \n This field is DEPRECATED and
+                      will be replaced by Timeouts in a future change."
                     type: string
+                  timeouts:
+                    description: Timeouts defines the different Timeouts to use in
+                      the PipelineRun execution
+                    properties:
+                      finally:
+                        description: Finally sets the maximum allowed duration of
+                          this pipeline's finally
+                        type: string
+                      pipeline:
+                        description: Pipeline sets the maximum allowed duration for
+                          execution of the entire pipeline. The sum of individual
+                          timeouts for tasks and finally must not exceed this value.
+                        type: string
+                      tasks:
+                        description: Tasks sets the maximum allowed duration of this
+                          pipeline's tasks
+                        type: string
+                    type: object
                 required:
                 - pipelineRef
                 type: object
