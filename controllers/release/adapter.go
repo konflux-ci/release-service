@@ -336,7 +336,7 @@ func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult
 // will be extracted from the given ReleaseStrategy. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
-	pipelineRun := tekton.NewReleasePipelineRun("managed-release", resources.ReleasePlanAdmission.Namespace).
+	pipelineRun := tekton.NewReleasePipelineRun("managed-pipelinerun", resources.ReleasePlanAdmission.Namespace).
 		WithObjectReferences(a.release, resources.ReleasePlan,
 			resources.ReleasePlanAdmission, resources.Snapshot).
 		WithOwner(a.release).

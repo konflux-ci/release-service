@@ -207,7 +207,7 @@ func (l *loader) GetRelease(ctx context.Context, cli client.Client, name, namesp
 	return release, toolkit.GetObject(name, namespace, cli, ctx, release)
 }
 
-// GetManagedReleasePipelineRun returns the managed Release PipelineRun referenced by the given Release or nil if it's not found. In the case
+// GetManagedReleasePipelineRun returns the PipelineRun referenced by the given Release or nil if it's not found. In the case
 // the List operation fails, an error will be returned.
 func (l *loader) GetManagedReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error) {
 	pipelineRuns := &tektonv1.PipelineRunList{}
