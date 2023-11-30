@@ -127,6 +127,15 @@ func main() {
 		}
 	}
 
+	// Set a default value for the DEFAULT_RELEASE_WORKSPACE_SIZE environment variable
+	if os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE") == "" {
+		err := os.Setenv("DEFAULT_RELEASE_WORKSPACE_SIZE", "1Gi")
+		if err != nil {
+			setupLog.Error(err, "unable to setup DEFAULT_RELEASE_WORKSPACE_SIZE environment variable")
+			os.Exit(1)
+		}
+	}
+
 	setUpControllers(mgr)
 	setUpWebhooks(mgr)
 

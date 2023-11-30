@@ -14,6 +14,9 @@ DEFAULT_RELEASE_PVC ?= release-pvc
 # DEFAULT_WORKSPACE_NAME defines the default name for the workspace that will be used in the managed Release Pipeline.
 DEFAULT_RELEASE_WORKSPACE_NAME ?= release-workspace
 
+# DEFAULT_WORKSPACE_SIZE defines the default size for the workspace that will be used in the managed Release Pipeline.
+DEFAULT_RELEASE_WORKSPACE_SIZE ?= 1Gi
+
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -158,6 +161,7 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	DEFAULT_RELEASE_PVC=${DEFAULT_RELEASE_PVC} \
 	DEFAULT_RELEASE_WORKSPACE_NAME=${DEFAULT_RELEASE_WORKSPACE_NAME} \
+	DEFAULT_RELEASE_WORKSPACE_SIZE=${DEFAULT_RELEASE_WORKSPACE_SIZE} \
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy

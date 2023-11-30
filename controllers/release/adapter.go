@@ -19,19 +19,18 @@ package release
 import (
 	"context"
 	"fmt"
-	"os"
-
-	"github.com/redhat-appstudio/operator-toolkit/controller"
-
 	"github.com/go-logr/logr"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+	integrationgitops "github.com/redhat-appstudio/integration-service/gitops"
+	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/redhat-appstudio/release-service/syncer"
-	"github.com/redhat-appstudio/release-service/tekton"
-
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/tekton/utils"
+	"os"
+	"strings"
 
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
@@ -336,20 +335,33 @@ func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult
 // will be extracted from the given ReleaseStrategy. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
-	pipelineRun := tekton.NewReleasePipelineRun("managed-pipelinerun", resources.ReleasePlanAdmission.Namespace).
-		WithObjectReferences(a.release, resources.ReleasePlan,
-			resources.ReleasePlanAdmission, resources.Snapshot).
+	pipelineRun, err := utils.NewPipelineRunBuilder("managed-pr", resources.ReleasePlanAdmission.Namespace).
+		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
+		WithFinalizer(metadata.ReleaseFinalizer).
+		WithLabels(map[string]string{
+			metadata.PipelinesTypeLabel:    strings.ToLower(a.release.Kind),
+			metadata.ReleaseNameLabel:      a.release.Name,
+			metadata.ReleaseNamespaceLabel: a.release.Namespace,
+			metadata.ApplicationNameLabel:  resources.ReleasePlan.Spec.Application,
+		}).
+		WithObjectReferences(a.release, resources.ReleasePlan, resources.ReleasePlanAdmission, resources.Snapshot).
+		WithObjectSpecsAsJson(resources.EnterpriseContractPolicy).
 		WithOwner(a.release).
-		WithReleaseAndApplicationMetadata(a.release, resources.Snapshot.Spec.Application).
-		WithWorkspace(os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"), os.Getenv("DEFAULT_RELEASE_PVC")).
-		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccount).
-		WithTimeout(resources.ReleasePlanAdmission.Spec.Pipeline.Timeout).
+		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_bundle"}).
 		WithPipelineRef(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
-		WithEnterpriseContractConfigMap(resources.EnterpriseContractConfigMap).
-		WithEnterpriseContractPolicy(resources.EnterpriseContractPolicy).
-		AsPipelineRun()
+		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccount).
+		WithTimeouts(&resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts).
+		WithWorkspaceFromVolumeTemplate(
+			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
+			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
+		).
+		Build()
 
-	err := a.client.Create(a.ctx, pipelineRun)
+	if err != nil {
+		return nil, err
+	}
+
+	err = a.client.Create(a.ctx, pipelineRun)
 	if err != nil {
 		return nil, err
 	}

@@ -32,7 +32,7 @@ func isReleasePipelineRun(object client.Object) bool {
 
 	labelValue, found := object.GetLabels()[metadata.PipelinesTypeLabel]
 
-	return found && labelValue == PipelineTypeRelease
+	return found && labelValue == "release"
 }
 
 // hasPipelineSucceeded returns a boolean indicating whether the PipelineRun succeeded or not.
