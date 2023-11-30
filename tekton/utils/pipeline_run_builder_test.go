@@ -329,6 +329,30 @@ var _ = Describe("PipelineRun builder", func() {
 			builder.WithPipelineRef(pipelineRef)
 			Expect(builder.pipelineRun.Spec.PipelineRef).To(Equal(pipelineRef))
 		})
+
+		It("adds the taskGit pipeline parameters to the PipelineRun object when using a git resolver", func() {
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{
+						Name:  "url",
+						Value: "pipelineUrl",
+					},
+					{
+						Name:  "revision",
+						Value: "pipelineRevision",
+					},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+			Expect(builder.pipelineRun.Spec.Params[0].Name).To(Equal("taskGitUrl"))
+			Expect(builder.pipelineRun.Spec.Params[0].Value.StringVal).To(Equal("pipelineUrl"))
+			Expect(builder.pipelineRun.Spec.Params[1].Name).To(Equal("taskGitRevision"))
+			Expect(builder.pipelineRun.Spec.Params[1].Value.StringVal).To(Equal("pipelineRevision"))
+		})
 	})
 
 	When("WithServiceAccount method is called", func() {
@@ -348,8 +372,19 @@ var _ = Describe("PipelineRun builder", func() {
 				Tasks:    &metav1.Duration{Duration: 1 * time.Hour},
 				Finally:  &metav1.Duration{Duration: 1 * time.Hour},
 			}
-			builder.WithTimeouts(timeouts)
+			builder.WithTimeouts(timeouts, nil)
 			Expect(builder.pipelineRun.Spec.Timeouts).To(Equal(timeouts))
+		})
+
+		It("should use the default timeouts if the given timeouts are empty", func() {
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			defaultTimeouts := &tektonv1.TimeoutFields{
+				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
+				Tasks:    &metav1.Duration{Duration: 1 * time.Hour},
+				Finally:  &metav1.Duration{Duration: 1 * time.Hour},
+			}
+			builder.WithTimeouts(nil, defaultTimeouts)
+			Expect(builder.pipelineRun.Spec.Timeouts).To(Equal(defaultTimeouts))
 		})
 	})
 

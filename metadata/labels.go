@@ -59,6 +59,9 @@ var (
 	// ApplicationNameLabel is the label used to specify the application associated with the PipelineRun
 	ApplicationNameLabel = fmt.Sprintf("%s/%s", rhtapDomain, "application")
 
+	// ManagedPipelineType is the value to be used in the PipelinesTypeLabel for managed Pipelines
+	ManagedPipelineType = "managed"
+
 	// PipelinesTypeLabel is the label used to describe the type of pipeline
 	PipelinesTypeLabel = fmt.Sprintf("%s/%s", pipelinesLabelPrefix, "type")
 

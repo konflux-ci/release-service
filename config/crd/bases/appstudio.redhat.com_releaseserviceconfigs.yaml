@@ -46,6 +46,25 @@ spec:
                 description: Debug is the boolean that specifies whether or not the
                   Release Service should run in debug mode
                 type: boolean
+              defaultTimeouts:
+                description: DefaultTimeouts contain the default Tekton timeouts to
+                  be used in case they are not specified in the ReleasePlanAdmission
+                  resource.
+                properties:
+                  finally:
+                    description: Finally sets the maximum allowed duration of this
+                      pipeline's finally
+                    type: string
+                  pipeline:
+                    description: Pipeline sets the maximum allowed duration for execution
+                      of the entire pipeline. The sum of individual timeouts for tasks
+                      and finally must not exceed this value.
+                    type: string
+                  tasks:
+                    description: Tasks sets the maximum allowed duration of this pipeline's
+                      tasks
+                    type: string
+                type: object
             type: object
           status:
             description: ReleaseServiceConfigStatus defines the observed state of
