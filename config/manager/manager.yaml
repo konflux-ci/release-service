@@ -70,6 +70,12 @@ spec:
               key: DEFAULT_RELEASE_WORKSPACE_NAME
               name: manager-properties
               optional: true
+        - name: DEFAULT_RELEASE_WORKSPACE_SIZE
+          valueFrom:
+            configMapKeyRef:
+              key: DEFAULT_RELEASE_WORKSPACE_SIZE
+              name: manager-properties
+              optional: true
         - name: SERVICE_NAMESPACE
           valueFrom:
             fieldRef:

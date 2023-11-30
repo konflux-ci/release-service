@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,6 +29,10 @@ type ReleaseServiceConfigSpec struct {
 	// in debug mode
 	// +optional
 	Debug bool `json:"debug,omitempty"`
+
+	// DefaultTimeouts contain the default Tekton timeouts to be used in case they are
+	// not specified in the ReleasePlanAdmission resource.
+	DefaultTimeouts tektonv1.TimeoutFields `json:"defaultTimeouts,omitempty"`
 }
 
 // ReleaseServiceConfigStatus defines the observed state of ReleaseServiceConfig.

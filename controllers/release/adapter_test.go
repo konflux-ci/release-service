@@ -23,6 +23,8 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
+	"unicode"
 
 	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 
@@ -70,6 +72,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 	})
 
 	BeforeAll(func() {
+		Expect(os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "release-workspace")).To(Succeed())
+		Expect(os.Setenv("DEFAULT_RELEASE_WORKSPACE_SIZE", "1Gi")).To(Succeed())
+
 		createResources()
 	})
 
@@ -834,7 +839,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		It("returns a PipelineRun with the right prefix", func() {
 			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1.PipelineRun{})))
-			Expect(pipelineRun.Name).To(HavePrefix("managed-release"))
+			Expect(pipelineRun.Name).To(HavePrefix("managed"))
 		})
 
 		It("has the release reference", func() {
@@ -844,13 +849,19 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("has the releasePlan reference", func() {
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(releasePlan.Kind))))
+			name := []rune(releasePlan.Kind)
+			name[0] = unicode.ToLower(name[0])
+
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", string(name))))
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
 				fmt.Sprintf("%s%c%s", releasePlan.Namespace, types.Separator, releasePlan.Name))))
 		})
 
 		It("has the releasePlanAdmission reference", func() {
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(releasePlanAdmission.Kind))))
+			name := []rune(releasePlanAdmission.Kind)
+			name[0] = unicode.ToLower(name[0])
+
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", string(name))))
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
 				fmt.Sprintf("%s%c%s", releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Name))))
 		})
@@ -867,7 +878,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("has release labels", func() {
-			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal("release"))
+			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.ManagedPipelineType))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))
@@ -909,8 +920,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("contains the proper timeout value", func() {
-			timeout := releasePlanAdmission.Spec.Pipeline.Timeout
-			Expect(pipelineRun.Spec.Timeouts.Pipeline.Duration.String()).To(Equal(string(timeout)))
+			Expect(pipelineRun.Spec.Timeouts.Pipeline).To(Equal(releasePlanAdmission.Spec.Pipeline.Timeouts.Pipeline))
 		})
 
 		It("contains a parameter with the verify ec task bundle", func() {
@@ -1695,6 +1705,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, releasePlan)).To(Succeed())
+		releasePlan.Kind = "ReleasePlan"
 
 		releaseServiceConfig = &v1alpha1.ReleaseServiceConfig{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1725,7 +1736,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 							{Name: "pathInRepo", Value: "my-path"},
 						},
 					},
-					Timeout: "2h0m0s",
+					Timeouts: tektonv1.TimeoutFields{
+						Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
+					},
 				},
 				Policy: enterpriseContractPolicy.Name,
 			},
