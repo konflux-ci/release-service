@@ -147,6 +147,7 @@ func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1
 		metadata.ReleaseNameLabel:      release.Name,
 		metadata.ReleaseNamespaceLabel: release.Namespace,
 		metadata.ApplicationNameLabel:  applicationName,
+		metadata.ReleaseSnapshotLabel:  release.Spec.Snapshot,
 	}
 	metadata.AddAnnotations(r.AsPipelineRun(), metadata.GetAnnotationsWithPrefix(release, integrationServiceGitopsPkg.PipelinesAsCodePrefix))
 	metadata.AddLabels(r.AsPipelineRun(), metadata.GetLabelsWithPrefix(release, integrationServiceGitopsPkg.PipelinesAsCodePrefix))

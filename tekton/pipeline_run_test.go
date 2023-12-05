@@ -185,6 +185,8 @@ var _ = Describe("PipelineRun", func() {
 				To(Equal(release.Namespace))
 			Expect(releasePipelineRun.Labels["appstudio.openshift.io/application"]).
 				To(Equal(applicationName))
+			Expect(releasePipelineRun.Labels["appstudio.openshift.io/snapshot"]).
+				To(Equal(release.Spec.Snapshot))
 		})
 
 		It("can return a PipelineRun object from a PipelineRun object", func() {

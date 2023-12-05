@@ -867,6 +867,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal("release"))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
+			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))
 		})
 
 		It("references the pipeline specified in the ReleasePlanAdmission", func() {
