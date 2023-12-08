@@ -94,7 +94,7 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 	c.log = log.WithName("release")
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.Release{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		For(&v1alpha1.Release{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}, predicates.IgnoreBackups{})).
 		Watches(&applicationapiv1alpha1.SnapshotEnvironmentBinding{}, &libhandler.EnqueueRequestForAnnotation{
 			Type: schema.GroupKind{
 				Kind:  "Release",

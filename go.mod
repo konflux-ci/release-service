@@ -9,7 +9,7 @@ require (
 	github.com/onsi/gomega v1.28.1
 	github.com/operator-framework/operator-lib v0.11.1-0.20231020142438-152ee1fb7f83
 	github.com/redhat-appstudio/application-api v0.0.0-20231025105224-2790bb451725
-	github.com/redhat-appstudio/operator-toolkit v0.0.0-20230913085326-6c5e9d368a6a
+	github.com/redhat-appstudio/operator-toolkit v0.0.0-20231201124606-2087182322ae
 	github.com/tektoncd/pipeline v0.49.0
 	k8s.io/api v0.28.3
 	k8s.io/apimachinery v0.28.3
