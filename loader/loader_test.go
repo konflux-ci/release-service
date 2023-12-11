@@ -168,6 +168,37 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(returnedObject.Name).To(Equal(releasePlanAdmission.Name))
 		})
 
+		It("returns ReleasePlanAdmission from ReleasePlan label even when multiple matching RPAs exist", func() {
+			modifiedReleasePlan := releasePlan.DeepCopy()
+			modifiedReleasePlan.Labels = map[string]string{
+				metadata.ReleasePlanAdmissionLabel: "new-release-plan-admission",
+			}
+
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Name = "new-release-plan-admission"
+			newReleasePlanAdmission.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, newReleasePlanAdmission)).To(Succeed())
+
+			Eventually(func() bool {
+				returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+				return err == nil && returnedObject.Name == newReleasePlanAdmission.Name
+			})
+
+			Expect(k8sClient.Delete(ctx, newReleasePlanAdmission)).To(Succeed())
+		})
+
+		It("fails to return a ReleasePlanAdmission from ReleasePlan label when targeted RPA doesn't exist", func() {
+			modifiedReleasePlan := releasePlan.DeepCopy()
+			modifiedReleasePlan.Labels = map[string]string{
+				metadata.ReleasePlanAdmissionLabel: "foo",
+			}
+
+			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(returnedObject).To(Equal(&v1alpha1.ReleasePlanAdmission{}))
+		})
+
 		It("fails to return a release plan admission if the target does not match", func() {
 			modifiedReleasePlan := releasePlan.DeepCopy()
 			modifiedReleasePlan.Spec.Target = "non-existent-target"

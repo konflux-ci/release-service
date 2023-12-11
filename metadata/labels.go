@@ -40,6 +40,9 @@ var (
 
 	// AutomatedLabel is the label name for marking a Release as automated
 	AutomatedLabel = fmt.Sprintf("release.%s/automated", rhtapDomain)
+
+	// ReleasePlanAdmissionLabel is the ReleasePlan label for the name of the ReleasePlanAdmission to use
+	ReleasePlanAdmissionLabel = fmt.Sprintf("release.%s/releasePlanAdmission", rhtapDomain)
 )
 
 // Prefixes to be used by Release Pipeline Labels
