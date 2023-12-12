@@ -140,6 +140,12 @@ func (l *loader) GetManagedApplicationComponents(ctx context.Context, cli client
 // If a matching ReleasePlanAdmission is not found or the List operation fails, an error will be returned.
 // If more than one matching ReleasePlanAdmission objects are found, an error will be returned.
 func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error) {
+	designatedReleasePlanAdmissionName := releasePlan.GetLabels()[metadata.ReleasePlanAdmissionLabel]
+	if designatedReleasePlanAdmissionName != "" {
+		releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{}
+		return releasePlanAdmission, toolkit.GetObject(designatedReleasePlanAdmissionName, releasePlan.Spec.Target, cli, ctx, releasePlanAdmission)
+	}
+
 	releasePlanAdmissions := &v1alpha1.ReleasePlanAdmissionList{}
 	err := cli.List(ctx, releasePlanAdmissions,
 		client.InNamespace(releasePlan.Spec.Target),
