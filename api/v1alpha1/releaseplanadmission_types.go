@@ -34,7 +34,7 @@ type ReleasePlanAdmissionSpec struct {
 	// +required
 	Applications []string `json:"applications"`
 
-	// Data is an unstructured key used for providing data for the release Pipeline
+	// Data is an unstructured key used for providing data for the managed Release Pipeline
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Data *runtime.RawExtension `json:"data,omitempty"`
@@ -49,7 +49,7 @@ type ReleasePlanAdmissionSpec struct {
 	// +required
 	Origin string `json:"origin"`
 
-	// PipelineRef is a reference to the Pipeline to be executed by the release PipelineRun
+	// PipelineRef is a reference to the Pipeline to be executed by the managed Release PipelineRun
 	// +required
 	PipelineRef *tektonutils.PipelineRef `json:"pipelineRef"`
 
@@ -59,7 +59,7 @@ type ReleasePlanAdmissionSpec struct {
 	Policy string `json:"policy"`
 
 	// ServiceAccount is the name of the service account to use in the
-	// release PipelineRun to gain elevated privileges
+	// managed Release PipelineRun to gain elevated privileges
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
 	ServiceAccount string `json:"serviceAccount,omitempty"`

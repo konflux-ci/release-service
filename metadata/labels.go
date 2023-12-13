@@ -45,7 +45,7 @@ var (
 	ReleasePlanAdmissionLabel = fmt.Sprintf("release.%s/releasePlanAdmission", rhtapDomain)
 )
 
-// Prefixes to be used by Release Pipeline Labels
+// Prefixes to be used by Release Pipelines labels
 var (
 	// pipelinesLabelPrefix is the prefix of the pipelines label
 	pipelinesLabelPrefix = fmt.Sprintf("pipelines.%s", rhtapDomain)

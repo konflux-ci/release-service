@@ -244,14 +244,14 @@ func (a *adapter) EnsureReleaseIsRunning() (controller.OperationResult, error) {
 	return controller.ContinueProcessing()
 }
 
-// EnsureReleaseIsProcessed is an operation that will ensure that a release PipelineRun associated to the Release
-// being processed exists. Otherwise, it will create a new release PipelineRun.
+// EnsureReleaseIsProcessed is an operation that will ensure that a managed Release PipelineRun associated to the Release
+// being processed exists. Otherwise, it will create a new managed Release PipelineRun.
 func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error) {
 	if a.release.HasProcessingFinished() {
 		return controller.ContinueProcessing()
 	}
 
-	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
+	pipelineRun, err := a.loader.GetManagedReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
 	}
@@ -263,12 +263,12 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 		}
 
 		if pipelineRun == nil {
-			pipelineRun, err = a.createReleasePipelineRun(resources)
+			pipelineRun, err = a.createManagedPipelineRun(resources)
 			if err != nil {
 				return controller.RequeueWithError(err)
 			}
 
-			a.logger.Info("Created release PipelineRun",
+			a.logger.Info("Created managed Release PipelineRun",
 				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
 		}
 
@@ -300,14 +300,14 @@ func (a *adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
 	return controller.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 }
 
-// EnsureReleaseProcessingIsTracked is an operation that will ensure that the release PipelineRun status is tracked
+// EnsureReleaseProcessingIsTracked is an operation that will ensure that the managed Release PipelineRun status is tracked
 // in the Release being processed.
 func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult, error) {
 	if !a.release.IsProcessing() || a.release.HasProcessingFinished() {
 		return controller.ContinueProcessing()
 	}
 
-	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
+	pipelineRun, err := a.loader.GetManagedReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}
@@ -331,12 +331,12 @@ func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult
 	return controller.ContinueProcessing()
 }
 
-// createReleasePipelineRun creates and returns a new release PipelineRun. The new PipelineRun will include owner
+// createManagedPipelineRun creates and returns a new managed Release PipelineRun. The new PipelineRun will include owner
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
 // will be extracted from the given ReleaseStrategy. The Release's Snapshot will also be passed to the release
 // PipelineRun.
-func (a *adapter) createReleasePipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
-	pipelineRun := tekton.NewReleasePipelineRun("release-pipelinerun", resources.ReleasePlanAdmission.Namespace).
+func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
+	pipelineRun := tekton.NewReleasePipelineRun("managed-release", resources.ReleasePlanAdmission.Namespace).
 		WithObjectReferences(a.release, resources.ReleasePlan,
 			resources.ReleasePlanAdmission, resources.Snapshot).
 		WithOwner(a.release).
@@ -406,7 +406,7 @@ func (a *adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission 
 
 // finalizeRelease will finalize the Release being processed, removing the associated resources.
 func (a *adapter) finalizeRelease() error {
-	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
+	pipelineRun, err := a.loader.GetManagedReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil {
 		return err
 	}
@@ -516,7 +516,7 @@ func (a *adapter) registerProcessingData(releasePipelineRun *tektonv1.PipelineRu
 }
 
 // registerProcessingStatus updates the status of the Release being processed by monitoring the status of the
-// associated release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
+// associated managed Release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
 func (a *adapter) registerProcessingStatus(pipelineRun *tektonv1.PipelineRun) error {
 	if pipelineRun != nil && pipelineRun.IsDone() {
@@ -609,7 +609,7 @@ func (a *adapter) validateProcessingResources() *controller.ValidationResult {
 	return &controller.ValidationResult{Valid: true}
 }
 
-// validatePipelineRef checks that the release PipelineRun ref passes the checks from the ReleaseServiceConfig.
+// validatePipelineRef checks that the managed Release PipelineRun ref passes the checks from the ReleaseServiceConfig.
 func (a *adapter) validatePipelineRef() *controller.ValidationResult {
 	releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
 	if err != nil {

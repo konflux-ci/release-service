@@ -130,10 +130,10 @@ func (l *mockLoader) GetRelease(ctx context.Context, cli client.Client, name, na
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleaseContextKey, &v1alpha1.Release{})
 }
 
-// GetReleasePipelineRun returns the resource and error passed as values of the context.
-func (l *mockLoader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error) {
+// GetManagedReleasePipelineRun returns the resource and error passed as values of the context.
+func (l *mockLoader) GetManagedReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error) {
 	if ctx.Value(ReleasePipelineRunContextKey) == nil {
-		return l.loader.GetReleasePipelineRun(ctx, cli, release)
+		return l.loader.GetManagedReleasePipelineRun(ctx, cli, release)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleasePipelineRunContextKey, &tektonv1.PipelineRun{})
 }

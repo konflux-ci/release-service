@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// isReleasePipelineRun returns a boolean indicating whether the object passed is a release PipelineRun or not.
+// isReleasePipelineRun returns a boolean indicating whether the object passed is a managed Release PipelineRun or not.
 func isReleasePipelineRun(object client.Object) bool {
 	_, ok := object.(*tektonv1.PipelineRun)
 	if !ok {

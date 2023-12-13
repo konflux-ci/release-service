@@ -51,12 +51,12 @@ spec:
                 type: string
               data:
                 description: Data is an unstructured key used for providing data for
-                  the release Pipeline
+                  the managed Release Pipeline
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               pipelineRef:
                 description: PipelineRef is an optional reference to a Pipeline that
-                  would be executed before the release Pipeline
+                  would be executed before the managed Release Pipeline
                 properties:
                   params:
                     description: Params is a slice of parameters for a given resolver

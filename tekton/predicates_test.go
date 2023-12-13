@@ -108,7 +108,7 @@ var _ = Describe("Predicates", func() {
 			Expect(instance.Generic(contextEvent)).To(BeFalse())
 		})
 
-		It("should return true when an updated event is received for a succeeded release PipelineRun", func() {
+		It("should return true when an updated event is received for a succeeded managed Release PipelineRun", func() {
 			releasePipelineRun.AsPipelineRun().Status.InitializeConditions(clock.RealClock{})
 			contextEvent := event.UpdateEvent{
 				ObjectOld: releasePipelineRun.AsPipelineRun(),

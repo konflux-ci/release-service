@@ -35,13 +35,13 @@ type ReleasePlanSpec struct {
 	// +required
 	Application string `json:"application"`
 
-	// Data is an unstructured key used for providing data for the release Pipeline
+	// Data is an unstructured key used for providing data for the managed Release Pipeline
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Data *runtime.RawExtension `json:"data,omitempty"`
 
 	// PipelineRef is an optional reference to a Pipeline that would be executed
-	// before the release Pipeline
+	// before the managed Release Pipeline
 	// +optional
 	PipelineRef *tektonutils.PipelineRef `json:"pipelineRef,omitempty"`
 

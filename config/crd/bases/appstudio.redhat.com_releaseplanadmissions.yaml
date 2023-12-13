@@ -53,7 +53,7 @@ spec:
                 type: array
               data:
                 description: Data is an unstructured key used for providing data for
-                  the release Pipeline
+                  the managed Release Pipeline
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               environment:
@@ -68,7 +68,7 @@ spec:
                 type: string
               pipelineRef:
                 description: PipelineRef is a reference to the Pipeline to be executed
-                  by the release PipelineRun
+                  by the managed Release PipelineRun
                 properties:
                   params:
                     description: Params is a slice of parameters for a given resolver
@@ -106,7 +106,7 @@ spec:
                 type: string
               serviceAccount:
                 description: ServiceAccount is the name of the service account to
-                  use in the release PipelineRun to gain elevated privileges
+                  use in the managed Release PipelineRun to gain elevated privileges
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
             required:
