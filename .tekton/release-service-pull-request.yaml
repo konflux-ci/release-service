@@ -101,6 +101,10 @@ spec:
       description: Execute the build with network isolation
       name: hermetic
       type: string
+    - default: "snyk-secret"
+      description: Snyk Token Secret Name
+      name: snyk-secret
+      type: string
     - default: ""
       description: Build dependencies to be prefetched by Cachi2
       name: prefetch-input
