@@ -17,8 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/redhat-appstudio/operator-toolkit/conditions"
 	"time"
+
+	"github.com/redhat-appstudio/operator-toolkit/conditions"
 
 	"github.com/redhat-appstudio/release-service/metrics"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -331,7 +332,12 @@ func (r *Release) MarkProcessing(message string) {
 
 	conditions.SetConditionWithMessage(&r.Status.Conditions, processedConditionType, metav1.ConditionFalse, ProgressingReason, message)
 
-	go metrics.RegisterNewReleaseProcessing()
+	go metrics.RegisterNewReleaseProcessing(
+		r.Status.Processing.StartTime,
+		r.Status.StartTime,
+		ProgressingReason.String(),
+		r.Status.Target,
+	)
 }
 
 // MarkProcessingFailed marks the Release processing as failed.
@@ -463,6 +469,13 @@ func (r *Release) MarkValidated() {
 
 	r.Status.Validation.Time = &metav1.Time{Time: time.Now()}
 	conditions.SetCondition(&r.Status.Conditions, validatedConditionType, metav1.ConditionTrue, SucceededReason)
+
+	go metrics.RegisterValidatedRelease(
+		r.Status.StartTime,
+		r.Status.Validation.Time,
+		SucceededReason.String(),
+		r.Status.Target,
+	)
 }
 
 // MarkValidationFailed marks the Release validation as failed.
@@ -473,6 +486,13 @@ func (r *Release) MarkValidationFailed(message string) {
 
 	r.Status.Validation.Time = &metav1.Time{Time: time.Now()}
 	conditions.SetConditionWithMessage(&r.Status.Conditions, validatedConditionType, metav1.ConditionFalse, FailedReason, message)
+
+	go metrics.RegisterValidatedRelease(
+		r.Status.StartTime,
+		r.Status.Validation.Time,
+		FailedReason.String(),
+		r.Status.Target,
+	)
 }
 
 // SetAutomated marks the Release as automated.
