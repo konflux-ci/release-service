@@ -212,6 +212,35 @@ var _ = Describe("PipelineRun", func() {
 			Expect(releasePipelineRun.Spec.TaskRunTemplate.ServiceAccountName).To(Equal(serviceAccountName))
 		})
 
+		It("can add the taskGitRevision parameter to the PipelineRun object when using a git resolver", func() {
+			pipelineRef := &tektonutils.PipelineRef{
+				Resolver: "git",
+				Params: []tektonutils.Param{
+					{
+						Name:  "revision",
+						Value: "my-revision",
+					},
+				},
+			}
+			releasePipelineRun.WithTaskGitRevisionParameter(pipelineRef)
+			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal("taskGitRevision"))
+			Expect(releasePipelineRun.Spec.Params[0].Value.StringVal).To(Equal("my-revision"))
+		})
+
+		It("does not add the taskGitRevision parameter to the PipelineRun object when using a bundles resolver", func() {
+			pipelineRef := &tektonutils.PipelineRef{
+				Resolver: "bundles",
+				Params: []tektonutils.Param{
+					{
+						Name:  "revision",
+						Value: "my-revision",
+					},
+				},
+			}
+			releasePipelineRun.WithTaskGitRevisionParameter(pipelineRef)
+			Expect(len(releasePipelineRun.Spec.Params)).To(Equal(0))
+		})
+
 		It("can add the timeout that should be used", func() {
 			releasePipelineRun.WithTimeout(timeout)
 			Expect(releasePipelineRun.Spec.Timeouts.Pipeline.Duration.String()).To(Equal(timeout))

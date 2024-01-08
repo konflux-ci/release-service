@@ -872,14 +872,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("references the pipeline specified in the ReleasePlanAdmission", func() {
-			var pipelineName string
+			var pipelineUrl string
 			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
 			for i := range resolverParams {
-				if resolverParams[i].Name == "name" {
-					pipelineName = resolverParams[i].Value.StringVal
+				if resolverParams[i].Name == "url" {
+					pipelineUrl = resolverParams[i].Value.StringVal
 				}
 			}
-			Expect(pipelineName).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[1].Value))
+			Expect(pipelineUrl).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[0].Value))
+		})
+
+		It("contains a parameter with the taskGitRevision", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
+			var revision string
+			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+			for i := range resolverParams {
+				if resolverParams[i].Name == "revision" {
+					revision = resolverParams[i].Value.StringVal
+				}
+			}
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
 		})
 
 		It("contains the proper timeout value", func() {
@@ -1689,11 +1701,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Origin:       "default",
 				Environment:  environment.Name,
 				PipelineRef: &tektonutils.PipelineRef{
-					Resolver: "bundles",
+					Resolver: "git",
 					Params: []tektonutils.Param{
-						{Name: "bundle", Value: "quay.io/some/bundle"},
-						{Name: "name", Value: "release-pipeline"},
-						{Name: "kind", Value: "pipeline"},
+						{Name: "url", Value: "my-url"},
+						{Name: "revision", Value: "my-revision"},
+						{Name: "pathInRepo", Value: "my-path"},
 					},
 					Timeout: "2h0m0s",
 				},
