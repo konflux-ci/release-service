@@ -30,6 +30,7 @@ import (
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/metadata"
+	"github.com/redhat-appstudio/release-service/tekton/utils"
 
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	integrationServiceGitopsPkg "github.com/redhat-appstudio/integration-service/gitops"
@@ -159,6 +160,23 @@ func (r *ReleasePipelineRun) WithReleaseAndApplicationMetadata(release *v1alpha1
 // execution of the different Pipeline tasks.
 func (r *ReleasePipelineRun) WithServiceAccount(serviceAccount string) *ReleasePipelineRun {
 	r.Spec.TaskRunTemplate.ServiceAccountName = serviceAccount
+
+	return r
+}
+
+// WithTaskGitRevisionParameter adds the taskGitRevision parameter to the managed Release PipelineRun with the value of the revision
+// from the pipelineRef if the pipelineRef is for a git resolver.
+func (r *ReleasePipelineRun) WithTaskGitRevisionParameter(pipelineRef *utils.PipelineRef) *ReleasePipelineRun {
+	if pipelineRef.Resolver == "git" {
+		for _, p := range pipelineRef.Params {
+			if p.Name == "revision" {
+				r.WithExtraParam("taskGitRevision", tektonv1.ParamValue{
+					Type:      tektonv1.ParamTypeString,
+					StringVal: p.Value,
+				})
+			}
+		}
+	}
 
 	return r
 }
