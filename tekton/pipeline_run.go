@@ -164,11 +164,17 @@ func (r *ReleasePipelineRun) WithServiceAccount(serviceAccount string) *ReleaseP
 	return r
 }
 
-// WithTaskGitRevisionParameter adds the taskGitRevision parameter to the managed Release PipelineRun with the value of the revision
-// from the pipelineRef if the pipelineRef is for a git resolver.
-func (r *ReleasePipelineRun) WithTaskGitRevisionParameter(pipelineRef *utils.PipelineRef) *ReleasePipelineRun {
+// WithTaskGitPipelineParameters adds the taskGitUrl and taskGitRevision parameters to the managed Release PipelineRun with
+// the value of the url and revision from the pipelineRef if the pipelineRef is for a git resolver.
+func (r *ReleasePipelineRun) WithTaskGitPipelineParameters(pipelineRef *utils.PipelineRef) *ReleasePipelineRun {
 	if pipelineRef.Resolver == "git" {
 		for _, p := range pipelineRef.Params {
+			if p.Name == "url" {
+				r.WithExtraParam("taskGitUrl", tektonv1.ParamValue{
+					Type:      tektonv1.ParamTypeString,
+					StringVal: p.Value,
+				})
+			}
 			if p.Name == "revision" {
 				r.WithExtraParam("taskGitRevision", tektonv1.ParamValue{
 					Type:      tektonv1.ParamTypeString,

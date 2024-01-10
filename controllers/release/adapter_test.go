@@ -882,6 +882,18 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineUrl).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[0].Value))
 		})
 
+		It("contains a parameter with the taskGitUrl", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
+			var url string
+			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+			for i := range resolverParams {
+				if resolverParams[i].Name == "url" {
+					url = resolverParams[i].Value.StringVal
+				}
+			}
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", url)))
+		})
+
 		It("contains a parameter with the taskGitRevision", func() {
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
 			var revision string
