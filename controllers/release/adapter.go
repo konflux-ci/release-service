@@ -345,7 +345,7 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithServiceAccount(resources.ReleasePlanAdmission.Spec.ServiceAccount).
 		WithTimeout(resources.ReleasePlanAdmission.Spec.PipelineRef.Timeout).
 		WithPipelineRef(resources.ReleasePlanAdmission.Spec.PipelineRef.ToTektonPipelineRef()).
-		WithTaskGitRevisionParameter(resources.ReleasePlanAdmission.Spec.PipelineRef).
+		WithTaskGitPipelineParameters(resources.ReleasePlanAdmission.Spec.PipelineRef).
 		WithEnterpriseContractConfigMap(resources.EnterpriseContractConfigMap).
 		WithEnterpriseContractPolicy(resources.EnterpriseContractPolicy).
 		AsPipelineRun()

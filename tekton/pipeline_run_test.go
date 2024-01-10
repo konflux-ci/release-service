@@ -212,32 +212,42 @@ var _ = Describe("PipelineRun", func() {
 			Expect(releasePipelineRun.Spec.TaskRunTemplate.ServiceAccountName).To(Equal(serviceAccountName))
 		})
 
-		It("can add the taskGitRevision parameter to the PipelineRun object when using a git resolver", func() {
+		It("can add the taskGit pipeline parameters to the PipelineRun object when using a git resolver", func() {
 			pipelineRef := &tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
 					{
-						Name:  "revision",
-						Value: "my-revision",
+						Name:  "url",
+						Value: "my-url",
 					},
-				},
-			}
-			releasePipelineRun.WithTaskGitRevisionParameter(pipelineRef)
-			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal("taskGitRevision"))
-			Expect(releasePipelineRun.Spec.Params[0].Value.StringVal).To(Equal("my-revision"))
-		})
-
-		It("does not add the taskGitRevision parameter to the PipelineRun object when using a bundles resolver", func() {
-			pipelineRef := &tektonutils.PipelineRef{
-				Resolver: "bundles",
-				Params: []tektonutils.Param{
 					{
 						Name:  "revision",
 						Value: "my-revision",
 					},
 				},
 			}
-			releasePipelineRun.WithTaskGitRevisionParameter(pipelineRef)
+			releasePipelineRun.WithTaskGitPipelineParameters(pipelineRef)
+			Expect(releasePipelineRun.Spec.Params[0].Name).To(Equal("taskGitUrl"))
+			Expect(releasePipelineRun.Spec.Params[0].Value.StringVal).To(Equal("my-url"))
+			Expect(releasePipelineRun.Spec.Params[1].Name).To(Equal("taskGitRevision"))
+			Expect(releasePipelineRun.Spec.Params[1].Value.StringVal).To(Equal("my-revision"))
+		})
+
+		It("does not add the taskGit pipeline parameters to the PipelineRun object when using a bundles resolver", func() {
+			pipelineRef := &tektonutils.PipelineRef{
+				Resolver: "bundles",
+				Params: []tektonutils.Param{
+					{
+						Name:  "url",
+						Value: "my-url",
+					},
+					{
+						Name:  "revision",
+						Value: "my-revision",
+					},
+				},
+			}
+			releasePipelineRun.WithTaskGitPipelineParameters(pipelineRef)
 			Expect(len(releasePipelineRun.Spec.Params)).To(Equal(0))
 		})
 
