@@ -70,6 +70,34 @@ var (
 		Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
 	}
 
+	ReleasePreProcessingDurationSeconds = prometheus.NewHistogramVec(
+		releasePreProcessingDurationSecondsOpts,
+		releasePreProcessingDurationSecondsLabels,
+	)
+	releasePreProcessingDurationSecondsLabels = []string{
+		"reason",
+		"target",
+	}
+	releasePreProcessingDurationSecondsOpts = prometheus.HistogramOpts{
+		Name:    "release_pre_processing_duration_seconds",
+		Help:    "How long in seconds a Release takes to start processing",
+		Buckets: []float64{5, 10, 15, 30, 45, 60, 90, 120, 180, 240, 300},
+	}
+
+	ReleaseValidationDurationSeconds = prometheus.NewHistogramVec(
+		releaseValidationDurationSecondsOpts,
+		releaseValidationDurationSecondsLabels,
+	)
+	releaseValidationDurationSecondsLabels = []string{
+		"reason",
+		"target",
+	}
+	releaseValidationDurationSecondsOpts = prometheus.HistogramOpts{
+		Name:    "release_validation_duration_seconds",
+		Help:    "How long in seconds a Release takes to validate",
+		Buckets: []float64{5, 10, 15, 30, 45, 60, 90, 120, 180, 240, 300},
+	}
+
 	ReleaseDurationSeconds = prometheus.NewHistogramVec(
 		releaseDurationSecondsOpts,
 		releaseDurationSecondsLabels,
@@ -208,6 +236,22 @@ func RegisterCompletedReleaseProcessing(startTime, completionTime *metav1.Time, 
 	ReleaseConcurrentProcessingsTotal.WithLabelValues().Dec()
 }
 
+// RegisterValidatedRelease registers a Release as validated, adding a new observation for the
+// Release validated seconds. If either the startTime or the validationTime are nil,
+// no action will be taken.
+func RegisterValidatedRelease(startTime, validationTime *metav1.Time, reason, target string) {
+	if validationTime == nil || startTime == nil {
+		return
+	}
+
+	ReleaseValidationDurationSeconds.
+		With(prometheus.Labels{
+			"reason": reason,
+			"target": target,
+		}).
+		Observe(validationTime.Sub(startTime.Time).Seconds())
+}
+
 // RegisterNewRelease register a new Release, increasing the number of concurrent releases.
 func RegisterNewRelease() {
 	ReleaseConcurrentTotal.WithLabelValues().Inc()
@@ -218,8 +262,21 @@ func RegisterNewReleaseDeployment() {
 	ReleaseConcurrentDeploymentsTotal.WithLabelValues().Inc()
 }
 
-// RegisterNewReleaseProcessing register a new Release processing, increasing the number of concurrent processings.
-func RegisterNewReleaseProcessing() {
+// RegisterNewReleaseProcessing registers a new Release processing, adding a new observation for the
+// Release start processing duration and increasing the number of concurrent processings. If either the
+// startTime or the processingStartTime are nil, no action will be taken.
+func RegisterNewReleaseProcessing(startTime, processingStartTime *metav1.Time, reason, target string) {
+	if startTime == nil || processingStartTime == nil {
+		return
+	}
+
+	ReleasePreProcessingDurationSeconds.
+		With(prometheus.Labels{
+			"reason": reason,
+			"target": target,
+		}).
+		Observe(processingStartTime.Sub(startTime.Time).Seconds())
+
 	ReleaseConcurrentProcessingsTotal.WithLabelValues().Inc()
 }
 
@@ -236,6 +293,8 @@ func init() {
 		ReleaseConcurrentProcessingsTotal,
 		ReleaseConcurrentPostActionsExecutionsTotal,
 		ReleaseDeploymentDurationSeconds,
+		ReleasePreProcessingDurationSeconds,
+		ReleaseValidationDurationSeconds,
 		ReleaseDurationSeconds,
 		ReleasePostActionsExecutionDurationSeconds,
 		ReleaseProcessingDurationSeconds,

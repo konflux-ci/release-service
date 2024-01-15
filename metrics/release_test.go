@@ -17,12 +17,13 @@ limitations under the License.
 package metrics
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/redhat-appstudio/operator-toolkit/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 var _ = Describe("Release metrics", Ordered, func() {
@@ -218,6 +219,38 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
+	When("RegisterValidatedRelease is called", func() {
+		var validationTime, startTime *metav1.Time
+
+		BeforeEach(func() {
+			initializeMetrics()
+
+			validationTime = &metav1.Time{}
+			startTime = &metav1.Time{Time: validationTime.Add(-60 * time.Second)}
+		})
+
+		It("does nothing if the validation start time is nil", func() {
+			RegisterValidatedRelease(nil, validationTime, "", "")
+		})
+
+		It("does nothing if the start time is nil", func() {
+			RegisterValidatedRelease(startTime, nil, "", "")
+		})
+
+		It("adds an observation to ReleaseValidationDurationSeconds", func() {
+			RegisterValidatedRelease(startTime, validationTime,
+				releaseValidationDurationSecondsLabels[0],
+				releaseValidationDurationSecondsLabels[1],
+			)
+			Expect(testutil.CollectAndCompare(ReleaseValidationDurationSeconds,
+				test.NewHistogramReader(
+					releaseValidationDurationSecondsOpts,
+					releaseValidationDurationSecondsLabels,
+					startTime, validationTime,
+				))).To(Succeed())
+		})
+	})
+
 	When("RegisterNewRelease is called", func() {
 		BeforeEach(func() {
 			initializeMetrics()
@@ -243,13 +276,46 @@ var _ = Describe("Release metrics", Ordered, func() {
 	})
 
 	When("RegisterNewReleaseProcessing is called", func() {
+		var processingStartTime, startTime *metav1.Time
+
 		BeforeEach(func() {
 			initializeMetrics()
+
+			processingStartTime = &metav1.Time{}
+			startTime = &metav1.Time{Time: processingStartTime.Add(-60 * time.Second)}
+		})
+
+		It("does nothing if the processing start time is nil", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterNewReleaseProcessing(nil, processingStartTime, "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
+		})
+
+		It("does nothing if the start time is nil", func() {
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
+			RegisterNewReleaseProcessing(startTime, nil, "", "")
+			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
+		})
+
+		It("adds an observation to ReleasePreProcessingDurationSeconds", func() {
+			RegisterNewReleaseProcessing(startTime, processingStartTime,
+				releasePreProcessingDurationSecondsLabels[0],
+				releasePreProcessingDurationSecondsLabels[1],
+			)
+			Expect(testutil.CollectAndCompare(ReleasePreProcessingDurationSeconds,
+				test.NewHistogramReader(
+					releasePreProcessingDurationSecondsOpts,
+					releasePreProcessingDurationSecondsLabels,
+					startTime, processingStartTime,
+				))).To(Succeed())
 		})
 
 		It("increments ReleaseConcurrentProcessingsTotal", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterNewReleaseProcessing()
+			RegisterNewReleaseProcessing(startTime, processingStartTime,
+				releasePreProcessingDurationSecondsLabels[0],
+				releasePreProcessingDurationSecondsLabels[1],
+			)
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(1)))
 		})
 	})
@@ -272,6 +338,8 @@ var _ = Describe("Release metrics", Ordered, func() {
 		ReleaseConcurrentProcessingsTotal.Reset()
 		ReleaseConcurrentPostActionsExecutionsTotal.Reset()
 		ReleaseDeploymentDurationSeconds.Reset()
+		ReleaseValidationDurationSeconds.Reset()
+		ReleasePreProcessingDurationSeconds.Reset()
 		ReleaseDurationSeconds.Reset()
 		ReleaseProcessingDurationSeconds.Reset()
 		ReleasePostActionsExecutionDurationSeconds.Reset()
