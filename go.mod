@@ -1,4 +1,4 @@
-module github.com/davidmogar/release-service
+module github.com/redhat-appstudio/release-service
 
 go 1.20
 

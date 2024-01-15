@@ -294,6 +294,7 @@ github.com/redhat-appstudio/integration-service v0.0.0-20231025084434-b3f521c408
 github.com/redhat-appstudio/integration-service v0.0.0-20231025084434-b3f521c408d1/go.mod h1:bh8uJ4whJ92ef5PXH6Rfm4F8tRXkDAlSYR7Pqp1LLT4=
 github.com/redhat-appstudio/operator-toolkit v0.0.0-20231201124606-2087182322ae h1:98thWrMrr9YUNCVNGqkZxKfZkaWUmMC5dmkgAI7p3uY=
 github.com/redhat-appstudio/operator-toolkit v0.0.0-20231201124606-2087182322ae/go.mod h1:7cX2+4KGZLJ4Yoj+1v0iV5hkCGBzbSd9wkNJQjCdDJs=
+github.com/redhat-appstudio/release-service v0.0.0-20230511145849-bde1cdcbb60b h1:96jgqIR8Otx2vrLZscvNo3gFlX2d9P/mkbx5Trkm8tQ=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.11.0 h1:cWPaGQEPrBb5/AsnsZesgZZ9yb1OQ+GOISoDNXVBh4M=
