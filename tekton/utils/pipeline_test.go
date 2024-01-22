@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Release type", func() {
+var _ = Describe("Pipeline", func() {
 	var (
 		clusterRef PipelineRef
 		gitRef     PipelineRef

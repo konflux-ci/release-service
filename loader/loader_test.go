@@ -502,12 +502,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Applications: []string{application.Name},
 				Environment:  environment.Name,
 				Origin:       "default",
-				PipelineRef: &tektonutils.PipelineRef{
-					Resolver: "bundles",
-					Params: []tektonutils.Param{
-						{Name: "bundle", Value: "testbundle"},
-						{Name: "name", Value: "release-pipeline"},
-						{Name: "kind", Value: "pipeline"},
+				Pipeline: &tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "bundles",
+						Params: []tektonutils.Param{
+							{Name: "bundle", Value: "testbundle"},
+							{Name: "name", Value: "release-pipeline"},
+							{Name: "kind", Value: "pipeline"},
+						},
 					},
 				},
 				Policy: enterpriseContractPolicy.Name,

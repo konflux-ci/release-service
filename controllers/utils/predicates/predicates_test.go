@@ -128,15 +128,17 @@ var _ = Describe("Predicates", Ordered, func() {
 						applicationName,
 					},
 					Origin: namespace2,
-					Policy: "policy",
-					PipelineRef: &tektonutils.PipelineRef{
-						Resolver: "bundles",
-						Params: []tektonutils.Param{
-							{Name: "bundle", Value: "quay.io/some/bundle"},
-							{Name: "name", Value: "release-pipeline"},
-							{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "quay.io/some/bundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
 						},
 					},
+					Policy: "policy",
 				},
 			}
 			releasePlanAdmissionDiffApps = &v1alpha1.ReleasePlanAdmission{
@@ -152,15 +154,17 @@ var _ = Describe("Predicates", Ordered, func() {
 						"diff",
 					},
 					Origin: namespace2,
-					Policy: "policy",
-					PipelineRef: &tektonutils.PipelineRef{
-						Resolver: "bundles",
-						Params: []tektonutils.Param{
-							{Name: "bundle", Value: "quay.io/some/bundle"},
-							{Name: "name", Value: "release-pipeline"},
-							{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "quay.io/some/bundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
 						},
 					},
+					Policy: "policy",
 				},
 			}
 			releasePlanAdmissionDiffOrigin = &v1alpha1.ReleasePlanAdmission{
@@ -176,15 +180,17 @@ var _ = Describe("Predicates", Ordered, func() {
 						applicationName,
 					},
 					Origin: "diff",
-					Policy: "policy",
-					PipelineRef: &tektonutils.PipelineRef{
-						Resolver: "bundles",
-						Params: []tektonutils.Param{
-							{Name: "bundle", Value: "quay.io/some/bundle"},
-							{Name: "name", Value: "release-pipeline"},
-							{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "quay.io/some/bundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
 						},
 					},
+					Policy: "policy",
 				},
 			}
 			releasePlanAdmissionDiffStatus = &v1alpha1.ReleasePlanAdmission{
@@ -200,15 +206,17 @@ var _ = Describe("Predicates", Ordered, func() {
 						applicationName,
 					},
 					Origin: namespace2,
-					Policy: "policy",
-					PipelineRef: &tektonutils.PipelineRef{
-						Resolver: "bundles",
-						Params: []tektonutils.Param{
-							{Name: "bundle", Value: "quay.io/some/bundle"},
-							{Name: "name", Value: "release-pipeline"},
-							{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "quay.io/some/bundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
 						},
 					},
+					Policy: "policy",
 				},
 			}
 			releasePlanAdmissionDiffStatus.MarkMatched(&v1alpha1.ReleasePlan{})

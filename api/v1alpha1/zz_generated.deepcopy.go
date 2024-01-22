@@ -299,9 +299,9 @@ func (in *ReleasePlanAdmissionSpec) DeepCopyInto(out *ReleasePlanAdmissionSpec) 
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.PipelineRef != nil {
-		in, out := &in.PipelineRef, &out.PipelineRef
-		*out = new(utils.PipelineRef)
+	if in.Pipeline != nil {
+		in, out := &in.Pipeline, &out.Pipeline
+		*out = new(utils.Pipeline)
 		(*in).DeepCopyInto(*out)
 	}
 }

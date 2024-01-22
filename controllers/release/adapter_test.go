@@ -319,12 +319,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
 					Applications: []string{"app"},
 					Origin:       "default",
-					PipelineRef: &tektonutils.PipelineRef{
-						Resolver: "bundles",
-						Params: []tektonutils.Param{
-							{Name: "bundle", Value: "quay.io/some/bundle"},
-							{Name: "name", Value: "release-pipeline"},
-							{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "quay.io/some/bundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
 						},
 					},
 					Policy: enterpriseContractPolicy.Name,
@@ -879,7 +881,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					pipelineUrl = resolverParams[i].Value.StringVal
 				}
 			}
-			Expect(pipelineUrl).To(Equal(releasePlanAdmission.Spec.PipelineRef.Params[0].Value))
+			Expect(pipelineUrl).To(Equal(releasePlanAdmission.Spec.Pipeline.PipelineRef.Params[0].Value))
 		})
 
 		It("contains a parameter with the taskGitUrl", func() {
@@ -907,7 +909,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("contains the proper timeout value", func() {
-			timeout := releasePlanAdmission.Spec.PipelineRef.Timeout
+			timeout := releasePlanAdmission.Spec.Pipeline.Timeout
 			Expect(pipelineRun.Spec.Timeouts.Pipeline.Duration.String()).To(Equal(string(timeout)))
 		})
 
@@ -1548,12 +1550,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 							Applications: []string{application.Name},
 							Origin:       "default",
 							Environment:  environment.Name,
-							PipelineRef: &tektonutils.PipelineRef{
-								Resolver: "cluster",
-								Params: []tektonutils.Param{
-									{Name: "name", Value: "release-pipeline"},
-									{Name: "namespace", Value: "default"},
-									{Name: "kind", Value: "pipeline"},
+							Pipeline: &tektonutils.Pipeline{
+								PipelineRef: tektonutils.PipelineRef{
+									Resolver: "cluster",
+									Params: []tektonutils.Param{
+										{Name: "name", Value: "release-pipeline"},
+										{Name: "namespace", Value: "default"},
+										{Name: "kind", Value: "pipeline"},
+									},
 								},
 							},
 							Policy: enterpriseContractPolicy.Name,
@@ -1712,12 +1716,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Applications: []string{application.Name},
 				Origin:       "default",
 				Environment:  environment.Name,
-				PipelineRef: &tektonutils.PipelineRef{
-					Resolver: "git",
-					Params: []tektonutils.Param{
-						{Name: "url", Value: "my-url"},
-						{Name: "revision", Value: "my-revision"},
-						{Name: "pathInRepo", Value: "my-path"},
+				Pipeline: &tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "git",
+						Params: []tektonutils.Param{
+							{Name: "url", Value: "my-url"},
+							{Name: "revision", Value: "my-revision"},
+							{Name: "pathInRepo", Value: "my-path"},
+						},
 					},
 					Timeout: "2h0m0s",
 				},
