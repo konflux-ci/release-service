@@ -24,6 +24,7 @@ import (
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/loader"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -63,8 +64,11 @@ func (a *adapter) EnsureMatchingInformationIsSet() (controller.OperationResult, 
 		a.releasePlanAdmission.MarkMatched(&releasePlans.Items[i])
 	}
 
-	if reflect.DeepEqual(copiedReleasePlanAdmission.Status.ReleasePlans, a.releasePlanAdmission.Status.ReleasePlans) {
-		// No change in matched ReleasePlans
+	// If there is no change in the matched ReleasePlans and the Matched condition is present
+	// (in case it is a new ReleasePlanAdmission going from matched to nil -> matched to nil), do not patch
+	if reflect.DeepEqual(copiedReleasePlanAdmission.Status.ReleasePlans, a.releasePlanAdmission.Status.ReleasePlans) &&
+		meta.FindStatusCondition(copiedReleasePlanAdmission.Status.Conditions,
+			v1alpha1.MatchedConditionType.String()) != nil {
 		return controller.ContinueProcessing()
 	}
 

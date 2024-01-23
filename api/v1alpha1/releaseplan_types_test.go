@@ -17,9 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-appstudio/operator-toolkit/conditions"
 	"github.com/redhat-appstudio/release-service/metadata"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -27,33 +28,6 @@ import (
 )
 
 var _ = Describe("ReleasePlan type", func() {
-	When("IsMatched method is called", func() {
-		var releasePlan *ReleasePlan
-
-		BeforeEach(func() {
-			releasePlan = &ReleasePlan{}
-		})
-
-		It("should return true when the matched condition status is True", func() {
-			conditions.SetCondition(&releasePlan.Status.Conditions, MatchedConditionType, metav1.ConditionTrue, "")
-			Expect(releasePlan.IsMatched()).To(BeTrue())
-		})
-
-		It("should return false when the matched condition status is False", func() {
-			conditions.SetCondition(&releasePlan.Status.Conditions, MatchedConditionType, metav1.ConditionFalse, "")
-			Expect(releasePlan.IsMatched()).To(BeFalse())
-		})
-
-		It("should return false when the matched condition status is Unknown", func() {
-			conditions.SetCondition(&releasePlan.Status.Conditions, MatchedConditionType, metav1.ConditionUnknown, "")
-			Expect(releasePlan.IsMatched()).To(BeFalse())
-		})
-
-		It("should return false when the matched condition is missing", func() {
-			Expect(releasePlan.IsMatched()).To(BeFalse())
-		})
-	})
-
 	When("MarkMatched method is called", func() {
 		var releasePlan *ReleasePlan
 		var releasePlanAdmission *ReleasePlanAdmission
@@ -98,10 +72,22 @@ var _ = Describe("ReleasePlan type", func() {
 			}
 		})
 
-		It("should do nothing if the ReleasePlan is not matched", func() {
-			releasePlan.setMatchedStatus(releasePlanAdmission, metav1.ConditionFalse) // IsMatched relies on the condition, not value of RPA
+		It("should add the Matched condition if it does not exist", func() {
 			releasePlan.MarkUnmatched()
-			Expect(releasePlan.Status.ReleasePlanAdmission.Name).To(Equal("default/rpa"))
+			condition := meta.FindStatusCondition(releasePlan.Status.Conditions, MatchedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(condition.Status).To(Equal(metav1.ConditionFalse))
+		})
+
+		It("should not update the lastTransitionTime if the Matched condition is already present and false", func() {
+			releasePlan.MarkUnmatched()
+			condition := meta.FindStatusCondition(releasePlan.Status.Conditions, MatchedConditionType.String())
+			lastTransitionTime := condition.LastTransitionTime
+
+			time.Sleep(1 * time.Second)
+			releasePlan.MarkUnmatched()
+			condition = meta.FindStatusCondition(releasePlan.Status.Conditions, MatchedConditionType.String())
+			Expect(condition.LastTransitionTime).To(Equal(lastTransitionTime))
 		})
 
 		It("should mark the ReleasePlan as unmatched", func() {
