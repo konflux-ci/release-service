@@ -203,6 +203,13 @@ func (b *PipelineRunBuilder) WithServiceAccount(serviceAccount string) *Pipeline
 	return b
 }
 
+// WithTimeouts sets the Timeouts for the PipelineRun.
+func (b *PipelineRunBuilder) WithTimeouts(timeouts *tektonv1.TimeoutFields) *PipelineRunBuilder {
+	b.pipelineRun.Spec.Timeouts = timeouts
+
+	return b
+}
+
 // WithWorkspaceFromVolumeTemplate creates and adds a workspace binding to the PipelineRun's spec using
 // the provided workspace name and volume size.
 func (b *PipelineRunBuilder) WithWorkspaceFromVolumeTemplate(name, size string) *PipelineRunBuilder {
