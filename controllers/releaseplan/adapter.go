@@ -26,6 +26,7 @@ import (
 	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/syncer"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -83,7 +84,7 @@ func (a *adapter) EnsureMatchingInformationIsSet() (controller.OperationResult, 
 	// If an error occurs getting the ReleasePlanAdmission, mark the ReleasePlan as unmatched
 	releasePlanAdmission, _ := a.loader.GetMatchingReleasePlanAdmission(a.ctx, a.client, a.releasePlan)
 
-	existingReleasePlanAdmission := a.releasePlan.Status.ReleasePlanAdmission
+	copiedReleasePlan := a.releasePlan.DeepCopy()
 	patch := client.MergeFrom(a.releasePlan.DeepCopy())
 
 	if releasePlanAdmission == nil {
@@ -92,8 +93,10 @@ func (a *adapter) EnsureMatchingInformationIsSet() (controller.OperationResult, 
 		a.releasePlan.MarkMatched(releasePlanAdmission)
 	}
 
-	if reflect.DeepEqual(existingReleasePlanAdmission, a.releasePlan.Status.ReleasePlanAdmission) {
-		// No change in matched ReleasePlanAdmission
+	// If there is no change in the matched ReleasePlanAdmission and the Matched condition is present
+	// (in case it is a new ReleasePlan going from matched to nil -> matched to nil), do not patch
+	if reflect.DeepEqual(copiedReleasePlan.Status.ReleasePlanAdmission, a.releasePlan.Status.ReleasePlanAdmission) &&
+		meta.FindStatusCondition(copiedReleasePlan.Status.Conditions, v1alpha1.MatchedConditionType.String()) != nil {
 		return controller.ContinueProcessing()
 	}
 

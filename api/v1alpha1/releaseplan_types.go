@@ -97,11 +97,6 @@ type ReleasePlan struct {
 	Status ReleasePlanStatus `json:"status,omitempty"`
 }
 
-// IsMatched checks whether the ReleasePlan is matched to a ReleasePlanAdmission.
-func (rp *ReleasePlan) IsMatched() bool {
-	return meta.IsStatusConditionTrue(rp.Status.Conditions, MatchedConditionType.String())
-}
-
 // MarkMatched marks the ReleasePlan as matched to a given ReleasePlanAdmission.
 func (rp *ReleasePlan) MarkMatched(releasePlanAdmission *ReleasePlanAdmission) {
 	rp.setMatchedStatus(releasePlanAdmission, metav1.ConditionTrue)
@@ -109,7 +104,7 @@ func (rp *ReleasePlan) MarkMatched(releasePlanAdmission *ReleasePlanAdmission) {
 
 // MarkUnmatched marks the ReleasePlan as not matched to any ReleasePlanAdmission.
 func (rp *ReleasePlan) MarkUnmatched() {
-	if !rp.IsMatched() {
+	if meta.IsStatusConditionPresentAndEqual(rp.Status.Conditions, MatchedConditionType.String(), metav1.ConditionFalse) {
 		return
 	}
 
