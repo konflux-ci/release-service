@@ -78,7 +78,7 @@ func (r *ReleasePipelineRun) WithEnterpriseContractConfigMap(ecConfig *corev1.Co
 
 	ecTaskBundle := ecConfig.Data[enterpriseContractConfigMapBundleField]
 
-	r.WithExtraParam(enterpriseContractConfigMapBundleField, tektonv1.ParamValue{
+	r.WithExtraParam("abc", tektonv1.ParamValue{
 		Type:      tektonv1.ParamTypeString,
 		StringVal: string(ecTaskBundle),
 	})
