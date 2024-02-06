@@ -19,16 +19,17 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"unicode"
+
 	"github.com/hashicorp/go-multierror"
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"unicode"
 )
 
 type PipelineRunBuilder struct {
@@ -228,7 +229,7 @@ func (b *PipelineRunBuilder) WithWorkspaceFromVolumeTemplate(name, size string) 
 		VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-				Resources: corev1.ResourceRequirements{
+				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: quantity,
 					},
