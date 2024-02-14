@@ -54,13 +54,3 @@ func SetupReleasePlanAdmissionCache(mgr ctrl.Manager) error {
 	return mgr.GetCache().IndexField(context.Background(), &v1alpha1.ReleasePlanAdmission{},
 		"spec.origin", releasePlanAdmissionIndexFunc)
 }
-
-// SetupSnapshotEnvironmentBindingCache adds a new index field to be able to search SnapshotEnvironmentBindings by environment.
-func SetupSnapshotEnvironmentBindingCache(mgr ctrl.Manager) error {
-	snapshotEnvironmentBindingIndexFunc := func(obj client.Object) []string {
-		return []string{obj.(*applicationapiv1alpha1.SnapshotEnvironmentBinding).Spec.Environment}
-	}
-
-	return mgr.GetCache().IndexField(context.Background(), &applicationapiv1alpha1.SnapshotEnvironmentBinding{},
-		"spec.environment", snapshotEnvironmentBindingIndexFunc)
-}

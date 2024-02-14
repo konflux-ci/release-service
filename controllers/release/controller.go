@@ -21,17 +21,15 @@ import (
 
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/operator-toolkit/predicates"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 
 	"github.com/go-logr/logr"
 	libhandler "github.com/operator-framework/operator-lib/handler"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/cache"
-	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/tekton"
-	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -85,8 +83,6 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		adapter.EnsureReleaseExpirationTimeIsAdded,
 		adapter.EnsureReleaseIsProcessed,
 		adapter.EnsureReleaseProcessingIsTracked,
-		adapter.EnsureReleaseIsDeployed,
-		adapter.EnsureReleaseDeploymentIsTracked,
 		adapter.EnsureReleaseIsCompleted,
 	})
 }
@@ -100,12 +96,6 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Release{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}, predicates.IgnoreBackups{})).
-		Watches(&applicationapiv1alpha1.SnapshotEnvironmentBinding{}, &libhandler.EnqueueRequestForAnnotation{
-			Type: schema.GroupKind{
-				Kind:  "Release",
-				Group: "appstudio.redhat.com",
-			},
-		}, builder.WithPredicates(predicates.GenerationUnchangedOnUpdatePredicate{}, gitops.DeploymentFinishedPredicate())).
 		Watches(&tektonv1.PipelineRun{}, &libhandler.EnqueueRequestForAnnotation{
 			Type: schema.GroupKind{
 				Kind:  "Release",
@@ -124,9 +114,5 @@ func (c *Controller) SetupCache(mgr ctrl.Manager) error {
 
 	// NOTE: Both the release and releaseplan controller need this ReleasePlanAdmission cache. However, it only needs to be added
 	// once to the manager, so only one controller should add it. If it is removed here, it should be added to the ReleasePlan controller.
-	if err := cache.SetupReleasePlanAdmissionCache(mgr); err != nil {
-		return err
-	}
-
-	return cache.SetupSnapshotEnvironmentBindingCache(mgr)
+	return cache.SetupReleasePlanAdmissionCache(mgr)
 }

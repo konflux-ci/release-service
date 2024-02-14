@@ -32,7 +32,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		component                   *applicationapiv1alpha1.Component
 		enterpriseContractConfigMap *corev1.ConfigMap
 		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
-		environment                 *applicationapiv1alpha1.Environment
 		pipelineRun                 *tektonv1.PipelineRun
 		release                     *v1alpha1.Release
 		releasePlan                 *v1alpha1.ReleasePlan
@@ -40,7 +39,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		releaseServiceConfig        *v1alpha1.ReleaseServiceConfig
 		roleBinding                 *rbac.RoleBinding
 		snapshot                    *applicationapiv1alpha1.Snapshot
-		snapshotEnvironmentBinding  *applicationapiv1alpha1.SnapshotEnvironmentBinding
 	)
 
 	AfterAll(func() {
@@ -132,33 +130,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&ecapiv1alpha1.EnterpriseContractPolicy{}))
 			Expect(returnedObject.Name).To(Equal(enterpriseContractPolicy.Name))
-		})
-	})
-
-	When("calling GetEnvironment", func() {
-		It("returns the requested environment", func() {
-			returnedObject, err := loader.GetEnvironment(ctx, k8sClient, releasePlanAdmission)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Environment{}))
-			Expect(returnedObject.Name).To(Equal(environment.Name))
-		})
-	})
-
-	When("calling GetManagedApplication", func() {
-		It("returns the requested application", func() {
-			returnedObject, err := loader.GetManagedApplication(ctx, k8sClient, releasePlan)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Application{}))
-			Expect(returnedObject.Name).To(Equal(application.Name))
-		})
-	})
-
-	When("calling GetManagedApplicationComponents", func() {
-		It("returns the requested list of components", func() {
-			returnedObjects, err := loader.GetManagedApplicationComponents(ctx, k8sClient, application)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObjects).To(HaveLen(1))
-			Expect(returnedObjects[0].Name).To(Equal(component.Name))
 		})
 	})
 
@@ -349,72 +320,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	When("calling GetSnapshotEnvironmentBinding", func() {
-		It("returns a snapshot environment binding if the environment field value matches the release plan admission one", func() {
-			returnedObject, err := loader.GetSnapshotEnvironmentBinding(ctx, k8sClient, releasePlanAdmission)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.SnapshotEnvironmentBinding{}))
-			Expect(returnedObject.Name).To(Equal(snapshotEnvironmentBinding.Name))
-		})
-
-		It("fails to return a snapshot environment binding if the environment field value doesn't match the release plan admission one", func() {
-			modifiedReleasePlanAdmission := releasePlanAdmission.DeepCopy()
-			modifiedReleasePlanAdmission.Spec.Environment = "non-existing-environment"
-
-			returnedObject, err := loader.GetSnapshotEnvironmentBinding(ctx, k8sClient, modifiedReleasePlanAdmission)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).To(BeNil())
-		})
-	})
-
-	When("calling GetSnapshotEnvironmentBindingFromReleaseStatus", func() {
-		It("fails to return a snapshot environment binding if the reference is not in the release", func() {
-			returnedObject, err := loader.GetSnapshotEnvironmentBindingFromReleaseStatus(ctx, k8sClient, release)
-			Expect(returnedObject).To(BeNil())
-			Expect(err.Error()).To(ContainSubstring("release doesn't contain a valid reference to an SnapshotEnvironmentBinding"))
-		})
-
-		It("fails to return a snapshot environment binding if the environment field value doesn't match the release plan admission one", func() {
-			modifiedRelease := release.DeepCopy()
-			modifiedRelease.Status.Deployment.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s", snapshotEnvironmentBinding.Namespace,
-				types.Separator, snapshotEnvironmentBinding.Name)
-
-			returnedObject, err := loader.GetSnapshotEnvironmentBindingFromReleaseStatus(ctx, k8sClient, modifiedRelease)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.SnapshotEnvironmentBinding{}))
-			Expect(returnedObject.Name).To(Equal(snapshotEnvironmentBinding.Name))
-		})
-	})
-
 	// Composite functions
-
-	When("calling GetDeploymentResources", func() {
-		It("returns all the relevant resources", func() {
-			resources, err := loader.GetDeploymentResources(ctx, k8sClient, release, releasePlanAdmission)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(*resources).To(MatchFields(IgnoreExtras, Fields{
-				"Application":           Not(BeNil()),
-				"ApplicationComponents": Not(BeNil()),
-				"Snapshot":              Not(BeNil()),
-			}))
-		})
-
-		It("fails if any resource fails to be fetched", func() {
-			newReleasePlan := releasePlan.DeepCopy()
-			newReleasePlan.Name = "new-release-plan"
-			newReleasePlan.ResourceVersion = ""
-			newReleasePlan.Spec.Application = "non-existent-application"
-			Expect(k8sClient.Create(ctx, newReleasePlan)).To(Succeed())
-
-			modifiedRelease := release.DeepCopy()
-			modifiedRelease.Spec.ReleasePlan = newReleasePlan.Name
-
-			_, err := loader.GetDeploymentResources(ctx, k8sClient, modifiedRelease, releasePlanAdmission)
-			Expect(err).To(HaveOccurred())
-
-			Expect(k8sClient.Delete(ctx, newReleasePlan)).To(Succeed())
-		})
-	})
 
 	When("calling GetProcessingResources", func() {
 		It("returns all the relevant resources", func() {
@@ -484,22 +390,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, enterpriseContractPolicy)).Should(Succeed())
 
-		environment = &applicationapiv1alpha1.Environment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "environment",
-				Namespace: "default",
-			},
-			Spec: applicationapiv1alpha1.EnvironmentSpec{
-				DeploymentStrategy: applicationapiv1alpha1.DeploymentStrategy_Manual,
-				DisplayName:        "production",
-				Type:               applicationapiv1alpha1.EnvironmentType_POC,
-				Configuration: applicationapiv1alpha1.EnvironmentConfiguration{
-					Env: []applicationapiv1alpha1.EnvVarPair{},
-				},
-			},
-		}
-		Expect(k8sClient.Create(ctx, environment)).Should(Succeed())
-
 		releasePlan = &v1alpha1.ReleasePlan{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "release-plan",
@@ -530,7 +420,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			},
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
 				Applications: []string{application.Name},
-				Environment:  environment.Name,
 				Origin:       "default",
 				Pipeline: &tektonutils.Pipeline{
 					PipelineRef: tektonutils.PipelineRef{
@@ -571,20 +460,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, snapshot)).To(Succeed())
 
-		snapshotEnvironmentBinding = &applicationapiv1alpha1.SnapshotEnvironmentBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "snapshot-environment-binding",
-				Namespace: "default",
-			},
-			Spec: applicationapiv1alpha1.SnapshotEnvironmentBindingSpec{
-				Application: application.Name,
-				Environment: environment.Name,
-				Snapshot:    snapshot.Name,
-				Components:  []applicationapiv1alpha1.BindingComponent{},
-			},
-		}
-		Expect(k8sClient.Create(ctx, snapshotEnvironmentBinding)).To(Succeed())
-
 		release = &v1alpha1.Release{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "release",
@@ -614,14 +489,12 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(k8sClient.Delete(ctx, application)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, component)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, enterpriseContractPolicy)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, environment)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, release)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlan)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlanAdmission)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, roleBinding)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshot)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, snapshotEnvironmentBinding)).To(Succeed())
 	}
 
 })

@@ -61,10 +61,6 @@ type ReleaseStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
 
-	// Deployment contains information about the deployment
-	// +optional
-	Deployment DeploymentInfo `json:"deployment,omitempty"`
-
 	// PostActionsExecution contains information about the post-actions execution
 	// +optional
 	PostActionsExecution PostActionsExecutionInfo `json:"postActionsExecution,omitempty"`
@@ -108,27 +104,6 @@ type AttributionInfo struct {
 	// StandingAuthorization indicates whether the release is attributed through a ReleasePlan
 	// +optional
 	StandingAuthorization bool `json:"standingAuthorization,omitempty"`
-}
-
-// DeploymentInfo defines the observed state of the deployment.
-type DeploymentInfo struct {
-	// CompletionTime is the time when the Release deployment was completed
-	// +optional
-	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
-
-	// Environment is the environment where the Release will be deployed to
-	// +optional
-	Environment string `json:"environment,omitempty"`
-
-	// SnapshotEnvironmentBinding contains the namespaced name of the SnapshotEnvironmentBinding created as part of
-	// this release
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-	// +optional
-	SnapshotEnvironmentBinding string `json:"snapshotEnvironmentBinding,omitempty"`
-
-	// StartTime is the time when the Release deployment started
-	// +optional
-	StartTime *metav1.Time `json:"startTime,omitempty"`
 }
 
 // PostActionsExecutionInfo defines the observed state of the post-actions execution.
@@ -191,11 +166,6 @@ type Release struct {
 	Status ReleaseStatus `json:"status,omitempty"`
 }
 
-// HasDeploymentFinished checks whether the Release deployment has finished, regardless of the result.
-func (r *Release) HasDeploymentFinished() bool {
-	return r.hasPhaseFinished(deployedConditionType)
-}
-
 // HasEveryPostActionExecutionFinished checks whether the Release post-actions execution has finished,
 // regardless of the result.
 func (r *Release) HasEveryPostActionExecutionFinished() bool {
@@ -220,16 +190,6 @@ func (r *Release) IsAttributed() bool {
 // IsAutomated checks whether the Release was marked as automated.
 func (r *Release) IsAutomated() bool {
 	return r.Status.Automated
-}
-
-// IsDeployed checks whether the Release was successfully deployed.
-func (r *Release) IsDeployed() bool {
-	return meta.IsStatusConditionTrue(r.Status.Conditions, deployedConditionType.String())
-}
-
-// IsDeploying checks whether the Release deployment is in progress.
-func (r *Release) IsDeploying() bool {
-	return r.isPhaseProgressing(deployedConditionType)
 }
 
 // IsEveryPostActionExecuted checks whether the Release post-actions were successfully executed.
@@ -265,57 +225,6 @@ func (r *Release) IsReleasing() bool {
 // IsValid checks whether the Release validation has finished successfully.
 func (r *Release) IsValid() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, validatedConditionType.String())
-}
-
-// MarkDeployed marks the Release as deployed.
-func (r *Release) MarkDeployed() {
-	if !r.IsDeploying() || r.HasDeploymentFinished() {
-		return
-	}
-
-	r.Status.Deployment.CompletionTime = &metav1.Time{Time: time.Now()}
-	conditions.SetCondition(&r.Status.Conditions, deployedConditionType, metav1.ConditionTrue, SucceededReason)
-
-	go metrics.RegisterCompletedReleaseDeployment(
-		r.Status.Deployment.StartTime,
-		r.Status.Deployment.CompletionTime,
-		r.Status.Deployment.Environment,
-		SucceededReason.String(),
-		r.Status.Target,
-	)
-}
-
-// MarkDeploying marks the Release as deploying.
-func (r *Release) MarkDeploying(message string) {
-	if r.HasDeploymentFinished() {
-		return
-	}
-
-	if !r.IsDeploying() {
-		r.Status.Deployment.StartTime = &metav1.Time{Time: time.Now()}
-	}
-
-	conditions.SetConditionWithMessage(&r.Status.Conditions, deployedConditionType, metav1.ConditionFalse, ProgressingReason, message)
-
-	go metrics.RegisterNewReleaseDeployment()
-}
-
-// MarkDeploymentFailed marks the Release deployment as failed.
-func (r *Release) MarkDeploymentFailed(message string) {
-	if !r.IsDeploying() || r.HasDeploymentFinished() {
-		return
-	}
-
-	r.Status.Deployment.CompletionTime = &metav1.Time{Time: time.Now()}
-	conditions.SetConditionWithMessage(&r.Status.Conditions, deployedConditionType, metav1.ConditionFalse, FailedReason, message)
-
-	go metrics.RegisterCompletedReleaseDeployment(
-		r.Status.Deployment.StartTime,
-		r.Status.Deployment.CompletionTime,
-		r.Status.Deployment.Environment,
-		FailedReason.String(),
-		r.Status.Target,
-	)
 }
 
 // MarkProcessed marks the Release as processed.
@@ -431,7 +340,6 @@ func (r *Release) MarkReleased() {
 	go metrics.RegisterCompletedRelease(
 		r.Status.StartTime,
 		r.Status.CompletionTime,
-		r.getPhaseReason(deployedConditionType),
 		r.getPhaseReason(postActionsExecutedConditionType),
 		r.getPhaseReason(processedConditionType),
 		SucceededReason.String(),
@@ -467,7 +375,6 @@ func (r *Release) MarkReleaseFailed(message string) {
 	go metrics.RegisterCompletedRelease(
 		r.Status.StartTime,
 		r.Status.CompletionTime,
-		r.getPhaseReason(deployedConditionType),
 		r.getPhaseReason(postActionsExecutedConditionType),
 		r.getPhaseReason(processedConditionType),
 		FailedReason.String(),

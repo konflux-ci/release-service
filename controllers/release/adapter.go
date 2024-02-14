@@ -24,12 +24,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	libhandler "github.com/operator-framework/operator-lib/handler"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	integrationgitops "github.com/redhat-appstudio/integration-service/gitops"
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/gitops"
 	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/metadata"
 	"github.com/redhat-appstudio/release-service/syncer"
@@ -37,7 +34,6 @@ import (
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
@@ -163,70 +159,9 @@ func (a *adapter) EnsureReleaseIsCompleted() (controller.OperationResult, error)
 		return controller.ContinueProcessing()
 	}
 
-	// The deployment has to complete if the environment field in the ReleasePlanAdmission is set
-	releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
-	if err == nil && releasePlanAdmission.Spec.Environment != "" && !a.release.HasDeploymentFinished() {
-		return controller.ContinueProcessing()
-	}
-
 	patch := client.MergeFrom(a.release.DeepCopy())
 	a.release.MarkReleased()
 	return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
-}
-
-// EnsureReleaseIsDeployed is an operation that will ensure that a SnapshotEnvironmentBinding
-// associated to the Release being processed exists. Otherwise, it will create a new one.
-func (a *adapter) EnsureReleaseIsDeployed() (controller.OperationResult, error) {
-	if !a.release.IsProcessed() || a.release.HasDeploymentFinished() || a.release.IsDeploying() {
-		return controller.ContinueProcessing()
-	}
-
-	releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
-	if err != nil {
-		return controller.RequeueWithError(err)
-	}
-
-	// If no environment is set in the ReleasePlanAdmission, skip the Binding creation
-	if releasePlanAdmission.Spec.Environment == "" {
-		return controller.ContinueProcessing()
-	}
-
-	err = a.syncResources()
-	if err != nil {
-		return controller.RequeueWithError(err)
-	}
-
-	binding, err := a.createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission)
-	if err != nil {
-		return controller.RequeueWithError(err)
-	}
-
-	a.logger.Info("Created/updated SnapshotEnvironmentBinding",
-		"SnapshotEnvironmentBinding.Name", binding.Name, "SnapshotEnvironmentBinding.Namespace", binding.Namespace)
-
-	return controller.RequeueOnErrorOrContinue(a.registerDeploymentData(binding, releasePlanAdmission))
-}
-
-// EnsureReleaseDeploymentIsTracked is an operation that will ensure that the SnapshotEnvironmentBinding
-// Deployment status is tracked in the Release being processed.
-func (a *adapter) EnsureReleaseDeploymentIsTracked() (controller.OperationResult, error) {
-	if !a.release.IsDeploying() || a.release.HasDeploymentFinished() {
-		return controller.ContinueProcessing()
-	}
-
-	// Search for an existing binding
-	binding, err := a.loader.GetSnapshotEnvironmentBindingFromReleaseStatus(a.ctx, a.client, a.release)
-	if err != nil {
-		return controller.RequeueWithError(err)
-	}
-
-	// Do nothing if the release does not own the binding
-	if binding.GetAnnotations()[libhandler.TypeAnnotation] != a.release.GetObjectKind().GroupVersionKind().GroupKind().String() ||
-		binding.GetAnnotations()[libhandler.NamespacedNameAnnotation] != fmt.Sprintf("%s/%s", a.release.GetNamespace(), a.release.GetName()) {
-		return controller.ContinueProcessing()
-	}
-
-	return controller.RequeueOnErrorOrContinue(a.registerDeploymentStatus(binding))
 }
 
 // EnsureReleaseIsRunning is an operation that will ensure that a Release has not finished already and that
@@ -418,53 +353,6 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 	return pipelineRun, nil
 }
 
-// createSnapshotEnvironmentBinding creates or updates a SnapshotEnvironmentBinding for the Release being processed.
-func (a *adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
-	resources, err := a.loader.GetDeploymentResources(a.ctx, a.client, a.release, releasePlanAdmission)
-	if err != nil {
-		return nil, err
-	}
-
-	// The binding information needs to be updated no matter if it already exists or not
-	binding := gitops.NewSnapshotEnvironmentBinding(resources.ApplicationComponents, resources.Snapshot, resources.Environment)
-
-	// Search for an existing binding
-	existingBinding, err := a.loader.GetSnapshotEnvironmentBinding(a.ctx, a.client, releasePlanAdmission)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
-	}
-
-	if existingBinding == nil {
-		// Set owner references so the binding is deleted if the application is deleted
-		err = ctrl.SetControllerReference(resources.Application, binding, a.client.Scheme())
-		if err != nil {
-			return nil, err
-		}
-
-		// Add owner annotations so the controller can watch for status updates to the binding and track them
-		// in the release
-		err = libhandler.SetOwnerAnnotations(a.release, binding)
-		if err != nil {
-			return nil, err
-		}
-
-		return binding, a.client.Create(a.ctx, binding)
-	} else {
-		// We create the binding so if the owner reference is not already present, there must be a good reason for that
-		patch := client.MergeFrom(existingBinding.DeepCopy())
-		existingBinding.Spec = binding.Spec
-
-		// Add owner annotations so the controller can watch for status updates to the binding and track them
-		// in the release
-		err = libhandler.SetOwnerAnnotations(a.release, existingBinding)
-		if err != nil {
-			return nil, err
-		}
-
-		return existingBinding, a.client.Patch(a.ctx, existingBinding, patch)
-	}
-}
-
 // createRoleBindingForClusterRole creates a RoleBinding that binds the serviceAccount from the passed
 // ReleasePlanAdmission to the passed ClusterRole. If the creation fails, the error is returned. If the creation
 // is successful, the RoleBinding is returned.
@@ -545,57 +433,6 @@ func (a *adapter) getEmptyReleaseServiceConfig(namespace string) *v1alpha1.Relea
 	}
 	releaseServiceConfig.Kind = "ReleaseServiceConfig"
 	return releaseServiceConfig
-}
-
-// registerDeploymentData adds all the Release deployment information to its Status and marks it as processing.
-func (a *adapter) registerDeploymentData(snapshotEnvironmentBinding *applicationapiv1alpha1.SnapshotEnvironmentBinding,
-	releasePlanAdmission *v1alpha1.ReleasePlanAdmission) error {
-	if snapshotEnvironmentBinding == nil || releasePlanAdmission == nil {
-		return nil
-	}
-
-	patch := client.MergeFrom(a.release.DeepCopy())
-
-	if releasePlanAdmission.Spec.Environment != "" {
-		a.release.Status.Deployment.Environment = fmt.Sprintf("%s%c%s",
-			releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Spec.Environment)
-	}
-
-	a.release.Status.Deployment.SnapshotEnvironmentBinding = fmt.Sprintf("%s%c%s",
-		snapshotEnvironmentBinding.Namespace, types.Separator, snapshotEnvironmentBinding.Name)
-
-	a.release.MarkDeploying("")
-
-	return a.client.Status().Patch(a.ctx, a.release, patch)
-}
-
-// registerDeploymentStatus updates the status of the Release being processed by monitoring the status of the
-// associated SnapshotEnvironmentBinding and setting the appropriate state in the Release.
-func (a *adapter) registerDeploymentStatus(binding *applicationapiv1alpha1.SnapshotEnvironmentBinding) error {
-	if binding == nil {
-		return nil
-	}
-
-	condition := meta.FindStatusCondition(binding.Status.ComponentDeploymentConditions,
-		applicationapiv1alpha1.ComponentDeploymentConditionAllComponentsDeployed)
-	if condition == nil {
-		return nil
-	}
-
-	patch := client.MergeFrom(a.release.DeepCopy())
-
-	if condition.Status == metav1.ConditionTrue {
-		a.release.MarkDeployed()
-	} else {
-		if condition.Reason == applicationapiv1alpha1.ComponentDeploymentConditionErrorOccurred {
-			a.release.MarkDeploymentFailed(condition.Message)
-			a.release.MarkReleaseFailed("Release deployment failed")
-		} else {
-			a.release.MarkDeploying(condition.Message)
-		}
-	}
-
-	return a.client.Status().Patch(a.ctx, a.release, patch)
 }
 
 // registerProcessingData adds all the Release processing information to its Status and marks it as processing.

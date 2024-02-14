@@ -17,10 +17,8 @@ import (
 const (
 	ApplicationComponentsContextKey toolkit.ContextKey = iota
 	ApplicationContextKey
-	DeploymentResourcesContextKey
 	EnterpriseContractConfigMapContextKey
 	EnterpriseContractPolicyContextKey
-	EnvironmentContextKey
 	MatchedReleasePlansContextKey
 	MatchedReleasePlanAdmissionContextKey
 	ProcessingResourcesContextKey
@@ -31,7 +29,6 @@ const (
 	ReleaseServiceConfigContextKey
 	RoleBindingContextKey
 	SnapshotContextKey
-	SnapshotEnvironmentBindingContextKey
 )
 
 type mockLoader struct {
@@ -82,30 +79,6 @@ func (l *mockLoader) GetEnterpriseContractConfigMap(ctx context.Context, cli cli
 		return l.loader.GetEnterpriseContractConfigMap(ctx, cli)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, EnterpriseContractConfigMapContextKey, &corev1.ConfigMap{})
-}
-
-// GetEnvironment returns the resource and error passed as values of the context.
-func (l *mockLoader) GetEnvironment(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.Environment, error) {
-	if ctx.Value(EnvironmentContextKey) == nil {
-		return l.loader.GetEnvironment(ctx, cli, releasePlanAdmission)
-	}
-	return toolkit.GetMockedResourceAndErrorFromContext(ctx, EnvironmentContextKey, &applicationapiv1alpha1.Environment{})
-}
-
-// GetManagedApplication returns the resource and error passed as values of the context.
-func (l *mockLoader) GetManagedApplication(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*applicationapiv1alpha1.Application, error) {
-	if ctx.Value(ApplicationContextKey) == nil {
-		return l.loader.GetManagedApplication(ctx, cli, releasePlan)
-	}
-	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ApplicationContextKey, &applicationapiv1alpha1.Application{})
-}
-
-// GetManagedApplicationComponents returns the resource and error passed as values of the context.
-func (l *mockLoader) GetManagedApplicationComponents(ctx context.Context, cli client.Client, application *applicationapiv1alpha1.Application) ([]applicationapiv1alpha1.Component, error) {
-	if ctx.Value(ApplicationComponentsContextKey) == nil {
-		return l.loader.GetManagedApplicationComponents(ctx, cli, application)
-	}
-	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ApplicationComponentsContextKey, []applicationapiv1alpha1.Component{})
 }
 
 // GetMatchingReleasePlanAdmission returns the resource and error passed as values of the context.
@@ -172,31 +145,7 @@ func (l *mockLoader) GetSnapshot(ctx context.Context, cli client.Client, release
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, SnapshotContextKey, &applicationapiv1alpha1.Snapshot{})
 }
 
-// GetSnapshotEnvironmentBinding returns the resource and error passed as values of the context.
-func (l *mockLoader) GetSnapshotEnvironmentBinding(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
-	if ctx.Value(SnapshotEnvironmentBindingContextKey) == nil {
-		return l.loader.GetSnapshotEnvironmentBinding(ctx, cli, releasePlanAdmission)
-	}
-	return toolkit.GetMockedResourceAndErrorFromContext(ctx, SnapshotEnvironmentBindingContextKey, &applicationapiv1alpha1.SnapshotEnvironmentBinding{})
-}
-
-// GetSnapshotEnvironmentBindingFromReleaseStatus returns the resource and error passed as values of the context.
-func (l *mockLoader) GetSnapshotEnvironmentBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.SnapshotEnvironmentBinding, error) {
-	if ctx.Value(SnapshotEnvironmentBindingContextKey) == nil {
-		return l.loader.GetSnapshotEnvironmentBindingFromReleaseStatus(ctx, cli, release)
-	}
-	return toolkit.GetMockedResourceAndErrorFromContext(ctx, SnapshotEnvironmentBindingContextKey, &applicationapiv1alpha1.SnapshotEnvironmentBinding{})
-}
-
 // Composite functions
-
-// GetDeploymentResources returns the resource and error passed as values of the context.
-func (l *mockLoader) GetDeploymentResources(ctx context.Context, cli client.Client, release *v1alpha1.Release, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*DeploymentResources, error) {
-	if ctx.Value(DeploymentResourcesContextKey) == nil {
-		return l.loader.GetDeploymentResources(ctx, cli, release, releasePlanAdmission)
-	}
-	return toolkit.GetMockedResourceAndErrorFromContext(ctx, DeploymentResourcesContextKey, &DeploymentResources{})
-}
 
 // GetProcessingResources returns the resource and error passed as values of the context.
 func (l *mockLoader) GetProcessingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*ProcessingResources, error) {
