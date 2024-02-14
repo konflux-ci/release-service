@@ -81,51 +81,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	When("calling GetEnvironment", func() {
-		It("returns the resource and error from the context", func() {
-			environment := &applicationapiv1alpha1.Environment{}
-			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: EnvironmentContextKey,
-					Resource:   environment,
-				},
-			})
-			resource, err := loader.GetEnvironment(mockContext, nil, nil)
-			Expect(resource).To(Equal(environment))
-			Expect(err).To(BeNil())
-		})
-	})
-
-	When("calling GetManagedApplication", func() {
-		It("returns the resource and error from the context", func() {
-			application := &applicationapiv1alpha1.Application{}
-			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: ApplicationContextKey,
-					Resource:   application,
-				},
-			})
-			resource, err := loader.GetManagedApplication(mockContext, nil, nil)
-			Expect(resource).To(Equal(application))
-			Expect(err).To(BeNil())
-		})
-	})
-
-	When("calling GetManagedApplicationComponents", func() {
-		It("returns the resource and error from the context", func() {
-			var components []applicationapiv1alpha1.Component
-			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: ApplicationComponentsContextKey,
-					Resource:   components,
-				},
-			})
-			resource, err := loader.GetManagedApplicationComponents(mockContext, nil, &applicationapiv1alpha1.Application{})
-			Expect(resource).To(Equal(components))
-			Expect(err).To(BeNil())
-		})
-	})
-
 	When("calling GetMatchingReleasePlanAdmission", func() {
 		It("returns the resource and error from the context", func() {
 			releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{}
@@ -246,52 +201,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	When("calling GetSnapshotEnvironmentBinding", func() {
-		It("returns the resource and error from the context", func() {
-			snapshotEnvironmentBinding := &applicationapiv1alpha1.SnapshotEnvironmentBinding{}
-			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: SnapshotEnvironmentBindingContextKey,
-					Resource:   snapshotEnvironmentBinding,
-				},
-			})
-			resource, err := loader.GetSnapshotEnvironmentBinding(mockContext, nil, nil)
-			Expect(resource).To(Equal(snapshotEnvironmentBinding))
-			Expect(err).To(BeNil())
-		})
-	})
-
-	When("calling GetSnapshotEnvironmentBindingFromReleaseStatus", func() {
-		It("returns the resource and error from the context", func() {
-			snapshotEnvironmentBinding := &applicationapiv1alpha1.SnapshotEnvironmentBinding{}
-			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: SnapshotEnvironmentBindingContextKey,
-					Resource:   snapshotEnvironmentBinding,
-				},
-			})
-			resource, err := loader.GetSnapshotEnvironmentBindingFromReleaseStatus(mockContext, nil, nil)
-			Expect(resource).To(Equal(snapshotEnvironmentBinding))
-			Expect(err).To(BeNil())
-		})
-	})
-
 	// Composite functions
-
-	When("calling GetDeploymentResources", func() {
-		It("returns the resource and error from the context", func() {
-			deploymentResources := &DeploymentResources{}
-			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: DeploymentResourcesContextKey,
-					Resource:   deploymentResources,
-				},
-			})
-			resource, err := loader.GetDeploymentResources(mockContext, nil, nil, nil)
-			Expect(resource).To(Equal(deploymentResources))
-			Expect(err).To(BeNil())
-		})
-	})
 
 	When("calling GetProcessingResources", func() {
 		It("returns the resource and error from the context", func() {

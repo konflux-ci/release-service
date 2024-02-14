@@ -112,7 +112,6 @@ var _ = BeforeSuite(func() {
 		Expect(cache.SetupComponentCache(mgr)).To(Succeed())
 		Expect(cache.SetupReleasePlanCache(mgr)).To(Succeed())
 		Expect(cache.SetupReleasePlanAdmissionCache(mgr)).To(Succeed())
-		Expect(cache.SetupSnapshotEnvironmentBindingCache(mgr)).To(Succeed())
 
 		Expect(mgr.Start(ctx)).To(Succeed())
 	}()

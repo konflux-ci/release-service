@@ -43,19 +43,19 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("does nothing if the start time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(nil, completionTime, "", "", "", "", "", "")
+			RegisterCompletedRelease(nil, completionTime, "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("does nothing if the completion time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(startTime, nil, "", "", "", "", "", "")
+			RegisterCompletedRelease(startTime, nil, "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("decrements ReleaseConcurrentTotal", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(startTime, completionTime, "", "", "", "", "", "")
+			RegisterCompletedRelease(startTime, completionTime, "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(-1)))
 		})
 
@@ -66,7 +66,6 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releaseDurationSecondsLabels[2],
 				releaseDurationSecondsLabels[3],
 				releaseDurationSecondsLabels[4],
-				releaseDurationSecondsLabels[5],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseDurationSeconds,
 				test.NewHistogramReader(
@@ -83,55 +82,11 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releaseTotalLabels[2],
 				releaseTotalLabels[3],
 				releaseTotalLabels[4],
-				releaseTotalLabels[5],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseTotal,
 				test.NewCounterReader(
 					releaseTotalOpts,
 					releaseTotalLabels,
-				))).To(Succeed())
-		})
-	})
-
-	When("RegisterCompletedReleaseDeployment is called", func() {
-		var completionTime, startTime *metav1.Time
-
-		BeforeEach(func() {
-			initializeMetrics()
-
-			completionTime = &metav1.Time{}
-			startTime = &metav1.Time{Time: completionTime.Add(-60 * time.Second)}
-		})
-
-		It("does nothing if the start time is nil", func() {
-			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleaseDeployment(nil, completionTime, "", "", "")
-			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
-		})
-
-		It("does nothing if the completion time is nil", func() {
-			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleaseDeployment(startTime, nil, "", "", "")
-			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
-		})
-
-		It("decrements ReleaseConcurrentDeploymentsTotal", func() {
-			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleaseDeployment(startTime, completionTime, "", "", "")
-			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(-1)))
-		})
-
-		It("adds an observation to ReleaseDeploymentDurationSeconds", func() {
-			RegisterCompletedReleaseDeployment(startTime, completionTime,
-				releaseDeploymentDurationSecondsLabels[0],
-				releaseDeploymentDurationSecondsLabels[1],
-				releaseDeploymentDurationSecondsLabels[2],
-			)
-			Expect(testutil.CollectAndCompare(ReleaseDeploymentDurationSeconds,
-				test.NewHistogramReader(
-					releaseDeploymentDurationSecondsOpts,
-					releaseDeploymentDurationSecondsLabels,
-					startTime, completionTime,
 				))).To(Succeed())
 		})
 	})
@@ -263,18 +218,6 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	When("RegisterNewReleaseDeployment is called", func() {
-		BeforeEach(func() {
-			initializeMetrics()
-		})
-
-		It("increments ReleaseConcurrentDeploymentsTotal", func() {
-			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterNewReleaseDeployment()
-			Expect(testutil.ToFloat64(ReleaseConcurrentDeploymentsTotal.WithLabelValues())).To(Equal(float64(1)))
-		})
-	})
-
 	When("RegisterNewReleaseProcessing is called", func() {
 		var processingStartTime, startTime *metav1.Time
 
@@ -334,10 +277,8 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 	initializeMetrics = func() {
 		ReleaseConcurrentTotal.Reset()
-		ReleaseConcurrentDeploymentsTotal.Reset()
 		ReleaseConcurrentProcessingsTotal.Reset()
 		ReleaseConcurrentPostActionsExecutionsTotal.Reset()
-		ReleaseDeploymentDurationSeconds.Reset()
 		ReleaseValidationDurationSeconds.Reset()
 		ReleasePreProcessingDurationSeconds.Reset()
 		ReleaseDurationSeconds.Reset()

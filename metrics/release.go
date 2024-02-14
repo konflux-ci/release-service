@@ -31,14 +31,6 @@ var (
 		[]string{},
 	)
 
-	ReleaseConcurrentDeploymentsTotal = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "release_concurrent_deployments_total",
-			Help: "Total number of concurrent release deployment attempts",
-		},
-		[]string{},
-	)
-
 	ReleaseConcurrentPostActionsExecutionsTotal = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "release_concurrent_post_actions_executions_total",
@@ -54,21 +46,6 @@ var (
 		},
 		[]string{},
 	)
-
-	ReleaseDeploymentDurationSeconds = prometheus.NewHistogramVec(
-		releaseDeploymentDurationSecondsOpts,
-		releaseDeploymentDurationSecondsLabels,
-	)
-	releaseDeploymentDurationSecondsLabels = []string{
-		"environment",
-		"reason",
-		"target",
-	}
-	releaseDeploymentDurationSecondsOpts = prometheus.HistogramOpts{
-		Name:    "release_deployment_duration_seconds",
-		Help:    "How long in seconds a Release deployment takes to complete",
-		Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
-	}
 
 	ReleasePreProcessingDurationSeconds = prometheus.NewHistogramVec(
 		releasePreProcessingDurationSecondsOpts,
@@ -103,7 +80,6 @@ var (
 		releaseDurationSecondsLabels,
 	)
 	releaseDurationSecondsLabels = []string{
-		"deployment_reason",
 		"post_actions_reason",
 		"processing_reason",
 		"release_reason",
@@ -148,7 +124,6 @@ var (
 		releaseTotalLabels,
 	)
 	releaseTotalLabels = []string{
-		"deployment_reason",
 		"post_actions_reason",
 		"processing_reason",
 		"release_reason",
@@ -165,13 +140,12 @@ var (
 // observation for the Release duration and increasing the total number of releases. If either the startTime or the
 // completionTime parameters are nil, no action will be taken.
 func RegisterCompletedRelease(startTime, completionTime *metav1.Time,
-	deploymentReason, postActionsReason, processingReason, releaseReason, target, validationReason string) {
+	postActionsReason, processingReason, releaseReason, target, validationReason string) {
 	if startTime == nil || completionTime == nil {
 		return
 	}
 
 	labels := prometheus.Labels{
-		"deployment_reason":   deploymentReason,
 		"post_actions_reason": postActionsReason,
 		"processing_reason":   processingReason,
 		"release_reason":      releaseReason,
@@ -183,24 +157,6 @@ func RegisterCompletedRelease(startTime, completionTime *metav1.Time,
 		With(labels).
 		Observe(completionTime.Sub(startTime.Time).Seconds())
 	ReleaseTotal.With(labels).Inc()
-}
-
-// RegisterCompletedReleaseDeployment registers a Release deployment as complete, adding a new observation for the
-// Release deployment duration and decreasing the number of concurrent deployments. If either the startTime or the
-// completionTime parameters are nil, no action will be taken.
-func RegisterCompletedReleaseDeployment(startTime, completionTime *metav1.Time, environment, reason, target string) {
-	if startTime == nil || completionTime == nil {
-		return
-	}
-
-	ReleaseDeploymentDurationSeconds.
-		With(prometheus.Labels{
-			"environment": environment,
-			"reason":      reason,
-			"target":      target,
-		}).
-		Observe(completionTime.Sub(startTime.Time).Seconds())
-	ReleaseConcurrentDeploymentsTotal.WithLabelValues().Dec()
 }
 
 // RegisterCompletedReleasePostActionsExecuted registers a Release post-actions execution as complete, adding a new
@@ -257,11 +213,6 @@ func RegisterNewRelease() {
 	ReleaseConcurrentTotal.WithLabelValues().Inc()
 }
 
-// RegisterNewReleaseDeployment register a new Release deployment, increasing the number of concurrent deployments.
-func RegisterNewReleaseDeployment() {
-	ReleaseConcurrentDeploymentsTotal.WithLabelValues().Inc()
-}
-
 // RegisterNewReleaseProcessing registers a new Release processing, adding a new observation for the
 // Release start processing duration and increasing the number of concurrent processings. If either the
 // startTime or the processingStartTime are nil, no action will be taken.
@@ -289,10 +240,8 @@ func RegisterNewReleasePostActionsExecution() {
 func init() {
 	metrics.Registry.MustRegister(
 		ReleaseConcurrentTotal,
-		ReleaseConcurrentDeploymentsTotal,
 		ReleaseConcurrentProcessingsTotal,
 		ReleaseConcurrentPostActionsExecutionsTotal,
-		ReleaseDeploymentDurationSeconds,
 		ReleasePreProcessingDurationSeconds,
 		ReleaseValidationDurationSeconds,
 		ReleaseDurationSeconds,

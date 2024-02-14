@@ -165,30 +165,6 @@ spec:
                   - type
                   type: object
                 type: array
-              deployment:
-                description: Deployment contains information about the deployment
-                properties:
-                  completionTime:
-                    description: CompletionTime is the time when the Release deployment
-                      was completed
-                    format: date-time
-                    type: string
-                  environment:
-                    description: Environment is the environment where the Release
-                      will be deployed to
-                    type: string
-                  snapshotEnvironmentBinding:
-                    description: SnapshotEnvironmentBinding contains the namespaced
-                      name of the SnapshotEnvironmentBinding created as part of this
-                      release
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                    type: string
-                  startTime:
-                    description: StartTime is the time when the Release deployment
-                      started
-                    format: date-time
-                    type: string
-                type: object
               expirationTime:
                 description: ExpirationTime is the time when a Release can be purged
                 format: date-time

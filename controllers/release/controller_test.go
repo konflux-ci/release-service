@@ -18,6 +18,7 @@ package release
 
 import (
 	"reflect"
+
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	. "github.com/onsi/ginkgo/v2"
