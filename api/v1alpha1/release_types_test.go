@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -1140,4 +1142,20 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("SetExpirationTime method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should set the ExpirationTime", func() {
+			expireDays := time.Duration(5)
+			creationTime := release.CreationTimestamp
+			expectedExpirationTime := &metav1.Time{Time: creationTime.Add(time.Hour * 24 * expireDays)}
+
+			release.SetExpirationTime(expireDays)
+			Expect(release.Status.ExpirationTime).To(Equal(expectedExpirationTime))
+		})
+	})
 })

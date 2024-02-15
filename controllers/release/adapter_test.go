@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 
@@ -984,6 +985,71 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.release.MarkProcessing("")
 
 			result, err := adapter.EnsureReleaseProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	When("EnsureReleaseExpirationTimeIsAdded is called", func() {
+		var adapter *adapter
+		var newReleasePlan *v1alpha1.ReleasePlan
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+			newReleasePlan = &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "release-plan",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanSpec{
+					Application:            application.Name,
+					Target:                 "default",
+					ReleaseGracePeriodDays: 6,
+				},
+			}
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+			})
+		})
+
+		It("should set the ExpirationTime with the value of Release's GracePeriodDays and then continue", func() {
+			expireDays := time.Duration(3)
+			adapter.release.Spec.GracePeriodDays = 3
+			creationTime := adapter.release.CreationTimestamp
+			expectedExpirationTime := &metav1.Time{Time: creationTime.Add(time.Hour * 24 * expireDays)}
+
+			result, err := adapter.EnsureReleaseExpirationTimeIsAdded()
+			Expect(adapter.release.Status.ExpirationTime).To(Equal(expectedExpirationTime))
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should set the ExpirationTime with the value of ReleasePlan's ReleaseGracePeriodDays and then continue", func() {
+			expireDays := time.Duration(newReleasePlan.Spec.ReleaseGracePeriodDays)
+			creationTime := adapter.release.CreationTimestamp
+			expectedExpirationTime := &metav1.Time{Time: creationTime.Add(time.Hour * 24 * expireDays)}
+
+			result, err := adapter.EnsureReleaseExpirationTimeIsAdded()
+			Expect(adapter.release.Status.ExpirationTime).To(Equal(expectedExpirationTime))
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should not change the ExpirationTime if it is already set", func() {
+			expireDays := time.Duration(5)
+			creationTime := adapter.release.CreationTimestamp
+			expectedExpirationTime := &metav1.Time{Time: creationTime.Add(time.Hour * 24 * expireDays)}
+
+			adapter.release.Status.ExpirationTime = expectedExpirationTime
+			result, err := adapter.EnsureReleaseExpirationTimeIsAdded()
+			Expect(adapter.release.Status.ExpirationTime).To(Equal(expectedExpirationTime))
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
