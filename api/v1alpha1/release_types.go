@@ -44,6 +44,11 @@ type ReleaseSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Data *runtime.RawExtension `json:"data,omitempty"`
+
+	// GracePeriodDays is the number of days a Release should be kept
+	// This value is used to define the Release ExpirationTime
+	// +optional
+	GracePeriodDays int `json:"gracePeriodDays,omitempty"`
 }
 
 // ReleaseStatus defines the observed state of Release.
@@ -88,6 +93,10 @@ type ReleaseStatus struct {
 	// StartTime is the time when a Release started
 	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`
+
+	// ExpirationTime is the time when a Release can be purged
+	// +optional
+	ExpirationTime *metav1.Time `json:"expirationTime,omitempty"`
 }
 
 // AttributionInfo defines the observed state of the release attribution.
@@ -502,6 +511,12 @@ func (r *Release) SetAutomated() {
 	}
 
 	r.Status.Automated = true
+}
+
+// SetExpirationTime set the time when this release can be purged
+func (r *Release) SetExpirationTime(expireDays time.Duration) {
+	creationTime := r.CreationTimestamp
+	r.Status.ExpirationTime = &metav1.Time{Time: creationTime.Add(time.Hour * 24 * expireDays)}
 }
 
 // getPhaseReason returns the current reason for the given ConditionType or empty string if no condition is found.

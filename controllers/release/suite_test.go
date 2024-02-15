@@ -18,13 +18,17 @@ package release
 
 import (
 	"context"
-	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"go/build"
 	"path/filepath"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"testing"
 
+	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
+	releasewebhooks "github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks/release"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
+
 	"github.com/redhat-appstudio/operator-toolkit/test"
+	toolkit "github.com/redhat-appstudio/operator-toolkit/webhook"
 
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
@@ -54,6 +58,7 @@ var (
 	testEnv   *envtest.Environment
 	ctx       context.Context
 	cancel    context.CancelFunc
+	webhook   *releasewebhooks.Webhook
 )
 
 func Test(t *testing.T) {
@@ -95,16 +100,26 @@ var _ = BeforeSuite(func() {
 	Expect(ecapiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(applicationapiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
+
+	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	k8sManager, _ := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
 		Metrics: server.Options{
 			BindAddress: "0", // disables metrics
 		},
+		WebhookServer: crwebhook.NewServer(crwebhook.Options{
+			CertDir: webhookInstallOptions.LocalServingCertDir,
+			Host:    webhookInstallOptions.LocalServingHost,
+			Port:    webhookInstallOptions.LocalServingPort,
+		}),
 		LeaderElection: false,
 	})
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	err = toolkit.SetupWebhooks(k8sManager, &releasewebhooks.Webhook{})
 	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		Expect(k8sManager.Start(ctx)).To(Succeed())

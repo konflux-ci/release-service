@@ -19,6 +19,7 @@ package releaseplan
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/metadata"

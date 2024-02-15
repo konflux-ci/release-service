@@ -55,6 +55,10 @@ spec:
                   the managed Release Pipeline
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              gracePeriodDays:
+                description: GracePeriodDays is the number of days a Release should
+                  be kept This value is used to define the Release ExpirationTime
+                type: integer
               releasePlan:
                 description: ReleasePlan to use for this particular Release
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -185,6 +189,10 @@ spec:
                     format: date-time
                     type: string
                 type: object
+              expirationTime:
+                description: ExpirationTime is the time when a Release can be purged
+                format: date-time
+                type: string
               postActionsExecution:
                 description: PostActionsExecution contains information about the post-actions
                   execution

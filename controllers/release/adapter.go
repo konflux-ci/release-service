@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 
@@ -278,6 +279,27 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 	return controller.ContinueProcessing()
 }
 
+// EnsureReleaseExpirationTimeIsAdded is an operation that ensures that a Release has the ExpirationTime set.
+func (a *adapter) EnsureReleaseExpirationTimeIsAdded() (controller.OperationResult, error) {
+	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+	if err != nil && !errors.IsNotFound(err) {
+		return controller.RequeueWithError(err)
+	}
+
+	if a.release.Status.ExpirationTime == nil {
+		patch := client.MergeFrom(a.release.DeepCopy())
+
+		if a.release.Spec.GracePeriodDays == 0 {
+			a.release.Spec.GracePeriodDays = releasePlan.Spec.ReleaseGracePeriodDays
+		}
+		a.release.SetExpirationTime(time.Duration(a.release.Spec.GracePeriodDays))
+
+		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+	}
+
+	return controller.ContinueProcessing()
+}
+
 // EnsureReleaseIsValid is an operation that will ensure that a Release is valid by performing all
 // validation checks.
 func (a *adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
@@ -350,6 +372,7 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithEnterpriseContractPolicy(resources.EnterpriseContractPolicy).
 		AsPipelineRun()
 
+	a.logger.Info(fmt.Sprintf("Creating PipelineRun: %+v\n", a.release))
 	err := a.client.Create(a.ctx, pipelineRun)
 	if err != nil {
 		return nil, err

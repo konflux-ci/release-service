@@ -32,6 +32,25 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-appstudio-redhat-com-v1alpha1-release
+  failurePolicy: Fail
+  name: mrelease.kb.io
+  rules:
+  - apiGroups:
+    - appstudio.redhat.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    resources:
+    - releases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-appstudio-redhat-com-v1alpha1-releaseplan
   failurePolicy: Fail
   name: mreleaseplan.kb.io

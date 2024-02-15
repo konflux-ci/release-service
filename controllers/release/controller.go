@@ -78,6 +78,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		adapter.EnsureReleaseIsRunning,
 		adapter.EnsureReleaseIsValid,
 		adapter.EnsureFinalizerIsAdded,
+		adapter.EnsureReleaseExpirationTimeIsAdded,
 		adapter.EnsureReleaseIsProcessed,
 		adapter.EnsureReleaseProcessingIsTracked,
 		adapter.EnsureReleaseIsDeployed,

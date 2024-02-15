@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 
@@ -799,6 +800,57 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.release.MarkProcessing("")
 
 			result, err := adapter.EnsureReleaseProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	When("EnsureReleaseExpirationTimeIsAdded is called", func() {
+		var (
+			adapter                *adapter
+			expectedExpirationTime *metav1.Time
+		)
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+			newReleasePlan := &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "release-plan",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanSpec{
+					Application:            application.Name,
+					Target:                 "default",
+					ReleaseGracePeriodDays: 5,
+				},
+			}
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+			})
+
+			expireDays := time.Duration(5)
+			creationTime := adapter.release.CreationTimestamp
+			expectedExpirationTime = &metav1.Time{Time: creationTime.Add(time.Hour * 24 * expireDays)}
+		})
+
+		It("should set the ExpirationTime and continue", func() {
+			result, err := adapter.EnsureReleaseExpirationTimeIsAdded()
+			Expect(adapter.release.Status.ExpirationTime).To(Equal(expectedExpirationTime))
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should set continue if the ExpirationTime is already set", func() {
+			adapter.release.Status.ExpirationTime = expectedExpirationTime
+			result, err := adapter.EnsureReleaseExpirationTimeIsAdded()
+			Expect(adapter.release.Status.ExpirationTime).To(Equal(expectedExpirationTime))
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -1613,6 +1665,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, release)).To(Succeed())
 		release.Kind = "Release"
+		fmt.Printf("%+v\n", release)
 
 		return newAdapter(ctx, k8sClient, release, loader.NewMockLoader(), &ctrl.Log)
 	}
