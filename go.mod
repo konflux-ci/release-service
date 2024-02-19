@@ -12,7 +12,7 @@ require (
 	github.com/redhat-appstudio/operator-toolkit v0.0.0-20231201124606-2087182322ae
 	github.com/tektoncd/pipeline v0.56.0
 	k8s.io/api v0.29.1
-	k8s.io/apimachinery v0.29.1
+	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.1
 	knative.dev/pkg v0.0.0-20240205092023-4104e4237f6a
 	sigs.k8s.io/controller-runtime v0.17.1
