@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	ApplicationComponentsContextKey toolkit.ContextKey = iota
+	ActiveManagedReleasePipelineRunsContextKey toolkit.ContextKey = iota
+	ApplicationComponentsContextKey
 	ApplicationContextKey
 	EnterpriseContractConfigMapContextKey
 	EnterpriseContractPolicyContextKey
@@ -39,6 +40,13 @@ func NewMockLoader() ObjectLoader {
 	return &mockLoader{
 		loader: NewLoader(),
 	}
+}
+
+func (l *mockLoader) GetActiveManagedReleasePipelineRuns(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRunList, error) {
+	if ctx.Value(ActiveManagedReleasePipelineRunsContextKey) == nil {
+		return l.loader.GetActiveManagedReleasePipelineRuns(ctx, cli, release)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ActiveManagedReleasePipelineRunsContextKey, &tektonv1.PipelineRunList{})
 }
 
 // GetActiveReleasePlanAdmission returns the resource and error passed as values of the context.

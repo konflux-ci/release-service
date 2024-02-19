@@ -22,6 +22,7 @@ import (
 )
 
 type ObjectLoader interface {
+	GetActiveManagedReleasePipelineRuns(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRunList, error)
 	GetActiveReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error)
 	GetActiveReleasePlanAdmissionFromRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlanAdmission, error)
 	GetApplication(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*applicationapiv1alpha1.Application, error)
@@ -42,6 +43,35 @@ type loader struct{}
 
 func NewLoader() ObjectLoader {
 	return &loader{}
+}
+
+// GetActiveManagedReleasePipelineRuns returns all active managed Release PipelineRuns for the Application being Released.
+// PipelineRuns for the Release passed as an argument are ignored.
+func (l *loader) GetActiveManagedReleasePipelineRuns(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRunList, error) {
+	releasePlan, err := l.GetReleasePlan(ctx, cli, release)
+	if err != nil {
+		return nil, err
+	}
+
+	pipelineRuns := &tektonv1.PipelineRunList{}
+	err = cli.List(ctx, pipelineRuns,
+		client.InNamespace(releasePlan.Spec.Target),
+		client.MatchingLabels{
+			metadata.ApplicationNameLabel: releasePlan.Spec.Application,
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	for i := len(pipelineRuns.Items) - 1; i >= 0; i-- {
+		releaseName := pipelineRuns.Items[i].Labels[metadata.ReleaseNameLabel]
+		if releaseName == release.Name || pipelineRuns.Items[i].IsDone() {
+			// Remove completed PipelineRuns or PipelineRuns triggered for the Release passed as argument
+			pipelineRuns.Items = append(pipelineRuns.Items[:i], pipelineRuns.Items[i+1:]...)
+		}
+	}
+
+	return pipelineRuns, nil
 }
 
 // GetActiveReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.

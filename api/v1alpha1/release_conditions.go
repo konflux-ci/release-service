@@ -26,6 +26,9 @@ const (
 	// ProgressingReason is the reason set when an action is progressing
 	ProgressingReason conditions.ConditionReason = "Progressing"
 
+	// QueuedReason is the reason set when the action is queued
+	QueuedReason conditions.ConditionReason = "Queued"
+
 	// SucceededReason is the reason set when an action succeeds
 	SucceededReason conditions.ConditionReason = "Succeeded"
 )
