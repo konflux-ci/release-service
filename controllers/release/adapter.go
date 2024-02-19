@@ -19,6 +19,8 @@ package release
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/go-logr/logr"
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -36,7 +38,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -343,7 +344,8 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
 			metadata.ReleaseSnapshotLabel:  a.release.Spec.Snapshot,
 		}).
-		WithObjectReferences(a.release, resources.ReleasePlan, resources.ReleasePlanAdmission, resources.Snapshot).
+		WithObjectReferences(a.release, resources.ReleasePlan, resources.ReleasePlanAdmission, a.releaseServiceConfig,
+			resources.Snapshot).
 		WithObjectSpecsAsJson(resources.EnterpriseContractPolicy).
 		WithOwner(a.release).
 		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_bundle"}).
