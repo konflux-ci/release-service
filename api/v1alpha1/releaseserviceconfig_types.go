@@ -28,6 +28,10 @@ type ReleaseServiceConfigSpec struct {
 	// in debug mode
 	// +optional
 	Debug bool `json:"debug,omitempty"`
+
+	// AdvisoryRepo is the repo to create advisories in during the managed release PipelineRun
+	// +optional
+	AdvisoryRepo string `json:"advisoryRepo,omitempty"`
 }
 
 // ReleaseServiceConfigStatus defines the observed state of ReleaseServiceConfig.
