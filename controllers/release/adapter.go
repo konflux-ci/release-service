@@ -35,6 +35,7 @@ import (
 
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -245,7 +246,7 @@ func (a *adapter) EnsureReleaseIsRunning() (controller.OperationResult, error) {
 }
 
 // EnsureReleaseIsProcessed is an operation that will ensure that a managed Release PipelineRun associated to the Release
-// being processed exists. Otherwise, it will create a new managed Release PipelineRun.
+// being processed and a RoleBinding to grant its serviceAccount permissions exist. Otherwise, it will create them.
 func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error) {
 	if a.release.HasProcessingFinished() {
 		return controller.ContinueProcessing()
@@ -256,6 +257,9 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 		return controller.RequeueWithError(err)
 	}
 
+	// Don't check for error as it is expected if no RoleBinding exists yet
+	roleBinding, _ := a.loader.GetRoleBindingFromReleaseStatus(a.ctx, a.client, a.release)
+
 	if pipelineRun == nil || !a.release.IsProcessing() {
 		resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
 		if err != nil {
@@ -263,6 +267,15 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 		}
 
 		if pipelineRun == nil {
+			// Only create a RoleBinding if a ServiceAccount is specified
+			if roleBinding == nil && resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccount != "" {
+				// This string should probably be a constant somewhere
+				roleBinding, err = a.createRoleBindingForClusterRole("release-pipeline-resource-role", resources.ReleasePlanAdmission)
+				if err != nil {
+					return controller.RequeueWithError(err)
+				}
+			}
+
 			pipelineRun, err = a.createManagedPipelineRun(resources)
 			if err != nil {
 				return controller.RequeueWithError(err)
@@ -272,7 +285,7 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
 		}
 
-		return controller.RequeueOnErrorOrContinue(a.registerProcessingData(pipelineRun))
+		return controller.RequeueOnErrorOrContinue(a.registerProcessingData(pipelineRun, roleBinding))
 	}
 
 	return controller.ContinueProcessing()
@@ -320,7 +333,18 @@ func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult
 
 	// This condition can only be true if the call to registerProcessingStatus changed the state
 	if a.release.HasProcessingFinished() {
-		// At this point it's safe to remove the PipelineRun, so the finalizer can be removed
+		// At this point, the PipelineRun has finished, so it's safe to remove the finalizer and RoleBinding
+		roleBinding, err := a.loader.GetRoleBindingFromReleaseStatus(a.ctx, a.client, a.release)
+		if err != nil && !errors.IsNotFound(err) {
+			return controller.RequeueWithError(err)
+		}
+		if roleBinding != nil {
+			err = a.client.Delete(a.ctx, roleBinding)
+			if err != nil {
+				return controller.RequeueWithError(err)
+			}
+		}
+
 		if controllerutil.ContainsFinalizer(pipelineRun, metadata.ReleaseFinalizer) {
 			patch := client.MergeFrom(pipelineRun.DeepCopy())
 			controllerutil.RemoveFinalizer(pipelineRun, metadata.ReleaseFinalizer)
@@ -403,6 +427,37 @@ func (a *adapter) createOrUpdateSnapshotEnvironmentBinding(releasePlanAdmission 
 
 		return existingBinding, a.client.Patch(a.ctx, existingBinding, patch)
 	}
+}
+
+// createRoleBindingForClusterRole creates a RoleBinding that binds the serviceAccount from the passed
+// ReleasePlanAdmission to the passed ClusterRole. If the creation fails, the error is returned. If the creation
+// is successful, the RoleBinding is returned.
+func (a *adapter) createRoleBindingForClusterRole(clusterRole string, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*rbac.RoleBinding, error) {
+	roleBinding := &rbac.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("%s-rolebinding-for-%s-", a.release.Name, clusterRole),
+			Namespace:    releasePlanAdmission.Spec.Origin,
+		},
+		RoleRef: rbac.RoleRef{
+			APIGroup: rbac.GroupName,
+			Kind:     "ClusterRole",
+			Name:     clusterRole,
+		},
+		Subjects: []rbac.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      releasePlanAdmission.Spec.Pipeline.ServiceAccount,
+				Namespace: releasePlanAdmission.Namespace,
+			},
+		},
+	}
+
+	err := a.client.Create(a.ctx, roleBinding)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleBinding, nil
 }
 
 // finalizeRelease will finalize the Release being processed, removing the associated resources.
@@ -500,7 +555,7 @@ func (a *adapter) registerDeploymentStatus(binding *applicationapiv1alpha1.Snaps
 }
 
 // registerProcessingData adds all the Release processing information to its Status and marks it as processing.
-func (a *adapter) registerProcessingData(releasePipelineRun *tektonv1.PipelineRun) error {
+func (a *adapter) registerProcessingData(releasePipelineRun *tektonv1.PipelineRun, roleBinding *rbac.RoleBinding) error {
 	if releasePipelineRun == nil {
 		return nil
 	}
@@ -509,6 +564,10 @@ func (a *adapter) registerProcessingData(releasePipelineRun *tektonv1.PipelineRu
 
 	a.release.Status.Processing.PipelineRun = fmt.Sprintf("%s%c%s",
 		releasePipelineRun.Namespace, types.Separator, releasePipelineRun.Name)
+	if roleBinding != nil {
+		a.release.Status.Processing.RoleBinding = fmt.Sprintf("%s%c%s",
+			roleBinding.Namespace, types.Separator, roleBinding.Name)
+	}
 	a.release.Status.Target = releasePipelineRun.Namespace
 
 	a.release.MarkProcessing("")

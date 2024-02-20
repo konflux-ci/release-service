@@ -16,6 +16,7 @@ import (
 	"github.com/redhat-appstudio/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,6 +33,7 @@ type ObjectLoader interface {
 	GetMatchingReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error)
 	GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
+	GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error)
 	GetManagedReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
 	GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error)
@@ -205,6 +207,27 @@ func (l *loader) GetMatchingReleasePlans(ctx context.Context, cli client.Client,
 func (l *loader) GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error) {
 	release := &v1alpha1.Release{}
 	return release, toolkit.GetObject(name, namespace, cli, ctx, release)
+}
+
+// GetRoleBindingFromReleaseStatus returns the RoleBinding associated with the given Release. That association is defined
+// by the namespaced name stored in the Release's status.
+func (l *loader) GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
+	roleBinding := &rbac.RoleBinding{}
+	roleBindingNamespacedName := strings.Split(release.Status.Processing.RoleBinding, string(types.Separator))
+	if len(roleBindingNamespacedName) != 2 {
+		return nil, fmt.Errorf("release doesn't contain a valid reference to a RoleBinding ('%s')",
+			release.Status.Processing.RoleBinding)
+	}
+
+	err := cli.Get(ctx, types.NamespacedName{
+		Namespace: roleBindingNamespacedName[0],
+		Name:      roleBindingNamespacedName[1],
+	}, roleBinding)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleBinding, nil
 }
 
 // GetManagedReleasePipelineRun returns the managed Release PipelineRun referenced by the given Release or nil if it's not found. In the case
