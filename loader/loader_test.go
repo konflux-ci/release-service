@@ -16,6 +16,7 @@ import (
 	"github.com/redhat-appstudio/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +38,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		releasePlan                 *v1alpha1.ReleasePlan
 		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
 		releaseServiceConfig        *v1alpha1.ReleaseServiceConfig
+		roleBinding                 *rbac.RoleBinding
 		snapshot                    *applicationapiv1alpha1.Snapshot
 		snapshotEnvironmentBinding  *applicationapiv1alpha1.SnapshotEnvironmentBinding
 	)
@@ -271,6 +273,34 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&v1alpha1.Release{}))
 			Expect(returnedObject.Name).To(Equal(release.Name))
+		})
+	})
+
+	When("calling GetRoleBindingFromReleaseStatus", func() {
+		It("fails to return a RoleBinding if the reference is not in the release", func() {
+			returnedObject, err := loader.GetRoleBindingFromReleaseStatus(ctx, k8sClient, release)
+			Expect(returnedObject).To(BeNil())
+			Expect(err.Error()).To(ContainSubstring("release doesn't contain a valid reference to a RoleBinding"))
+		})
+
+		It("fails to return a RoleBinding if the roleBinding does not exist", func() {
+			modifiedRelease := release.DeepCopy()
+			modifiedRelease.Status.Processing.RoleBinding = "foo/bar"
+
+			returnedObject, err := loader.GetRoleBindingFromReleaseStatus(ctx, k8sClient, modifiedRelease)
+			Expect(returnedObject).To(BeNil())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("returns the requested resource", func() {
+			modifiedRelease := release.DeepCopy()
+			modifiedRelease.Status.Processing.RoleBinding = fmt.Sprintf("%s%c%s", roleBinding.Namespace,
+				types.Separator, roleBinding.Name)
+
+			returnedObject, err := loader.GetRoleBindingFromReleaseStatus(ctx, k8sClient, modifiedRelease)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&rbac.RoleBinding{}))
+			Expect(returnedObject.Name).To(Equal(roleBinding.Name))
 		})
 	})
 
@@ -517,6 +547,19 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
 
+		roleBinding = &rbac.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "rolebinding",
+				Namespace: "default",
+			},
+			RoleRef: rbac.RoleRef{
+				APIGroup: rbac.GroupName,
+				Kind:     "ClusterRole",
+				Name:     "clusterrole",
+			},
+		}
+		Expect(k8sClient.Create(ctx, roleBinding)).To(Succeed())
+
 		snapshot = &applicationapiv1alpha1.Snapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "snapshot",
@@ -576,6 +619,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(k8sClient.Delete(ctx, release)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlan)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlanAdmission)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, roleBinding)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshot)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshotEnvironmentBinding)).To(Succeed())
 	}

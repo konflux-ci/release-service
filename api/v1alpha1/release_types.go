@@ -144,6 +144,12 @@ type ProcessingInfo struct {
 	// +optional
 	PipelineRun string `json:"pipelineRun,omitempty"`
 
+	// RoleBinding contains the namespaced name of the roleBinding created for the managed Release PipelineRun
+	// executed as part of this release
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	RoleBinding string `json:"roleBinding,omitempty"`
+
 	// StartTime is the time when the Release processing started
 	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`

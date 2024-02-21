@@ -213,6 +213,12 @@ spec:
                       Release PipelineRun executed as part of this release
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
+                  roleBinding:
+                    description: RoleBinding contains the namespaced name of the roleBinding
+                      created for the managed Release PipelineRun executed as part
+                      of this release
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
                   startTime:
                     description: StartTime is the time when the Release processing
                       started

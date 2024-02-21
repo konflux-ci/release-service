@@ -36,6 +36,7 @@ import (
 	"github.com/redhat-appstudio/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -61,6 +62,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		releasePlan                 *v1alpha1.ReleasePlan
 		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
 		releaseServiceConfig        *v1alpha1.ReleaseServiceConfig
+		roleBinding                 *rbac.RoleBinding
 		snapshot                    *applicationapiv1alpha1.Snapshot
 		snapshotEnvironmentBinding  *applicationapiv1alpha1.SnapshotEnvironmentBinding
 	)
@@ -147,6 +149,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 						ReleasePlanAdmission:        releasePlanAdmission,
 						Snapshot:                    snapshot,
 					},
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   roleBinding,
 				},
 			})
 			result, err := adapter.EnsureFinalizerIsAdded()
@@ -580,6 +586,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 						},
 					},
 				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   roleBinding,
+				},
 			})
 			adapter.release.MarkProcessing("")
 
@@ -598,6 +608,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 							Namespace: "default",
 						},
 					},
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   roleBinding,
 				},
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
@@ -629,6 +643,123 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 		})
 
+		It("should create a RoleBinding if all the required resources are present and none exists in the Release Status", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlan:                 releasePlan,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						Snapshot:                    snapshot,
+					},
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+			})
+
+			Expect(adapter.release.Status.Processing.RoleBinding).To(BeEmpty())
+			result, err := adapter.EnsureReleaseIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Reset MockedContext so that the RoleBinding that was just created can be fetched
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlan:                 releasePlan,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						Snapshot:                    snapshot,
+					},
+				},
+			})
+
+			roleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatus(adapter.ctx, adapter.client, adapter.release)
+			Expect(roleBinding).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.client.Delete(adapter.ctx, roleBinding)).To(Succeed())
+			// Still need to cleanup the PipelineRun
+			pipelineRun, err := adapter.loader.GetManagedReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("should not create a RoleBinding if the ReleasePlanAdmission has no ServiceAccount set", func() {
+			newReleasePlanAdmission := &v1alpha1.ReleasePlanAdmission{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "release-plan-admission",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Applications: []string{application.Name},
+					Origin:       "default",
+					Environment:  environment.Name,
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+							Params: []tektonutils.Param{
+								{Name: "url", Value: "my-url"},
+								{Name: "revision", Value: "my-revision"},
+								{Name: "pathInRepo", Value: "my-path"},
+							},
+						},
+					},
+					Policy: enterpriseContractPolicy.Name,
+				},
+			}
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlan:                 releasePlan,
+						ReleasePlanAdmission:        newReleasePlanAdmission,
+						Snapshot:                    snapshot,
+					},
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+			})
+
+			Expect(adapter.release.Status.Processing.RoleBinding).To(BeEmpty())
+			result, err := adapter.EnsureReleaseIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Reset MockedContext so that the RoleBinding can be fetched if it exists
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlan:                 releasePlan,
+						ReleasePlanAdmission:        newReleasePlanAdmission,
+						Snapshot:                    snapshot,
+					},
+				},
+			})
+
+			roleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatus(adapter.ctx, adapter.client, adapter.release)
+			Expect(roleBinding).To(BeNil())
+			Expect(err).To(HaveOccurred())
+			// Still need to cleanup the PipelineRun
+			pipelineRun, err := adapter.loader.GetManagedReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+
 		It("should create a pipelineRun and register the processing data if all the required resources are present", func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
@@ -640,6 +771,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 						ReleasePlanAdmission:        releasePlanAdmission,
 						Snapshot:                    snapshot,
 					},
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   roleBinding,
 				},
 			})
 
@@ -756,12 +891,59 @@ var _ = Describe("Release adapter", Ordered, func() {
 					ContextKey: loader.ReleasePipelineRunContextKey,
 					Resource:   pipelineRun,
 				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+				},
 			})
 
 			result, err := adapter.EnsureReleaseProcessingIsTracked()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.HasProcessingFinished()).To(BeTrue())
+		})
+
+		It("removes the roleBinding if present", func() {
+			adapter.release.MarkProcessing("")
+
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "pipeline-run",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+			// The resource needs to be created as it will get patched
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+
+			pipelineRun.Status.MarkSucceeded("", "")
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource:   pipelineRun,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   roleBinding,
+				},
+			})
+			adapter.release.Status.Processing.RoleBinding = fmt.Sprintf("%s%c%s",
+				roleBinding.Namespace, types.Separator, roleBinding.Name)
+
+			result, err := adapter.EnsureReleaseProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Reset MockedContext so to confirm RoleBinding was deleted
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{})
+
+			checkRoleBinding := &rbac.RoleBinding{}
+			err = toolkit.GetObject(roleBinding.Name, roleBinding.Namespace, adapter.client, adapter.ctx, checkRoleBinding)
+			Expect(checkRoleBinding).To(Equal(&rbac.RoleBinding{}))
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+
+			// Clean up at the end
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
 		})
 
 		It("removes the finalizer if present", func() {
@@ -783,6 +965,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ReleasePipelineRunContextKey,
 					Resource:   pipelineRun,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
 				},
 			})
 
@@ -1007,6 +1192,63 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 	})
 
+	When("createRoleBindingForClusterRole is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("fails when the releasePlanAdmission has no serviceAccount", func() {
+			newReleasePlanAdmission := &v1alpha1.ReleasePlanAdmission{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "release-plan-admission",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Applications: []string{application.Name},
+					Origin:       "default",
+					Environment:  environment.Name,
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+							Params: []tektonutils.Param{
+								{Name: "url", Value: "my-url"},
+								{Name: "revision", Value: "my-revision"},
+								{Name: "pathInRepo", Value: "my-path"},
+							},
+						},
+					},
+					Policy: enterpriseContractPolicy.Name,
+				},
+			}
+			roleBinding, err := adapter.createRoleBindingForClusterRole("foo", newReleasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+			Expect(roleBinding).To(BeNil())
+			Expect(err.Error()).To(ContainSubstring("is invalid"))
+		})
+
+		It("creates a new roleBinding", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+			})
+
+			roleBinding, err := adapter.createRoleBindingForClusterRole("foo", releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(roleBinding).NotTo(BeNil())
+			Expect(roleBinding.RoleRef.Name).To(Equal("foo"))
+
+			Expect(k8sClient.Delete(ctx, roleBinding)).Should(Succeed())
+		})
+	})
+
 	When("finalizeRelease is called", func() {
 		var adapter *adapter
 
@@ -1181,7 +1423,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("does nothing if there is no PipelineRun", func() {
-			Expect(adapter.registerProcessingData(nil)).To(Succeed())
+			Expect(adapter.registerProcessingData(nil, nil)).To(Succeed())
 			Expect(adapter.release.Status.Processing.PipelineRun).To(BeEmpty())
 		})
 
@@ -1192,10 +1434,31 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Namespace: "default",
 				},
 			}
-			Expect(adapter.registerProcessingData(pipelineRun)).To(Succeed())
+			roleBinding := &rbac.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "role-binding",
+					Namespace: "default",
+				},
+			}
+			Expect(adapter.registerProcessingData(pipelineRun, roleBinding)).To(Succeed())
 			Expect(adapter.release.Status.Processing.PipelineRun).To(Equal(fmt.Sprintf("%s%c%s",
 				pipelineRun.Namespace, types.Separator, pipelineRun.Name)))
+			Expect(adapter.release.Status.Processing.RoleBinding).To(Equal(fmt.Sprintf("%s%c%s",
+				roleBinding.Namespace, types.Separator, roleBinding.Name)))
 			Expect(adapter.release.Status.Target).To(Equal(pipelineRun.Namespace))
+			Expect(adapter.release.IsProcessing()).To(BeTrue())
+		})
+
+		It("does not set RoleBinding when no RoleBinding is passed", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run",
+					Namespace: "default",
+				},
+			}
+
+			Expect(adapter.registerProcessingData(pipelineRun, nil)).To(Succeed())
+			Expect(adapter.release.Status.Processing.RoleBinding).To(BeEmpty())
 			Expect(adapter.release.IsProcessing()).To(BeTrue())
 		})
 	})
@@ -1725,13 +1988,27 @@ var _ = Describe("Release adapter", Ordered, func() {
 							{Name: "pathInRepo", Value: "my-path"},
 						},
 					},
-					Timeout: "2h0m0s",
+					Timeout:        "2h0m0s",
+					ServiceAccount: "service-account",
 				},
 				Policy: enterpriseContractPolicy.Name,
 			},
 		}
 		Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
 		releasePlanAdmission.Kind = "ReleasePlanAdmission"
+
+		roleBinding = &rbac.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "rolebinding",
+				Namespace: "default",
+			},
+			RoleRef: rbac.RoleRef{
+				APIGroup: rbac.GroupName,
+				Kind:     "ClusterRole",
+				Name:     "clusterrole",
+			},
+		}
+		Expect(k8sClient.Create(ctx, roleBinding)).To(Succeed())
 
 		snapshot = &applicationapiv1alpha1.Snapshot{
 			ObjectMeta: metav1.ObjectMeta{
