@@ -17,6 +17,7 @@ package release
 
 import (
 	"context"
+
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +29,7 @@ import (
 
 var _ = Describe("Release validation webhook", func() {
 	var release *v1alpha1.Release
+	var releasePlan *v1alpha1.ReleasePlan
 
 	BeforeEach(func() {
 		release = &v1alpha1.Release{
@@ -42,6 +44,21 @@ var _ = Describe("Release validation webhook", func() {
 			Spec: v1alpha1.ReleaseSpec{
 				Snapshot:    "test-snapshot",
 				ReleasePlan: "test-releaseplan",
+			},
+		}
+		releasePlan = &v1alpha1.ReleasePlan{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "appstudio.redhat.com/v1alpha1",
+				Kind:       "ReleasePlan",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-releaseplan",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.ReleasePlanSpec{
+				Application:            "test-application",
+				Target:                 "default",
+				ReleaseGracePeriodDays: 7,
 			},
 		}
 	})
@@ -82,6 +99,23 @@ var _ = Describe("Release validation webhook", func() {
 		It("should return nil", func() {
 			release := &v1alpha1.Release{}
 			Expect(webhook.ValidateDelete(ctx, release)).To(BeNil())
+		})
+	})
+
+	When("a new Release is created", func() {
+		It("should set GracePeriodDays to ReleasePlan's value and return nil", func() {
+			ctx := context.Background()
+			Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, release)).Should(Succeed())
+			Expect(release.Spec.GracePeriodDays).To(Equal(releasePlan.Spec.ReleaseGracePeriodDays))
+
+			Expect(k8sClient.Delete(ctx, releasePlan)).Should(Succeed())
+		})
+
+		It("should return nil and keep the default value of a go `int` for GracePeriodDays when the specified ReleasePlan does not exist", func() {
+			ctx := context.Background()
+			Expect(k8sClient.Create(ctx, release)).Should(Succeed())
+			Expect(release.Spec.GracePeriodDays).To(Equal(0))
 		})
 	})
 })

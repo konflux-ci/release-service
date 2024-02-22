@@ -51,6 +51,12 @@ type ReleasePlanSpec struct {
 	// +optional
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 
+	// ReleaseGracePeriodDays is the number of days a Release should be kept
+	// This value is used to define the Release ExpirationTime
+	// +kubebuilder:default:=7
+	// +optional
+	ReleaseGracePeriodDays int `json:"releaseGracePeriodDays,omitempty"`
+
 	// Target references where to send the release requests
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required

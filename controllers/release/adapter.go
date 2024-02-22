@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 
@@ -286,6 +287,26 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 		}
 
 		return controller.RequeueOnErrorOrContinue(a.registerProcessingData(pipelineRun, roleBinding))
+	}
+
+	return controller.ContinueProcessing()
+}
+
+// EnsureReleaseExpirationTimeIsAdded is an operation that ensures that a Release has the ExpirationTime set.
+func (a *adapter) EnsureReleaseExpirationTimeIsAdded() (controller.OperationResult, error) {
+	if a.release.Status.ExpirationTime == nil {
+		releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+		if err != nil && !errors.IsNotFound(err) {
+			return controller.RequeueWithError(err)
+		}
+
+		patch := client.MergeFrom(a.release.DeepCopy())
+		if a.release.Spec.GracePeriodDays == 0 {
+			a.release.Spec.GracePeriodDays = releasePlan.Spec.ReleaseGracePeriodDays
+		}
+		a.release.SetExpirationTime(time.Duration(a.release.Spec.GracePeriodDays))
+
+		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 	}
 
 	return controller.ContinueProcessing()

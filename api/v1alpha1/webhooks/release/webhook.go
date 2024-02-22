@@ -19,10 +19,13 @@ package release
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"reflect"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -34,6 +37,29 @@ type Webhook struct {
 	log    logr.Logger
 }
 
+func (w *Webhook) Default(ctx context.Context, obj runtime.Object) error {
+	release := obj.(*v1alpha1.Release)
+
+	if release.Spec.GracePeriodDays == 0 {
+		releasePlan := &v1alpha1.ReleasePlan{}
+
+		err := w.client.Get(ctx, types.NamespacedName{
+			Name:      release.Spec.ReleasePlan,
+			Namespace: release.Namespace,
+		}, releasePlan)
+
+		if err != nil && errors.IsNotFound(err) {
+			w.log.Info("releasePlan not found. Not setting ReleaseGracePeriodDays")
+
+			return nil
+		}
+		release.Spec.GracePeriodDays = releasePlan.Spec.ReleaseGracePeriodDays
+	}
+
+	return nil
+}
+
+//+kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1alpha1-release,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releases,verbs=create,versions=v1alpha1,name=mrelease.kb.io,admissionReviewVersions=v1
 //+kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1alpha1-release,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=releases,verbs=create;update,versions=v1alpha1,name=vrelease.kb.io,admissionReviewVersions=v1
 
 func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
@@ -42,6 +68,7 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha1.Release{}).
+		WithDefaulter(w).
 		WithValidator(w).
 		Complete()
 }

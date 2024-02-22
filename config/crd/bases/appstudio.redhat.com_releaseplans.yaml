@@ -83,6 +83,11 @@ spec:
                 - params
                 - resolver
                 type: object
+              releaseGracePeriodDays:
+                default: 7
+                description: ReleaseGracePeriodDays is the number of days a Release
+                  should be kept This value is used to define the Release ExpirationTime
+                type: integer
               serviceAccount:
                 description: ServiceAccount is the name of the service account to
                   use in the Pipeline to gain elevated privileges
