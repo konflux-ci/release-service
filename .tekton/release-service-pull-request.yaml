@@ -140,7 +140,6 @@ spec:
         value: $(params.rebuild)
       - name: skip-checks
         value: $(params.skip-checks)
-        value: $(context.pipelineRun.uid)
       taskRef:
         params:
         - name: name
