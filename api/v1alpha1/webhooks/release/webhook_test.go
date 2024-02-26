@@ -17,8 +17,11 @@ package release
 
 import (
 	"context"
-
+	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/redhat-appstudio/release-service/loader"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,10 +31,81 @@ import (
 )
 
 var _ = Describe("Release validation webhook", func() {
-	var release *v1alpha1.Release
-	var releasePlan *v1alpha1.ReleasePlan
+	var (
+		createResources func()
 
-	BeforeEach(func() {
+		release     *v1alpha1.Release
+		releasePlan *v1alpha1.ReleasePlan
+	)
+
+	When("Default method is called", func() {
+		var mockedWebhook *Webhook
+
+		BeforeEach(func() {
+			createResources()
+
+			mockedWebhook = &Webhook{
+				client: k8sClient,
+				loader: loader.NewMockLoader(),
+			}
+		})
+
+		It("should set GracePeriodDays to ReleasePlan's value and return nil", func() {
+			mockedCtx := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   releasePlan,
+				},
+			})
+
+			Expect(mockedWebhook.Default(mockedCtx, release)).To(BeNil())
+			Expect(release.Spec.GracePeriodDays).To(Equal(releasePlan.Spec.ReleaseGracePeriodDays))
+		})
+
+		It("should return nil and keep the default value of a go `int` for GracePeriodDays when the specified ReleasePlan does not exist", func() {
+			mockedCtx := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			Expect(mockedWebhook.Default(mockedCtx, release)).To(BeNil())
+			Expect(release.Spec.GracePeriodDays).To(Equal(0))
+		})
+	})
+
+	When("When ValidateUpdate is called", func() {
+		It("should error out when updating the resource", func() {
+			updatedRelease := release.DeepCopy()
+			updatedRelease.Spec.Snapshot = "another-snapshot"
+
+			_, err := webhook.ValidateUpdate(ctx, release, updatedRelease)
+			Expect(err).Should(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("release resources spec cannot be updated"))
+		})
+
+		It("should not error out when updating the resource metadata", func() {
+			ctx := context.Background()
+
+			updatedRelease := release.DeepCopy()
+			updatedRelease.ObjectMeta.Annotations = map[string]string{
+				"foo": "bar",
+			}
+
+			_, err := webhook.ValidateUpdate(ctx, release, updatedRelease)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	When("ValidateDelete method is called", func() {
+		It("should return nil", func() {
+			_, err := webhook.ValidateDelete(ctx, &v1alpha1.Release{})
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	createResources = func() {
 		release = &v1alpha1.Release{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "appstudio.redhat.com/v1alpha1",
@@ -46,6 +120,7 @@ var _ = Describe("Release validation webhook", func() {
 				ReleasePlan: "test-releaseplan",
 			},
 		}
+
 		releasePlan = &v1alpha1.ReleasePlan{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "appstudio.redhat.com/v1alpha1",
@@ -61,61 +136,5 @@ var _ = Describe("Release validation webhook", func() {
 				ReleaseGracePeriodDays: 7,
 			},
 		}
-	})
-
-	AfterEach(func() {
-		_ = k8sClient.Delete(ctx, release)
-	})
-
-	When("release CR fields are updated", func() {
-		It("Should error out when updating the resource", func() {
-			ctx := context.Background()
-
-			Expect(k8sClient.Create(ctx, release)).Should(Succeed())
-
-			// Try to update the Release snapshot
-			release.Spec.Snapshot = "another-snapshot"
-
-			err := k8sClient.Update(ctx, release)
-			Expect(err).Should(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring("release resources spec cannot be updated"))
-		})
-
-		It("Should not error out when updating the resource metadata", func() {
-			ctx := context.Background()
-
-			Expect(k8sClient.Create(ctx, release)).Should(Succeed())
-
-			// Try to update the Release annotations
-			release.ObjectMeta.Annotations = map[string]string{
-				"foo": "bar",
-			}
-
-			Expect(k8sClient.Update(ctx, release)).ShouldNot(HaveOccurred())
-		})
-	})
-
-	When("ValidateDelete method is called", func() {
-		It("should return nil", func() {
-			release := &v1alpha1.Release{}
-			Expect(webhook.ValidateDelete(ctx, release)).To(BeNil())
-		})
-	})
-
-	When("a new Release is created", func() {
-		It("should set GracePeriodDays to ReleasePlan's value and return nil", func() {
-			ctx := context.Background()
-			Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
-			Expect(k8sClient.Create(ctx, release)).Should(Succeed())
-			Expect(release.Spec.GracePeriodDays).To(Equal(releasePlan.Spec.ReleaseGracePeriodDays))
-
-			Expect(k8sClient.Delete(ctx, releasePlan)).Should(Succeed())
-		})
-
-		It("should return nil and keep the default value of a go `int` for GracePeriodDays when the specified ReleasePlan does not exist", func() {
-			ctx := context.Background()
-			Expect(k8sClient.Create(ctx, release)).Should(Succeed())
-			Expect(release.Spec.GracePeriodDays).To(Equal(0))
-		})
-	})
+	}
 })

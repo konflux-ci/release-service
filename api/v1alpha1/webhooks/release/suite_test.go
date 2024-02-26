@@ -29,7 +29,6 @@ import (
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks/author"
 
-	releaseplanwebhook "github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks/releaseplan"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -105,7 +104,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = toolkit.SetupWebhooks(mgr, &Webhook{}, &author.Webhook{}, &releaseplanwebhook.Webhook{})
+	err = toolkit.SetupWebhooks(mgr, &Webhook{}, &author.Webhook{})
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:webhook
