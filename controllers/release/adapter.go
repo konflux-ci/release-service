@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -256,8 +257,10 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 		return controller.RequeueWithError(err)
 	}
 
-	// Don't check for error as it is expected if no RoleBinding exists yet
 	roleBinding, _ := a.loader.GetRoleBindingFromReleaseStatus(a.ctx, a.client, a.release)
+	if err != nil && !errors.IsNotFound(err) && !strings.Contains(err.Error(), "valid reference to a RoleBinding") {
+		return controller.RequeueWithError(err)
+	}
 
 	if pipelineRun == nil || !a.release.IsProcessing() {
 		resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
@@ -354,7 +357,7 @@ func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult
 	if a.release.HasProcessingFinished() {
 		// At this point, the PipelineRun has finished, so it's safe to remove the finalizer and RoleBinding
 		roleBinding, err := a.loader.GetRoleBindingFromReleaseStatus(a.ctx, a.client, a.release)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.IsNotFound(err) && !strings.Contains(err.Error(), "valid reference to a RoleBinding") {
 			return controller.RequeueWithError(err)
 		}
 		if roleBinding != nil {
@@ -484,7 +487,13 @@ func (a *adapter) createRoleBindingForClusterRole(clusterRole string, releasePla
 		},
 	}
 
-	err := a.client.Create(a.ctx, roleBinding)
+	// Set ownerRef so it is deleted if the Release is deleted
+	err := ctrl.SetControllerReference(a.release, roleBinding, a.client.Scheme())
+	if err != nil {
+		return nil, err
+	}
+
+	err = a.client.Create(a.ctx, roleBinding)
 	if err != nil {
 		return nil, err
 	}
