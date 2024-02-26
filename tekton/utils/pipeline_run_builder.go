@@ -194,6 +194,30 @@ func (b *PipelineRunBuilder) WithParamsFromConfigMap(configMap *corev1.ConfigMap
 func (b *PipelineRunBuilder) WithPipelineRef(pipelineRef *tektonv1.PipelineRef) *PipelineRunBuilder {
 	b.pipelineRun.Spec.PipelineRef = pipelineRef
 
+	if pipelineRef.Resolver == "git" {
+		for _, param := range pipelineRef.Params {
+			if param.Name == "revision" {
+				b.WithParams(tektonv1.Param{
+					Name: "taskGitRevision",
+					Value: tektonv1.ParamValue{
+						Type:      tektonv1.ParamTypeString,
+						StringVal: param.Value.StringVal,
+					},
+				})
+			}
+
+			if param.Name == "url" {
+				b.WithParams(tektonv1.Param{
+					Name: "taskGitUrl",
+					Value: tektonv1.ParamValue{
+						Type:      tektonv1.ParamTypeString,
+						StringVal: param.Value.StringVal,
+					},
+				})
+			}
+		}
+	}
+
 	return b
 }
 
@@ -205,8 +229,12 @@ func (b *PipelineRunBuilder) WithServiceAccount(serviceAccount string) *Pipeline
 }
 
 // WithTimeouts sets the Timeouts for the PipelineRun.
-func (b *PipelineRunBuilder) WithTimeouts(timeouts *tektonv1.TimeoutFields) *PipelineRunBuilder {
-	b.pipelineRun.Spec.Timeouts = timeouts
+func (b *PipelineRunBuilder) WithTimeouts(timeouts, defaultTimeouts *tektonv1.TimeoutFields) *PipelineRunBuilder {
+	if timeouts == nil || *timeouts == (tektonv1.TimeoutFields{}) {
+		b.pipelineRun.Spec.Timeouts = defaultTimeouts
+	} else {
+		b.pipelineRun.Spec.Timeouts = timeouts
+	}
 
 	return b
 }

@@ -103,12 +103,6 @@ spec:
                       the execution of the Pipeline
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
-                  timeout:
-                    default: "0"
-                    description: "Timeout is a value to use to override the tekton
-                      default Pipelinerun timeout \n This field is DEPRECATED and
-                      will be replaced by Timeouts in a future change."
-                    type: string
                   timeouts:
                     description: Timeouts defines the different Timeouts to use in
                       the PipelineRun execution
