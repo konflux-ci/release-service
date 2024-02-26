@@ -135,6 +135,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			adapter.releaseServiceConfig = releaseServiceConfig
 		})
 
 		It("should do nothing if the Release is not set to be deleted", func() {
@@ -1076,6 +1077,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			adapter.releaseServiceConfig = releaseServiceConfig
 			resources := &loader.ProcessingResources{
 				ReleasePlan:                 releasePlan,
 				ReleasePlanAdmission:        releasePlanAdmission,
@@ -1117,6 +1119,15 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", string(name))))
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
 				fmt.Sprintf("%s%c%s", releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Name))))
+		})
+
+		It("has the releaseServiceConfig reference", func() {
+			name := []rune(releaseServiceConfig.Kind)
+			name[0] = unicode.ToLower(name[0])
+
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", string(name))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", releaseServiceConfig.Namespace, types.Separator, releaseServiceConfig.Name))))
 		})
 
 		It("has the snapshot reference", func() {
@@ -1343,6 +1354,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("finalizes the Release and deletes the PipelineRun", func() {
+			adapter.releaseServiceConfig = releaseServiceConfig
 			resources := &loader.ProcessingResources{
 				ReleasePlan:                 releasePlan,
 				ReleasePlanAdmission:        releasePlanAdmission,
@@ -1372,11 +1384,12 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter = createReleaseAndAdapter()
 		})
 
-		It("should return a ReleaseServiceConfig without Spec and with the right ObjectMeta", func() {
+		It("should return a ReleaseServiceConfig without Spec and with the right ObjectMeta and Kind set", func() {
 			releaseServiceConfig := adapter.getEmptyReleaseServiceConfig("namespace")
 			Expect(releaseServiceConfig).NotTo(BeNil())
 			Expect(releaseServiceConfig.Name).To(Equal(v1alpha1.ReleaseServiceConfigResourceName))
 			Expect(releaseServiceConfig.Namespace).To(Equal("namespace"))
+			Expect(releaseServiceConfig.Kind).To(Equal("ReleaseServiceConfig"))
 		})
 	})
 
@@ -2045,6 +2058,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, releaseServiceConfig)).To(Succeed())
+		releaseServiceConfig.Kind = "ReleaseServiceConfig"
 
 		releasePlanAdmission = &v1alpha1.ReleasePlanAdmission{
 			ObjectMeta: metav1.ObjectMeta{
