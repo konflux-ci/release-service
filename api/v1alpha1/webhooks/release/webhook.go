@@ -19,13 +19,13 @@ package release
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/release-service/loader"
 	"reflect"
 
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -34,27 +34,29 @@ import (
 // Webhook describes the data structure for the release webhook
 type Webhook struct {
 	client client.Client
+	loader loader.ObjectLoader
 	log    logr.Logger
 }
 
+// Default implements webhook.Defaulter so a webhook will be registered for the type.
 func (w *Webhook) Default(ctx context.Context, obj runtime.Object) error {
 	release := obj.(*v1alpha1.Release)
 
-	if release.Spec.GracePeriodDays == 0 {
-		releasePlan := &v1alpha1.ReleasePlan{}
-
-		err := w.client.Get(ctx, types.NamespacedName{
-			Name:      release.Spec.ReleasePlan,
-			Namespace: release.Namespace,
-		}, releasePlan)
-
-		if err != nil && errors.IsNotFound(err) {
-			w.log.Info("releasePlan not found. Not setting ReleaseGracePeriodDays")
-
-			return nil
-		}
-		release.Spec.GracePeriodDays = releasePlan.Spec.ReleaseGracePeriodDays
+	if release.Spec.GracePeriodDays != 0 {
+		return nil
 	}
+
+	releasePlan, err := w.loader.GetReleasePlan(ctx, w.client, release)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			w.log.Info("releasePlan not found. Not setting ReleaseGracePeriodDays")
+			return nil
+		} else {
+			return err
+		}
+	}
+
+	release.Spec.GracePeriodDays = releasePlan.Spec.ReleaseGracePeriodDays
 
 	return nil
 }
@@ -64,6 +66,7 @@ func (w *Webhook) Default(ctx context.Context, obj runtime.Object) error {
 
 func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 	w.client = mgr.GetClient()
+	w.loader = loader.NewLoader()
 	w.log = log.WithName("release")
 
 	return ctrl.NewWebhookManagedBy(mgr).
