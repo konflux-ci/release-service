@@ -392,7 +392,8 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
 			metadata.ReleaseSnapshotLabel:  a.release.Spec.Snapshot,
 		}).
-		WithObjectReferences(a.release, resources.ReleasePlan, resources.ReleasePlanAdmission, resources.Snapshot).
+		WithObjectReferences(a.release, resources.ReleasePlan, resources.ReleasePlanAdmission, a.releaseServiceConfig,
+			resources.Snapshot).
 		WithObjectSpecsAsJson(resources.EnterpriseContractPolicy).
 		WithOwner(a.release).
 		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_bundle"}).
@@ -536,12 +537,14 @@ func (a *adapter) finalizeRelease() error {
 
 // getEmptyReleaseServiceConfig creates and returns an empty ReleaseServiceConfig resource.
 func (a *adapter) getEmptyReleaseServiceConfig(namespace string) *v1alpha1.ReleaseServiceConfig {
-	return &v1alpha1.ReleaseServiceConfig{
+	releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      v1alpha1.ReleaseServiceConfigResourceName,
 			Namespace: namespace,
 		},
 	}
+	releaseServiceConfig.Kind = "ReleaseServiceConfig"
+	return releaseServiceConfig
 }
 
 // registerDeploymentData adds all the Release deployment information to its Status and marks it as processing.
