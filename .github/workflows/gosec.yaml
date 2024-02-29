@@ -19,6 +19,9 @@ jobs:
         with:
           fetch-depth: 1
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Set safe dir
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
       - name: Run Gosec Security Scanner
         id: gosec
         uses: securego/gosec@master
