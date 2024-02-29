@@ -23,6 +23,14 @@ jobs:
         id: gosec
         uses: securego/gosec@master
         with:
+          args: -exclude-generated ./...
+        env:
+          GOROOT: ""
+        continue-on-error: true
+      - name: Run Gosec Security Scanner - save SARIF
+        id: gosec-sarif
+        uses: securego/gosec@master
+        with:
           # we let the report trigger a failure using the GitHub Security features.
           args: -exclude-generated -fmt sarif -out results.sarif ./...
         env:
@@ -34,7 +42,7 @@ jobs:
           sarif_file: results.sarif
       - name: Check gosec result
         run: |
-          if [ "${{ steps.gosec.outcome }}" != "success" ]
+          if [ "${{ steps.gosec-sarif.outcome }}" != "success" ]
           then
             echo "Gosec failed. The errors and warnings should be displayed in the PR."
             exit 1
