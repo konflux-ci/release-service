@@ -2,6 +2,7 @@
 # used to generate the 'manifests/' directory in a bundle.
 resources:
 - bases/release-service.clusterserviceversion.yaml
+- release_service_config.yaml
 - ../default
 - ../samples
 - ../scorecard
