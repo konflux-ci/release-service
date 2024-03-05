@@ -1,6 +1,7 @@
 resources:
 - manager.yaml
 - network_policy.yaml
+- release_service_config.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
