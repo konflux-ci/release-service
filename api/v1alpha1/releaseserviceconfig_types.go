@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const ReleaseServiceConfigResourceName string = "config"
+const ReleaseServiceConfigResourceName string = "release-service-config"
 
 // ReleaseServiceConfigSpec defines the desired state of ReleaseServiceConfig.
 type ReleaseServiceConfigSpec struct {
