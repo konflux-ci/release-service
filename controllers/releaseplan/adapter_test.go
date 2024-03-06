@@ -18,6 +18,7 @@ package releaseplan
 
 import (
 	"reflect"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -68,6 +69,21 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleasePlanAndAdapter()
+		})
+
+		It("should not fail if the Application does not exist", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ApplicationContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result, err := adapter.EnsureOwnerReferenceIsSet()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(result.RequeueDelay).To(Equal(time.Minute))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.releasePlan.OwnerReferences).To(HaveLen(0))
 		})
 
 		It("should set the owner reference", func() {
