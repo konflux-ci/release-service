@@ -1,9 +1,10 @@
 module github.com/redhat-appstudio/release-service
 
 go 1.21
+toolchain go1.22.1
 
 require (
-	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.38
+	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.39
 	github.com/go-logr/logr v1.4.1
 	github.com/onsi/ginkgo/v2 v2.16.0
 	github.com/onsi/gomega v1.31.1
