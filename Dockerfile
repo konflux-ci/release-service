@@ -31,10 +31,12 @@ FROM registry.access.redhat.com/ubi9/ubi-micro:9.3-9
 COPY --from=builder /opt/app-root/src/manager /
 
 # It is mandatory to set these labels
-LABEL description="RHTAP Release Service"
-LABEL io.k8s.description="RHTAP Release Service"
+LABEL name="Konflux Release Service"
+LABEL description="Konflux Release Service"
+LABEL io.k8s.description="Konflux Release Service"
 LABEL io.k8s.display-name="release-service"
-LABEL summary="RHTAP Release Service"
+LABEL summary="Konflux Release Service"
+LABEL com.redhat.component="release-service"
 
 USER 65532:65532
 
