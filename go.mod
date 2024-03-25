@@ -6,7 +6,7 @@ require (
 	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.41
 	github.com/go-logr/logr v1.4.1
 	github.com/onsi/ginkgo/v2 v2.17.0
-	github.com/onsi/gomega v1.31.1
+	github.com/onsi/gomega v1.32.0
 	github.com/operator-framework/operator-lib v0.12.0
 	github.com/redhat-appstudio/application-api v0.0.0-20240106104232-18f545e48a03
 	github.com/redhat-appstudio/operator-toolkit v0.0.0-20231201124606-2087182322ae
