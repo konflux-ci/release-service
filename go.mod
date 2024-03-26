@@ -5,8 +5,8 @@ go 1.21
 require (
 	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.41
 	github.com/go-logr/logr v1.4.1
-	github.com/onsi/ginkgo/v2 v2.17.0
-	github.com/onsi/gomega v1.31.1
+	github.com/onsi/ginkgo/v2 v2.17.1
+	github.com/onsi/gomega v1.32.0
 	github.com/operator-framework/operator-lib v0.12.0
 	github.com/redhat-appstudio/application-api v0.0.0-20240106104232-18f545e48a03
 	github.com/redhat-appstudio/operator-toolkit v0.0.0-20231201124606-2087182322ae
@@ -25,7 +25,7 @@ require (
 	github.com/google/cel-go v0.20.0 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/pprof v0.0.0-20230510103437-eeec1cb781c3 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
