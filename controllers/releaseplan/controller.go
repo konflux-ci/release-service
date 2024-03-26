@@ -19,7 +19,7 @@ package releaseplan
 import (
 	"context"
 
-	"github.com/redhat-appstudio/operator-toolkit/controller"
+	"github.com/konflux-ci/operator-toolkit/controller"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 
 	"github.com/go-logr/logr"

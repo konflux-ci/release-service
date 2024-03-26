@@ -1,7 +1,7 @@
 package webhooks
 
 import (
-	"github.com/redhat-appstudio/operator-toolkit/webhook"
+	"github.com/konflux-ci/operator-toolkit/webhook"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks/author"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks/release"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks/releaseplan"

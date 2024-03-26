@@ -17,7 +17,8 @@ package release
 
 import (
 	"context"
-	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
+
+	toolkit "github.com/konflux-ci/operator-toolkit/loader"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/loader"
 	"k8s.io/apimachinery/pkg/api/errors"

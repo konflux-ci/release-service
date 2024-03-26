@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	toolkit "github.com/redhat-appstudio/operator-toolkit/webhook"
+	toolkit "github.com/konflux-ci/operator-toolkit/webhook"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks/author"
 

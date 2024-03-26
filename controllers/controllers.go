@@ -17,7 +17,7 @@ limitations under the License.
 package controllers
 
 import (
-	"github.com/redhat-appstudio/operator-toolkit/controller"
+	"github.com/konflux-ci/operator-toolkit/controller"
 	"github.com/redhat-appstudio/release-service/controllers/release"
 	"github.com/redhat-appstudio/release-service/controllers/releaseplan"
 	"github.com/redhat-appstudio/release-service/controllers/releaseplanadmission"

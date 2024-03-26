@@ -27,11 +27,11 @@ import (
 
 	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 
+	"github.com/konflux-ci/operator-toolkit/controller"
+	toolkit "github.com/konflux-ci/operator-toolkit/loader"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/operator-framework/operator-lib/handler"
-	"github.com/redhat-appstudio/operator-toolkit/controller"
-	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/redhat-appstudio/release-service/loader"
 	"github.com/redhat-appstudio/release-service/metadata"

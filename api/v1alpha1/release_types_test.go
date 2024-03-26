@@ -19,10 +19,10 @@ package v1alpha1
 import (
 	"time"
 
+	"github.com/konflux-ci/operator-toolkit/conditions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/redhat-appstudio/operator-toolkit/conditions"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
