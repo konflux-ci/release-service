@@ -503,6 +503,9 @@ func (a *adapter) validateAuthor() *controller.ValidationResult {
 	if a.release.Labels[metadata.AutomatedLabel] == "true" && !a.release.IsAutomated() {
 		err := fmt.Errorf("automated not set in status for automated release")
 		a.release.MarkValidationFailed(err.Error())
+		if a.release.CreationTimestamp.Add(5 * time.Minute).Before(time.Now()) {
+			return &controller.ValidationResult{Valid: false}
+		}
 		return &controller.ValidationResult{Err: err}
 	}
 

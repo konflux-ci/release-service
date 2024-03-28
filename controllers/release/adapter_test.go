@@ -1236,16 +1236,40 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		When("the release has the automated label", func() {
+			AfterEach(func() {
+				_ = adapter.client.Delete(ctx, adapter.release)
+			})
+
 			BeforeEach(func() {
+				adapter = createReleaseAndAdapter()
 				adapter.release.Labels = map[string]string{
 					metadata.AutomatedLabel: "true",
 				}
+				adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+					{
+						ContextKey: loader.ReleasePlanContextKey,
+						Resource:   releasePlan,
+					},
+				})
 			})
 
 			It("returns invalid and an error if automated label is present but is not set in release status", func() {
 				result := adapter.validateAuthor()
 				Expect(result.Valid).To(BeFalse())
 				Expect(result.Err).To(HaveOccurred())
+				for i := range adapter.release.Status.Conditions {
+					if adapter.release.Status.Conditions[i].Type == "Validated" {
+						conditionMsg = adapter.release.Status.Conditions[i].Message
+					}
+				}
+				Expect(conditionMsg).To(Equal("automated not set in status for automated release"))
+			})
+
+			It("returns invalid if the error appears after 5 minutes of being created", func() {
+				adapter.release.SetCreationTimestamp(metav1.Time{Time: time.Now().Add(-7 * time.Minute)})
+				result := adapter.validateAuthor()
+				Expect(result.Valid).To(BeFalse())
+				Expect(result.Err).NotTo(HaveOccurred())
 				for i := range adapter.release.Status.Conditions {
 					if adapter.release.Status.Conditions[i].Type == "Validated" {
 						conditionMsg = adapter.release.Status.Conditions[i].Message
