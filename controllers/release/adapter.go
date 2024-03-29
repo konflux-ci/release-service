@@ -288,28 +288,48 @@ func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult
 		}
 	}
 
-	// This condition can only be true if the call to registerProcessingStatus changed the state
-	if a.release.HasProcessingFinished() {
-		// At this point, the PipelineRun has finished, so it's safe to remove the finalizer and RoleBinding
-		roleBinding, err := a.loader.GetRoleBindingFromReleaseStatus(a.ctx, a.client, a.release)
-		if err != nil && !errors.IsNotFound(err) && !strings.Contains(err.Error(), "valid reference to a RoleBinding") {
-			return controller.RequeueWithError(err)
-		}
-		if roleBinding != nil {
-			err = a.client.Delete(a.ctx, roleBinding)
-			if err != nil {
-				return controller.RequeueWithError(err)
-			}
-		}
+	return controller.ContinueProcessing()
+}
 
-		if controllerutil.ContainsFinalizer(pipelineRun, metadata.ReleaseFinalizer) {
-			patch := client.MergeFrom(pipelineRun.DeepCopy())
-			controllerutil.RemoveFinalizer(pipelineRun, metadata.ReleaseFinalizer)
-			return controller.RequeueOnErrorOrContinue(a.client.Patch(a.ctx, pipelineRun, patch))
+// EnsureReleaseProcessingResourcesAreCleanedUp is an operation that will ensure that the resources created for the Release
+// Processing step are cleaned up once processing is finished.
+func (a *adapter) EnsureReleaseProcessingResourcesAreCleanedUp() (controller.OperationResult, error) {
+	if !a.release.HasProcessingFinished() {
+		return controller.ContinueProcessing()
+	}
+
+	pipelineRun, err := a.loader.GetManagedReleasePipelineRun(a.ctx, a.client, a.release)
+	if err != nil && !errors.IsNotFound(err) {
+		return controller.RequeueWithError(err)
+	}
+
+	roleBinding, err := a.loader.GetRoleBindingFromReleaseStatus(a.ctx, a.client, a.release)
+	if err != nil && !errors.IsNotFound(err) && !strings.Contains(err.Error(), "valid reference to a RoleBinding") {
+		return controller.RequeueWithError(err)
+	}
+
+	return controller.RequeueOnErrorOrContinue(a.cleanupProcessingResources(pipelineRun, roleBinding))
+}
+
+// cleanupProcessingResources cleans up the PipelineRun created for the Release Processing
+// and all resources that were created in order for the PipelineRun to succeed.
+func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, roleBinding *rbac.RoleBinding) error {
+	if roleBinding != nil {
+		err := a.client.Delete(a.ctx, roleBinding)
+		if err != nil {
+			return err
 		}
 	}
 
-	return controller.ContinueProcessing()
+	if pipelineRun != nil {
+		if controllerutil.ContainsFinalizer(pipelineRun, metadata.ReleaseFinalizer) {
+			patch := client.MergeFrom(pipelineRun.DeepCopy())
+			controllerutil.RemoveFinalizer(pipelineRun, metadata.ReleaseFinalizer)
+			return a.client.Patch(a.ctx, pipelineRun, patch)
+		}
+	}
+
+	return nil
 }
 
 // createManagedPipelineRun creates and returns a new managed Release PipelineRun. The new PipelineRun will include owner
