@@ -19,13 +19,11 @@ package controllers
 import (
 	"github.com/redhat-appstudio/operator-toolkit/controller"
 	"github.com/redhat-appstudio/release-service/controllers/release"
-	"github.com/redhat-appstudio/release-service/controllers/releaseplan"
-	"github.com/redhat-appstudio/release-service/controllers/releaseplanadmission"
 )
 
 // EnabledControllers is a slice containing references to all the controllers that have to be registered
 var EnabledControllers = []controller.Controller{
 	&release.Controller{},
-	&releaseplan.Controller{},
-	&releaseplanadmission.Controller{},
+	//&releaseplan.Controller{},
+	//&releaseplanadmission.Controller{},
 }
