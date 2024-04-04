@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/redhat-appstudio/operator-toolkit/conditions"
+	"github.com/konflux-ci/operator-toolkit/conditions"
 	"github.com/redhat-appstudio/release-service/metadata"
 	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

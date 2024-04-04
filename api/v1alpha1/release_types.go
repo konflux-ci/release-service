@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"time"
 
-	"github.com/redhat-appstudio/operator-toolkit/conditions"
+	"github.com/konflux-ci/operator-toolkit/conditions"
 
 	"github.com/redhat-appstudio/release-service/metrics"
 	"k8s.io/apimachinery/pkg/runtime"

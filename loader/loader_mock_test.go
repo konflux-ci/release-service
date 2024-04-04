@@ -1,7 +1,7 @@
 package loader
 
 import (
-	toolkit "github.com/redhat-appstudio/operator-toolkit/loader"
+	toolkit "github.com/konflux-ci/operator-toolkit/loader"
 
 	v1alpha12 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"

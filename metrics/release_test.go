@@ -19,10 +19,10 @@ package metrics
 import (
 	"time"
 
+	"github.com/konflux-ci/operator-toolkit/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/redhat-appstudio/operator-toolkit/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

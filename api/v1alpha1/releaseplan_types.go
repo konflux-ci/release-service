@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"fmt"
 
-	"github.com/redhat-appstudio/operator-toolkit/conditions"
+	"github.com/konflux-ci/operator-toolkit/conditions"
 	"github.com/redhat-appstudio/release-service/metadata"
 	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
