@@ -184,7 +184,6 @@ spec:
                     type: boolean
                   name:
                     description: Name contains the namespaced name of the releasePlanAdmission
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
                 type: object
             type: object

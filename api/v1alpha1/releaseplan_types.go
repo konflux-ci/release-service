@@ -66,7 +66,6 @@ type ReleasePlanSpec struct {
 // MatchedReleasePlanAdmission defines the relevant information for a matched ReleasePlanAdmission.
 type MatchedReleasePlanAdmission struct {
 	// Name contains the namespaced name of the releasePlanAdmission
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
 	Name string `json:"name,omitempty"`
 
