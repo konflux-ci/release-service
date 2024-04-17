@@ -656,84 +656,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.HasProcessingFinished()).To(BeTrue())
 		})
 
-		It("removes the roleBinding if present", func() {
-			adapter.release.MarkProcessing("")
-
-			pipelineRun := &tektonv1.PipelineRun{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "pipeline-run",
-					Namespace:  "default",
-					Finalizers: []string{metadata.ReleaseFinalizer},
-				},
-			}
-			// The resource needs to be created as it will get patched
-			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
-
-			pipelineRun.Status.MarkSucceeded("", "")
-
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePipelineRunContextKey,
-					Resource:   pipelineRun,
-				},
-				{
-					ContextKey: loader.RoleBindingContextKey,
-					Resource:   roleBinding,
-				},
-			})
-			adapter.release.Status.Processing.RoleBinding = fmt.Sprintf("%s%c%s",
-				roleBinding.Namespace, types.Separator, roleBinding.Name)
-
-			result, err := adapter.EnsureReleaseProcessingIsTracked()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-
-			// Reset MockedContext so to confirm RoleBinding was deleted
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{})
-
-			checkRoleBinding := &rbac.RoleBinding{}
-			err = toolkit.GetObject(roleBinding.Name, roleBinding.Namespace, adapter.client, adapter.ctx, checkRoleBinding)
-			Expect(checkRoleBinding).To(Equal(&rbac.RoleBinding{}))
-			Expect(errors.IsNotFound(err)).To(BeTrue())
-
-			// Clean up at the end
-			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
-		})
-
-		It("removes the finalizer if present", func() {
-			adapter.release.MarkProcessing("")
-
-			pipelineRun := &tektonv1.PipelineRun{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "pipeline-run",
-					Namespace:  "default",
-					Finalizers: []string{metadata.ReleaseFinalizer},
-				},
-			}
-			// The resource needs to be created as it will get patched
-			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
-
-			pipelineRun.Status.MarkSucceeded("", "")
-
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePipelineRunContextKey,
-					Resource:   pipelineRun,
-				},
-				{
-					ContextKey: loader.RoleBindingContextKey,
-				},
-			})
-
-			result, err := adapter.EnsureReleaseProcessingIsTracked()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(pipelineRun.Finalizers).To(BeEmpty())
-
-			// Clean up at the end
-			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
-		})
-
 		It("should continue if the PipelineRun doesn't exist", func() {
 			adapter.release.MarkProcessing("")
 
@@ -804,6 +726,152 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result, err := adapter.EnsureReleaseExpirationTimeIsAdded()
 			Expect(adapter.release.Status.ExpirationTime).To(Equal(expectedExpirationTime))
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	When("EnsureReleaseProcessingResourcesAreCleanedUp is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("should continue if the Release processing has not finished", func() {
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should requeue the release if an error occurs fetching the managed pipelineRun", func() {
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Err:        fmt.Errorf("error"),
+				},
+			})
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should requeue the release if an error occurs fetching the roleBinding", func() {
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run",
+					Namespace: "default",
+				},
+			}
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource:   pipelineRun,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Err:        fmt.Errorf("error"),
+				},
+			})
+			adapter.release.Status.Processing.RoleBinding = "one/two"
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should call cleanupManagedPipelineRunResources if all the resources are present", func() {
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run",
+					Namespace: "default",
+				},
+			}
+			newRoleBinding := roleBinding.DeepCopy()
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource:   pipelineRun,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   newRoleBinding,
+				},
+			})
+			adapter.release.Status.Processing.RoleBinding = fmt.Sprintf("%s%c%s",
+				newRoleBinding.Namespace, types.Separator, newRoleBinding.Name)
+
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	When("cleanupProcessingResources is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("removes the roleBinding if present", func() {
+			newRoleBinding := &rbac.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "new-role-binding",
+					Namespace: "default",
+				},
+				RoleRef: rbac.RoleRef{
+					APIGroup: rbac.GroupName,
+					Kind:     "ClusterRole",
+					Name:     "clusterrole",
+				},
+			}
+			// The resource needs to be created as it will get patched
+			Expect(adapter.client.Create(adapter.ctx, newRoleBinding)).To(Succeed())
+
+			err := adapter.cleanupProcessingResources(nil, newRoleBinding)
+			Expect(err).NotTo(HaveOccurred())
+
+			checkRoleBinding := &rbac.RoleBinding{}
+			err = toolkit.GetObject(newRoleBinding.Name, newRoleBinding.Namespace, adapter.client, adapter.ctx, checkRoleBinding)
+			Expect(checkRoleBinding).To(Equal(&rbac.RoleBinding{}))
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("removes the pipelineRun finalizer if present", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "pipeline-run",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+			// The resource needs to be created as it will get patched
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+
+			err := adapter.cleanupProcessingResources(pipelineRun, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pipelineRun.Finalizers).To(BeEmpty())
+
+			// Clean up at the end
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("should not error if either resource is nil", func() {
+			err := adapter.cleanupProcessingResources(nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

@@ -83,6 +83,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		adapter.EnsureReleaseExpirationTimeIsAdded,
 		adapter.EnsureReleaseIsProcessed,
 		adapter.EnsureReleaseProcessingIsTracked,
+		adapter.EnsureReleaseProcessingResourcesAreCleanedUp,
 		adapter.EnsureReleaseIsCompleted,
 	})
 }
