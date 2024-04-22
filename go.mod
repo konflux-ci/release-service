@@ -3,7 +3,7 @@ module github.com/redhat-appstudio/release-service
 go 1.21
 
 require (
-	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.41
+	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.42
 	github.com/go-logr/logr v1.4.1
 	github.com/konflux-ci/operator-toolkit v0.0.0-20240402130556-ef6dcbeca69d
 	github.com/onsi/ginkgo/v2 v2.17.1
@@ -15,7 +15,7 @@ require (
 	k8s.io/apimachinery v0.29.3
 	k8s.io/client-go v0.29.3
 	knative.dev/pkg v0.0.0-20240219120257-9227ebb57a4e
-	sigs.k8s.io/controller-runtime v0.17.2
+	sigs.k8s.io/controller-runtime v0.17.3
 )
 
 require (
