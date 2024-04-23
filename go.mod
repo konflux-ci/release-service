@@ -3,11 +3,11 @@ module github.com/redhat-appstudio/release-service
 go 1.21
 
 require (
-	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.41
+	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.42
 	github.com/go-logr/logr v1.4.1
 	github.com/konflux-ci/operator-toolkit v0.0.0-20240402130556-ef6dcbeca69d
 	github.com/onsi/ginkgo/v2 v2.17.1
-	github.com/onsi/gomega v1.32.0
+	github.com/onsi/gomega v1.33.0
 	github.com/operator-framework/operator-lib v0.12.0
 	github.com/redhat-appstudio/application-api v0.0.0-20240106104232-18f545e48a03
 	github.com/tektoncd/pipeline v0.57.0
@@ -15,7 +15,7 @@ require (
 	k8s.io/apimachinery v0.29.3
 	k8s.io/client-go v0.29.3
 	knative.dev/pkg v0.0.0-20240219120257-9227ebb57a4e
-	sigs.k8s.io/controller-runtime v0.17.2
+	sigs.k8s.io/controller-runtime v0.17.3
 )
 
 require (
@@ -80,7 +80,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0
-	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.18.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
