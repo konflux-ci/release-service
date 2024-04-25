@@ -90,7 +90,7 @@ Tests are written using the *[Ginkgo](https://onsi.github.io/ginkgo/)* framework
 * Start the descriptions of `It` blocks in lowercase and try to be as descriptive as possible
 * Avoid ignoring errors. In other words, make sure all of them are caught and tested
 * Files ending with `_suite_test.go` are meant to store the code that is common for tests in the same directory and that will be executed before them. Use these files only if your test setup is big enough to justify it (ie. the suite file has more than the test suite name and the teardown)
-* When required, remember to add the `CRD`'s during the `envtest` setup, for instance: [release-service/release_suite_test.go at main · redhat-appstudio/release-service · GitHub](https://github.com/redhat-appstudio/release-service/blob/main/controllers/release/release_suite_test.go#L65) - remembering this saves a lot of time
+* When required, remember to add the `CRD`'s during the `envtest` setup, for instance: [release-service/release_suite_test.go at main · redhat-appstudio/release-service · GitHub](https://github.com/konflux-ci/release-service/blob/main/controllers/release/release_suite_test.go#L65) - remembering this saves a lot of time
 * After `Create()` or `Update()` objects, use `Get()` before making assurances as the object might be outdated. It is useful after `Delete()` to check if the client returns `errors.IsNotFound`
 * Some assurances are likely to require usage of `Eventually` blocks instead of or in addition to `Expect` blocks
 

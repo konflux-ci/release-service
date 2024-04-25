@@ -19,9 +19,9 @@ package v1alpha1
 import (
 	"time"
 
+	"github.com/konflux-ci/release-service/metadata"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-appstudio/release-service/metadata"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

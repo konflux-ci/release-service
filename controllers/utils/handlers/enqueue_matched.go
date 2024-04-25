@@ -20,7 +20,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"

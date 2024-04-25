@@ -19,9 +19,10 @@ package releaseplanadmission
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/metadata"
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/metadata"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

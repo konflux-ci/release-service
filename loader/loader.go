@@ -11,9 +11,9 @@ import (
 	toolkit "github.com/konflux-ci/operator-toolkit/loader"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/metadata"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"

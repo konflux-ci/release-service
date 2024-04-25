@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
+	appstudiov1alpha1 "github.com/konflux-ci/release-service/api/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

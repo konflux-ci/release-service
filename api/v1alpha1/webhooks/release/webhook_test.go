@@ -19,8 +19,8 @@ import (
 	"context"
 
 	toolkit "github.com/konflux-ci/operator-toolkit/loader"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/loader"
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/loader"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 

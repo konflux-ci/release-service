@@ -19,11 +19,12 @@ package release
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/release-service/loader"
 	"reflect"
 
+	"github.com/konflux-ci/release-service/loader"
+
 	"github.com/go-logr/logr"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"

@@ -17,7 +17,7 @@ limitations under the License.
 package tekton
 
 import (
-	"github.com/redhat-appstudio/release-service/metadata"
+	"github.com/konflux-ci/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"

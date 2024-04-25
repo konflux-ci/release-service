@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
+	appstudiov1alpha1 "github.com/konflux-ci/release-service/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/konflux-ci/operator-toolkit/test"
