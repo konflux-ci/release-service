@@ -19,6 +19,10 @@ package utils
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+
+	"reflect"
 )
 
 var _ = Describe("Pipeline", func() {
@@ -86,6 +90,25 @@ var _ = Describe("Pipeline", func() {
 			Expect(params[1].Value.StringVal).To(Equal("my-pipeline"))
 			Expect(params[2].Name).To(Equal("kind"))
 			Expect(params[2].Value.StringVal).To(Equal("pipeline"))
+		})
+	})
+
+	When("GetTektonParams method is called", func() {
+		It("should return a tekton Param list", func() {
+			parameterizedPipeline := ParameterizedPipeline{}
+			parameterizedPipeline.Params = []Param{
+				{Name: "parameter1", Value: "value1"},
+				{Name: "parameter2", Value: "value2"},
+			}
+
+			params := parameterizedPipeline.GetTektonParams()
+			Expect(reflect.TypeOf(params[0])).To(Equal(reflect.TypeOf(tektonv1.Param{})))
+			Expect(params[0].Name).To(Equal("parameter1"))
+			Expect(params[0].Value.StringVal).To(Equal("value1"))
+
+			Expect(reflect.TypeOf(params[1])).To(Equal(reflect.TypeOf(tektonv1.Param{})))
+			Expect(params[1].Name).To(Equal("parameter2"))
+			Expect(params[1].Value.StringVal).To(Equal("value2"))
 		})
 	})
 

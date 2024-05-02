@@ -57,7 +57,10 @@ type Pipeline struct {
 // the Pipeline.
 // +kubebuilder:object:generate=true
 type ParameterizedPipeline struct {
-	Pipeline
+	Pipeline `json:",inline"`
+
+	// Params is a slice of parameters for a given resolver
+	// +optional
 	Params []Param `json:"params,omitempty"`
 }
 
@@ -83,6 +86,23 @@ func (pr *PipelineRef) ToTektonPipelineRef() *tektonv1.PipelineRef {
 	}
 
 	return tektonPipelineRef
+}
+
+// GetTektonParams returns the ParameterizedPipeline []Param as []tektonv1.Param.
+func (prp *ParameterizedPipeline) GetTektonParams() []tektonv1.Param {
+	params := []tektonv1.Param{}
+
+	for _, param := range prp.Params {
+		params = append(params, tektonv1.Param{
+			Name: param.Name,
+			Value: tektonv1.ParamValue{
+				Type:      tektonv1.ParamTypeString,
+				StringVal: param.Value,
+			},
+		})
+	}
+
+	return params
 }
 
 // IsClusterScoped returns whether the PipelineRef uses a cluster resolver or not.

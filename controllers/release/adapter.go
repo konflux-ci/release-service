@@ -30,6 +30,7 @@ import (
 	"github.com/konflux-ci/release-service/metadata"
 	"github.com/konflux-ci/release-service/syncer"
 	"github.com/konflux-ci/release-service/tekton/utils"
+	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	integrationgitops "github.com/redhat-appstudio/integration-service/gitops"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	rbac "k8s.io/api/rbac/v1"
@@ -69,6 +70,7 @@ func newAdapter(ctx context.Context, client client.Client, release *v1alpha1.Rel
 		releaseAdapter.validateProcessingResources,
 		releaseAdapter.validateAuthor,
 		releaseAdapter.validatePipelineRef,
+		releaseAdapter.validateSinglePipeline,
 	}
 
 	return releaseAdapter
@@ -180,14 +182,58 @@ func (a *adapter) EnsureReleaseIsRunning() (controller.OperationResult, error) {
 	return controller.ContinueProcessing()
 }
 
-// EnsureReleaseIsProcessed is an operation that will ensure that a managed Release PipelineRun associated to the Release
-// being processed and a RoleBinding to grant its serviceAccount permissions exist. Otherwise, it will create them.
-func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error) {
+// EnsureTenantPipelineIsProcessed is an operation that will ensure that a Tenant Release PipelineRun associated to the Release
+// being processed exist. Otherwise, it will be created.
+func (a *adapter) EnsureTenantPipelineIsProcessed() (controller.OperationResult, error) {
 	if a.release.HasProcessingFinished() {
 		return controller.ContinueProcessing()
 	}
 
-	pipelineRun, err := a.loader.GetManagedReleasePipelineRun(a.ctx, a.client, a.release)
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
+	if err != nil && !errors.IsNotFound(err) {
+		return controller.RequeueWithError(err)
+	}
+
+	if pipelineRun == nil || !a.release.IsProcessing() {
+		releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+		if err != nil {
+			return controller.RequeueWithError(err)
+		}
+
+		if releasePlan.Spec.Pipeline == nil {
+			// no tenant pipeline to run
+			return controller.ContinueProcessing()
+		}
+
+		if pipelineRun == nil {
+			snapshot, err := a.loader.GetSnapshot(a.ctx, a.client, a.release)
+			if err != nil {
+				return controller.RequeueWithError(err)
+			}
+
+			pipelineRun, err = a.createTenantPipelineRun(releasePlan, snapshot)
+			if err != nil {
+				return controller.RequeueWithError(err)
+			}
+
+			a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun", metadata.TenantPipelineType),
+				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
+		}
+
+		return controller.RequeueOnErrorOrContinue(a.registerProcessingData(pipelineRun, nil))
+	}
+
+	return controller.ContinueProcessing()
+}
+
+// EnsureManagedPipelineIsProcessed is an operation that will ensure that a managed Release PipelineRun associated to the Release
+// being processed and a RoleBinding to grant its serviceAccount permissions exist. Otherwise, it will create them.
+func (a *adapter) EnsureManagedPipelineIsProcessed() (controller.OperationResult, error) {
+	if a.release.HasProcessingFinished() {
+		return controller.ContinueProcessing()
+	}
+
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
 	}
@@ -218,7 +264,7 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 				return controller.RequeueWithError(err)
 			}
 
-			a.logger.Info("Created managed Release PipelineRun",
+			a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun", metadata.ManagedPipelineType),
 				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
 		}
 
@@ -270,14 +316,14 @@ func (a *adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
 	return controller.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
 }
 
-// EnsureReleaseProcessingIsTracked is an operation that will ensure that the managed Release PipelineRun status is tracked
+// EnsureReleaseProcessingIsTracked is an operation that will ensure that the Release PipelineRun status is tracked
 // in the Release being processed.
 func (a *adapter) EnsureReleaseProcessingIsTracked() (controller.OperationResult, error) {
 	if !a.release.IsProcessing() || a.release.HasProcessingFinished() {
 		return controller.ContinueProcessing()
 	}
 
-	pipelineRun, err := a.loader.GetManagedReleasePipelineRun(a.ctx, a.client, a.release)
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}
@@ -298,7 +344,7 @@ func (a *adapter) EnsureReleaseProcessingResourcesAreCleanedUp() (controller.Ope
 		return controller.ContinueProcessing()
 	}
 
-	pipelineRun, err := a.loader.GetManagedReleasePipelineRun(a.ctx, a.client, a.release)
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
 	}
@@ -334,10 +380,10 @@ func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, 
 
 // createManagedPipelineRun creates and returns a new managed Release PipelineRun. The new PipelineRun will include owner
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
-// will be extracted from the given ReleaseStrategy. The Release's Snapshot will also be passed to the release
+// will be extracted from the given ReleasePlanAdmission. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
-	pipelineRun, err := utils.NewPipelineRunBuilder("managed", resources.ReleasePlanAdmission.Namespace).
+	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.ManagedPipelineType, resources.ReleasePlanAdmission.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
@@ -355,6 +401,45 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithPipelineRef(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccount).
 		WithTimeouts(&resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
+		WithWorkspaceFromVolumeTemplate(
+			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
+			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
+		).
+		Build()
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = a.client.Create(a.ctx, pipelineRun)
+	if err != nil {
+		return nil, err
+	}
+
+	return pipelineRun, nil
+}
+
+// createTenantPipelineRun creates and returns a new tenant Release PipelineRun. The new PipelineRun will include owner
+// annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
+// will be extracted from the given ReleasePlan. The Release's Snapshot will also be passed to the release
+// PipelineRun.
+func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, snapshot *applicationapiv1alpha1.Snapshot) (*tektonv1.PipelineRun, error) {
+	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.TenantPipelineType, releasePlan.Namespace).
+		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
+		WithFinalizer(metadata.ReleaseFinalizer).
+		WithLabels(map[string]string{
+			metadata.ApplicationNameLabel:  releasePlan.Spec.Application,
+			metadata.PipelinesTypeLabel:    metadata.TenantPipelineType,
+			metadata.ReleaseNameLabel:      a.release.Name,
+			metadata.ReleaseNamespaceLabel: a.release.Namespace,
+			metadata.ReleaseSnapshotLabel:  a.release.Spec.Snapshot,
+		}).
+		WithObjectReferences(a.release, releasePlan, snapshot).
+		WithParams(releasePlan.Spec.Pipeline.GetTektonParams()...).
+		WithOwner(a.release).
+		WithPipelineRef(releasePlan.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
+		WithServiceAccount(releasePlan.Spec.Pipeline.ServiceAccount).
+		WithTimeouts(&releasePlan.Spec.Pipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
 		WithWorkspaceFromVolumeTemplate(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
@@ -412,7 +497,7 @@ func (a *adapter) createRoleBindingForClusterRole(clusterRole string, releasePla
 
 // finalizeRelease will finalize the Release being processed, removing the associated resources.
 func (a *adapter) finalizeRelease() error {
-	pipelineRun, err := a.loader.GetManagedReleasePipelineRun(a.ctx, a.client, a.release)
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil {
 		return err
 	}
@@ -561,21 +646,7 @@ func (a *adapter) validateAuthor() *controller.ValidationResult {
 
 // validateProcessingResources will ensure that all the resources needed to process the Release exist.
 func (a *adapter) validateProcessingResources() *controller.ValidationResult {
-	resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
-	if err != nil {
-		if resources == nil || resources.ReleasePlanAdmission == nil || errors.IsNotFound(err) {
-			a.release.MarkValidationFailed(err.Error())
-			return &controller.ValidationResult{Valid: false}
-		}
-
-		return &controller.ValidationResult{Err: err}
-	}
-	return &controller.ValidationResult{Valid: true}
-}
-
-// validatePipelineRef checks that the managed Release PipelineRun ref passes the checks from the ReleaseServiceConfig.
-func (a *adapter) validatePipelineRef() *controller.ValidationResult {
-	releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
+	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			a.release.MarkValidationFailed(err.Error())
@@ -584,10 +655,73 @@ func (a *adapter) validatePipelineRef() *controller.ValidationResult {
 		return &controller.ValidationResult{Err: err}
 	}
 
-	if !a.releaseServiceConfig.Spec.Debug && releasePlanAdmission.Spec.Pipeline.PipelineRef.IsClusterScoped() {
+	if releasePlan.Spec.Pipeline == nil {
+		resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
+		if err != nil {
+			if resources == nil || resources.ReleasePlan == nil || resources.ReleasePlanAdmission == nil || errors.IsNotFound(err) {
+				a.release.MarkValidationFailed(err.Error())
+				return &controller.ValidationResult{Valid: false}
+			}
+
+			return &controller.ValidationResult{Err: err}
+		}
+	}
+	return &controller.ValidationResult{Valid: true}
+}
+
+// validatePipelineRef checks that the Release PipelineRun ref passes the checks from the ReleaseServiceConfig.
+func (a *adapter) validatePipelineRef() *controller.ValidationResult {
+	pipelineRef := utils.PipelineRef{}
+	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+	if err != nil {
+		return a.validationError(err)
+	}
+
+	if releasePlan.Spec.Pipeline != nil {
+		pipelineRef = releasePlan.Spec.Pipeline.PipelineRef
+	} else {
+		releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
+		if err != nil {
+			return a.validationError(err)
+		}
+
+		pipelineRef = releasePlanAdmission.Spec.Pipeline.PipelineRef
+	}
+
+	if !a.releaseServiceConfig.Spec.Debug && pipelineRef.IsClusterScoped() {
 		a.release.MarkValidationFailed("tried using debug only options while debug mode is disabled in the ReleaseServiceConfig")
 		return &controller.ValidationResult{Valid: false}
 	}
 
 	return &controller.ValidationResult{Valid: true}
+}
+
+// validateSinglePipeline checks that the Pipeline is defined exclusively in the ReleasePlan or in the ReleasePlanAdmission.
+func (a *adapter) validateSinglePipeline() *controller.ValidationResult {
+	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			a.release.MarkValidationFailed(err.Error())
+			return &controller.ValidationResult{Valid: false}
+		}
+
+		return &controller.ValidationResult{Err: err}
+	}
+
+	if releasePlan.Spec.Pipeline != nil && releasePlan.Spec.Target != "" {
+		a.release.MarkValidationFailed("pipeline should be set only in the ReleasePlan or in the ReleasePlanAdmission")
+		return &controller.ValidationResult{Valid: false}
+	}
+
+	return &controller.ValidationResult{Valid: true}
+}
+
+// validationError checks the error type, marks the release as failed when the error for known errors, and returns the
+// ValidationResult for the error found.
+func (a *adapter) validationError(err error) *controller.ValidationResult {
+	if errors.IsNotFound(err) {
+		a.release.MarkValidationFailed(err.Error())
+		return &controller.ValidationResult{Valid: false}
+	}
+	return &controller.ValidationResult{Err: err}
 }

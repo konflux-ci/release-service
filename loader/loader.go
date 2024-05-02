@@ -31,7 +31,7 @@ type ObjectLoader interface {
 	GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
 	GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error)
-	GetManagedReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error)
+	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
 	GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error)
 	GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error)
@@ -110,6 +110,7 @@ func (l *loader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.
 // If more than one matching ReleasePlanAdmission objects are found, an error will be returned.
 func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error) {
 	designatedReleasePlanAdmissionName := releasePlan.GetLabels()[metadata.ReleasePlanAdmissionLabel]
+
 	if designatedReleasePlanAdmissionName != "" {
 		releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{}
 		return releasePlanAdmission, toolkit.GetObject(designatedReleasePlanAdmissionName, releasePlan.Spec.Target, cli, ctx, releasePlanAdmission)
@@ -197,9 +198,9 @@ func (l *loader) GetRoleBindingFromReleaseStatus(ctx context.Context, cli client
 	return roleBinding, nil
 }
 
-// GetManagedReleasePipelineRun returns the managed Release PipelineRun referenced by the given Release or nil if it's not found. In the case
+// GetReleasePipelineRun returns the Release PipelineRun referenced by the given Release or nil if it's not found. In the case
 // the List operation fails, an error will be returned.
-func (l *loader) GetManagedReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error) {
+func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error) {
 	pipelineRuns := &tektonv1.PipelineRunList{}
 	err := cli.List(ctx, pipelineRuns,
 		client.Limit(1),

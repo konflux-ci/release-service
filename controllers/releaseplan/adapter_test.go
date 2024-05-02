@@ -191,16 +191,34 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 	})
 
 	createReleasePlanAndAdapter = func() *adapter {
+		parameterizedPipeline := &tektonutils.ParameterizedPipeline{}
+		parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
+			Resolver: "git",
+			Params: []tektonutils.Param{
+				{Name: "url", Value: "my-url"},
+				{Name: "revision", Value: "my-revision"},
+				{Name: "pathInRepo", Value: "my-path"},
+			},
+		}
+		parameterizedPipeline.Params = []tektonutils.Param{
+			{Name: "parameter1", Value: "value1"},
+			{Name: "parameter2", Value: "value2"},
+		}
+		parameterizedPipeline.ServiceAccount = "test-account"
+
 		releasePlan := &v1alpha1.ReleasePlan{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "releaseplan-",
 				Namespace:    "default",
 			},
 			Spec: v1alpha1.ReleasePlanSpec{
-				Application: application.Name,
-				Target:      "default",
+				Application:            application.Name,
+				Target:                 "default",
+				Pipeline:               parameterizedPipeline,
+				ReleaseGracePeriodDays: 6,
 			},
 		}
+
 		Expect(k8sClient.Create(ctx, releasePlan)).To(Succeed())
 		releasePlan.Kind = "ReleasePlan"
 

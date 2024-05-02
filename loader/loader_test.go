@@ -275,9 +275,9 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	When("calling GetManagedReleasePipelineRun", func() {
+	When("calling GetReleasePipelineRun", func() {
 		It("returns a PipelineRun if the labels match with the release data", func() {
-			returnedObject, err := loader.GetManagedReleasePipelineRun(ctx, k8sClient, release)
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
 			Expect(returnedObject.Name).To(Equal(pipelineRun.Name))
@@ -287,7 +287,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedRelease := release.DeepCopy()
 			modifiedRelease.Name = "non-existing-release"
 
-			returnedObject, err := loader.GetManagedReleasePipelineRun(ctx, k8sClient, modifiedRelease)
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, modifiedRelease)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).To(BeNil())
 		})

@@ -40,16 +40,9 @@ type ReleasePlanSpec struct {
 	// +optional
 	Data *runtime.RawExtension `json:"data,omitempty"`
 
-	// PipelineRef is an optional reference to a Pipeline that would be executed
-	// before the managed Release Pipeline
+	// Pipeline contains all the information about the tenant Pipeline
 	// +optional
-	PipelineRef *tektonutils.PipelineRef `json:"pipelineRef,omitempty"`
-
-	// ServiceAccount is the name of the service account to use in the
-	// Pipeline to gain elevated privileges
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-	// +optional
-	ServiceAccount string `json:"serviceAccount,omitempty"`
+	Pipeline *tektonutils.ParameterizedPipeline `json:"pipeline,omitempty"`
 
 	// ReleaseGracePeriodDays is the number of days a Release should be kept
 	// This value is used to define the Release ExpirationTime
@@ -59,8 +52,8 @@ type ReleasePlanSpec struct {
 
 	// Target references where to send the release requests
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-	// +required
-	Target string `json:"target"`
+	// +optional
+	Target string `json:"target,omitempty"`
 }
 
 // MatchedReleasePlanAdmission defines the relevant information for a matched ReleasePlanAdmission.
