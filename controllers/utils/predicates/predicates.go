@@ -19,8 +19,8 @@ package predicates
 import (
 	"reflect"
 
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/metadata"
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/metadata"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

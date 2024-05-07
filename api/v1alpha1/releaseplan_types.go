@@ -20,8 +20,8 @@ import (
 	"fmt"
 
 	"github.com/konflux-ci/operator-toolkit/conditions"
-	"github.com/redhat-appstudio/release-service/metadata"
-	tektonutils "github.com/redhat-appstudio/release-service/tekton/utils"
+	"github.com/konflux-ci/release-service/metadata"
+	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

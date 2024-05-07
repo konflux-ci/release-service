@@ -26,8 +26,8 @@ import (
 	"time"
 
 	toolkit "github.com/konflux-ci/operator-toolkit/webhook"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks/author"
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks/author"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"

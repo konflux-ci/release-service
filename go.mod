@@ -1,4 +1,4 @@
-module github.com/redhat-appstudio/release-service
+module github.com/konflux-ci/release-service
 
 go 1.21
 

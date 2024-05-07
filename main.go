@@ -26,7 +26,7 @@ import (
 
 	"github.com/konflux-ci/operator-toolkit/controller"
 	"github.com/konflux-ci/operator-toolkit/webhook"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1/webhooks"
+	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks"
 
 	"go.uber.org/zap/zapcore"
 
@@ -46,8 +46,8 @@ import (
 
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 
-	appstudiov1alpha1 "github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/controllers"
+	appstudiov1alpha1 "github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/controllers"
 	//+kubebuilder:scaffold:imports
 )
 

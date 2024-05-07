@@ -17,10 +17,10 @@ limitations under the License.
 package tekton
 
 import (
+	"github.com/konflux-ci/release-service/metadata"
+	"github.com/konflux-ci/release-service/tekton/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/redhat-appstudio/release-service/metadata"
-	"github.com/redhat-appstudio/release-service/tekton/utils"
 )
 
 var _ = Describe("Utils", Ordered, func() {

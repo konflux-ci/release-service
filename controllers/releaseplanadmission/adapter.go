@@ -22,8 +22,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/konflux-ci/operator-toolkit/controller"
-	"github.com/redhat-appstudio/release-service/api/v1alpha1"
-	"github.com/redhat-appstudio/release-service/loader"
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/loader"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
