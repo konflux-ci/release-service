@@ -21,6 +21,21 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		loader = NewMockLoader()
 	})
 
+	When("calling GetActiveManagedReleasePipelineRuns", func() {
+		It("returns the resource and error from the context", func() {
+			pipelineRuns := &tektonv1.PipelineRunList{}
+			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: ActiveManagedReleasePipelineRunsContextKey,
+					Resource:   pipelineRuns,
+				},
+			})
+			resource, err := loader.GetActiveManagedReleasePipelineRuns(mockContext, nil, nil)
+			Expect(resource).To(Equal(pipelineRuns))
+			Expect(err).To(BeNil())
+		})
+	})
+
 	When("calling GetActiveReleasePlanAdmission", func() {
 		It("returns the resource and error from the context", func() {
 			releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{}

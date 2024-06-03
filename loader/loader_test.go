@@ -51,6 +51,34 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		loader = NewLoader()
 	})
 
+	When("calling GetActiveManagedReleasePipelineRuns", func() {
+		var pipelineRunOne, pipelineRunTwo *tektonv1.PipelineRun
+
+		BeforeEach(func() {
+			pipelineRunOne = pipelineRun.DeepCopy()
+			pipelineRunOne.Labels[metadata.ReleaseNameLabel] = "foo"
+			pipelineRunOne.Name = "pr-one"
+			pipelineRunOne.ResourceVersion = ""
+			pipelineRunTwo = pipelineRun.DeepCopy()
+			pipelineRunTwo.Name = "pr-two"
+			pipelineRunTwo.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, pipelineRunOne)).To(Succeed())
+			Expect(k8sClient.Create(ctx, pipelineRunTwo)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(ctx, pipelineRunOne)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, pipelineRunTwo)).To(Succeed())
+		})
+
+		It("returns the requested list of PipelineRuns", func() {
+			Eventually(func() bool {
+				returnedObject, err := loader.GetActiveManagedReleasePipelineRuns(ctx, k8sClient, release)
+				return returnedObject != &tektonv1.PipelineRunList{} && err == nil && len(returnedObject.Items) == 1
+			})
+		})
+	})
+
 	When("calling GetActiveReleasePlanAdmission", func() {
 		It("returns an active release plan admission", func() {
 			returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
@@ -475,6 +503,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		pipelineRun = &tektonv1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
+					metadata.ApplicationNameLabel:  releasePlan.Spec.Application,
 					metadata.ReleaseNameLabel:      release.Name,
 					metadata.ReleaseNamespaceLabel: release.Namespace,
 				},

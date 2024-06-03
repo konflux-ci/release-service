@@ -227,6 +227,12 @@ func (r *Release) IsReleasing() bool {
 	return r.isPhaseProgressing(releasedConditionType)
 }
 
+// IsReleaseQueued checks whether the Release is queued.
+func (r *Release) IsReleaseQueued() bool {
+	condition := meta.FindStatusCondition(r.Status.Conditions, releasedConditionType.String())
+	return condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == QueuedReason.String()
+}
+
 // IsValid checks whether the Release validation has finished successfully.
 func (r *Release) IsValid() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, validatedConditionType.String())
@@ -388,6 +394,15 @@ func (r *Release) MarkReleaseFailed(message string) {
 	)
 }
 
+// MarkReleaseQueued marks the Release as queued.
+func (r *Release) MarkReleaseQueued(message string) {
+	if !r.IsReleasing() || r.HasReleaseFinished() {
+		return
+	}
+
+	conditions.SetConditionWithMessage(&r.Status.Conditions, releasedConditionType, metav1.ConditionFalse, QueuedReason, message)
+}
+
 // MarkValidated marks the Release as validated.
 func (r *Release) MarkValidated() {
 	if r.IsValid() {
@@ -459,7 +474,8 @@ func (r *Release) hasPhaseFinished(conditionType conditions.ConditionType) bool 
 	case condition.Status == metav1.ConditionTrue:
 		return true
 	default:
-		return condition.Status == metav1.ConditionFalse && condition.Reason != ProgressingReason.String()
+		return condition.Status == metav1.ConditionFalse && condition.Reason != ProgressingReason.String() &&
+			condition.Reason != QueuedReason.String()
 	}
 }
 

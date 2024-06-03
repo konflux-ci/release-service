@@ -342,6 +342,38 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("IsReleaseQueued method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the queued condition is missing", func() {
+			Expect(release.IsReleaseQueued()).To(BeFalse())
+		})
+
+		It("should return false when the released condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionTrue, QueuedReason)
+			Expect(release.IsReleaseQueued()).To(BeFalse())
+		})
+
+		It("should return true when the released condition status is False and the reason is Queued", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionFalse, QueuedReason)
+			Expect(release.IsReleaseQueued()).To(BeTrue())
+		})
+
+		It("should return false when the released condition status is False and the reason is not Queued", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.IsReleaseQueued()).To(BeFalse())
+		})
+
+		It("should return false when the released condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionUnknown, QueuedReason)
+			Expect(release.IsReleaseQueued()).To(BeFalse())
+		})
+	})
+
 	When("IsValid method is called", func() {
 		var release *Release
 
@@ -756,6 +788,42 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("MarkReleaseQueued method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release has not started", func() {
+			release.MarkReleaseQueued("")
+			Expect(release.Status.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release has finished", func() {
+			release.MarkReleasing("")
+			release.MarkReleased()
+			Expect(release.Status.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.CompletionTime = &metav1.Time{}
+			release.MarkReleaseQueued("")
+			Expect(release.Status.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkReleasing("")
+			release.MarkReleaseQueued("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, releasedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(QueuedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+	})
+
 	When("MarkValidated method is called", func() {
 		var release *Release
 
@@ -879,7 +947,12 @@ var _ = Describe("Release type", func() {
 			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeFalse())
 		})
 
-		It("should return true when the condition status is False and the reason is not Progressing", func() {
+		It("should return false when the condition status is False and the reason is Queued", func() {
+			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, QueuedReason)
+			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeFalse())
+		})
+
+		It("should return true when the condition status is False and the reason is not Progressing nor Queued", func() {
 			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, FailedReason)
 			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeTrue())
 		})

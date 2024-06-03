@@ -187,6 +187,22 @@ func (a *adapter) EnsureReleaseIsProcessed() (controller.OperationResult, error)
 		return controller.ContinueProcessing()
 	}
 
+	pipelineRuns, err := a.loader.GetActiveManagedReleasePipelineRuns(a.ctx, a.client, a.release)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
+
+	// Requeue the Release if a PipelineRun is already running for the same Application
+	if len(pipelineRuns.Items) > 0 {
+		patch := client.MergeFrom(a.release.DeepCopy())
+		a.release.MarkReleaseQueued(fmt.Sprintf("%d Release PipelineRun(s) running for the same Application", len(pipelineRuns.Items)))
+		err := a.client.Status().Patch(a.ctx, a.release, patch)
+		if err != nil {
+			return controller.RequeueWithError(err)
+		}
+		return controller.RequeueAfter(time.Minute, nil)
+	}
+
 	pipelineRun, err := a.loader.GetManagedReleasePipelineRun(a.ctx, a.client, a.release)
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
