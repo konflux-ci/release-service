@@ -62,6 +62,9 @@ var (
 	// ManagedPipelineType is the value to be used in the PipelinesTypeLabel for managed Pipelines
 	ManagedPipelineType = "managed"
 
+	// TenantPipelineType is the value to be used in the PipelinesTypeLabel for tenant Pipelines
+	TenantPipelineType = "tenant"
+
 	// PipelinesTypeLabel is the label used to describe the type of pipeline
 	PipelinesTypeLabel = fmt.Sprintf("%s/%s", pipelinesLabelPrefix, "type")
 

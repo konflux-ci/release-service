@@ -141,7 +141,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	When("calling GetManagedReleasePipelineRun", func() {
+	When("calling GetReleasePipelineRun", func() {
 		It("returns the resource and error from the context", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
@@ -150,7 +150,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource:   pipelineRun,
 				},
 			})
-			resource, err := loader.GetManagedReleasePipelineRun(mockContext, nil, nil)
+			resource, err := loader.GetReleasePipelineRun(mockContext, nil, nil)
 			Expect(resource).To(Equal(pipelineRun))
 			Expect(err).To(BeNil())
 		})

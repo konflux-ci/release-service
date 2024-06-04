@@ -163,7 +163,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.Finalizers).To(HaveLen(1))
 
-			result, err = adapter.EnsureReleaseIsProcessed()
+			result, err = adapter.EnsureManagedPipelineIsProcessed()
 			Expect(!result.RequeueRequest && result.CancelRequest).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -177,7 +177,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
-			pipelineRun, err := adapter.loader.GetManagedReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			Expect(pipelineRun).To(Or(BeNil(), HaveField("DeletionTimestamp", Not(BeNil()))))
 			Expect(err).NotTo(HaveOccurred())
 
@@ -306,7 +306,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 	})
 
-	When("EnsureReleaseIsProcessed is called", func() {
+	When("EnsureManagedPipelineIsProcessed is called", func() {
 		var adapter *adapter
 
 		AfterEach(func() {
@@ -322,7 +322,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.release.MarkProcessing("")
 			adapter.release.MarkProcessed()
 
-			result, err := adapter.EnsureReleaseIsProcessed()
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsProcessing()).To(BeFalse())
@@ -346,7 +346,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 			adapter.release.MarkProcessing("")
 
-			result, err := adapter.EnsureReleaseIsProcessed()
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -372,12 +372,13 @@ var _ = Describe("Release adapter", Ordered, func() {
 						EnterpriseContractConfigMap: enterpriseContractConfigMap,
 						EnterpriseContractPolicy:    enterpriseContractPolicy,
 						ReleasePlanAdmission:        releasePlanAdmission,
+						ReleasePlan:                 releasePlan,
 						Snapshot:                    snapshot,
 					},
 				},
 			})
 
-			result, err := adapter.EnsureReleaseIsProcessed()
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsProcessing()).To(BeTrue())
@@ -391,7 +392,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			})
 
-			result, err := adapter.EnsureReleaseIsProcessed()
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).To(HaveOccurred())
 		})
@@ -415,7 +416,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 
 			Expect(adapter.release.Status.Processing.RoleBinding).To(BeEmpty())
-			result, err := adapter.EnsureReleaseIsProcessed()
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -438,7 +439,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, roleBinding)).To(Succeed())
 			// Still need to cleanup the PipelineRun
-			pipelineRun, err := adapter.loader.GetManagedReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
@@ -486,7 +487,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 
 			Expect(adapter.release.Status.Processing.RoleBinding).To(BeEmpty())
-			result, err := adapter.EnsureReleaseIsProcessed()
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
@@ -508,7 +509,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(roleBinding).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			// Still need to cleanup the PipelineRun
-			pipelineRun, err := adapter.loader.GetManagedReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
@@ -532,12 +533,167 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			})
 
-			result, err := adapter.EnsureReleaseIsProcessed()
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsProcessing()).To(BeTrue())
 
-			pipelineRun, err := adapter.loader.GetManagedReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+	})
+
+	When("EnsureTenantPipelineIsProcessed is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+			adapter.releaseServiceConfig = releaseServiceConfig
+		})
+
+		It("should do nothing if the Release is already processed", func() {
+			adapter.release.MarkProcessing("")
+			adapter.release.MarkProcessed()
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsProcessing()).To(BeFalse())
+		})
+
+		It("should continue if the ReleasePlan has no Pipeline set", func() {
+			newReleasePlan := releasePlan.DeepCopy()
+			newReleasePlan.Spec.Pipeline = nil
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						ReleasePlan: newReleasePlan,
+					},
+				},
+			})
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should continue if the PipelineRun exists and the release processing has started", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource: &tektonv1.PipelineRun{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "pipeline-run",
+							Namespace: "default",
+						},
+					},
+				},
+			})
+			adapter.release.MarkProcessing("")
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should register the processing data if the PipelineRun already exists", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource: &tektonv1.PipelineRun{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "pipeline-run",
+							Namespace: "default",
+						},
+					},
+				},
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						ReleasePlan: releasePlan,
+						Snapshot:    snapshot,
+					},
+				},
+			})
+			adapter.release.MarkProcessing("")
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsProcessing()).To(BeTrue())
+		})
+
+		It("should requeue the Release if any of the resources is not found", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Err:        fmt.Errorf("Not Found"),
+					Resource:   nil,
+				},
+			})
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should create a pipelineRun and register the processing data if all the required resources are present", func() {
+			releasePlan := &v1alpha1.ReleasePlan{}
+
+			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
+			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
+				Resolver: "git",
+				Params: []tektonutils.Param{
+					{Name: "url", Value: "my-url"},
+					{Name: "revision", Value: "my-revision"},
+					{Name: "pathInRepo", Value: "my-path"},
+				},
+			}
+			parameterizedPipeline.Params = []tektonutils.Param{
+				{Name: "parameter1", Value: "value1"},
+				{Name: "parameter2", Value: "value2"},
+			}
+			parameterizedPipeline.Timeouts = tektonv1.TimeoutFields{
+				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
+			}
+
+			releasePlan = &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "release-plan",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanSpec{
+					Application:            application.Name,
+					Pipeline:               &parameterizedPipeline,
+					ReleaseGracePeriodDays: 6,
+				},
+			}
+			releasePlan.Kind = "ReleasePlan"
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   releasePlan,
+				},
+				{
+					ContextKey: loader.SnapshotContextKey,
+					Resource:   snapshot,
+				},
+			})
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsProcessing()).To(BeTrue())
+
+			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
@@ -876,6 +1032,132 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 	})
 
+	When("createTenantPipelineRun is called", func() {
+		var (
+			adapter        *adapter
+			pipelineRun    *tektonv1.PipelineRun
+			newReleasePlan *v1alpha1.ReleasePlan
+		)
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+
+			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
+			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
+				Resolver: "git",
+				Params: []tektonutils.Param{
+					{Name: "url", Value: "my-url"},
+					{Name: "revision", Value: "my-revision"},
+					{Name: "pathInRepo", Value: "my-path"},
+				},
+			}
+			parameterizedPipeline.Params = []tektonutils.Param{
+				{Name: "parameter1", Value: "value1"},
+				{Name: "parameter2", Value: "value2"},
+			}
+			parameterizedPipeline.Timeouts = tektonv1.TimeoutFields{
+				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
+			}
+
+			newReleasePlan = &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "release-plan",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanSpec{
+					Application:            application.Name,
+					Pipeline:               &parameterizedPipeline,
+					ReleaseGracePeriodDays: 6,
+				},
+			}
+			newReleasePlan.Kind = "ReleasePlan"
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+			})
+
+			var err error
+			pipelineRun, err = adapter.createTenantPipelineRun(newReleasePlan, snapshot)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns a PipelineRun with the right prefix", func() {
+			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1.PipelineRun{})))
+			Expect(pipelineRun.Name).To(HavePrefix("tenant"))
+		})
+
+		It("has the release reference", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(adapter.release.Kind))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", adapter.release.Namespace, types.Separator, adapter.release.Name))))
+		})
+
+		It("has the releasePlan reference", func() {
+			name := []rune(releasePlan.Kind)
+			name[0] = unicode.ToLower(name[0])
+
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", string(name))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", releasePlan.Namespace, types.Separator, releasePlan.Name))))
+		})
+
+		It("has the snapshot reference", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(snapshot.Kind))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", snapshot.Namespace, types.Separator, snapshot.Name))))
+		})
+
+		It("has owner annotations", func() {
+			Expect(pipelineRun.GetAnnotations()[handler.NamespacedNameAnnotation]).To(ContainSubstring(adapter.release.Name))
+			Expect(pipelineRun.GetAnnotations()[handler.TypeAnnotation]).To(ContainSubstring("Release"))
+		})
+
+		It("has release labels", func() {
+			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.TenantPipelineType))
+			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
+			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
+			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))
+		})
+
+		It("contains a parameter with the taskGitUrl", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
+			var url string
+			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+			for i := range resolverParams {
+				if resolverParams[i].Name == "url" {
+					url = resolverParams[i].Value.StringVal
+				}
+			}
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", url)))
+		})
+
+		It("contains a parameter with the taskGitRevision", func() {
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
+			var revision string
+			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+			for i := range resolverParams {
+				if resolverParams[i].Name == "revision" {
+					revision = resolverParams[i].Value.StringVal
+				}
+			}
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+		})
+
+		It("contains the proper timeout value", func() {
+			Expect(pipelineRun.Spec.Timeouts.Pipeline).To(Equal(newReleasePlan.Spec.Pipeline.Timeouts.Pipeline))
+		})
+	})
+
 	When("createManagedPipelineRun is called", func() {
 		var (
 			adapter     *adapter
@@ -1096,7 +1378,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(adapter.finalizeRelease()).To(Succeed())
-			pipelineRun, err = adapter.loader.GetManagedReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
+			pipelineRun, err = adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pipelineRun).To(BeNil())
 		})
@@ -1479,6 +1761,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Err:        fmt.Errorf("internal error"),
 					Resource: &loader.ProcessingResources{
 						ReleasePlanAdmission: releasePlanAdmission,
+						ReleasePlan:          releasePlan,
 					},
 				},
 			})
@@ -1594,6 +1877,94 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result := adapter.validatePipelineRef()
 			Expect(result.Valid).To(BeTrue())
 			Expect(result.Err).To(BeNil())
+		})
+	})
+
+	When("validateSinglePipeline is called", func() {
+		var adapter *adapter
+		var parameterizedPipeline *tektonutils.ParameterizedPipeline
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+
+			adapter = createReleaseAndAdapter()
+			releaseServiceConfig.Spec = v1alpha1.ReleaseServiceConfigSpec{}
+			adapter.releaseServiceConfig = releaseServiceConfig
+			adapter.release.MarkReleasing("")
+
+			parameterizedPipeline = &tektonutils.ParameterizedPipeline{}
+			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
+				Resolver: "git",
+				Params: []tektonutils.Param{
+					{Name: "url", Value: "my-url"},
+					{Name: "revision", Value: "my-revision"},
+					{Name: "pathInRepo", Value: "my-path"},
+				},
+			}
+			parameterizedPipeline.Params = []tektonutils.Param{
+				{Name: "parameter1", Value: "value1"},
+				{Name: "parameter2", Value: "value2"},
+			}
+			parameterizedPipeline.Timeouts = tektonv1.TimeoutFields{
+				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
+			}
+		})
+
+		It("should return false if ReleasePlanAdmission and ReleasePlan has Pipeline Set", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource: &v1alpha1.ReleasePlanAdmission{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-plan-admission",
+							Namespace: "default",
+							Labels: map[string]string{
+								metadata.AutoReleaseLabel: "true",
+							},
+						},
+						Spec: v1alpha1.ReleasePlanAdmissionSpec{
+							Applications: []string{application.Name},
+							Origin:       "default",
+							Pipeline: &tektonutils.Pipeline{
+								PipelineRef: tektonutils.PipelineRef{
+									Resolver: "cluster",
+									Params: []tektonutils.Param{
+										{Name: "name", Value: "release-pipeline"},
+										{Name: "namespace", Value: "default"},
+										{Name: "kind", Value: "pipeline"},
+									},
+								},
+							},
+							Policy: enterpriseContractPolicy.Name,
+						},
+					},
+				},
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource: &v1alpha1.ReleasePlan{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-plan",
+							Namespace: "default",
+						},
+						Spec: v1alpha1.ReleasePlanSpec{
+							Application:            application.Name,
+							Pipeline:               parameterizedPipeline,
+							ReleaseGracePeriodDays: 6,
+							Target:                 "default", // the target should cause an error
+						},
+					},
+				},
+			})
+
+			adapter.releaseServiceConfig.Spec.Debug = false
+
+			result := adapter.validateSinglePipeline()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
 		})
 	})
 
