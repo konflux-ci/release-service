@@ -126,6 +126,21 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
+	When("calling GetPreviousRelease", func() {
+		It("returns the resource and error from the context", func() {
+			previousRelease := &v1alpha1.Release{}
+			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: PreviousReleaseContextKey,
+					Resource:   previousRelease,
+				},
+			})
+			resource, err := loader.GetPreviousRelease(mockContext, nil, nil)
+			Expect(resource).To(Equal(previousRelease))
+			Expect(err).To(BeNil())
+		})
+	})
+
 	When("calling GetRoleBindingFromReleaseStatus", func() {
 		It("returns the resource and error from the context", func() {
 			roleBinding := &rbac.RoleBinding{}
