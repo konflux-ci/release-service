@@ -103,7 +103,7 @@ spec:
                     - resolver
                     type: object
                   serviceAccountName:
-                    description: ServiceAccount is the ServiceAccount to use during
+                    description: ServiceAccountName is the ServiceAccount to use during
                       the execution of the Pipeline
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string

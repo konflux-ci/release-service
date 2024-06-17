@@ -204,7 +204,7 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 			{Name: "parameter1", Value: "value1"},
 			{Name: "parameter2", Value: "value2"},
 		}
-		parameterizedPipeline.ServiceAccount = "test-account"
+		parameterizedPipeline.ServiceAccountName = "test-account"
 
 		releasePlan := &v1alpha1.ReleasePlan{
 			ObjectMeta: metav1.ObjectMeta{
