@@ -2078,7 +2078,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 							{Name: "pathInRepo", Value: "my-path"},
 						},
 					},
-					ServiceAccount: "service-account",
+					ServiceAccountName: "service-account",
 					Timeouts: tektonv1.TimeoutFields{
 						Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
 					},

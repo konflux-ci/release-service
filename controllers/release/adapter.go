@@ -251,7 +251,7 @@ func (a *adapter) EnsureManagedPipelineIsProcessed() (controller.OperationResult
 
 		if pipelineRun == nil {
 			// Only create a RoleBinding if a ServiceAccount is specified
-			if roleBinding == nil && resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccount != "" {
+			if roleBinding == nil && resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccountName != "" {
 				// This string should probably be a constant somewhere
 				roleBinding, err = a.createRoleBindingForClusterRole("release-pipeline-resource-role", resources.ReleasePlanAdmission)
 				if err != nil {
@@ -399,7 +399,7 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithOwner(a.release).
 		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_bundle"}).
 		WithPipelineRef(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
-		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccount).
+		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccountName).
 		WithTimeouts(&resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
 		WithWorkspaceFromVolumeTemplate(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
@@ -438,7 +438,7 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 		WithParams(releasePlan.Spec.Pipeline.GetTektonParams()...).
 		WithOwner(a.release).
 		WithPipelineRef(releasePlan.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
-		WithServiceAccount(releasePlan.Spec.Pipeline.ServiceAccount).
+		WithServiceAccount(releasePlan.Spec.Pipeline.ServiceAccountName).
 		WithTimeouts(&releasePlan.Spec.Pipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
 		WithWorkspaceFromVolumeTemplate(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
@@ -475,7 +475,7 @@ func (a *adapter) createRoleBindingForClusterRole(clusterRole string, releasePla
 		Subjects: []rbac.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      releasePlanAdmission.Spec.Pipeline.ServiceAccount,
+				Name:      releasePlanAdmission.Spec.Pipeline.ServiceAccountName,
 				Namespace: releasePlanAdmission.Namespace,
 			},
 		},

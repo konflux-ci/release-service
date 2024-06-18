@@ -43,10 +43,10 @@ type Pipeline struct {
 	// PipelineRef is the reference to the Pipeline
 	PipelineRef PipelineRef `json:"pipelineRef"`
 
-	// ServiceAccount is the ServiceAccount to use during the execution of the Pipeline
+	// ServiceAccountName is the ServiceAccount to use during the execution of the Pipeline
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
-	ServiceAccount string `json:"serviceAccountName,omitempty"`
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// Timeouts defines the different Timeouts to use in the PipelineRun execution
 	// +optional
