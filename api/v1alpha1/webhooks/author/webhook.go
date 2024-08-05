@@ -163,6 +163,7 @@ func (w *Webhook) setAuthorLabel(username string, obj client.Object) {
 // sanitizeLabelValue takes a username and returns it in a form appropriate to use as a label value.
 func (w *Webhook) sanitizeLabelValue(username string) string {
 	author := strings.Replace(username, ":", "_", -1) // Colons disallowed in labels
+	author = strings.Replace(author, "@", ".", 1)     // At sign is disallowed. Support usernames that uses email address.
 
 	if len(author) > metadata.MaxLabelLength {
 		author = string(author)[0:metadata.MaxLabelLength]
