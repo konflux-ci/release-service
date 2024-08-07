@@ -17,6 +17,8 @@ import (
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -29,6 +31,7 @@ type ObjectLoader interface {
 	GetEnterpriseContractPolicy(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*ecapiv1alpha1.EnterpriseContractPolicy, error)
 	GetMatchingReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error)
 	GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error)
+	GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
 	GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error)
 	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error)
@@ -168,6 +171,35 @@ func (l *loader) GetMatchingReleasePlans(ctx context.Context, cli client.Client,
 	}
 
 	return releasePlans, nil
+}
+
+// GetPreviousRelease returns the Release that was created just before the given Release.
+// If no previous Release is found, it returns a NotFound error.
+func (l *loader) GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error) {
+	releases := &v1alpha1.ReleaseList{}
+	err := cli.List(ctx, releases, client.InNamespace(release.Namespace))
+	if err != nil {
+		return nil, err
+	}
+
+	var previousRelease *v1alpha1.Release
+	releaseTime := release.CreationTimestamp.Time
+
+	for i, currentRelease := range releases.Items {
+		if currentRelease.Name != release.Name &&
+			currentRelease.CreationTimestamp.Time.Before(releaseTime) &&
+			currentRelease.Spec.ReleasePlan == release.Spec.ReleasePlan { // Ensure the same ReleasePlan
+			if previousRelease == nil || currentRelease.CreationTimestamp.Time.After(previousRelease.CreationTimestamp.Time) {
+				previousRelease = &releases.Items[i]
+			}
+		}
+	}
+
+	if previousRelease == nil {
+		return nil, errors.NewNotFound(schema.GroupResource{Group: "release.konflux-ci", Resource: "Release"}, release.Name)
+	}
+
+	return previousRelease, nil
 }
 
 // GetRelease returns the Release with the given name and namespace. If the Release is not found or the Get operation
