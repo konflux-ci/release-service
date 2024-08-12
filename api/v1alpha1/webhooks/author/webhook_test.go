@@ -526,5 +526,10 @@ var _ = Describe("Author webhook", Ordered, func() {
 			str := webhook.sanitizeLabelValue("abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz_1234567890")
 			Expect(str).To(Equal("abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz_123456789"))
 		})
+
+		It("should convert @ to .", func() {
+			str := webhook.sanitizeLabelValue("user@konflux-ci.dev")
+			Expect(str).To(Equal("user.konflux-ci.dev"))
+		})
 	})
 })
