@@ -13,3 +13,6 @@ line-length=88
 
 [contrib-title-conventional-commits]
 
+[ignore-by-author-name]
+regex=(.*)\[bot\](.*)
+ignore=T1,B1
