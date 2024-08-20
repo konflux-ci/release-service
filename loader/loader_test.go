@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 
@@ -20,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Release Adapter", Ordered, func() {
@@ -235,6 +237,83 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				}
 				return returnedObject != &v1alpha1.ReleasePlanList{} && err == nil && contains == false
 			})
+		})
+	})
+
+	When("calling GetPreviousRelease", func() {
+		var newerRelease, mostRecentRelease *v1alpha1.Release
+
+		AfterEach(func() {
+			k8sClient.Delete(ctx, newerRelease)
+			k8sClient.Delete(ctx, mostRecentRelease)
+
+			// Wait until the releases are gone
+			Eventually(func() bool {
+				releases := &v1alpha1.ReleaseList{}
+				err := k8sClient.List(ctx, releases,
+					client.InNamespace(release.Namespace),
+					client.MatchingFields{"spec.releasePlan": release.Spec.ReleasePlan})
+				return err == nil && len(releases.Items) == 1
+			}).Should(BeTrue())
+		})
+
+		It("returns a NotFound error if no previous release is found", func() {
+			returnedObject, err := loader.GetPreviousRelease(ctx, k8sClient, release)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(returnedObject).To(BeNil())
+		})
+
+		It("returns the previous release if found", func() {
+			// We need a new release with a more recent creation timestamp
+			time.Sleep(1 * time.Second)
+
+			newerRelease = release.DeepCopy()
+			newerRelease.Name = "newer-release"
+			newerRelease.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, newerRelease)).To(Succeed())
+
+			// Wait until the new release is cached
+			Eventually(func() error {
+				return k8sClient.Get(ctx, client.ObjectKey{Name: newerRelease.Name, Namespace: newerRelease.Namespace}, newerRelease)
+			}).Should(Succeed())
+
+			returnedObject, err := loader.GetPreviousRelease(ctx, k8sClient, newerRelease)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(returnedObject).ToNot(BeNil())
+			Expect(returnedObject.Name).To(Equal(release.Name))
+		})
+
+		It("returns the previous release if multiple releases are found", func() {
+			// We need two new releases with a more recent creation timestamp
+			time.Sleep(1 * time.Second)
+
+			newerRelease = release.DeepCopy()
+			newerRelease.Name = "newer-release"
+			newerRelease.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, newerRelease)).To(Succeed())
+
+			// Wait until the new release is cached
+			Eventually(func() error {
+				return k8sClient.Get(ctx, client.ObjectKey{Name: newerRelease.Name, Namespace: newerRelease.Namespace}, newerRelease)
+			}).Should(Succeed())
+
+			time.Sleep(1 * time.Second)
+
+			mostRecentRelease = release.DeepCopy()
+			mostRecentRelease.Name = "most-recent-release"
+			mostRecentRelease.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, mostRecentRelease)).To(Succeed())
+
+			// Wait until the new release is cached
+			Eventually(func() error {
+				return k8sClient.Get(ctx, client.ObjectKey{Name: mostRecentRelease.Name, Namespace: mostRecentRelease.Namespace}, mostRecentRelease)
+			}).Should(Succeed())
+
+			returnedObject, err := loader.GetPreviousRelease(ctx, k8sClient, mostRecentRelease)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(returnedObject).ToNot(BeNil())
+			Expect(returnedObject.Name).To(Equal(newerRelease.Name))
 		})
 	})
 

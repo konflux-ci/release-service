@@ -111,6 +111,21 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
+	When("calling GetPreviousRelease", func() {
+		It("returns the resource and error from the context", func() {
+			release := &v1alpha1.Release{}
+			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: PreviousReleaseContextKey,
+					Resource:   release,
+				},
+			})
+			resource, err := loader.GetPreviousRelease(mockContext, nil, release)
+			Expect(resource).To(Equal(release))
+			Expect(err).To(BeNil())
+		})
+	})
+
 	When("calling GetRelease", func() {
 		It("returns the resource and error from the context", func() {
 			release := &v1alpha1.Release{}

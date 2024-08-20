@@ -110,6 +110,7 @@ var _ = BeforeSuite(func() {
 		defer GinkgoRecover()
 
 		Expect(cache.SetupComponentCache(mgr)).To(Succeed())
+		Expect(cache.SetupReleaseCache(mgr)).To(Succeed())
 		Expect(cache.SetupReleasePlanCache(mgr)).To(Succeed())
 		Expect(cache.SetupReleasePlanAdmissionCache(mgr)).To(Succeed())
 

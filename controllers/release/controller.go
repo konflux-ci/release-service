@@ -113,6 +113,9 @@ func (c *Controller) SetupCache(mgr ctrl.Manager) error {
 	if err := cache.SetupComponentCache(mgr); err != nil {
 		return err
 	}
+	if err := cache.SetupReleaseCache(mgr); err != nil {
+		return err
+	}
 
 	// NOTE: Both the release and releaseplan controller need this ReleasePlanAdmission cache. However, it only needs to be added
 	// once to the manager, so only one controller should add it. If it is removed here, it should be added to the ReleasePlan controller.
