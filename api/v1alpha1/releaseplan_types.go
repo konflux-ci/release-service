@@ -35,6 +35,10 @@ type ReleasePlanSpec struct {
 	// +required
 	Application string `json:"application"`
 
+	// Collectors is a list of data collectors to be executed as part of the release process
+	// +optional
+	Collectors []Collector `json:"collectors,omitempty"`
+
 	// Data is an unstructured key used for providing data for the managed Release Pipeline
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
