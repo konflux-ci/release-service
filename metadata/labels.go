@@ -25,6 +25,8 @@ const (
 
 	// MaxLabelLength is the maximum allowed characters in a label value
 	MaxLabelLength = 63
+
+	ServiceName = "release"
 )
 
 // Labels used by the release api package
@@ -40,6 +42,9 @@ var (
 
 	// AutomatedLabel is the label name for marking a Release as automated
 	AutomatedLabel = fmt.Sprintf("release.%s/automated", rhtapDomain)
+
+	// ServiceNameLabel is the label used to specify the service associated with an object
+	ServiceNameLabel = fmt.Sprintf("%s/%s", rhtapDomain, "service")
 
 	// ReleasePlanAdmissionLabel is the ReleasePlan label for the name of the ReleasePlanAdmission to use
 	ReleasePlanAdmissionLabel = fmt.Sprintf("release.%s/releasePlanAdmission", rhtapDomain)

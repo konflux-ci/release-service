@@ -19,7 +19,11 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"github.com/konflux-ci/release-service/metadata"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/rest"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -41,6 +45,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -92,6 +97,15 @@ func main() {
 		LeaderElectionID:       "f3d4c01a.redhat.com",
 		Metrics: server.Options{
 			BindAddress: metricsAddr,
+		},
+		NewCache: func(config *rest.Config, opts cache.Options) (cache.Cache, error) {
+			opts.ByObject = map[client.Object]cache.ByObject{
+				&tektonv1.PipelineRun{}: {
+					Label: labels.SelectorFromSet(labels.Set{metadata.ServiceNameLabel: metadata.ServiceName}),
+				},
+			}
+
+			return cache.New(config, opts)
 		},
 		WebhookServer: crwebhook.NewServer(crwebhook.Options{
 			Port: 9443,
