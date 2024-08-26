@@ -21,6 +21,7 @@ const (
 	EnterpriseContractPolicyContextKey
 	MatchedReleasePlansContextKey
 	MatchedReleasePlanAdmissionContextKey
+	PreviousReleaseContextKey
 	ProcessingResourcesContextKey
 	ReleaseContextKey
 	ReleasePipelineRunContextKey
@@ -95,6 +96,14 @@ func (l *mockLoader) GetMatchingReleasePlans(ctx context.Context, cli client.Cli
 		return l.loader.GetMatchingReleasePlans(ctx, cli, releasePlanAdmission)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, MatchedReleasePlansContextKey, &v1alpha1.ReleasePlanList{})
+}
+
+// GetPreviousRelease returns the resource and error passed as values of the context.
+func (l *mockLoader) GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error) {
+	if ctx.Value(PreviousReleaseContextKey) == nil {
+		return l.loader.GetPreviousRelease(ctx, cli, release)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, PreviousReleaseContextKey, &v1alpha1.Release{})
 }
 
 // GetRelease returns the resource and error passed as values of the context.

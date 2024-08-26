@@ -35,6 +35,16 @@ func SetupComponentCache(mgr ctrl.Manager) error {
 		"spec.application", componentIndexFunc)
 }
 
+// SetupReleaseCache adds a new index field to be able to search Releases by ReleasePlan name.
+func SetupReleaseCache(mgr ctrl.Manager) error {
+	releaseIndexFunc := func(obj client.Object) []string {
+		return []string{obj.(*v1alpha1.Release).Spec.ReleasePlan}
+	}
+
+	return mgr.GetCache().IndexField(context.Background(), &v1alpha1.Release{},
+		"spec.releasePlan", releaseIndexFunc)
+}
+
 // SetupReleasePlanCache adds a new index field to be able to search ReleasePlans by target.
 func SetupReleasePlanCache(mgr ctrl.Manager) error {
 	releasePlanIndexFunc := func(obj client.Object) []string {
