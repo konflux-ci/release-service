@@ -54,8 +54,8 @@ type ReleasePlanAdmissionSpec struct {
 	Origin string `json:"origin"`
 
 	// Pipeline contains all the information about the managed Pipeline
-	// +required
-	Pipeline *tektonutils.Pipeline `json:"pipeline"`
+	// +optional
+	Pipeline *tektonutils.Pipeline `json:"pipeline,omitempty"`
 
 	// Policy to validate before releasing an artifact
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$

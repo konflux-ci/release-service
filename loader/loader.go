@@ -3,10 +3,11 @@ package loader
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"k8s.io/utils/strings/slices"
 
@@ -34,7 +35,7 @@ type ObjectLoader interface {
 	GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
 	GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error)
-	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error)
+	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType string) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
 	GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error)
 	GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error)
@@ -117,6 +118,10 @@ func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client
 	if designatedReleasePlanAdmissionName != "" {
 		releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{}
 		return releasePlanAdmission, toolkit.GetObject(designatedReleasePlanAdmissionName, releasePlan.Spec.Target, cli, ctx, releasePlanAdmission)
+	}
+
+	if releasePlan.Spec.Target == "" {
+		return nil, fmt.Errorf("releasePlan has no target, so no ReleasePlanAdmissions can be found")
 	}
 
 	releasePlanAdmissions := &v1alpha1.ReleasePlanAdmissionList{}
@@ -220,10 +225,10 @@ func (l *loader) GetRelease(ctx context.Context, cli client.Client, name, namesp
 // by the namespaced name stored in the Release's status.
 func (l *loader) GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
 	roleBinding := &rbac.RoleBinding{}
-	roleBindingNamespacedName := strings.Split(release.Status.Processing.RoleBinding, string(types.Separator))
+	roleBindingNamespacedName := strings.Split(release.Status.ManagedProcessing.RoleBinding, string(types.Separator))
 	if len(roleBindingNamespacedName) != 2 {
 		return nil, fmt.Errorf("release doesn't contain a valid reference to a RoleBinding ('%s')",
-			release.Status.Processing.RoleBinding)
+			release.Status.ManagedProcessing.RoleBinding)
 	}
 
 	err := cli.Get(ctx, types.NamespacedName{
@@ -237,15 +242,20 @@ func (l *loader) GetRoleBindingFromReleaseStatus(ctx context.Context, cli client
 	return roleBinding, nil
 }
 
-// GetReleasePipelineRun returns the Release PipelineRun referenced by the given Release or nil if it's not found. In the case
-// the List operation fails, an error will be returned.
-func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error) {
+// GetReleasePipelineRun returns the Release PipelineRun of the specified type referenced by the given Release
+// or nil if it's not found. In the case the List operation fails, an error will be returned.
+func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType string) (*tektonv1.PipelineRun, error) {
+	if pipelineType != metadata.ManagedPipelineType && pipelineType != metadata.TenantPipelineType {
+		return nil, fmt.Errorf("cannot fetch Release PipelineRun with invalid type %s", pipelineType)
+	}
+
 	pipelineRuns := &tektonv1.PipelineRunList{}
 	err := cli.List(ctx, pipelineRuns,
 		client.Limit(1),
 		client.MatchingLabels{
 			metadata.ReleaseNameLabel:      release.Name,
 			metadata.ReleaseNamespaceLabel: release.Namespace,
+			metadata.PipelinesTypeLabel:    pipelineType,
 		})
 	if err == nil && len(pipelineRuns.Items) > 0 {
 		return &pipelineRuns.Items[0], nil

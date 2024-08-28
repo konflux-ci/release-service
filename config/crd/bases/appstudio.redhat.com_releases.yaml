@@ -180,23 +180,35 @@ spec:
                 description: ExpirationTime is the time when a Release can be purged
                 format: date-time
                 type: string
-              postActionsExecution:
-                description: PostActionsExecution contains information about the post-actions
-                  execution
+              managedProcessing:
+                description: ManagedProcessing contains information about the release
+                  managed processing
                 properties:
                   completionTime:
-                    description: CompletionTime is the time when the Release post-actions
-                      execution was completed
+                    description: CompletionTime is the time when the Release processing
+                      was completed
                     format: date-time
                     type: string
+                  pipelineRun:
+                    description: PipelineRun contains the namespaced name of the managed
+                      Release PipelineRun executed as part of this release
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  roleBinding:
+                    description: |-
+                      RoleBinding contains the namespaced name of the roleBinding created for the managed Release PipelineRun
+                      executed as part of this release
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
                   startTime:
-                    description: StartTime is the time when the Release post-actions
-                      execution started
+                    description: StartTime is the time when the Release processing
+                      started
                     format: date-time
                     type: string
                 type: object
-              processing:
-                description: Processing contains information about the release processing
+              postActionsExecution:
+                description: PostActionsExecution contains information about the post-actions
+                  execution
                 properties:
                   completionTime:
                     description: CompletionTime is the time when the Release processing
@@ -229,6 +241,32 @@ spec:
                   released to
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
+              tenantProcessing:
+                description: TenantProcessing contains information about the release
+                  tenant processing
+                properties:
+                  completionTime:
+                    description: CompletionTime is the time when the Release processing
+                      was completed
+                    format: date-time
+                    type: string
+                  pipelineRun:
+                    description: PipelineRun contains the namespaced name of the managed
+                      Release PipelineRun executed as part of this release
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  roleBinding:
+                    description: |-
+                      RoleBinding contains the namespaced name of the roleBinding created for the managed Release PipelineRun
+                      executed as part of this release
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  startTime:
+                    description: StartTime is the time when the Release processing
+                      started
+                    format: date-time
+                    type: string
+                type: object
               validation:
                 description: Validation contains information about the release validation
                 properties:
