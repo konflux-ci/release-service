@@ -582,21 +582,6 @@ func (a *adapter) registerProcessingStatus(pipelineRun *tektonv1.PipelineRun) er
 	return nil
 }
 
-// syncResources sync all the resources needed to trigger the deployment of the Release being processed.
-func (a *adapter) syncResources() error {
-	releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
-	if err != nil {
-		return err
-	}
-
-	snapshot, err := a.loader.GetSnapshot(a.ctx, a.client, a.release)
-	if err != nil {
-		return err
-	}
-
-	return a.syncer.SyncSnapshot(snapshot, releasePlanAdmission.Namespace)
-}
-
 // validateAuthor will ensure that a valid author exists for the Release and add it to its status. If the Release
 // has the automated label but doesn't have automated set in its status, this function will return an error so the
 // operation knows to requeue the Release.

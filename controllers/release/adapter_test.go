@@ -1498,54 +1498,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 	})
 
-	When("calling syncResources", func() {
-		var adapter *adapter
-
-		AfterEach(func() {
-			_ = adapter.client.Delete(ctx, adapter.release)
-		})
-
-		BeforeEach(func() {
-			adapter = createReleaseAndAdapter()
-		})
-
-		It("fails if there's no active ReleasePlanAdmission", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Err:        fmt.Errorf("not found"),
-				},
-			})
-
-			Expect(adapter.syncResources()).NotTo(Succeed())
-		})
-
-		It("fails if there's no Snapshot", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-				},
-				{
-					ContextKey: loader.SnapshotContextKey,
-					Err:        fmt.Errorf("not found"),
-				},
-			})
-
-			Expect(adapter.syncResources()).NotTo(Succeed())
-		})
-
-		It("should sync resources properly", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Resource:   releasePlanAdmission,
-				},
-			})
-
-			Expect(adapter.syncResources()).To(Succeed())
-		})
-	})
-
 	When("calling validateAuthor", func() {
 		var adapter *adapter
 		var conditionMsg string
