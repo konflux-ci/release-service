@@ -55,6 +55,43 @@ spec:
                 items:
                   type: string
                 type: array
+              collectors:
+                description: Collectors is a list of data collectors to be executed
+                  as part of the release process
+                items:
+                  description: Collector represents a reference to a Collector to
+                    be executed as part of the release workflow.
+                  properties:
+                    name:
+                      description: Name of the collector
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    params:
+                      description: Params is a slice of parameters for a given collector
+                      items:
+                        description: Param represents a parameter for a collector
+                        properties:
+                          name:
+                            description: Name is the name of the parameter
+                            type: string
+                          value:
+                            description: Value is the value of the parameter
+                            type: string
+                        required:
+                        - name
+                        - value
+                        type: object
+                      type: array
+                    type:
+                      description: Type is the type of collector to be used
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                  required:
+                  - name
+                  - params
+                  - type
+                  type: object
+                type: array
               data:
                 description: Data is an unstructured key used for providing data for
                   the managed Release Pipeline
