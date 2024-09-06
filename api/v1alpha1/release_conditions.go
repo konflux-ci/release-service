@@ -3,9 +3,6 @@ package v1alpha1
 import "github.com/konflux-ci/operator-toolkit/conditions"
 
 const (
-	// deployedConditionType is the type used to track the status of a Release deployment
-	deployedConditionType conditions.ConditionType = "Deployed"
-
 	// postActionsExecutedConditionType is the type used to track the status of Release post-actions
 	postActionsExecutedConditionType conditions.ConditionType = "PostActionsExecuted"
 

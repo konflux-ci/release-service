@@ -121,7 +121,7 @@ var _ = Describe("Release type", func() {
 		})
 
 		It("should return false when the released condition status is Unknown", func() {
-			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionUnknown, ProgressingReason)
 			Expect(release.HasReleaseFinished()).To(BeFalse())
 		})
 	})
@@ -866,27 +866,27 @@ var _ = Describe("Release type", func() {
 		})
 
 		It("should return false when the condition is missing", func() {
-			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeFalse())
+			Expect(release.hasPhaseFinished(validatedConditionType)).To(BeFalse())
 		})
 
 		It("should return true when the condition status is True", func() {
-			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeTrue())
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.hasPhaseFinished(validatedConditionType)).To(BeTrue())
 		})
 
 		It("should return false when the condition status is False and the reason is Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, ProgressingReason)
-			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeFalse())
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.hasPhaseFinished(validatedConditionType)).To(BeFalse())
 		})
 
 		It("should return true when the condition status is False and the reason is not Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, FailedReason)
-			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeTrue())
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.hasPhaseFinished(validatedConditionType)).To(BeTrue())
 		})
 
 		It("should return false when the condition status is Unknown", func() {
-			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionUnknown, ProgressingReason)
-			Expect(release.hasPhaseFinished(deployedConditionType)).To(BeFalse())
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.hasPhaseFinished(validatedConditionType)).To(BeFalse())
 		})
 	})
 
@@ -898,27 +898,27 @@ var _ = Describe("Release type", func() {
 		})
 
 		It("should return false when the condition is missing", func() {
-			Expect(release.isPhaseProgressing(deployedConditionType)).To(BeFalse())
+			Expect(release.isPhaseProgressing(validatedConditionType)).To(BeFalse())
 		})
 
 		It("should return false when the condition status is True", func() {
-			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.isPhaseProgressing(deployedConditionType)).To(BeFalse())
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.isPhaseProgressing(validatedConditionType)).To(BeFalse())
 		})
 
 		It("should return true when the condition status is False and the reason is Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, ProgressingReason)
-			Expect(release.isPhaseProgressing(deployedConditionType)).To(BeTrue())
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.isPhaseProgressing(validatedConditionType)).To(BeTrue())
 		})
 
 		It("should return false when the condition status is False and the reason is not Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionFalse, FailedReason)
-			Expect(release.isPhaseProgressing(deployedConditionType)).To(BeFalse())
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.isPhaseProgressing(validatedConditionType)).To(BeFalse())
 		})
 
 		It("should return false when the condition status is Unknown", func() {
-			conditions.SetCondition(&release.Status.Conditions, deployedConditionType, metav1.ConditionUnknown, ProgressingReason)
-			Expect(release.isPhaseProgressing(deployedConditionType)).To(BeFalse())
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.isPhaseProgressing(validatedConditionType)).To(BeFalse())
 		})
 	})
 
