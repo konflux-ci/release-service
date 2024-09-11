@@ -68,6 +68,7 @@ func newAdapter(ctx context.Context, client client.Client, release *v1alpha1.Rel
 
 	releaseAdapter.validations = []controller.ValidationFunction{
 		releaseAdapter.validateProcessingResources,
+		releaseAdapter.validateApplication,
 		releaseAdapter.validateAuthor,
 		releaseAdapter.validatePipelineRef,
 		releaseAdapter.validateSinglePipeline,
@@ -580,6 +581,34 @@ func (a *adapter) registerProcessingStatus(pipelineRun *tektonv1.PipelineRun) er
 	}
 
 	return nil
+}
+
+// validateApplication will ensure that the same Application is used in both, the Snapshot and the ReleasePlan. If the
+// resources reference different Applications, an error will be returned.
+func (a *adapter) validateApplication() *controller.ValidationResult {
+	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			a.release.MarkValidationFailed(err.Error())
+			return &controller.ValidationResult{Valid: false}
+		}
+		return &controller.ValidationResult{Err: err}
+	}
+
+	snapshot, err := a.loader.GetSnapshot(a.ctx, a.client, a.release)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			a.release.MarkValidationFailed(err.Error())
+			return &controller.ValidationResult{Valid: false}
+		}
+		return &controller.ValidationResult{Err: err}
+	}
+
+	if releasePlan.Spec.Application != snapshot.Spec.Application {
+		return &controller.ValidationResult{Err: fmt.Errorf("different Application referenced in ReleasePlan and Snapshot")}
+	}
+
+	return &controller.ValidationResult{Valid: true}
 }
 
 // validateAuthor will ensure that a valid author exists for the Release and add it to its status. If the Release
