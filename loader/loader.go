@@ -245,7 +245,7 @@ func (l *loader) GetRoleBindingFromReleaseStatus(ctx context.Context, cli client
 // GetReleasePipelineRun returns the Release PipelineRun of the specified type referenced by the given Release
 // or nil if it's not found. In the case the List operation fails, an error will be returned.
 func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType string) (*tektonv1.PipelineRun, error) {
-	if pipelineType != metadata.ManagedPipelineType && pipelineType != metadata.TenantPipelineType {
+	if pipelineType != metadata.ManagedPipelineType && pipelineType != metadata.TenantPipelineType && pipelineType != metadata.FinalPipelineType {
 		return nil, fmt.Errorf("cannot fetch Release PipelineRun with invalid type %s", pipelineType)
 	}
 

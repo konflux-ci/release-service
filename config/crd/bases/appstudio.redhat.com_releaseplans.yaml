@@ -98,9 +98,9 @@ spec:
                   the managed Release Pipeline
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-              pipeline:
-                description: Pipeline contains all the information about the tenant
-                  Pipeline
+              finalPipeline:
+                description: FinalPipeline contains all the information about the
+                  final Pipeline
                 properties:
                   params:
                     description: Params is a slice of parameters for a given resolver
@@ -183,6 +183,81 @@ spec:
                 description: Target references where to send the release requests
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
+              tenantPipeline:
+                description: TenantPipeline contains all the information about the
+                  tenant Pipeline
+                properties:
+                  params:
+                    description: Params is a slice of parameters for a given resolver
+                    items:
+                      description: Param defines the parameters for a given resolver
+                        in PipelineRef
+                      properties:
+                        name:
+                          description: Name is the name of the parameter
+                          type: string
+                        value:
+                          description: Value is the value of the parameter
+                          type: string
+                      required:
+                      - name
+                      - value
+                      type: object
+                    type: array
+                  pipelineRef:
+                    description: PipelineRef is the reference to the Pipeline
+                    properties:
+                      params:
+                        description: Params is a slice of parameters for a given resolver
+                        items:
+                          description: Param defines the parameters for a given resolver
+                            in PipelineRef
+                          properties:
+                            name:
+                              description: Name is the name of the parameter
+                              type: string
+                            value:
+                              description: Value is the value of the parameter
+                              type: string
+                          required:
+                          - name
+                          - value
+                          type: object
+                        type: array
+                      resolver:
+                        description: Resolver is the name of a Tekton resolver to
+                          be used (e.g. git)
+                        type: string
+                    required:
+                    - params
+                    - resolver
+                    type: object
+                  serviceAccountName:
+                    description: ServiceAccountName is the ServiceAccount to use during
+                      the execution of the Pipeline
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  timeouts:
+                    description: Timeouts defines the different Timeouts to use in
+                      the PipelineRun execution
+                    properties:
+                      finally:
+                        description: Finally sets the maximum allowed duration of
+                          this pipeline's finally
+                        type: string
+                      pipeline:
+                        description: Pipeline sets the maximum allowed duration for
+                          execution of the entire pipeline. The sum of individual
+                          timeouts for tasks and finally must not exceed this value.
+                        type: string
+                      tasks:
+                        description: Tasks sets the maximum allowed duration of this
+                          pipeline's tasks
+                        type: string
+                    type: object
+                required:
+                - pipelineRef
+                type: object
             required:
             - application
             type: object

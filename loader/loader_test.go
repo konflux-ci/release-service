@@ -34,6 +34,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		component                   *applicationapiv1alpha1.Component
 		enterpriseContractConfigMap *corev1.ConfigMap
 		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
+		finalPipelineRun            *tektonv1.PipelineRun
 		managedPipelineRun          *tektonv1.PipelineRun
 		tenantPipelineRun           *tektonv1.PipelineRun
 		release                     *v1alpha1.Release
@@ -366,6 +367,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("calling GetReleasePipelineRun", func() {
+
+		It("returns a Final PipelineRun if the labels match with the release data", func() {
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.FinalPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
+			Expect(returnedObject.Name).To(Equal(finalPipelineRun.Name))
+		})
+
 		It("returns a Managed PipelineRun if the labels match with the release data", func() {
 			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.ManagedPipelineType)
 			Expect(err).NotTo(HaveOccurred())
@@ -569,6 +578,19 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, release)).To(Succeed())
 
+		finalPipelineRun = &tektonv1.PipelineRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					metadata.ReleaseNameLabel:      release.Name,
+					metadata.ReleaseNamespaceLabel: release.Namespace,
+					metadata.PipelinesTypeLabel:    metadata.FinalPipelineType,
+				},
+				Name:      "final-pipeline-run",
+				Namespace: "default",
+			},
+		}
+		Expect(k8sClient.Create(ctx, finalPipelineRun)).To(Succeed())
+
 		managedPipelineRun = &tektonv1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
@@ -600,6 +622,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		Expect(k8sClient.Delete(ctx, application)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, component)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, enterpriseContractPolicy)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, finalPipelineRun)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, managedPipelineRun)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, tenantPipelineRun)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, release)).To(Succeed())

@@ -30,35 +30,31 @@ import (
 
 var _ = Describe("Release type", func() {
 
-	When("HasEveryPostActionExecutionFinished method is called", func() {
+	When("HasFinalPipelineProcessingFinished method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
 			release = &Release{}
 		})
 
-		It("should return false when the post-actions executed condition is missing", func() {
-			Expect(release.HasEveryPostActionExecutionFinished()).To(BeFalse())
+		It("should return true when the final pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.HasFinalPipelineProcessingFinished()).To(BeTrue())
 		})
 
-		It("should return true when the post-actions executed condition status is True", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.HasEveryPostActionExecutionFinished()).To(BeTrue())
+		It("should return false when the final pipeline processed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.HasFinalPipelineProcessingFinished()).To(BeFalse())
 		})
 
-		It("should return false when the post-actions executed condition status is False and the reason is Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, ProgressingReason)
-			Expect(release.HasEveryPostActionExecutionFinished()).To(BeFalse())
+		It("Should return true when the final pipeline processed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.HasFinalPipelineProcessingFinished()).To(BeTrue())
 		})
 
-		It("should return true when the post-actions executed condition status is False and the reason is not Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, FailedReason)
-			Expect(release.HasEveryPostActionExecutionFinished()).To(BeTrue())
-		})
-
-		It("should return false when the post-actions executed condition status is Unknown", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionUnknown, ProgressingReason)
-			Expect(release.HasEveryPostActionExecutionFinished()).To(BeFalse())
+		It("should return false when the final pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.HasFinalPipelineProcessingFinished()).To(BeFalse())
 		})
 	})
 
@@ -189,63 +185,32 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	When("IsEveryPostActionExecuted method is called", func() {
+	When("IsFinalPipelineProcessed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
 			release = &Release{}
 		})
 
-		It("should return true when the post-actions executed condition status is True", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.IsEveryPostActionExecuted()).To(BeTrue())
+		It("should return true when the final pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsFinalPipelineProcessed()).To(BeTrue())
 		})
 
-		It("should return false when the post-actions executed condition status is False", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, SucceededReason)
-			Expect(release.IsEveryPostActionExecuted()).To(BeFalse())
+		It("should return false when the final pipeline processed condition status is False", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionFalse, SucceededReason)
+			Expect(release.IsFinalPipelineProcessed()).To(BeFalse())
 		})
 
-		It("should return false when the post-actions executed condition status is Unknown", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionUnknown, SucceededReason)
-			Expect(release.IsEveryPostActionExecuted()).To(BeFalse())
+		It("should return false when the final pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionUnknown, SucceededReason)
+			Expect(release.IsFinalPipelineProcessed()).To(BeFalse())
 		})
 
-		It("should return false when the post-actions executed condition is missing", func() {
-			Expect(release.IsEveryPostActionExecuted()).To(BeFalse())
-		})
-	})
-
-	When("IsEachPostActionExecuting method is called", func() {
-		var release *Release
-
-		BeforeEach(func() {
-			release = &Release{}
+		It("should return false when the final pipeline processed condition is missing", func() {
+			Expect(release.IsFinalPipelineProcessed()).To(BeFalse())
 		})
 
-		It("should return false when the post-actions executed condition is missing", func() {
-			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
-		})
-
-		It("should return false when the post-actions executed condition status is True", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
-		})
-
-		It("should return true when the post-actions executed condition status is False and the reason is Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, ProgressingReason)
-			Expect(release.IsEachPostActionExecuting()).To(BeTrue())
-		})
-
-		It("should return false when the post-actions executed condition status is False and the reason is not Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, FailedReason)
-			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
-		})
-
-		It("should return false when the post-actions executed condition status is Unknown", func() {
-			conditions.SetCondition(&release.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionUnknown, ProgressingReason)
-			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
-		})
 	})
 
 	When("IsManagedPipelineProcessed method is called", func() {
@@ -300,6 +265,34 @@ var _ = Describe("Release type", func() {
 		It("should return false when the tenant pipeline processed condition is missing", func() {
 			Expect(release.IsTenantPipelineProcessed()).To(BeFalse())
 		})
+	})
+
+	When("IsFinalPipelineProcessing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the final pipeline processed condition is missing", func() {
+			Expect(release.IsFinalPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return false when the final pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsFinalPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return true when the final pipeline processed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.IsFinalPipelineProcessing()).To(BeTrue())
+		})
+
+		It("should return false when the final pipeline processed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.IsFinalPipelineProcessing()).To(BeFalse())
+		})
+
 	})
 
 	When("IsManagedPipelineProcessing method is called", func() {
@@ -452,6 +445,48 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("MarkFinalPipelineProcessed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release final pipeline processing has not started", func() {
+			release.MarkFinalPipelineProcessed()
+			Expect(release.Status.FinalProcessing.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release final pipeline processing finished", func() {
+			release.MarkFinalPipelineProcessing()
+			release.MarkFinalPipelineProcessed()
+			Expect(release.Status.FinalProcessing.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.FinalProcessing.CompletionTime = &metav1.Time{}
+			release.MarkFinalPipelineProcessed()
+			Expect(release.Status.FinalProcessing.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkFinalPipelineProcessing()
+			Expect(release.Status.FinalProcessing.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkFinalPipelineProcessed()
+			Expect(release.Status.FinalProcessing.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkFinalPipelineProcessing()
+			release.MarkFinalPipelineProcessed()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, finalProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SucceededReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
+			}))
+		})
+	})
+
 	When("MarkManagedPipelineProcessed method is called", func() {
 		var release *Release
 
@@ -534,6 +569,50 @@ var _ = Describe("Release type", func() {
 				"Status": Equal(metav1.ConditionTrue),
 			}))
 		})
+	})
+
+	When("MarkFinalPipelineProcessing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release final pipeline processing finished", func() {
+			release.MarkFinalPipelineProcessing()
+			release.MarkFinalPipelineProcessed()
+			Expect(release.IsFinalPipelineProcessing()).To(BeFalse())
+			release.MarkFinalPipelineProcessing()
+			Expect(release.IsFinalPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should register the start time if the final pipeline is not processing", func() {
+			Expect(release.Status.FinalProcessing.StartTime).To(BeNil())
+			release.MarkFinalPipelineProcessing()
+			Expect(release.Status.FinalProcessing.StartTime).NotTo(BeNil())
+		})
+
+		It("should not register the start time if the final pipeline is processing already", func() {
+			Expect(release.Status.FinalProcessing.StartTime).To(BeNil())
+			release.MarkFinalPipelineProcessing()
+			release.Status.FinalProcessing.StartTime = &metav1.Time{}
+			Expect(release.Status.FinalProcessing.StartTime.IsZero()).To(BeTrue())
+			release.MarkFinalPipelineProcessing()
+			Expect(release.Status.FinalProcessing.StartTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkFinalPipelineProcessing()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, finalProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(ProgressingReason.String()),
+				"Status": Equal(metav1.ConditionFalse),
+			}))
+		})
+
 	})
 
 	When("MarkManagedPipelineProcessing method is called", func() {
@@ -622,6 +701,50 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("MarkFinalPipelineProcessingFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release final pipeline processing has not started", func() {
+			release.MarkFinalPipelineProcessingFailed("")
+			Expect(release.Status.FinalProcessing.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release final pipeline processing finished", func() {
+			release.MarkFinalPipelineProcessing()
+			release.MarkFinalPipelineProcessed()
+			Expect(release.Status.FinalProcessing.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.FinalProcessing.CompletionTime = &metav1.Time{}
+			release.MarkFinalPipelineProcessingFailed("")
+			Expect(release.Status.FinalProcessing.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkFinalPipelineProcessing()
+			Expect(release.Status.FinalProcessing.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkFinalPipelineProcessingFailed("")
+			Expect(release.Status.FinalProcessing.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkFinalPipelineProcessing()
+			release.MarkFinalPipelineProcessingFailed("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, finalProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(FailedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+
+	})
+
 	When("MarkManagedPipelineProcessingFailed method is called", func() {
 		var release *Release
 
@@ -708,6 +831,40 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("MarkFinalPipelineProcessingSkipped method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release final pipeline processing finished already", func() {
+			release.MarkFinalPipelineProcessing()
+			release.MarkFinalPipelineProcessingFailed("error")
+			release.MarkFinalPipelineProcessingSkipped()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, finalProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("error"),
+				"Reason":  Equal(FailedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkFinalPipelineProcessingSkipped()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, finalProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SkippedReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
+			}))
+		})
+	})
+
 	When("MarkManagedPipelineProcessingSkipped method is called", func() {
 		var release *Release
 
@@ -772,135 +929,6 @@ var _ = Describe("Release type", func() {
 			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
 				"Reason": Equal(SkippedReason.String()),
 				"Status": Equal(metav1.ConditionTrue),
-			}))
-		})
-	})
-
-	When("MarkPostActionsExecuted method is called", func() {
-		var release *Release
-
-		BeforeEach(func() {
-			release = &Release{}
-		})
-
-		It("should do nothing if the Release post-actions execution has not started", func() {
-			release.MarkPostActionsExecuted()
-			Expect(release.Status.PostActionsExecution.CompletionTime).To(BeNil())
-		})
-
-		It("should do nothing if the Release post-actions execution finished", func() {
-			release.MarkPostActionsExecuting("")
-			release.MarkPostActionsExecuted()
-			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeFalse())
-			release.Status.PostActionsExecution.CompletionTime = &metav1.Time{}
-			release.MarkPostActionsExecuted()
-			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeTrue())
-		})
-
-		It("should register the completion time", func() {
-			release.MarkPostActionsExecuting("")
-			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeTrue())
-			release.MarkPostActionsExecuted()
-			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeFalse())
-		})
-
-		It("should register the condition", func() {
-			Expect(release.Status.Conditions).To(HaveLen(0))
-			release.MarkPostActionsExecuting("")
-			release.MarkPostActionsExecuted()
-
-			condition := meta.FindStatusCondition(release.Status.Conditions, postActionsExecutedConditionType.String())
-			Expect(condition).NotTo(BeNil())
-			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
-				"Reason": Equal(SucceededReason.String()),
-				"Status": Equal(metav1.ConditionTrue),
-			}))
-		})
-	})
-
-	When("MarkPostActionsExecuting method is called", func() {
-		var release *Release
-
-		BeforeEach(func() {
-			release = &Release{}
-		})
-
-		It("should do nothing if the Release post-actions execution finished", func() {
-			release.MarkPostActionsExecuting("")
-			release.MarkPostActionsExecuted()
-			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
-			release.MarkPostActionsExecuting("")
-			Expect(release.IsEachPostActionExecuting()).To(BeFalse())
-		})
-
-		It("should register the start time if it's not executing post-actions", func() {
-			Expect(release.Status.PostActionsExecution.StartTime).To(BeNil())
-			release.MarkPostActionsExecuting("")
-			Expect(release.Status.PostActionsExecution.StartTime).NotTo(BeNil())
-		})
-
-		It("should not register the start time if it's executing post-actions already", func() {
-			Expect(release.Status.PostActionsExecution.StartTime).To(BeNil())
-			release.MarkPostActionsExecuting("")
-			release.Status.PostActionsExecution.StartTime = &metav1.Time{}
-			Expect(release.Status.PostActionsExecution.StartTime.IsZero()).To(BeTrue())
-			release.MarkPostActionsExecuting("")
-			Expect(release.Status.PostActionsExecution.StartTime.IsZero()).To(BeTrue())
-		})
-
-		It("should register the condition", func() {
-			Expect(release.Status.Conditions).To(HaveLen(0))
-			release.MarkPostActionsExecuting("foo")
-
-			condition := meta.FindStatusCondition(release.Status.Conditions, postActionsExecutedConditionType.String())
-			Expect(condition).NotTo(BeNil())
-			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
-				"Message": Equal("foo"),
-				"Reason":  Equal(ProgressingReason.String()),
-				"Status":  Equal(metav1.ConditionFalse),
-			}))
-		})
-	})
-
-	When("MarkPostActionsExecutionFailed method is called", func() {
-		var release *Release
-
-		BeforeEach(func() {
-			release = &Release{}
-		})
-
-		It("should do nothing if the Release post-actions execution has not started", func() {
-			release.MarkPostActionsExecutionFailed("")
-			Expect(release.Status.PostActionsExecution.CompletionTime).To(BeNil())
-		})
-
-		It("should do nothing if the Release post-actions execution finished", func() {
-			release.MarkPostActionsExecuting("")
-			release.MarkPostActionsExecuted()
-			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeFalse())
-			release.Status.PostActionsExecution.CompletionTime = &metav1.Time{}
-			release.MarkPostActionsExecutionFailed("")
-			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeTrue())
-		})
-
-		It("should register the completion time", func() {
-			release.MarkPostActionsExecuting("")
-			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeTrue())
-			release.MarkPostActionsExecutionFailed("")
-			Expect(release.Status.PostActionsExecution.CompletionTime.IsZero()).To(BeFalse())
-		})
-
-		It("should register the condition", func() {
-			Expect(release.Status.Conditions).To(HaveLen(0))
-			release.MarkPostActionsExecuting("")
-			release.MarkPostActionsExecutionFailed("foo")
-
-			condition := meta.FindStatusCondition(release.Status.Conditions, postActionsExecutedConditionType.String())
-			Expect(condition).NotTo(BeNil())
-			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
-				"Message": Equal("foo"),
-				"Reason":  Equal(FailedReason.String()),
-				"Status":  Equal(metav1.ConditionFalse),
 			}))
 		})
 	})

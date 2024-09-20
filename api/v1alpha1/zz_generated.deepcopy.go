@@ -385,8 +385,13 @@ func (in *ReleasePlanSpec) DeepCopyInto(out *ReleasePlanSpec) {
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Pipeline != nil {
-		in, out := &in.Pipeline, &out.Pipeline
+	if in.TenantPipeline != nil {
+		in, out := &in.TenantPipeline, &out.TenantPipeline
+		*out = new(utils.ParameterizedPipeline)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.FinalPipeline != nil {
+		in, out := &in.FinalPipeline, &out.FinalPipeline
 		*out = new(utils.ParameterizedPipeline)
 		(*in).DeepCopyInto(*out)
 	}
@@ -556,8 +561,8 @@ func (in *ReleaseStatus) DeepCopyInto(out *ReleaseStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	in.FinalProcessing.DeepCopyInto(&out.FinalProcessing)
 	in.ManagedProcessing.DeepCopyInto(&out.ManagedProcessing)
-	in.PostActionsExecution.DeepCopyInto(&out.PostActionsExecution)
 	in.TenantProcessing.DeepCopyInto(&out.TenantProcessing)
 	in.Validation.DeepCopyInto(&out.Validation)
 	if in.CompletionTime != nil {

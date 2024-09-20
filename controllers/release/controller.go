@@ -85,6 +85,8 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		adapter.EnsureTenantPipelineProcessingIsTracked,
 		adapter.EnsureManagedPipelineIsProcessed,
 		adapter.EnsureManagedPipelineProcessingIsTracked,
+		adapter.EnsureFinalPipelineIsProcessed,
+		adapter.EnsureFinalPipelineProcessingIsTracked,
 		adapter.EnsureReleaseProcessingResourcesAreCleanedUp,
 		adapter.EnsureReleaseIsCompleted,
 	})
