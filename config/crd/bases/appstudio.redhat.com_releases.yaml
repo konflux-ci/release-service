@@ -185,9 +185,9 @@ spec:
                 description: ExpirationTime is the time when a Release can be purged
                 format: date-time
                 type: string
-              managedProcessing:
-                description: ManagedProcessing contains information about the release
-                  managed processing
+              finalProcessing:
+                description: FinalProcessing contains information about the release
+                  final processing
                 properties:
                   completionTime:
                     description: CompletionTime is the time when the Release processing
@@ -211,9 +211,9 @@ spec:
                     format: date-time
                     type: string
                 type: object
-              postActionsExecution:
-                description: PostActionsExecution contains information about the post-actions
-                  execution
+              managedProcessing:
+                description: ManagedProcessing contains information about the release
+                  managed processing
                 properties:
                   completionTime:
                     description: CompletionTime is the time when the Release processing

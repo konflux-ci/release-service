@@ -214,7 +214,7 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 			Spec: v1alpha1.ReleasePlanSpec{
 				Application:            application.Name,
 				Target:                 "default",
-				Pipeline:               parameterizedPipeline,
+				TenantPipeline:         parameterizedPipeline,
 				ReleaseGracePeriodDays: 6,
 			},
 		}

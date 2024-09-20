@@ -93,47 +93,6 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	When("RegisterCompletedReleasePostActionsExecuted is called", func() {
-		var completionTime, startTime *metav1.Time
-
-		BeforeEach(func() {
-			initializeMetrics()
-
-			completionTime = &metav1.Time{}
-			startTime = &metav1.Time{Time: completionTime.Add(-60 * time.Second)}
-		})
-
-		It("does nothing if the start time is nil", func() {
-			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleasePostActionsExecuted(nil, completionTime, "")
-			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
-		})
-
-		It("does nothing if the completion time is nil", func() {
-			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleasePostActionsExecuted(startTime, nil, "")
-			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
-		})
-
-		It("decrements ReleaseConcurrentPostActionsExecutionsTotal", func() {
-			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleasePostActionsExecuted(startTime, completionTime, "")
-			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(-1)))
-		})
-
-		It("adds an observation to ReleasePostActionsExecutionDurationSeconds", func() {
-			RegisterCompletedReleasePostActionsExecuted(startTime, completionTime,
-				releasePostActionsExecutionDurationSecondsLabels[0],
-			)
-			Expect(testutil.CollectAndCompare(ReleasePostActionsExecutionDurationSeconds,
-				test.NewHistogramReader(
-					releasePostActionsExecutionDurationSecondsOpts,
-					releasePostActionsExecutionDurationSecondsLabels,
-					startTime, completionTime,
-				))).To(Succeed())
-		})
-	})
-
 	When("RegisterCompletedReleasePipelineProcessing is called", func() {
 		var completionTime, startTime *metav1.Time
 
@@ -268,27 +227,13 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	When("RegisterNewReleasePostActionsExecution is called", func() {
-		BeforeEach(func() {
-			initializeMetrics()
-		})
-
-		It("increments ReleaseConcurrentPostActionsExecutionsTotal", func() {
-			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterNewReleasePostActionsExecution()
-			Expect(testutil.ToFloat64(ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues())).To(Equal(float64(1)))
-		})
-	})
-
 	initializeMetrics = func() {
 		ReleaseConcurrentTotal.Reset()
 		ReleaseConcurrentProcessingsTotal.Reset()
-		ReleaseConcurrentPostActionsExecutionsTotal.Reset()
 		ReleaseValidationDurationSeconds.Reset()
 		ReleasePreProcessingDurationSeconds.Reset()
 		ReleaseDurationSeconds.Reset()
 		ReleaseProcessingDurationSeconds.Reset()
-		ReleasePostActionsExecutionDurationSeconds.Reset()
 		ReleaseTotal.Reset()
 	}
 
