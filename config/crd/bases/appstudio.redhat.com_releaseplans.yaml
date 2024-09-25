@@ -80,6 +80,9 @@ spec:
                         - value
                         type: object
                       type: array
+                    timeout:
+                      description: Timeout in seconds for the collector to execute
+                      type: integer
                     type:
                       description: Type is the type of collector to be used
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
