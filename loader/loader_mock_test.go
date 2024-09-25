@@ -5,6 +5,7 @@ import (
 
 	v1alpha12 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/metadata"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
@@ -165,7 +166,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource:   pipelineRun,
 				},
 			})
-			resource, err := loader.GetReleasePipelineRun(mockContext, nil, nil)
+			resource, err := loader.GetReleasePipelineRun(mockContext, nil, nil, metadata.ManagedPipelineType)
 			Expect(resource).To(Equal(pipelineRun))
 			Expect(err).To(BeNil())
 		})

@@ -172,7 +172,6 @@ spec:
             required:
             - applications
             - origin
-            - pipeline
             - policy
             type: object
           status:

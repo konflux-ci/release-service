@@ -62,35 +62,59 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	When("HasProcessingFinished method is called", func() {
+	When("HasManagedPipelineProcessingFinished method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
 			release = &Release{}
 		})
 
-		It("should return false when the deployed condition is missing", func() {
-			Expect(release.HasProcessingFinished()).To(BeFalse())
+		It("should return true when the managed pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.HasManagedPipelineProcessingFinished()).To(BeTrue())
 		})
 
-		It("should return true when the processed condition status is True", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.HasProcessingFinished()).To(BeTrue())
+		It("should return false when the managed pipeline processed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.HasManagedPipelineProcessingFinished()).To(BeFalse())
 		})
 
-		It("should return false when the processed condition status is False and the reason is Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionFalse, ProgressingReason)
-			Expect(release.HasProcessingFinished()).To(BeFalse())
+		It("should return true when the managed pipeline processed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.HasManagedPipelineProcessingFinished()).To(BeTrue())
 		})
 
-		It("should return true when the processed condition status is False and the reason is not Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionFalse, FailedReason)
-			Expect(release.HasProcessingFinished()).To(BeTrue())
+		It("should return false when the managed pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.HasManagedPipelineProcessingFinished()).To(BeFalse())
+		})
+	})
+
+	When("HasTenantPipelineProcessingFinished method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
 		})
 
-		It("should return false when the processed condition status is Unknown", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionUnknown, ProgressingReason)
-			Expect(release.HasProcessingFinished()).To(BeFalse())
+		It("should return true when the tenant pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.HasTenantPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("should return false when the tenant pipeline processed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.HasTenantPipelineProcessingFinished()).To(BeFalse())
+		})
+
+		It("should return true when the tenant pipeline processed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.HasTenantPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("should return false when the tenant pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.HasTenantPipelineProcessingFinished()).To(BeFalse())
 		})
 	})
 
@@ -224,62 +248,121 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	When("IsProcessed method is called", func() {
+	When("IsManagedPipelineProcessed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
 			release = &Release{}
 		})
 
-		It("should return true when the processed condition status is True", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.IsProcessed()).To(BeTrue())
+		It("should return true when the managed pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsManagedPipelineProcessed()).To(BeTrue())
 		})
 
-		It("should return false when the processed condition status is False", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionFalse, SucceededReason)
-			Expect(release.IsProcessed()).To(BeFalse())
+		It("should return false when the managed pipeline processed condition status is False", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, SucceededReason)
+			Expect(release.IsManagedPipelineProcessed()).To(BeFalse())
 		})
 
-		It("should return false when the processed condition status is Unknown", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionUnknown, SucceededReason)
-			Expect(release.IsProcessed()).To(BeFalse())
+		It("should return false when the managed pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionUnknown, SucceededReason)
+			Expect(release.IsManagedPipelineProcessed()).To(BeFalse())
 		})
 
-		It("should return false when the processed condition is missing", func() {
-			Expect(release.IsProcessed()).To(BeFalse())
+		It("should return false when the managed pipeline processed condition is missing", func() {
+			Expect(release.IsManagedPipelineProcessed()).To(BeFalse())
 		})
 	})
 
-	When("IsProcessing method is called", func() {
+	When("IsTenantPipelineProcessed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
 			release = &Release{}
 		})
 
-		It("should return false when the processed condition is missing", func() {
-			Expect(release.IsProcessing()).To(BeFalse())
+		It("should return true when the tenant pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsTenantPipelineProcessed()).To(BeTrue())
 		})
 
-		It("should return false when the processed condition status is True", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.IsProcessing()).To(BeFalse())
+		It("should return false when the tenant pipeline processed condition status is False", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionFalse, SucceededReason)
+			Expect(release.IsTenantPipelineProcessed()).To(BeFalse())
 		})
 
-		It("should return true when the processed condition status is False and the reason is Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionFalse, ProgressingReason)
-			Expect(release.IsProcessing()).To(BeTrue())
+		It("should return false when the tenant pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionUnknown, SucceededReason)
+			Expect(release.IsTenantPipelineProcessed()).To(BeFalse())
 		})
 
-		It("should return false when the processed condition status is False and the reason is not Progressing", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionFalse, FailedReason)
-			Expect(release.IsProcessing()).To(BeFalse())
+		It("should return false when the tenant pipeline processed condition is missing", func() {
+			Expect(release.IsTenantPipelineProcessed()).To(BeFalse())
+		})
+	})
+
+	When("IsManagedPipelineProcessing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
 		})
 
-		It("should return false when the processed condition status is Unknown", func() {
-			conditions.SetCondition(&release.Status.Conditions, processedConditionType, metav1.ConditionUnknown, ProgressingReason)
-			Expect(release.IsProcessing()).To(BeFalse())
+		It("should return false when the managed pipeline processed condition is missing", func() {
+			Expect(release.IsManagedPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return false when the managed pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsManagedPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return true when the managed pipeline processed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.IsManagedPipelineProcessing()).To(BeTrue())
+		})
+
+		It("should return false when the managed pipeline processed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.IsManagedPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return false when the managed pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.IsManagedPipelineProcessing()).To(BeFalse())
+		})
+	})
+
+	When("IsTenantPipelineProcessing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the tenant pipeline processed condition is missing", func() {
+			Expect(release.IsTenantPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return false when the tenant pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsTenantPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return true when the tenant pipeline processed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.IsTenantPipelineProcessing()).To(BeTrue())
+		})
+
+		It("should return false when the tenant pipeline processed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.IsTenantPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return false when the tenant pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.IsTenantPipelineProcessing()).To(BeFalse())
 		})
 	})
 
@@ -369,40 +452,40 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	When("MarkProcessed method is called", func() {
+	When("MarkManagedPipelineProcessed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
 			release = &Release{}
 		})
 
-		It("should do nothing if the Release processing has not started", func() {
-			release.MarkProcessed()
-			Expect(release.Status.Processing.CompletionTime).To(BeNil())
+		It("should do nothing if the Release managed pipeline processing has not started", func() {
+			release.MarkManagedPipelineProcessed()
+			Expect(release.Status.ManagedProcessing.CompletionTime).To(BeNil())
 		})
 
-		It("should do nothing if the Release processing finished", func() {
-			release.MarkProcessing("")
-			release.MarkProcessed()
-			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeFalse())
-			release.Status.Processing.CompletionTime = &metav1.Time{}
-			release.MarkProcessed()
-			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeTrue())
+		It("should do nothing if the Release managed pipeline processing finished", func() {
+			release.MarkManagedPipelineProcessing()
+			release.MarkManagedPipelineProcessed()
+			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.ManagedProcessing.CompletionTime = &metav1.Time{}
+			release.MarkManagedPipelineProcessed()
+			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeTrue())
 		})
 
 		It("should register the completion time", func() {
-			release.MarkProcessing("")
-			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeTrue())
-			release.MarkProcessed()
-			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeFalse())
+			release.MarkManagedPipelineProcessing()
+			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkManagedPipelineProcessed()
+			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeFalse())
 		})
 
 		It("should register the condition", func() {
 			Expect(release.Status.Conditions).To(HaveLen(0))
-			release.MarkProcessing("")
-			release.MarkProcessed()
+			release.MarkManagedPipelineProcessing()
+			release.MarkManagedPipelineProcessed()
 
-			condition := meta.FindStatusCondition(release.Status.Conditions, processedConditionType.String())
+			condition := meta.FindStatusCondition(release.Status.Conditions, managedProcessedConditionType.String())
 			Expect(condition).NotTo(BeNil())
 			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
 				"Reason": Equal(SucceededReason.String()),
@@ -411,89 +494,284 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	When("MarkProcessing method is called", func() {
+	When("MarkTenantPipelineProcessed method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
 			release = &Release{}
 		})
 
-		It("should do nothing if the Release processing finished", func() {
-			release.MarkProcessing("")
-			release.MarkProcessed()
-			Expect(release.IsProcessing()).To(BeFalse())
-			release.MarkProcessing("")
-			Expect(release.IsProcessing()).To(BeFalse())
+		It("should do nothing if the Release tenant pipeline processing has not started", func() {
+			release.MarkTenantPipelineProcessed()
+			Expect(release.Status.TenantProcessing.CompletionTime).To(BeNil())
 		})
 
-		It("should register the start time if it's not processing", func() {
-			Expect(release.Status.Processing.StartTime).To(BeNil())
-			release.MarkProcessing("")
-			Expect(release.Status.Processing.StartTime).NotTo(BeNil())
+		It("should do nothing if the Release tenant pipeline processing finished", func() {
+			release.MarkTenantPipelineProcessing()
+			release.MarkTenantPipelineProcessed()
+			Expect(release.Status.TenantProcessing.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.TenantProcessing.CompletionTime = &metav1.Time{}
+			release.MarkTenantPipelineProcessed()
+			Expect(release.Status.TenantProcessing.CompletionTime.IsZero()).To(BeTrue())
 		})
 
-		It("should not register the start time if it's processing already", func() {
-			Expect(release.Status.Processing.StartTime).To(BeNil())
-			release.MarkProcessing("")
-			release.Status.Processing.StartTime = &metav1.Time{}
-			Expect(release.Status.Processing.StartTime.IsZero()).To(BeTrue())
-			release.MarkProcessing("")
-			Expect(release.Status.Processing.StartTime.IsZero()).To(BeTrue())
+		It("should register the completion time", func() {
+			release.MarkTenantPipelineProcessing()
+			Expect(release.Status.TenantProcessing.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkTenantPipelineProcessed()
+			Expect(release.Status.TenantProcessing.CompletionTime.IsZero()).To(BeFalse())
 		})
 
 		It("should register the condition", func() {
 			Expect(release.Status.Conditions).To(HaveLen(0))
-			release.MarkProcessing("foo")
+			release.MarkTenantPipelineProcessing()
+			release.MarkTenantPipelineProcessed()
 
-			condition := meta.FindStatusCondition(release.Status.Conditions, processedConditionType.String())
+			condition := meta.FindStatusCondition(release.Status.Conditions, tenantProcessedConditionType.String())
 			Expect(condition).NotTo(BeNil())
 			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
-				"Message": Equal("foo"),
-				"Reason":  Equal(ProgressingReason.String()),
-				"Status":  Equal(metav1.ConditionFalse),
+				"Reason": Equal(SucceededReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
 			}))
 		})
 	})
 
-	When("MarkProcessingFailed method is called", func() {
+	When("MarkManagedPipelineProcessing method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
 			release = &Release{}
 		})
 
-		It("should do nothing if the Release processing has not started", func() {
-			release.MarkProcessingFailed("")
-			Expect(release.Status.Processing.CompletionTime).To(BeNil())
+		It("should do nothing if the Release managed pipeline processing finished", func() {
+			release.MarkManagedPipelineProcessing()
+			release.MarkManagedPipelineProcessed()
+			Expect(release.IsManagedPipelineProcessing()).To(BeFalse())
+			release.MarkManagedPipelineProcessing()
+			Expect(release.IsManagedPipelineProcessing()).To(BeFalse())
 		})
 
-		It("should do nothing if the Release processing finished", func() {
-			release.MarkProcessing("")
-			release.MarkProcessed()
-			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeFalse())
-			release.Status.Processing.CompletionTime = &metav1.Time{}
-			release.MarkProcessingFailed("")
-			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeTrue())
+		It("should register the start time if the managed pipeline is not processing", func() {
+			Expect(release.Status.ManagedProcessing.StartTime).To(BeNil())
+			release.MarkManagedPipelineProcessing()
+			Expect(release.Status.ManagedProcessing.StartTime).NotTo(BeNil())
 		})
 
-		It("should register the completion time", func() {
-			release.MarkProcessing("")
-			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeTrue())
-			release.MarkProcessingFailed("")
-			Expect(release.Status.Processing.CompletionTime.IsZero()).To(BeFalse())
+		It("should not register the start time if the managed pipeline is processing already", func() {
+			Expect(release.Status.ManagedProcessing.StartTime).To(BeNil())
+			release.MarkManagedPipelineProcessing()
+			release.Status.ManagedProcessing.StartTime = &metav1.Time{}
+			Expect(release.Status.ManagedProcessing.StartTime.IsZero()).To(BeTrue())
+			release.MarkManagedPipelineProcessing()
+			Expect(release.Status.ManagedProcessing.StartTime.IsZero()).To(BeTrue())
 		})
 
 		It("should register the condition", func() {
 			Expect(release.Status.Conditions).To(HaveLen(0))
-			release.MarkProcessing("")
-			release.MarkProcessingFailed("foo")
+			release.MarkManagedPipelineProcessing()
 
-			condition := meta.FindStatusCondition(release.Status.Conditions, processedConditionType.String())
+			condition := meta.FindStatusCondition(release.Status.Conditions, managedProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(ProgressingReason.String()),
+				"Status": Equal(metav1.ConditionFalse),
+			}))
+		})
+	})
+
+	When("MarkTenantPipelineProcessing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release tenant pipeline processing finished", func() {
+			release.MarkTenantPipelineProcessing()
+			release.MarkTenantPipelineProcessed()
+			Expect(release.IsTenantPipelineProcessing()).To(BeFalse())
+			release.MarkTenantPipelineProcessing()
+			Expect(release.IsTenantPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should register the start time if the tenant pipeline is not processing", func() {
+			Expect(release.Status.TenantProcessing.StartTime).To(BeNil())
+			release.MarkTenantPipelineProcessing()
+			Expect(release.Status.TenantProcessing.StartTime).NotTo(BeNil())
+		})
+
+		It("should not register the start time if the tenant pipeline is processing already", func() {
+			Expect(release.Status.TenantProcessing.StartTime).To(BeNil())
+			release.MarkTenantPipelineProcessing()
+			release.Status.TenantProcessing.StartTime = &metav1.Time{}
+			Expect(release.Status.TenantProcessing.StartTime.IsZero()).To(BeTrue())
+			release.MarkTenantPipelineProcessing()
+			Expect(release.Status.TenantProcessing.StartTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkTenantPipelineProcessing()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, tenantProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(ProgressingReason.String()),
+				"Status": Equal(metav1.ConditionFalse),
+			}))
+		})
+	})
+
+	When("MarkManagedPipelineProcessingFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release managed pipeline processing has not started", func() {
+			release.MarkManagedPipelineProcessingFailed("")
+			Expect(release.Status.ManagedProcessing.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release managed pipeline processing finished", func() {
+			release.MarkManagedPipelineProcessing()
+			release.MarkManagedPipelineProcessed()
+			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.ManagedProcessing.CompletionTime = &metav1.Time{}
+			release.MarkManagedPipelineProcessingFailed("")
+			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkManagedPipelineProcessing()
+			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkManagedPipelineProcessingFailed("")
+			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkManagedPipelineProcessing()
+			release.MarkManagedPipelineProcessingFailed("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, managedProcessedConditionType.String())
 			Expect(condition).NotTo(BeNil())
 			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
 				"Message": Equal("foo"),
 				"Reason":  Equal(FailedReason.String()),
 				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+	})
+
+	When("MarkTenantPipelineProcessingFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release tenant pipeline processing has not started", func() {
+			release.MarkTenantPipelineProcessingFailed("")
+			Expect(release.Status.TenantProcessing.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release tenant pipeline processing finished", func() {
+			release.MarkTenantPipelineProcessing()
+			release.MarkTenantPipelineProcessed()
+			Expect(release.Status.TenantProcessing.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.TenantProcessing.CompletionTime = &metav1.Time{}
+			release.MarkTenantPipelineProcessingFailed("")
+			Expect(release.Status.TenantProcessing.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkTenantPipelineProcessing()
+			Expect(release.Status.TenantProcessing.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkTenantPipelineProcessingFailed("")
+			Expect(release.Status.TenantProcessing.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkTenantPipelineProcessing()
+			release.MarkTenantPipelineProcessingFailed("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, tenantProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(FailedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+	})
+
+	When("MarkManagedPipelineProcessingSkipped method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release managed pipeline processing finished already", func() {
+			release.MarkManagedPipelineProcessing()
+			release.MarkManagedPipelineProcessingFailed("error")
+			release.MarkManagedPipelineProcessingSkipped()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, managedProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("error"),
+				"Reason":  Equal(FailedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkManagedPipelineProcessingSkipped()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, managedProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SkippedReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
+			}))
+		})
+	})
+
+	When("MarkTenantPipelineProcessingSkipped method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release tenant pipeline processing finished already", func() {
+			release.MarkTenantPipelineProcessing()
+			release.MarkTenantPipelineProcessingFailed("error")
+			release.MarkTenantPipelineProcessingSkipped()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, tenantProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("error"),
+				"Reason":  Equal(FailedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkTenantPipelineProcessingSkipped()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, tenantProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SkippedReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
 			}))
 		})
 	})
@@ -874,6 +1152,11 @@ var _ = Describe("Release type", func() {
 			Expect(release.hasPhaseFinished(validatedConditionType)).To(BeTrue())
 		})
 
+		It("should return true when the condition status is True and the reason is Skipped", func() {
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionTrue, SkippedReason)
+			Expect(release.hasPhaseFinished(validatedConditionType)).To(BeTrue())
+		})
+
 		It("should return false when the condition status is False and the reason is Progressing", func() {
 			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionFalse, ProgressingReason)
 			Expect(release.hasPhaseFinished(validatedConditionType)).To(BeFalse())
@@ -903,6 +1186,11 @@ var _ = Describe("Release type", func() {
 
 		It("should return false when the condition status is True", func() {
 			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.isPhaseProgressing(validatedConditionType)).To(BeFalse())
+		})
+
+		It("should return false when the condition status is True and the reason is Skipped", func() {
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionTrue, SkippedReason)
 			Expect(release.isPhaseProgressing(validatedConditionType)).To(BeFalse())
 		})
 

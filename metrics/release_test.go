@@ -43,19 +43,19 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("does nothing if the start time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(nil, completionTime, "", "", "", "", "")
+			RegisterCompletedRelease(nil, completionTime, "", "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("does nothing if the completion time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(startTime, nil, "", "", "", "", "")
+			RegisterCompletedRelease(startTime, nil, "", "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("decrements ReleaseConcurrentTotal", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(startTime, completionTime, "", "", "", "", "")
+			RegisterCompletedRelease(startTime, completionTime, "", "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(-1)))
 		})
 
@@ -66,6 +66,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releaseDurationSecondsLabels[2],
 				releaseDurationSecondsLabels[3],
 				releaseDurationSecondsLabels[4],
+				releaseDurationSecondsLabels[5],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseDurationSeconds,
 				test.NewHistogramReader(
@@ -82,6 +83,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 				releaseTotalLabels[2],
 				releaseTotalLabels[3],
 				releaseTotalLabels[4],
+				releaseTotalLabels[5],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseTotal,
 				test.NewCounterReader(
@@ -132,7 +134,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	When("RegisterCompletedReleaseProcessing is called", func() {
+	When("RegisterCompletedReleasePipelineProcessing is called", func() {
 		var completionTime, startTime *metav1.Time
 
 		BeforeEach(func() {
@@ -144,26 +146,27 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("does nothing if the start time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleaseProcessing(nil, completionTime, "", "")
+			RegisterCompletedReleasePipelineProcessing(nil, completionTime, "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("does nothing if the completion time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleaseProcessing(startTime, nil, "", "")
+			RegisterCompletedReleasePipelineProcessing(startTime, nil, "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("decrements ReleaseConcurrentProcessingsTotal", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedReleaseProcessing(startTime, completionTime, "", "")
+			RegisterCompletedReleasePipelineProcessing(startTime, completionTime, "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(-1)))
 		})
 
 		It("adds an observation to ReleaseProcessingDurationSeconds", func() {
-			RegisterCompletedReleaseProcessing(startTime, completionTime,
+			RegisterCompletedReleasePipelineProcessing(startTime, completionTime,
 				releaseProcessingDurationSecondsLabels[0],
 				releaseProcessingDurationSecondsLabels[1],
+				releaseProcessingDurationSecondsLabels[2],
 			)
 			Expect(testutil.CollectAndCompare(ReleaseProcessingDurationSeconds,
 				test.NewHistogramReader(
@@ -218,7 +221,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
-	When("RegisterNewReleaseProcessing is called", func() {
+	When("RegisterNewReleasePipelineProcessing is called", func() {
 		var processingStartTime, startTime *metav1.Time
 
 		BeforeEach(func() {
@@ -230,20 +233,21 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("does nothing if the processing start time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterNewReleaseProcessing(nil, processingStartTime, "", "")
+			RegisterNewReleasePipelineProcessing(nil, processingStartTime, "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("does nothing if the start time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterNewReleaseProcessing(startTime, nil, "", "")
+			RegisterNewReleasePipelineProcessing(startTime, nil, "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("adds an observation to ReleasePreProcessingDurationSeconds", func() {
-			RegisterNewReleaseProcessing(startTime, processingStartTime,
+			RegisterNewReleasePipelineProcessing(startTime, processingStartTime,
 				releasePreProcessingDurationSecondsLabels[0],
 				releasePreProcessingDurationSecondsLabels[1],
+				releasePreProcessingDurationSecondsLabels[2],
 			)
 			Expect(testutil.CollectAndCompare(ReleasePreProcessingDurationSeconds,
 				test.NewHistogramReader(
@@ -255,9 +259,10 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("increments ReleaseConcurrentProcessingsTotal", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterNewReleaseProcessing(startTime, processingStartTime,
+			RegisterNewReleasePipelineProcessing(startTime, processingStartTime,
 				releasePreProcessingDurationSecondsLabels[0],
 				releasePreProcessingDurationSecondsLabels[1],
+				releasePreProcessingDurationSecondsLabels[2],
 			)
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(1)))
 		})

@@ -21,6 +21,7 @@ import (
 
 	"github.com/konflux-ci/operator-toolkit/conditions"
 
+	"github.com/konflux-ci/release-service/metadata"
 	"github.com/konflux-ci/release-service/metrics"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -66,13 +67,17 @@ type ReleaseStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
 
+	// ManagedProcessing contains information about the release managed processing
+	// +optional
+	ManagedProcessing PipelineInfo `json:"managedProcessing,omitempty"`
+
 	// PostActionsExecution contains information about the post-actions execution
 	// +optional
-	PostActionsExecution PostActionsExecutionInfo `json:"postActionsExecution,omitempty"`
+	PostActionsExecution PipelineInfo `json:"postActionsExecution,omitempty"`
 
-	// Processing contains information about the release processing
+	// TenantProcessing contains information about the release tenant processing
 	// +optional
-	Processing ProcessingInfo `json:"processing,omitempty"`
+	TenantProcessing PipelineInfo `json:"tenantProcessing,omitempty"`
 
 	// Validation contains information about the release validation
 	// +optional
@@ -111,19 +116,8 @@ type AttributionInfo struct {
 	StandingAuthorization bool `json:"standingAuthorization,omitempty"`
 }
 
-// PostActionsExecutionInfo defines the observed state of the post-actions execution.
-type PostActionsExecutionInfo struct {
-	// CompletionTime is the time when the Release post-actions execution was completed
-	// +optional
-	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
-
-	// StartTime is the time when the Release post-actions execution started
-	// +optional
-	StartTime *metav1.Time `json:"startTime,omitempty"`
-}
-
-// ProcessingInfo defines the observed state of the release processing.
-type ProcessingInfo struct {
+// PipelineInfo defines the observed state of a release pipeline processing.
+type PipelineInfo struct {
 	// CompletionTime is the time when the Release processing was completed
 	// +optional
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
@@ -177,9 +171,14 @@ func (r *Release) HasEveryPostActionExecutionFinished() bool {
 	return r.hasPhaseFinished(postActionsExecutedConditionType)
 }
 
-// HasProcessingFinished checks whether the Release processing has finished, regardless of the result.
-func (r *Release) HasProcessingFinished() bool {
-	return r.hasPhaseFinished(processedConditionType)
+// HasManagedPipelineProcessingFinished checks whether the Release Managed Pipeline processing has finished, regardless of the result.
+func (r *Release) HasManagedPipelineProcessingFinished() bool {
+	return r.hasPhaseFinished(managedProcessedConditionType)
+}
+
+// HasTenantPipelineProcessingFinished checks whether the Release Tenant Pipeline processing has finished, regardless of the result.
+func (r *Release) HasTenantPipelineProcessingFinished() bool {
+	return r.hasPhaseFinished(tenantProcessedConditionType)
 }
 
 // HasReleaseFinished checks whether the Release has finished, regardless of the result.
@@ -207,14 +206,24 @@ func (r *Release) IsEachPostActionExecuting() bool {
 	return r.isPhaseProgressing(postActionsExecutedConditionType)
 }
 
-// IsProcessed checks whether the Release was successfully processed.
-func (r *Release) IsProcessed() bool {
-	return meta.IsStatusConditionTrue(r.Status.Conditions, processedConditionType.String())
+// IsManagedPipelineProcessed checks whether the Release Managed Pipeline was successfully processed.
+func (r *Release) IsManagedPipelineProcessed() bool {
+	return meta.IsStatusConditionTrue(r.Status.Conditions, managedProcessedConditionType.String())
 }
 
-// IsProcessing checks whether the Release processing is in progress.
-func (r *Release) IsProcessing() bool {
-	return r.isPhaseProgressing(processedConditionType)
+// IsTenantPipelineProcessed checks whether the Release Tenant Pipeline was successfully processed.
+func (r *Release) IsTenantPipelineProcessed() bool {
+	return meta.IsStatusConditionTrue(r.Status.Conditions, tenantProcessedConditionType.String())
+}
+
+// IsManagedPipelineProcessing checks whether the Release Managed Pipeline processing is in progress.
+func (r *Release) IsManagedPipelineProcessing() bool {
+	return r.isPhaseProgressing(managedProcessedConditionType)
+}
+
+// IsTenantPipelineProcessing checks whether the Release Tenant Pipeline processing is in progress.
+func (r *Release) IsTenantPipelineProcessing() bool {
+	return r.isPhaseProgressing(tenantProcessedConditionType)
 }
 
 // IsReleased checks whether the Release has finished successfully.
@@ -232,58 +241,136 @@ func (r *Release) IsValid() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, validatedConditionType.String())
 }
 
-// MarkProcessed marks the Release as processed.
-func (r *Release) MarkProcessed() {
-	if !r.IsProcessing() || r.HasProcessingFinished() {
+// MarkManagedPipelineProcessed marks the Release Managed Pipeline as processed.
+func (r *Release) MarkManagedPipelineProcessed() {
+	if !r.IsManagedPipelineProcessing() || r.HasManagedPipelineProcessingFinished() {
 		return
 	}
 
-	r.Status.Processing.CompletionTime = &metav1.Time{Time: time.Now()}
-	conditions.SetCondition(&r.Status.Conditions, processedConditionType, metav1.ConditionTrue, SucceededReason)
+	r.Status.ManagedProcessing.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetCondition(&r.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SucceededReason)
 
-	go metrics.RegisterCompletedReleaseProcessing(
-		r.Status.Processing.StartTime,
-		r.Status.Processing.CompletionTime,
+	go metrics.RegisterCompletedReleasePipelineProcessing(
+		r.Status.ManagedProcessing.StartTime,
+		r.Status.ManagedProcessing.CompletionTime,
 		SucceededReason.String(),
 		r.Status.Target,
+		metadata.ManagedPipelineType,
 	)
 }
 
-// MarkProcessing marks the Release as processing.
-func (r *Release) MarkProcessing(message string) {
-	if r.HasProcessingFinished() {
+// MarkTenantPipelineProcessed marks the Release Tenant Pipeline as processed.
+func (r *Release) MarkTenantPipelineProcessed() {
+	if !r.IsTenantPipelineProcessing() || r.HasTenantPipelineProcessingFinished() {
 		return
 	}
 
-	if !r.IsProcessing() {
-		r.Status.Processing.StartTime = &metav1.Time{Time: time.Now()}
+	r.Status.TenantProcessing.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetCondition(&r.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+
+	go metrics.RegisterCompletedReleasePipelineProcessing(
+		r.Status.TenantProcessing.StartTime,
+		r.Status.TenantProcessing.CompletionTime,
+		SucceededReason.String(),
+		r.Status.Target,
+		metadata.TenantPipelineType,
+	)
+}
+
+// MarkManagedPipelineProcessing marks the Release Managed Pipeline as processing.
+func (r *Release) MarkManagedPipelineProcessing() {
+	if r.HasManagedPipelineProcessingFinished() {
+		return
 	}
 
-	conditions.SetConditionWithMessage(&r.Status.Conditions, processedConditionType, metav1.ConditionFalse, ProgressingReason, message)
+	if !r.IsManagedPipelineProcessing() {
+		r.Status.ManagedProcessing.StartTime = &metav1.Time{Time: time.Now()}
+	}
 
-	go metrics.RegisterNewReleaseProcessing(
-		r.Status.Processing.StartTime,
+	conditions.SetCondition(&r.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+
+	go metrics.RegisterNewReleasePipelineProcessing(
+		r.Status.ManagedProcessing.StartTime,
 		r.Status.StartTime,
 		ProgressingReason.String(),
 		r.Status.Target,
+		metadata.ManagedPipelineType,
 	)
 }
 
-// MarkProcessingFailed marks the Release processing as failed.
-func (r *Release) MarkProcessingFailed(message string) {
-	if !r.IsProcessing() || r.HasProcessingFinished() {
+// MarkTenantPipelineProcessing marks the Release Tenant Pipeline as processing.
+func (r *Release) MarkTenantPipelineProcessing() {
+	if r.HasTenantPipelineProcessingFinished() {
 		return
 	}
 
-	r.Status.Processing.CompletionTime = &metav1.Time{Time: time.Now()}
-	conditions.SetConditionWithMessage(&r.Status.Conditions, processedConditionType, metav1.ConditionFalse, FailedReason, message)
+	if !r.IsTenantPipelineProcessing() {
+		r.Status.TenantProcessing.StartTime = &metav1.Time{Time: time.Now()}
+	}
 
-	go metrics.RegisterCompletedReleaseProcessing(
-		r.Status.Processing.StartTime,
-		r.Status.Processing.CompletionTime,
+	conditions.SetCondition(&r.Status.Conditions, tenantProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+
+	go metrics.RegisterNewReleasePipelineProcessing(
+		r.Status.TenantProcessing.StartTime,
+		r.Status.StartTime,
+		ProgressingReason.String(),
+		r.Status.Target,
+		metadata.TenantPipelineType,
+	)
+}
+
+// MarkManagedPipelineProcessingFailed marks the Release Managed Pipeline processing as failed.
+func (r *Release) MarkManagedPipelineProcessingFailed(message string) {
+	if !r.IsManagedPipelineProcessing() || r.HasManagedPipelineProcessingFinished() {
+		return
+	}
+
+	r.Status.ManagedProcessing.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetConditionWithMessage(&r.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, FailedReason, message)
+
+	go metrics.RegisterCompletedReleasePipelineProcessing(
+		r.Status.ManagedProcessing.StartTime,
+		r.Status.ManagedProcessing.CompletionTime,
 		FailedReason.String(),
 		r.Status.Target,
+		metadata.ManagedPipelineType,
 	)
+}
+
+// MarkTenantPipelineProcessingFailed marks the Release Tenant Pipeline processing as failed.
+func (r *Release) MarkTenantPipelineProcessingFailed(message string) {
+	if !r.IsTenantPipelineProcessing() || r.HasTenantPipelineProcessingFinished() {
+		return
+	}
+
+	r.Status.TenantProcessing.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetConditionWithMessage(&r.Status.Conditions, tenantProcessedConditionType, metav1.ConditionFalse, FailedReason, message)
+
+	go metrics.RegisterCompletedReleasePipelineProcessing(
+		r.Status.TenantProcessing.StartTime,
+		r.Status.TenantProcessing.CompletionTime,
+		FailedReason.String(),
+		r.Status.Target,
+		metadata.TenantPipelineType,
+	)
+}
+
+// MarkManagedPipelineProcessingSkipped marks the Release Managed Pipeline processing as skipped.
+func (r *Release) MarkManagedPipelineProcessingSkipped() {
+	if r.HasManagedPipelineProcessingFinished() {
+		return
+	}
+
+	conditions.SetCondition(&r.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+}
+
+// MarkTenantPipelineProcessingSkipped marks the Release Tenant Pipeline processing as skipped.
+func (r *Release) MarkTenantPipelineProcessingSkipped() {
+	if r.HasTenantPipelineProcessingFinished() {
+		return
+	}
+
+	conditions.SetCondition(&r.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SkippedReason)
 }
 
 // MarkPostActionsExecuted marks the Release post-actions as executed.
@@ -327,8 +414,8 @@ func (r *Release) MarkPostActionsExecutionFailed(message string) {
 	conditions.SetConditionWithMessage(&r.Status.Conditions, postActionsExecutedConditionType, metav1.ConditionFalse, FailedReason, message)
 
 	go metrics.RegisterCompletedReleasePostActionsExecuted(
-		r.Status.Processing.StartTime,
-		r.Status.Processing.CompletionTime,
+		r.Status.PostActionsExecution.StartTime,
+		r.Status.PostActionsExecution.CompletionTime,
 		FailedReason.String(),
 	)
 }
@@ -345,10 +432,11 @@ func (r *Release) MarkReleased() {
 	go metrics.RegisterCompletedRelease(
 		r.Status.StartTime,
 		r.Status.CompletionTime,
+		r.getPhaseReason(managedProcessedConditionType),
 		r.getPhaseReason(postActionsExecutedConditionType),
-		r.getPhaseReason(processedConditionType),
 		SucceededReason.String(),
 		r.Status.Target,
+		r.getPhaseReason(tenantProcessedConditionType),
 		r.getPhaseReason(validatedConditionType),
 	)
 }
@@ -381,7 +469,8 @@ func (r *Release) MarkReleaseFailed(message string) {
 		r.Status.StartTime,
 		r.Status.CompletionTime,
 		r.getPhaseReason(postActionsExecutedConditionType),
-		r.getPhaseReason(processedConditionType),
+		r.getPhaseReason(tenantProcessedConditionType),
+		r.getPhaseReason(managedProcessedConditionType),
 		FailedReason.String(),
 		r.Status.Target,
 		r.getPhaseReason(validatedConditionType),

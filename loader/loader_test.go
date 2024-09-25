@@ -34,7 +34,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		component                   *applicationapiv1alpha1.Component
 		enterpriseContractConfigMap *corev1.ConfigMap
 		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
-		pipelineRun                 *tektonv1.PipelineRun
+		managedPipelineRun          *tektonv1.PipelineRun
+		tenantPipelineRun           *tektonv1.PipelineRun
 		release                     *v1alpha1.Release
 		releasePlan                 *v1alpha1.ReleasePlan
 		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
@@ -181,6 +182,16 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no ReleasePlanAdmission found in namespace"))
+			Expect(returnedObject).To(BeNil())
+		})
+
+		It("fails to return a release plan admission if the target is nil", func() {
+			modifiedReleasePlan := releasePlan.DeepCopy()
+			modifiedReleasePlan.Spec.Target = ""
+
+			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("has no target"))
 			Expect(returnedObject).To(BeNil())
 		})
 
@@ -335,7 +346,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		It("fails to return a RoleBinding if the roleBinding does not exist", func() {
 			modifiedRelease := release.DeepCopy()
-			modifiedRelease.Status.Processing.RoleBinding = "foo/bar"
+			modifiedRelease.Status.ManagedProcessing.RoleBinding = "foo/bar"
 
 			returnedObject, err := loader.GetRoleBindingFromReleaseStatus(ctx, k8sClient, modifiedRelease)
 			Expect(returnedObject).To(BeNil())
@@ -344,7 +355,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		It("returns the requested resource", func() {
 			modifiedRelease := release.DeepCopy()
-			modifiedRelease.Status.Processing.RoleBinding = fmt.Sprintf("%s%c%s", roleBinding.Namespace,
+			modifiedRelease.Status.ManagedProcessing.RoleBinding = fmt.Sprintf("%s%c%s", roleBinding.Namespace,
 				types.Separator, roleBinding.Name)
 
 			returnedObject, err := loader.GetRoleBindingFromReleaseStatus(ctx, k8sClient, modifiedRelease)
@@ -355,18 +366,25 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("calling GetReleasePipelineRun", func() {
-		It("returns a PipelineRun if the labels match with the release data", func() {
-			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release)
+		It("returns a Managed PipelineRun if the labels match with the release data", func() {
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.ManagedPipelineType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
-			Expect(returnedObject.Name).To(Equal(pipelineRun.Name))
+			Expect(returnedObject.Name).To(Equal(managedPipelineRun.Name))
+		})
+
+		It("returns a Tenant PipelineRun if the labels match with the release data", func() {
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.TenantPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
+			Expect(returnedObject.Name).To(Equal(tenantPipelineRun.Name))
 		})
 
 		It("fails to return a PipelineRun if the labels don't match with the release data", func() {
 			modifiedRelease := release.DeepCopy()
 			modifiedRelease.Name = "non-existing-release"
 
-			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, modifiedRelease)
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, modifiedRelease, metadata.ManagedPipelineType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).To(BeNil())
 		})
@@ -551,24 +569,39 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, release)).To(Succeed())
 
-		pipelineRun = &tektonv1.PipelineRun{
+		managedPipelineRun = &tektonv1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
 					metadata.ReleaseNameLabel:      release.Name,
 					metadata.ReleaseNamespaceLabel: release.Namespace,
+					metadata.PipelinesTypeLabel:    metadata.ManagedPipelineType,
 				},
 				Name:      "pipeline-run",
 				Namespace: "default",
 			},
 		}
-		Expect(k8sClient.Create(ctx, pipelineRun)).To(Succeed())
+		Expect(k8sClient.Create(ctx, managedPipelineRun)).To(Succeed())
+
+		tenantPipelineRun = &tektonv1.PipelineRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					metadata.ReleaseNameLabel:      release.Name,
+					metadata.ReleaseNamespaceLabel: release.Namespace,
+					metadata.PipelinesTypeLabel:    metadata.TenantPipelineType,
+				},
+				Name:      "tenant-pipeline-run",
+				Namespace: "default",
+			},
+		}
+		Expect(k8sClient.Create(ctx, tenantPipelineRun)).To(Succeed())
 	}
 
 	deleteResources = func() {
 		Expect(k8sClient.Delete(ctx, application)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, component)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, enterpriseContractPolicy)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, managedPipelineRun)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, tenantPipelineRun)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, release)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlan)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlanAdmission)).To(Succeed())

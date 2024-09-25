@@ -123,9 +123,9 @@ func (l *mockLoader) GetRoleBindingFromReleaseStatus(ctx context.Context, cli cl
 }
 
 // GetReleasePipelineRun returns the resource and error passed as values of the context.
-func (l *mockLoader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*tektonv1.PipelineRun, error) {
+func (l *mockLoader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType string) (*tektonv1.PipelineRun, error) {
 	if ctx.Value(ReleasePipelineRunContextKey) == nil {
-		return l.loader.GetReleasePipelineRun(ctx, cli, release)
+		return l.loader.GetReleasePipelineRun(ctx, cli, release, pipelineType)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleasePipelineRunContextKey, &tektonv1.PipelineRun{})
 }
