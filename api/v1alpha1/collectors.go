@@ -8,6 +8,10 @@ type Collector struct {
 	// +required
 	Name string `json:"name"`
 
+	// Timeout in seconds for the collector to execute
+	// +optional
+	Timeout int `json:"timeout,omitempty"`
+
 	// Type is the type of collector to be used
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required
