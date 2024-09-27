@@ -42,10 +42,6 @@ spec:
           spec:
             description: ReleaseServiceConfigSpec defines the desired state of ReleaseServiceConfig.
             properties:
-              advisoryRepo:
-                description: AdvisoryRepo is the repo to create advisories in during
-                  the managed release PipelineRun
-                type: string
               debug:
                 description: |-
                   Debug is the boolean that specifies whether or not the Release Service should run
