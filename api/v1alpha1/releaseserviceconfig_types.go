@@ -30,10 +30,6 @@ type ReleaseServiceConfigSpec struct {
 	// +optional
 	Debug bool `json:"debug,omitempty"`
 
-	// AdvisoryRepo is the repo to create advisories in during the managed release PipelineRun
-	// +optional
-	AdvisoryRepo string `json:"advisoryRepo,omitempty"`
-
 	// DefaultTimeouts contain the default Tekton timeouts to be used in case they are
 	// not specified in the ReleasePlanAdmission resource.
 	DefaultTimeouts tektonv1.TimeoutFields `json:"defaultTimeouts,omitempty"`
