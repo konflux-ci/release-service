@@ -544,6 +544,11 @@ func (in *ReleaseStatus) DeepCopyInto(out *ReleaseStatus) {
 		(*in).DeepCopyInto(*out)
 	}
 	out.Attribution = in.Attribution
+	if in.Collectors != nil {
+		in, out := &in.Collectors, &out.Collectors
+		*out = new(runtime.RawExtension)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]v1.Condition, len(*in))
