@@ -22,7 +22,7 @@ spec:
       type: string
     - name: test-event-type
       description: 'Indicates if the test is triggered by a Pull Request or Push event.'
-      default: 'none'    
+      default: 'none'
     - name: konflux-test-infra-secret
       description: The name of secret where testing infrastructures credentials are stored.
       type: string
@@ -149,7 +149,7 @@ spec:
         resolver: git
         params:
           - name: url
-            value: https://github.com/flacatus/konflux-qe-definitions.git
+            value: https://github.com/konflux-ci/konflux-qe-definitions.git
           - name: revision
             value: main
           - name: pathInRepo
