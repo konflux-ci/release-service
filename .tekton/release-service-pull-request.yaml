@@ -395,7 +395,7 @@ spec:
         - name: name
           value: rpms-signature-scan
         - name: bundle
-          value: quay.io/konflux-ci/tekton-catalog/task-rpms-signature-scan:0.1@sha256:8e3515fdc0bbc0bcac994482a2396a8cd23e6a6fa9efaf3ec715ee312a376777
+          value: quay.io/konflux-ci/tekton-catalog/task-rpms-signature-scan:0.2@sha256:7aa4d3c95e2b963e82fdda392f7cb3d61e3dab035416cf4a3a34e43cf3c9c9b8
         - name: kind
           value: task
       params:
@@ -403,8 +403,6 @@ spec:
         value: $(tasks.build-container.results.IMAGE_URL)
       - name: image-digest
         value: $(tasks.build-container.results.IMAGE_DIGEST)
-      - name: fail-unsigned
-        value: true
     workspaces:
     - name: workspace
     - name: git-auth
