@@ -1,5 +1,7 @@
 # Build the manager binary
-FROM registry.access.redhat.com/ubi9/go-toolset:1.21.11-9 as builder
+FROM golang:1.22 as builder
+
+WORKDIR /opt/app-root/src
 
 # Copy the Go Modules manifests
 COPY go.mod go.mod
