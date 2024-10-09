@@ -185,16 +185,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(returnedObject).To(BeNil())
 		})
 
-		It("fails to return a release plan admission if the target is nil", func() {
-			modifiedReleasePlan := releasePlan.DeepCopy()
-			modifiedReleasePlan.Spec.Target = ""
-
-			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("has no target"))
-			Expect(returnedObject).To(BeNil())
-		})
-
 		It("fails to return a release plan admission if multiple matches are found", func() {
 			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
 			newReleasePlanAdmission.Name = "new-release-plan-admission"
@@ -207,6 +197,16 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			})
 
 			Expect(k8sClient.Delete(ctx, newReleasePlanAdmission)).To(Succeed())
+		})
+
+		It("fails to return a release plan admission if the target is nil", func() {
+			modifiedReleasePlan := releasePlan.DeepCopy()
+			modifiedReleasePlan.Spec.Target = ""
+
+			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("no target specified in releasePlan, unable to find any ReleasePlanAdmissions"))
+			Expect(returnedObject).To(BeNil())
 		})
 	})
 
@@ -248,6 +248,16 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				}
 				return returnedObject != &v1alpha1.ReleasePlanList{} && err == nil && contains == false
 			})
+		})
+
+		It("fails to return release plans if origin is empty", func() {
+			modifiedReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			modifiedReleasePlanAdmission.Spec.Origin = ""
+
+			returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, modifiedReleasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("origin namespace is missing, unable to list ReleasePlans"))
+			Expect(returnedObject).To(BeNil())
 		})
 	})
 
@@ -325,6 +335,16 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(returnedObject).ToNot(BeNil())
 			Expect(returnedObject.Name).To(Equal(newerRelease.Name))
+		})
+
+		It("fails to return previous releases if namespace is missing", func() {
+			modifiedRelease := release.DeepCopy()
+			modifiedRelease.Namespace = ""
+
+			returnedObject, err := loader.GetPreviousRelease(ctx, k8sClient, modifiedRelease)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("namespace is missing, unable to list Releases"))
+			Expect(returnedObject).To(BeNil())
 		})
 	})
 

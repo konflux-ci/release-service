@@ -120,16 +120,16 @@ func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client
 		return releasePlanAdmission, toolkit.GetObject(designatedReleasePlanAdmissionName, releasePlan.Spec.Target, cli, ctx, releasePlanAdmission)
 	}
 
-	if releasePlan.Spec.Target == "" {
-		return nil, fmt.Errorf("releasePlan has no target, so no ReleasePlanAdmissions can be found")
-	}
-
 	releasePlanAdmissions := &v1alpha1.ReleasePlanAdmissionList{}
-	err := cli.List(ctx, releasePlanAdmissions,
-		client.InNamespace(releasePlan.Spec.Target),
-		client.MatchingFields{"spec.origin": releasePlan.Namespace})
-	if err != nil {
-		return nil, err
+	if releasePlan.Spec.Target != "" {
+		err := cli.List(ctx, releasePlanAdmissions,
+			client.InNamespace(releasePlan.Spec.Target),
+			client.MatchingFields{"spec.origin": releasePlan.Namespace})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("no target specified in releasePlan, unable to find any ReleasePlanAdmissions")
 	}
 
 	var foundReleasePlanAdmission *v1alpha1.ReleasePlanAdmission
@@ -161,11 +161,15 @@ func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client
 // error will be returned.
 func (l *loader) GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error) {
 	releasePlans := &v1alpha1.ReleasePlanList{}
-	err := cli.List(ctx, releasePlans,
-		client.InNamespace(releasePlanAdmission.Spec.Origin),
-		client.MatchingFields{"spec.target": releasePlanAdmission.Namespace})
-	if err != nil {
-		return nil, err
+	if releasePlanAdmission.Spec.Origin != "" {
+		err := cli.List(ctx, releasePlans,
+			client.InNamespace(releasePlanAdmission.Spec.Origin),
+			client.MatchingFields{"spec.target": releasePlanAdmission.Namespace})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("origin namespace is missing, unable to list ReleasePlans")
 	}
 
 	for i := len(releasePlans.Items) - 1; i >= 0; i-- {
@@ -182,11 +186,15 @@ func (l *loader) GetMatchingReleasePlans(ctx context.Context, cli client.Client,
 // If no previous Release is found, a NotFound error is returned.
 func (l *loader) GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error) {
 	releases := &v1alpha1.ReleaseList{}
-	err := cli.List(ctx, releases,
-		client.InNamespace(release.Namespace),
-		client.MatchingFields{"spec.releasePlan": release.Spec.ReleasePlan})
-	if err != nil {
-		return nil, err
+	if release.Namespace != "" {
+		err := cli.List(ctx, releases,
+			client.InNamespace(release.Namespace),
+			client.MatchingFields{"spec.releasePlan": release.Spec.ReleasePlan})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("namespace is missing, unable to list Releases")
 	}
 
 	var previousRelease *v1alpha1.Release
