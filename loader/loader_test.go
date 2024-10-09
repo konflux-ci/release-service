@@ -250,6 +250,16 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				return returnedObject != &v1alpha1.ReleasePlanList{} && err == nil && contains == false
 			})
 		})
+
+		It("fails to return release plans if origin is empty", func() {
+			modifiedReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			modifiedReleasePlanAdmission.Spec.Origin = ""
+
+			returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, modifiedReleasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("releasePlanAdmission has no origin, so no ReleasePlans can be found"))
+			Expect(returnedObject).To(BeNil())
+		})
 	})
 
 	When("calling GetPreviousRelease", func() {
