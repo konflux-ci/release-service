@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// isReleasePipelineRun returns a boolean indicating whether the object passed is a Managed or a Tenant Release PipelineRun.
+// isReleasePipelineRun returns a boolean indicating whether the object passed is a Final, Managed or a Tenant Release PipelineRun.
 func isReleasePipelineRun(object client.Object) bool {
 	_, ok := object.(*tektonv1.PipelineRun)
 	if !ok {
@@ -32,7 +32,7 @@ func isReleasePipelineRun(object client.Object) bool {
 
 	labelValue, found := object.GetLabels()[metadata.PipelinesTypeLabel]
 
-	return found && (labelValue == metadata.ManagedPipelineType || labelValue == metadata.TenantPipelineType)
+	return found && (labelValue == metadata.FinalPipelineType || labelValue == metadata.ManagedPipelineType || labelValue == metadata.TenantPipelineType)
 }
 
 // hasPipelineSucceeded returns a boolean indicating whether the PipelineRun succeeded or not.

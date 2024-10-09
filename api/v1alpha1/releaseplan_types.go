@@ -44,9 +44,13 @@ type ReleasePlanSpec struct {
 	// +optional
 	Data *runtime.RawExtension `json:"data,omitempty"`
 
-	// Pipeline contains all the information about the tenant Pipeline
+	// TenantPipeline contains all the information about the tenant Pipeline
 	// +optional
-	Pipeline *tektonutils.ParameterizedPipeline `json:"pipeline,omitempty"`
+	TenantPipeline *tektonutils.ParameterizedPipeline `json:"tenantPipeline,omitempty"`
+
+	// FinalPipeline contains all the information about the final Pipeline
+	// +optional
+	FinalPipeline *tektonutils.ParameterizedPipeline `json:"finalPipeline,omitempty"`
 
 	// ReleaseGracePeriodDays is the number of days a Release should be kept
 	// This value is used to define the Release ExpirationTime
