@@ -183,10 +183,147 @@ func (a *adapter) EnsureReleaseIsRunning() (controller.OperationResult, error) {
 	return controller.ContinueProcessing()
 }
 
+// EnsureManagedCollectorsPipelineIsProcessed is an operation that will ensure that a Managed Collectors Release
+// PipelineRun associated to the Release being processed exist. Otherwise, it will be created.
+func (a *adapter) EnsureManagedCollectorsPipelineIsProcessed() (controller.OperationResult, error) {
+	if a.release.HasManagedCollectorsPipelineProcessingFinished() || !a.release.HasTenantCollectorsPipelineProcessingFinished() {
+		return controller.ContinueProcessing()
+	}
+
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedCollectorsPipelineType)
+	if err != nil && !errors.IsNotFound(err) {
+		return controller.RequeueWithError(err)
+	}
+
+	if pipelineRun == nil || !a.release.IsManagedCollectorsPipelineProcessing() {
+		releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+		if err != nil {
+			return controller.RequeueWithError(err)
+		}
+
+		var releasePlanAdmission *v1alpha1.ReleasePlanAdmission
+		if releasePlan.Spec.Target != "" {
+			releasePlanAdmission, err = a.loader.GetActiveReleasePlanAdmission(a.ctx, a.client, releasePlan)
+			if err != nil {
+				return controller.RequeueWithError(err)
+			}
+		}
+
+		if releasePlanAdmission == nil || releasePlanAdmission.Spec.Collectors == nil {
+			patch := client.MergeFrom(a.release.DeepCopy())
+			a.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+		}
+
+		if pipelineRun == nil {
+			pipelineRun, err = a.createManagedCollectorsPipelineRun(releasePlanAdmission)
+			if err != nil {
+				return controller.RequeueWithError(err)
+			}
+
+			a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun", metadata.ManagedCollectorsPipelineType),
+				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
+		}
+
+		return controller.RequeueOnErrorOrContinue(a.registerManagedCollectorsProcessingData(pipelineRun))
+	}
+
+	return controller.ContinueProcessing()
+}
+
+// EnsureManagedCollectorsPipelineIsTracked is an operation that will ensure that the Release Managed Collectors PipelineRun status
+// is tracked in the Release being processed.
+func (a *adapter) EnsureManagedCollectorsPipelineIsTracked() (controller.OperationResult, error) {
+	if !a.release.IsManagedCollectorsPipelineProcessing() || a.release.HasManagedCollectorsPipelineProcessingFinished() {
+		return controller.ContinueProcessing()
+	}
+
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedCollectorsPipelineType)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
+	if pipelineRun != nil {
+		err = a.registerManagedCollectorsProcessingStatus(pipelineRun)
+		if err != nil {
+			return controller.RequeueWithError(err)
+		}
+	}
+
+	return controller.ContinueProcessing()
+}
+
+// EnsureTenantCollectorsPipelineIsProcessed is an operation that will ensure that a Tenant Collectors Release
+// PipelineRun associated to the Release being processed exist. Otherwise, it will be created.
+func (a *adapter) EnsureTenantCollectorsPipelineIsProcessed() (controller.OperationResult, error) {
+	if a.release.HasTenantCollectorsPipelineProcessingFinished() {
+		return controller.ContinueProcessing()
+	}
+
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.TenantCollectorsPipelineType)
+	if err != nil && !errors.IsNotFound(err) {
+		return controller.RequeueWithError(err)
+	}
+
+	if pipelineRun == nil || !a.release.IsTenantCollectorsPipelineProcessed() {
+		releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+		if err != nil {
+			return controller.RequeueWithError(err)
+		}
+		if releasePlan.Spec.Collectors == nil {
+			patch := client.MergeFrom(a.release.DeepCopy())
+			a.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+		}
+
+		var releasePlanAdmission *v1alpha1.ReleasePlanAdmission
+		if releasePlan.Spec.Target != "" {
+			releasePlanAdmission, err = a.loader.GetActiveReleasePlanAdmission(a.ctx, a.client, releasePlan)
+			if err != nil {
+				return controller.RequeueWithError(err)
+			}
+		}
+
+		if pipelineRun == nil {
+			pipelineRun, err = a.createTenantCollectorsPipelineRun(releasePlan, releasePlanAdmission)
+			if err != nil {
+				return controller.RequeueWithError(err)
+			}
+
+			a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun", metadata.TenantCollectorsPipelineType),
+				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
+		}
+
+		return controller.RequeueOnErrorOrContinue(a.registerTenantCollectorsProcessingData(pipelineRun))
+	}
+
+	return controller.ContinueProcessing()
+}
+
+// EnsureTenantCollectorsPipelineIsTracked is an operation that will ensure that the Release Tenant Collectors PipelineRun status
+// is tracked in the Release being processed.
+func (a *adapter) EnsureTenantCollectorsPipelineIsTracked() (controller.OperationResult, error) {
+	if !a.release.IsTenantCollectorsPipelineProcessing() || a.release.HasTenantCollectorsPipelineProcessingFinished() {
+		return controller.ContinueProcessing()
+	}
+
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.TenantCollectorsPipelineType)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
+	if pipelineRun != nil {
+		err = a.registerTenantCollectorsProcessingStatus(pipelineRun)
+		if err != nil {
+			return controller.RequeueWithError(err)
+		}
+	}
+
+	return controller.ContinueProcessing()
+}
+
 // EnsureTenantPipelineIsProcessed is an operation that will ensure that a Tenant Release PipelineRun associated to the Release
 // being processed exist. Otherwise, it will be created.
 func (a *adapter) EnsureTenantPipelineIsProcessed() (controller.OperationResult, error) {
-	if a.release.HasTenantPipelineProcessingFinished() {
+	if a.release.HasTenantPipelineProcessingFinished() || !a.release.HasManagedCollectorsPipelineProcessingFinished() {
 		return controller.ContinueProcessing()
 	}
 
@@ -479,6 +616,135 @@ func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, 
 	return nil
 }
 
+// getCollectorsPipelineRunBuilder generates a builder to use while creating a collectors PipelineRun.
+func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType, namespace, revision string) *utils.PipelineRunBuilder {
+	previousRelease, err := a.loader.GetPreviousRelease(a.ctx, a.client, a.release)
+	previousReleaseNamespaceName := ""
+	if err == nil && previousRelease != nil {
+		previousReleaseNamespaceName = fmt.Sprintf("%s%c%s",
+			previousRelease.Namespace, types.Separator, previousRelease.Name)
+	}
+
+	return utils.NewPipelineRunBuilder(pipelineType, namespace).
+		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
+		WithFinalizer(metadata.ReleaseFinalizer).
+		WithLabels(map[string]string{
+			metadata.PipelinesTypeLabel:    pipelineType,
+			metadata.ReleaseNameLabel:      a.release.Name,
+			metadata.ReleaseNamespaceLabel: a.release.Namespace,
+		}).
+		WithObjectReferences(a.release).
+		WithOwner(a.release).
+		WithParams(
+			tektonv1.Param{
+				Name: "previousRelease",
+				Value: tektonv1.ParamValue{
+					Type:      tektonv1.ParamTypeString,
+					StringVal: previousReleaseNamespaceName,
+				},
+			},
+		).
+		WithPipelineRef((&utils.PipelineRef{
+			Resolver: "git",
+			Params: []utils.Param{
+				{
+					Name:  "url",
+					Value: "https://github.com/konflux-ci/release-service-catalog.git",
+				},
+				{
+					Name:  "revision",
+					Value: revision,
+				},
+				{
+					Name:  "pathInRepo",
+					Value: "pipelines/run-collectors/run-collectors.yaml",
+				},
+			},
+		}).ToTektonPipelineRef()).
+		WithWorkspaceFromVolumeTemplate(
+			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
+			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
+		)
+}
+
+// createManagedCollectorsPipelineRun creates a PipelineRun to run the collectors Pipeline for collectors in the ReleasePlanAdmission.
+func (a *adapter) createManagedCollectorsPipelineRun(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*tektonv1.PipelineRun, error) {
+	revision, err := releasePlanAdmission.Spec.Pipeline.PipelineRef.GetRevision()
+	if err != nil {
+		revision = "production"
+	}
+
+	var pipelineRun *tektonv1.PipelineRun
+	pipelineRun, err = a.getCollectorsPipelineRunBuilder(metadata.ManagedCollectorsPipelineType, releasePlanAdmission.Namespace, revision).
+		WithParams(
+			tektonv1.Param{
+				Name: "collectorsResourceType",
+				Value: tektonv1.ParamValue{
+					Type:      tektonv1.ParamTypeString,
+					StringVal: "releaseplanadmission",
+				},
+			},
+			tektonv1.Param{
+				Name: "collectorsResource",
+				Value: tektonv1.ParamValue{
+					Type: tektonv1.ParamTypeString,
+					StringVal: fmt.Sprintf("%s%c%s",
+						releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Name),
+				},
+			},
+		).
+		WithServiceAccount(releasePlanAdmission.Spec.Collectors.ServiceAccountName).
+		Build()
+
+	err = a.client.Create(a.ctx, pipelineRun)
+	if err != nil {
+		return nil, err
+	}
+
+	return pipelineRun, nil
+}
+
+// createTenantCollectorsPipelineRun creates a PipelineRun to run the collectors Pipeline for collectors in the ReleasePlan.
+func (a *adapter) createTenantCollectorsPipelineRun(releasePlan *v1alpha1.ReleasePlan, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*tektonv1.PipelineRun, error) {
+	var revision string
+	var err error
+
+	if releasePlanAdmission != nil {
+		revision, err = releasePlanAdmission.Spec.Pipeline.PipelineRef.GetRevision()
+		if err != nil {
+			revision = "production"
+		}
+	}
+	var pipelineRun *tektonv1.PipelineRun
+	pipelineRun, err = a.getCollectorsPipelineRunBuilder(metadata.TenantCollectorsPipelineType, releasePlan.Namespace, revision).
+		WithParams(
+			tektonv1.Param{
+				Name: "collectorsResourceType",
+				Value: tektonv1.ParamValue{
+					Type:      tektonv1.ParamTypeString,
+					StringVal: "releaseplan",
+				},
+			},
+			tektonv1.Param{
+				Name: "collectorsResource",
+				Value: tektonv1.ParamValue{
+					Type: tektonv1.ParamTypeString,
+					StringVal: fmt.Sprintf("%s%c%s",
+						releasePlan.Namespace, types.Separator, releasePlan.Name),
+				},
+			},
+		).
+		WithServiceAccount(releasePlan.Spec.Collectors.ServiceAccountName).
+		Build()
+
+	err = a.client.Create(a.ctx, pipelineRun)
+	if err != nil {
+		return nil, err
+	}
+
+	return pipelineRun, nil
+}
+
 // createFinalPipelineRun creates and returns a new Final Release PipelineRun. The new PipelineRun will include owner
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
 // will be extracted from the given ReleasePlan. The Release's Snapshot will also be passed to the release
@@ -640,6 +906,42 @@ func (a *adapter) createRoleBindingForClusterRole(clusterRole string, releasePla
 // EnsureFinalizersAreCalled will remove the finalizers and delete the pipelineRuns. If the pipelineRuns were deleted in
 // EnsureReleaseProcessingResourcesAreCleanedUp, they could be removed before all the tracking data is saved.
 func (a *adapter) finalizeRelease(delete bool) error {
+	// Cleanup Managed Collectors Processing Resources
+	managedCollectorsPipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedCollectorsPipelineType)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	err = a.cleanupProcessingResources(managedCollectorsPipelineRun, nil)
+	if err != nil {
+		return err
+	}
+
+	if delete && managedCollectorsPipelineRun != nil {
+		err = a.client.Delete(a.ctx, managedCollectorsPipelineRun)
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	// Cleanup Tenant Collectors Processing Resources
+	tenantCollectorsPipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.TenantCollectorsPipelineType)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	err = a.cleanupProcessingResources(tenantCollectorsPipelineRun, nil)
+	if err != nil {
+		return err
+	}
+
+	if delete && tenantCollectorsPipelineRun != nil {
+		err = a.client.Delete(a.ctx, tenantCollectorsPipelineRun)
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
 	// Cleanup Tenant Processing Resources
 	tenantPipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.TenantPipelineType)
 	if err != nil && !errors.IsNotFound(err) {
@@ -716,6 +1018,25 @@ func (a *adapter) getEmptyReleaseServiceConfig(namespace string) *v1alpha1.Relea
 	return releaseServiceConfig
 }
 
+// registerManagedCollectorsProcessingData adds all the Release Tenant Collectors processing information to its Status
+// and marks it as tenant collectors processing.
+func (a *adapter) registerTenantCollectorsProcessingData(releasePipelineRun *tektonv1.PipelineRun) error {
+	if releasePipelineRun == nil {
+		return nil
+	}
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+
+	a.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s",
+		releasePipelineRun.Namespace, types.Separator, releasePipelineRun.Name)
+
+	a.release.MarkTenantCollectorsPipelineProcessing()
+
+	e := a.client.Status().Patch(a.ctx, a.release, patch)
+
+	return e
+}
+
 // registerTenantProcessingData adds all the Release Tenant processing information to its Status and marks it as tenant processing.
 func (a *adapter) registerTenantProcessingData(releasePipelineRun *tektonv1.PipelineRun) error {
 	if releasePipelineRun == nil {
@@ -748,6 +1069,23 @@ func (a *adapter) registerFinalProcessingData(releasePipelineRun *tektonv1.Pipel
 	return a.client.Status().Patch(a.ctx, a.release, patch)
 }
 
+// registerManagedCollectorsProcessingData adds all the Release Managed Collectors processing information to its Status
+// and marks it as managed collectors processing.
+func (a *adapter) registerManagedCollectorsProcessingData(releasePipelineRun *tektonv1.PipelineRun) error {
+	if releasePipelineRun == nil {
+		return nil
+	}
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+
+	a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s",
+		releasePipelineRun.Namespace, types.Separator, releasePipelineRun.Name)
+
+	a.release.MarkManagedCollectorsPipelineProcessing()
+
+	return a.client.Status().Patch(a.ctx, a.release, patch)
+}
+
 // registerProcessingData adds all the Release Managed processing information to its Status and marks it as managed processing.
 func (a *adapter) registerManagedProcessingData(releasePipelineRun *tektonv1.PipelineRun, roleBinding *rbac.RoleBinding) error {
 	if releasePipelineRun == nil {
@@ -764,6 +1102,27 @@ func (a *adapter) registerManagedProcessingData(releasePipelineRun *tektonv1.Pip
 	}
 
 	a.release.MarkManagedPipelineProcessing()
+
+	return a.client.Status().Patch(a.ctx, a.release, patch)
+}
+
+// registerTenantCollectorsProcessingStatus updates the status of the Release being processed by monitoring the status of the
+// associated tenant collectors Release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
+// started/succeeded, no action will be taken.
+func (a *adapter) registerTenantCollectorsProcessingStatus(pipelineRun *tektonv1.PipelineRun) error {
+	if pipelineRun == nil || !pipelineRun.IsDone() {
+		return nil
+	}
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+
+	condition := pipelineRun.Status.GetCondition(apis.ConditionSucceeded)
+	if condition.IsTrue() {
+		a.release.MarkTenantCollectorsPipelineProcessed()
+	} else {
+		a.release.MarkTenantCollectorsPipelineProcessingFailed(condition.Message)
+		a.release.MarkReleaseFailed("Release processing failed on tenant collectors pipelineRun")
+	}
 
 	return a.client.Status().Patch(a.ctx, a.release, patch)
 }
@@ -785,6 +1144,27 @@ func (a *adapter) registerTenantProcessingStatus(pipelineRun *tektonv1.PipelineR
 		a.release.MarkTenantPipelineProcessingFailed(condition.Message)
 		a.release.MarkManagedPipelineProcessingSkipped() // Do not run managed pipeline if tenant pipeline fails
 		a.release.MarkReleaseFailed("Release processing failed on tenant pipelineRun")
+	}
+
+	return a.client.Status().Patch(a.ctx, a.release, patch)
+}
+
+// registerManagedCollectorsProcessingStatus updates the status of the Release being processed by monitoring the status of the
+// associated managed collectors Release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
+// started/succeeded, no action will be taken.
+func (a *adapter) registerManagedCollectorsProcessingStatus(pipelineRun *tektonv1.PipelineRun) error {
+	if pipelineRun == nil || !pipelineRun.IsDone() {
+		return nil
+	}
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+
+	condition := pipelineRun.Status.GetCondition(apis.ConditionSucceeded)
+	if condition.IsTrue() {
+		a.release.MarkManagedCollectorsPipelineProcessed()
+	} else {
+		a.release.MarkManagedCollectorsPipelineProcessingFailed(condition.Message)
+		a.release.MarkReleaseFailed("Release processing failed on managed collectors pipelineRun")
 	}
 
 	return a.client.Status().Patch(a.ctx, a.release, patch)
