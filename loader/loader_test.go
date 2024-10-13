@@ -377,6 +377,12 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("calling GetReleasePipelineRun", func() {
+		It("returns an error when called with an unexpected Pipeline type", func() {
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, "foo")
+			Expect(returnedObject).To(BeNil())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid type"))
+		})
 
 		It("returns a Final PipelineRun if the labels match with the release data", func() {
 			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.FinalPipelineType)

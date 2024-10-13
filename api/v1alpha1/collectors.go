@@ -1,8 +1,22 @@
 package v1alpha1
 
-// Collector represents a reference to a Collector to be executed as part of the release workflow.
+// Collectors holds the list of collectors to be executed as part of the release workflow along with the
+// ServiceAccount to be used in the PipelineRun.
 // +kubebuilder:object:generate=true
-type Collector struct {
+type Collectors struct {
+	// Items is the list of Collectors to be executed as part of the release workflow
+	// +required
+	Items []CollectorItem `json:"items"`
+
+	// ServiceAccountName is the ServiceAccount to use during the execution of the Collectors Pipeline
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+}
+
+// CollectorItem represents all the information about an specific collector which will be executed in the
+// CollectorsPipeline.
+type CollectorItem struct {
 	// Name of the collector
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +required

@@ -25,10 +25,26 @@ import (
 
 var _ = Describe("Utils", Ordered, func() {
 	When("isReleasePipelineRun is called", func() {
-		It("should return false when the PipelineRun is not of type 'Final', 'managed', or 'tenant'", func() {
+		It("should return false when the PipelineRun is not one of the supported ones", func() {
 			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(isReleasePipelineRun(pipelineRun)).To(BeFalse())
+		})
+
+		It("should return true when the PipelineRun is of type 'tenant-collectors'", func() {
+			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.TenantCollectorsPipelineType}).
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(isReleasePipelineRun(pipelineRun)).To(BeTrue())
+		})
+
+		It("should return true when the PipelineRun is of type 'managed-collectors'", func() {
+			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.ManagedCollectorsPipelineType}).
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(isReleasePipelineRun(pipelineRun)).To(BeTrue())
 		})
 
 		It("should return true when the PipelineRun is of type 'final'", func() {
