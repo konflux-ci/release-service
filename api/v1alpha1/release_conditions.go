@@ -6,8 +6,14 @@ const (
 	// finalProcessedConditionType is the type used to track the status of a Release Final Pipeline processing
 	finalProcessedConditionType conditions.ConditionType = "FinalPipelineProcessed"
 
+	// managedCollectorsProcessedConditionType is the type used to track the status of a Release Managed Collectors Pipeline processing
+	managedCollectorsProcessedConditionType conditions.ConditionType = "ManagedCollectorsPipelineProcessed"
+
 	// managedProcessedConditionType is the type used to track the status of a Release Managed Pipeline processing
 	managedProcessedConditionType conditions.ConditionType = "ManagedPipelineProcessed"
+
+	// tenantCollectorsProcessedConditionType is the type used to track the status of a Release Tenant Collectors Pipeline processing
+	tenantCollectorsProcessedConditionType conditions.ConditionType = "TenantCollectorsPipelineProcessed"
 
 	// tenantProcessedConditionType is the type used to track the status of a Release Tenant Pipeline processing
 	tenantProcessedConditionType conditions.ConditionType = "TenantPipelineProcessed"

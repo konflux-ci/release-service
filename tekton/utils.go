@@ -32,7 +32,11 @@ func isReleasePipelineRun(object client.Object) bool {
 
 	labelValue, found := object.GetLabels()[metadata.PipelinesTypeLabel]
 
-	return found && (labelValue == metadata.FinalPipelineType || labelValue == metadata.ManagedPipelineType || labelValue == metadata.TenantPipelineType)
+	return found && (labelValue == metadata.TenantCollectorsPipelineType ||
+		labelValue == metadata.ManagedCollectorsPipelineType ||
+		labelValue == metadata.FinalPipelineType ||
+		labelValue == metadata.ManagedPipelineType ||
+		labelValue == metadata.TenantPipelineType)
 }
 
 // hasPipelineSucceeded returns a boolean indicating whether the PipelineRun succeeded or not.

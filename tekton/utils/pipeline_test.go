@@ -59,6 +59,20 @@ var _ = Describe("Pipeline", func() {
 		}
 	})
 
+	When("GetRevision method is called", func() {
+		It("should return the revision if it exists", func() {
+			revision, err := gitRef.GetRevision()
+			Expect(revision).To(Equal("my-revision"))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should not return the revision if it does not exist", func() {
+			revision, err := bundleRef.GetRevision()
+			Expect(revision).To(BeEmpty())
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	When("ToTektonPipelineRef method is called", func() {
 		It("should return Tekton PipelineRef representation of the PipelineRef", func() {
 			ref := clusterRef.ToTektonPipelineRef()
