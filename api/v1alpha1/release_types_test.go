@@ -30,7 +30,35 @@ import (
 
 var _ = Describe("Release type", func() {
 
-	When("HasFinalPipelineProcessingFinshed method is called", func() {
+	When("HasCollectorsPipelineProcessingFinished method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the collectors pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.HasCollectorsPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("should return false when the collectors pipeline processed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.HasCollectorsPipelineProcessingFinished()).To(BeFalse())
+		})
+
+		It("Should return true when the collectors pipeline processed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.HasCollectorsPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("should return false when the collectors pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.HasCollectorsPipelineProcessingFinished()).To(BeFalse())
+		})
+	})
+
+	When("HasFinalPipelineProcessingFinished method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -185,6 +213,33 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("IsCollectorsPipelineProcessed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the collectors pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsCollectorsPipelineProcessed()).To(BeTrue())
+		})
+
+		It("should return false when the collectors pipeline processed condition status is False", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionFalse, SucceededReason)
+			Expect(release.IsCollectorsPipelineProcessed()).To(BeFalse())
+		})
+
+		It("should return false when the collectors pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionUnknown, SucceededReason)
+			Expect(release.IsCollectorsPipelineProcessed()).To(BeFalse())
+		})
+
+		It("should return false when the collectors pipeline processed condition is missing", func() {
+			Expect(release.IsCollectorsPipelineProcessed()).To(BeFalse())
+		})
+	})
+
 	When("IsFinalPipelineProcessed method is called", func() {
 		var release *Release
 
@@ -264,6 +319,38 @@ var _ = Describe("Release type", func() {
 
 		It("should return false when the tenant pipeline processed condition is missing", func() {
 			Expect(release.IsTenantPipelineProcessed()).To(BeFalse())
+		})
+	})
+
+	When("IsCollectorsPipelineProcessing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when the collectors pipeline processed condition is missing", func() {
+			Expect(release.IsCollectorsPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return false when the collectors pipeline processed condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsCollectorsPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return true when the collectors pipeline processed condition status is False and the reason is Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.IsCollectorsPipelineProcessing()).To(BeTrue())
+		})
+
+		It("should return false when the collectors pipeline processed condition status is False and the reason is not Progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.IsCollectorsPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should return false when the collectors pipeline processed condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, collectorsProcessedConditionType, metav1.ConditionUnknown, ProgressingReason)
+			Expect(release.IsCollectorsPipelineProcessing()).To(BeFalse())
 		})
 	})
 
@@ -445,6 +532,48 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("MarkCollectorsPipelineProcessed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release collectors pipeline processing has not started", func() {
+			release.MarkCollectorsPipelineProcessed()
+			Expect(release.Status.CollectorsProcessing.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release collectors pipeline processing finished", func() {
+			release.MarkCollectorsPipelineProcessing()
+			release.MarkCollectorsPipelineProcessed()
+			Expect(release.Status.CollectorsProcessing.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.CollectorsProcessing.CompletionTime = &metav1.Time{}
+			release.MarkCollectorsPipelineProcessed()
+			Expect(release.Status.CollectorsProcessing.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkCollectorsPipelineProcessing()
+			Expect(release.Status.CollectorsProcessing.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkCollectorsPipelineProcessed()
+			Expect(release.Status.CollectorsProcessing.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkCollectorsPipelineProcessing()
+			release.MarkCollectorsPipelineProcessed()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, collectorsProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SucceededReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
+			}))
+		})
+	})
+
 	When("MarkFinalPipelineProcessed method is called", func() {
 		var release *Release
 
@@ -567,6 +696,49 @@ var _ = Describe("Release type", func() {
 			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
 				"Reason": Equal(SucceededReason.String()),
 				"Status": Equal(metav1.ConditionTrue),
+			}))
+		})
+	})
+
+	When("MarkCollectorsPipelineProcessing method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release collectors pipeline processing finished", func() {
+			release.MarkCollectorsPipelineProcessing()
+			release.MarkCollectorsPipelineProcessed()
+			Expect(release.IsCollectorsPipelineProcessing()).To(BeFalse())
+			release.MarkCollectorsPipelineProcessing()
+			Expect(release.IsCollectorsPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should register the start time if the collectors pipeline is not processing", func() {
+			Expect(release.Status.CollectorsProcessing.StartTime).To(BeNil())
+			release.MarkCollectorsPipelineProcessing()
+			Expect(release.Status.CollectorsProcessing.StartTime).NotTo(BeNil())
+		})
+
+		It("should not register the start time if the collectors pipeline is processing already", func() {
+			Expect(release.Status.CollectorsProcessing.StartTime).To(BeNil())
+			release.MarkCollectorsPipelineProcessing()
+			release.Status.CollectorsProcessing.StartTime = &metav1.Time{}
+			Expect(release.Status.CollectorsProcessing.StartTime.IsZero()).To(BeTrue())
+			release.MarkCollectorsPipelineProcessing()
+			Expect(release.Status.CollectorsProcessing.StartTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkCollectorsPipelineProcessing()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, collectorsProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(ProgressingReason.String()),
+				"Status": Equal(metav1.ConditionFalse),
 			}))
 		})
 	})
@@ -701,6 +873,49 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("MarkCollectorsPipelineProcessingFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release collectors pipeline processing has not started", func() {
+			release.MarkCollectorsPipelineProcessingFailed("")
+			Expect(release.Status.CollectorsProcessing.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing if the Release collectors pipeline processing finished", func() {
+			release.MarkCollectorsPipelineProcessing()
+			release.MarkCollectorsPipelineProcessed()
+			Expect(release.Status.CollectorsProcessing.CompletionTime.IsZero()).To(BeFalse())
+			release.Status.CollectorsProcessing.CompletionTime = &metav1.Time{}
+			release.MarkCollectorsPipelineProcessingFailed("")
+			Expect(release.Status.CollectorsProcessing.CompletionTime.IsZero()).To(BeTrue())
+		})
+
+		It("should register the completion time", func() {
+			release.MarkCollectorsPipelineProcessing()
+			Expect(release.Status.CollectorsProcessing.CompletionTime.IsZero()).To(BeTrue())
+			release.MarkCollectorsPipelineProcessingFailed("")
+			Expect(release.Status.CollectorsProcessing.CompletionTime.IsZero()).To(BeFalse())
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkCollectorsPipelineProcessing()
+			release.MarkCollectorsPipelineProcessingFailed("foo")
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, collectorsProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("foo"),
+				"Reason":  Equal(FailedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+	})
+
 	When("MarkFinalPipelineProcessingFailed method is called", func() {
 		var release *Release
 
@@ -827,6 +1042,40 @@ var _ = Describe("Release type", func() {
 				"Message": Equal("foo"),
 				"Reason":  Equal(FailedReason.String()),
 				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+	})
+
+	When("MarkCollectorsPipelineProcessingSkipped method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing if the Release collectors pipeline processing finished already", func() {
+			release.MarkCollectorsPipelineProcessing()
+			release.MarkCollectorsPipelineProcessingFailed("error")
+			release.MarkCollectorsPipelineProcessingSkipped()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, collectorsProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Message": Equal("error"),
+				"Reason":  Equal(FailedReason.String()),
+				"Status":  Equal(metav1.ConditionFalse),
+			}))
+		})
+
+		It("should register the condition", func() {
+			Expect(release.Status.Conditions).To(HaveLen(0))
+			release.MarkCollectorsPipelineProcessingSkipped()
+
+			condition := meta.FindStatusCondition(release.Status.Conditions, collectorsProcessedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Reason": Equal(SkippedReason.String()),
+				"Status": Equal(metav1.ConditionTrue),
 			}))
 		})
 	})

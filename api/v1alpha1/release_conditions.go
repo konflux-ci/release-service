@@ -3,6 +3,9 @@ package v1alpha1
 import "github.com/konflux-ci/operator-toolkit/conditions"
 
 const (
+	// collectorsProcessedConditionType is the type used to track the status of a Release Collectors Pipeline processing
+	collectorsProcessedConditionType conditions.ConditionType = "CollectorsPipelineProcessed"
+
 	// finalProcessedConditionType is the type used to track the status of a Release Final Pipeline processing
 	finalProcessedConditionType conditions.ConditionType = "FinalPipelineProcessed"
 

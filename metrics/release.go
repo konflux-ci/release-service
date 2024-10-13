@@ -74,6 +74,7 @@ var (
 	)
 	// Prometheus fails if these are not in alphabetical order
 	releaseDurationSecondsLabels = []string{
+		"collectors_pipeline_processing_reason",
 		"final_pipeline_processing_reason",
 		"managed_pipeline_processing_reason",
 		"release_reason",
@@ -108,12 +109,13 @@ var (
 	)
 	// Prometheus fails if these are not in alphabetical order
 	releaseTotalLabels = []string{
-		"final_pipeline_processing_reason",
+		"validation_reason",
+		"collectors_pipeline_processing_reason",
+		"tenant_pipeline_processing_reason",
 		"managed_pipeline_processing_reason",
+		"final_pipeline_processing_reason",
 		"release_reason",
 		"target",
-		"tenant_pipeline_processing_reason",
-		"validation_reason",
 	}
 	releaseTotalOpts = prometheus.CounterOpts{
 		Name: "release_total",
@@ -125,19 +127,21 @@ var (
 // observation for the Release duration and increasing the total number of releases. If either the startTime or the
 // completionTime parameters are nil, no action will be taken.
 func RegisterCompletedRelease(startTime, completionTime *metav1.Time,
-	finalProcessingReason, managedProcessingReason, releaseReason, target, tenantProcessingReason, validationReason string) {
+	validationReason, collectorsProcessingReason, tenantProcessingReason,
+	managedProcessingReason, finalProcessingReason, releaseReason, target string) {
 	if startTime == nil || completionTime == nil {
 		return
 	}
 
 	// Prometheus fails if these are not in alphabetical order
 	labels := prometheus.Labels{
-		"final_pipeline_processing_reason":   finalProcessingReason,
-		"managed_pipeline_processing_reason": managedProcessingReason,
-		"release_reason":                     releaseReason,
-		"target":                             target,
-		"tenant_pipeline_processing_reason":  tenantProcessingReason,
-		"validation_reason":                  validationReason,
+		"validation_reason":                     validationReason,
+		"collectors_pipeline_processing_reason": collectorsProcessingReason,
+		"final_pipeline_processing_reason":      finalProcessingReason,
+		"tenant_pipeline_processing_reason":     tenantProcessingReason,
+		"managed_pipeline_processing_reason":    managedProcessingReason,
+		"release_reason":                        releaseReason,
+		"target":                                target,
 	}
 	ReleaseConcurrentTotal.WithLabelValues().Dec()
 	ReleaseDurationSeconds.
@@ -185,7 +189,7 @@ func RegisterNewRelease() {
 	ReleaseConcurrentTotal.WithLabelValues().Inc()
 }
 
-// RegisterNewReleaseManagedPipelineProcessing registers a new Release Pipeline processing, adding a
+// RegisterNewReleasePipelineProcessing registers a new Release Pipeline processing, adding a
 // new observation for the Release start pipeline processing duration and increasing the number of
 // concurrent processings. If either the startTime or the processingStartTime are nil, no action will be taken.
 func RegisterNewReleasePipelineProcessing(startTime, processingStartTime *metav1.Time, reason, target, pipelineType string) {
