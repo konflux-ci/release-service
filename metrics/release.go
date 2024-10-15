@@ -31,14 +31,6 @@ var (
 		[]string{},
 	)
 
-	ReleaseConcurrentPostActionsExecutionsTotal = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "release_concurrent_post_actions_executions_total",
-			Help: "Total number of concurrent release post actions executions attempts",
-		},
-		[]string{},
-	)
-
 	ReleaseConcurrentProcessingsTotal = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "release_concurrent_processings_total",
@@ -82,8 +74,9 @@ var (
 	)
 	// Prometheus fails if these are not in alphabetical order
 	releaseDurationSecondsLabels = []string{
+		"collectors_pipeline_processing_reason",
+		"final_pipeline_processing_reason",
 		"managed_pipeline_processing_reason",
-		"post_actions_reason",
 		"release_reason",
 		"target",
 		"tenant_pipeline_processing_reason",
@@ -92,19 +85,6 @@ var (
 	releaseDurationSecondsOpts = prometheus.HistogramOpts{
 		Name:    "release_duration_seconds",
 		Help:    "How long in seconds a Release takes to complete",
-		Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
-	}
-
-	ReleasePostActionsExecutionDurationSeconds = prometheus.NewHistogramVec(
-		releasePostActionsExecutionDurationSecondsOpts,
-		releasePostActionsExecutionDurationSecondsLabels,
-	)
-	releasePostActionsExecutionDurationSecondsLabels = []string{
-		"reason",
-	}
-	releasePostActionsExecutionDurationSecondsOpts = prometheus.HistogramOpts{
-		Name:    "release_post_actions_execution_duration_seconds",
-		Help:    "How long in seconds Release post-actions take to complete",
 		Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
 	}
 
@@ -129,12 +109,13 @@ var (
 	)
 	// Prometheus fails if these are not in alphabetical order
 	releaseTotalLabels = []string{
+		"validation_reason",
+		"collectors_pipeline_processing_reason",
+		"tenant_pipeline_processing_reason",
 		"managed_pipeline_processing_reason",
-		"post_actions_reason",
+		"final_pipeline_processing_reason",
 		"release_reason",
 		"target",
-		"tenant_pipeline_processing_reason",
-		"validation_reason",
 	}
 	releaseTotalOpts = prometheus.CounterOpts{
 		Name: "release_total",
@@ -146,41 +127,27 @@ var (
 // observation for the Release duration and increasing the total number of releases. If either the startTime or the
 // completionTime parameters are nil, no action will be taken.
 func RegisterCompletedRelease(startTime, completionTime *metav1.Time,
-	managedProcessingReason, postActionsReason, releaseReason, target, tenantProcessingReason, validationReason string) {
+	validationReason, collectorsProcessingReason, tenantProcessingReason,
+	managedProcessingReason, finalProcessingReason, releaseReason, target string) {
 	if startTime == nil || completionTime == nil {
 		return
 	}
 
 	// Prometheus fails if these are not in alphabetical order
 	labels := prometheus.Labels{
-		"managed_pipeline_processing_reason": managedProcessingReason,
-		"post_actions_reason":                postActionsReason,
-		"release_reason":                     releaseReason,
-		"target":                             target,
-		"tenant_pipeline_processing_reason":  tenantProcessingReason,
-		"validation_reason":                  validationReason,
+		"validation_reason":                     validationReason,
+		"collectors_pipeline_processing_reason": collectorsProcessingReason,
+		"final_pipeline_processing_reason":      finalProcessingReason,
+		"tenant_pipeline_processing_reason":     tenantProcessingReason,
+		"managed_pipeline_processing_reason":    managedProcessingReason,
+		"release_reason":                        releaseReason,
+		"target":                                target,
 	}
 	ReleaseConcurrentTotal.WithLabelValues().Dec()
 	ReleaseDurationSeconds.
 		With(labels).
 		Observe(completionTime.Sub(startTime.Time).Seconds())
 	ReleaseTotal.With(labels).Inc()
-}
-
-// RegisterCompletedReleasePostActionsExecuted registers a Release post-actions execution as complete, adding a new
-// observation for the Release post-actions execution duration and decreasing the number of concurrent executions.
-// If either the startTime or the completionTime parameters are nil, no action will be taken.
-func RegisterCompletedReleasePostActionsExecuted(startTime, completionTime *metav1.Time, reason string) {
-	if startTime == nil || completionTime == nil {
-		return
-	}
-
-	ReleasePostActionsExecutionDurationSeconds.
-		With(prometheus.Labels{
-			"reason": reason,
-		}).
-		Observe(completionTime.Sub(startTime.Time).Seconds())
-	ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues().Dec()
 }
 
 // RegisterCompletedReleasePipelineProcessing registers a Release pipeline processing as complete, adding a
@@ -222,7 +189,7 @@ func RegisterNewRelease() {
 	ReleaseConcurrentTotal.WithLabelValues().Inc()
 }
 
-// RegisterNewReleaseManagedPipelineProcessing registers a new Release Pipeline processing, adding a
+// RegisterNewReleasePipelineProcessing registers a new Release Pipeline processing, adding a
 // new observation for the Release start pipeline processing duration and increasing the number of
 // concurrent processings. If either the startTime or the processingStartTime are nil, no action will be taken.
 func RegisterNewReleasePipelineProcessing(startTime, processingStartTime *metav1.Time, reason, target, pipelineType string) {
@@ -241,21 +208,13 @@ func RegisterNewReleasePipelineProcessing(startTime, processingStartTime *metav1
 	ReleaseConcurrentProcessingsTotal.WithLabelValues().Inc()
 }
 
-// RegisterNewReleasePostActionsExecution register a new Release post-actions execution, increasing the number of
-// concurrent executions.
-func RegisterNewReleasePostActionsExecution() {
-	ReleaseConcurrentPostActionsExecutionsTotal.WithLabelValues().Inc()
-}
-
 func init() {
 	metrics.Registry.MustRegister(
 		ReleaseConcurrentTotal,
 		ReleaseConcurrentProcessingsTotal,
-		ReleaseConcurrentPostActionsExecutionsTotal,
 		ReleasePreProcessingDurationSeconds,
 		ReleaseValidationDurationSeconds,
 		ReleaseDurationSeconds,
-		ReleasePostActionsExecutionDurationSeconds,
 		ReleaseProcessingDurationSeconds,
 		ReleaseTotal,
 	)
