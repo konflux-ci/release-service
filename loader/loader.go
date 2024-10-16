@@ -160,6 +160,11 @@ func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client
 // are in the namespace specified by the ReleasePlanAdmission's origin. If the List operation fails, an
 // error will be returned.
 func (l *loader) GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error) {
+
+	if releasePlanAdmission.Spec.Origin == "" {
+		return nil, fmt.Errorf("releasePlanAdmission has no origin, so no ReleasePlans can be found")
+	}
+
 	releasePlans := &v1alpha1.ReleasePlanList{}
 	err := cli.List(ctx, releasePlans,
 		client.InNamespace(releasePlanAdmission.Spec.Origin),
