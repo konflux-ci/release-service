@@ -117,7 +117,11 @@ func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client
 
 	if designatedReleasePlanAdmissionName != "" {
 		releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{}
-		return releasePlanAdmission, toolkit.GetObject(designatedReleasePlanAdmissionName, releasePlan.Spec.Target, cli, ctx, releasePlanAdmission)
+		err := toolkit.GetObject(designatedReleasePlanAdmissionName, releasePlan.Spec.Target, cli, ctx, releasePlanAdmission)
+		if err != nil {
+			return nil, err
+		}
+		return releasePlanAdmission, nil
 	}
 
 	if releasePlan.Spec.Target == "" {
