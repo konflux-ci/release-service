@@ -173,7 +173,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.IsNotFound(err)).To(BeTrue())
-			Expect(returnedObject).To(Equal(&v1alpha1.ReleasePlanAdmission{}))
+			Expect(returnedObject).To(BeNil())
 		})
 
 		It("fails to return a release plan admission if the target does not match", func() {
