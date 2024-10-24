@@ -56,45 +56,59 @@ spec:
                   type: string
                 type: array
               collectors:
-                description: Collectors is a list of data collectors to be executed
-                  as part of the release process
-                items:
-                  description: Collector represents a reference to a Collector to
-                    be executed as part of the release workflow.
-                  properties:
-                    name:
-                      description: Name of the collector
-                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                      type: string
-                    params:
-                      description: Params is a slice of parameters for a given collector
-                      items:
-                        description: Param represents a parameter for a collector
-                        properties:
-                          name:
-                            description: Name is the name of the parameter
-                            type: string
-                          value:
-                            description: Value is the value of the parameter
-                            type: string
-                        required:
-                        - name
-                        - value
-                        type: object
-                      type: array
-                    timeout:
-                      description: Timeout in seconds for the collector to execute
-                      type: integer
-                    type:
-                      description: Type is the type of collector to be used
-                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                      type: string
-                  required:
-                  - name
-                  - params
-                  - type
-                  type: object
-                type: array
+                description: Collectors contains all the information of the collectors
+                  to be executed as part of the release workflow
+                properties:
+                  items:
+                    description: Items is the list of Collectors to be executed as
+                      part of the release workflow
+                    items:
+                      description: |-
+                        CollectorItem represents all the information about an specific collector which will be executed in the
+                        CollectorsPipeline.
+                      properties:
+                        name:
+                          description: Name of the collector
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        params:
+                          description: Params is a slice of parameters for a given
+                            collector
+                          items:
+                            description: Param represents a parameter for a collector
+                            properties:
+                              name:
+                                description: Name is the name of the parameter
+                                type: string
+                              value:
+                                description: Value is the value of the parameter
+                                type: string
+                            required:
+                            - name
+                            - value
+                            type: object
+                          type: array
+                        timeout:
+                          description: Timeout in seconds for the collector to execute
+                          type: integer
+                        type:
+                          description: Type is the type of collector to be used
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - name
+                      - params
+                      - type
+                      type: object
+                    type: array
+                  serviceAccountName:
+                    description: ServiceAccountName is the ServiceAccount to use during
+                      the execution of the Collectors Pipeline
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - items
+                type: object
               data:
                 description: Data is an unstructured key used for providing data for
                   the managed Release Pipeline
