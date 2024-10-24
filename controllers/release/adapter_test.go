@@ -2283,6 +2283,66 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 	})
 
+	When("validateApplication is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("returns valid and no error if the Application match", func() {
+			result := adapter.validateApplication()
+			Expect(result.Valid).To(BeTrue())
+			Expect(result.Err).NotTo(HaveOccurred())
+		})
+
+		It("returns invalid and error if the Application doesn't match", func() {
+			newReleasePlan := releasePlan.DeepCopy()
+			newReleasePlan.Spec.Application = "non-existent"
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+			})
+
+			result := adapter.validateApplication()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).To(HaveOccurred())
+			Expect(result.Err.Error()).To(Equal("different Application referenced in ReleasePlan and Snapshot"))
+		})
+
+		It("returns invalid if the ReleasePlan is not found", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result := adapter.validateApplication()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).NotTo(HaveOccurred())
+		})
+
+		It("returns invalid if the Snapshot is not found", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.SnapshotContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result := adapter.validateApplication()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).NotTo(HaveOccurred())
+		})
+	})
+
 	When("calling validateAuthor", func() {
 		var adapter *adapter
 		var conditionMsg string
