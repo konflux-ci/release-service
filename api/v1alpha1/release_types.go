@@ -455,11 +455,11 @@ func (r *Release) MarkReleased() {
 	go metrics.RegisterCompletedRelease(
 		r.Status.StartTime,
 		r.Status.CompletionTime,
+		r.getPhaseReason(tenantProcessedConditionType),
 		r.getPhaseReason(managedProcessedConditionType),
+		r.getPhaseReason(finalProcessedConditionType),
 		SucceededReason.String(),
 		r.Status.Target,
-		r.getPhaseReason(tenantProcessedConditionType),
-		r.getPhaseReason(finalProcessedConditionType),
 		r.getPhaseReason(validatedConditionType),
 	)
 }

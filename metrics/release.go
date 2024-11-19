@@ -132,11 +132,11 @@ func RegisterCompletedRelease(startTime, completionTime *metav1.Time,
 
 	// Prometheus fails if these are not in alphabetical order
 	labels := prometheus.Labels{
-		"final_pipeline_processing_reason":   finalProcessingReason,
+		"tenant_pipeline_processing_reason":  tenantProcessingReason,
 		"managed_pipeline_processing_reason": managedProcessingReason,
+		"final_pipeline_processing_reason":   finalProcessingReason,
 		"release_reason":                     releaseReason,
 		"target":                             target,
-		"tenant_pipeline_processing_reason":  tenantProcessingReason,
 		"validation_reason":                  validationReason,
 	}
 	ReleaseConcurrentTotal.WithLabelValues().Dec()
