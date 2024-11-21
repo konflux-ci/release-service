@@ -91,6 +91,9 @@ spec:
         - input: "$(tasks.test-metadata.results.test-event-type)"
           operator: in
           values: ["pull_request"]
+        - input: "$(tasks.test-metadata.results.pull-request-author)"
+          operator: notin
+          values: ["red-hat-konflux[bot]"]
       runAfter:
         - rosa-hcp-metadata
         - test-metadata
@@ -123,6 +126,9 @@ spec:
         - input: "$(tasks.test-metadata.results.test-event-type)"
           operator: in
           values: ["pull_request"]
+        - input: "$(tasks.test-metadata.results.pull-request-author)"
+          operator: notin
+          values: ["red-hat-konflux[bot]"]
       runAfter:
         - provision-rosa
       taskRef:
@@ -157,6 +163,9 @@ spec:
         - input: "$(tasks.test-metadata.results.test-event-type)"
           operator: in
           values: ["pull_request"]
+        - input: "$(tasks.test-metadata.results.pull-request-author)"
+          operator: notin
+          values: ["red-hat-konflux[bot]"]
       taskRef:
         resolver: git
         params:
@@ -196,6 +205,9 @@ spec:
         - input: "$(tasks.test-metadata.results.test-event-type)"
           operator: in
           values: ["pull_request"]
+        - input: "$(tasks.test-metadata.results.pull-request-author)"
+          operator: notin
+          values: ["red-hat-konflux[bot]"]
       taskRef:
         resolver: git
         params:
@@ -221,6 +233,9 @@ spec:
         - input: "$(tasks.test-metadata.results.test-event-type)"
           operator: in
           values: ["pull_request"]
+        - input: "$(tasks.test-metadata.results.pull-request-author)"
+          operator: notin
+          values: ["red-hat-konflux[bot]"]
       taskRef:
         resolver: git
         params:
