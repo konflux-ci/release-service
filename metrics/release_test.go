@@ -17,6 +17,7 @@ limitations under the License.
 package metrics
 
 import (
+	"strings"
 	"time"
 
 	"github.com/konflux-ci/operator-toolkit/test"
@@ -61,35 +62,40 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("adds an observation to ReleaseDurationSeconds", func() {
 			RegisterCompletedRelease(startTime, completionTime,
-				releaseDurationSecondsLabels[0],
-				releaseDurationSecondsLabels[1],
-				releaseDurationSecondsLabels[2],
-				releaseDurationSecondsLabels[3],
-				releaseDurationSecondsLabels[4],
-				releaseDurationSecondsLabels[5],
+				"tenantReason",
+				"managedReason",
+				"finalReason",
+				"releaseReason",
+				"targetTenantName",
+				"validationReason",
 			)
-			Expect(testutil.CollectAndCompare(ReleaseDurationSeconds,
-				test.NewHistogramReader(
-					releaseDurationSecondsOpts,
-					releaseDurationSecondsLabels,
-					startTime, completionTime,
-				))).To(Succeed())
+			metadata := `
+                # HELP release_total Total number of releases reconciled by the operator
+                # TYPE release_total counter
+            `
+			expected := `
+                release_total{final_pipeline_processing_reason="finalReason",managed_pipeline_processing_reason="managedReason",release_reason="releaseReason",target="targetTenantName",tenant_pipeline_processing_reason="tenantReason",validation_reason="validationReason"} 1
+            `
+			Expect(testutil.CollectAndCompare(ReleaseTotal, strings.NewReader(metadata+expected), "release_total")).To(Succeed())
 		})
 
 		It("increments ReleaseTotal", func() {
 			RegisterCompletedRelease(startTime, completionTime,
-				releaseTotalLabels[0],
-				releaseTotalLabels[1],
-				releaseTotalLabels[2],
-				releaseTotalLabels[3],
-				releaseTotalLabels[4],
-				releaseTotalLabels[5],
+				"tenantReason",
+				"managedReason",
+				"finalReason",
+				"releaseReason",
+				"targetTenantName",
+				"validationReason",
 			)
-			Expect(testutil.CollectAndCompare(ReleaseTotal,
-				test.NewCounterReader(
-					releaseTotalOpts,
-					releaseTotalLabels,
-				))).To(Succeed())
+			metadata := `
+                # HELP release_total Total number of releases reconciled by the operator
+                # TYPE release_total counter
+            `
+			expected := `
+                release_total{final_pipeline_processing_reason="finalReason",managed_pipeline_processing_reason="managedReason",release_reason="releaseReason",target="targetTenantName",tenant_pipeline_processing_reason="tenantReason",validation_reason="validationReason"} 1
+            `
+			Expect(testutil.CollectAndCompare(ReleaseTotal, strings.NewReader(metadata+expected), "release_total")).To(Succeed())
 		})
 	})
 
@@ -123,9 +129,9 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("adds an observation to ReleaseProcessingDurationSeconds", func() {
 			RegisterCompletedReleasePipelineProcessing(startTime, completionTime,
-				releaseProcessingDurationSecondsLabels[0],
-				releaseProcessingDurationSecondsLabels[1],
-				releaseProcessingDurationSecondsLabels[2],
+				"reason",
+				"target",
+				"type",
 			)
 			Expect(testutil.CollectAndCompare(ReleaseProcessingDurationSeconds,
 				test.NewHistogramReader(
@@ -156,8 +162,8 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("adds an observation to ReleaseValidationDurationSeconds", func() {
 			RegisterValidatedRelease(startTime, validationTime,
-				releaseValidationDurationSecondsLabels[0],
-				releaseValidationDurationSecondsLabels[1],
+				"reason",
+				"target",
 			)
 			Expect(testutil.CollectAndCompare(ReleaseValidationDurationSeconds,
 				test.NewHistogramReader(
@@ -204,9 +210,9 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("adds an observation to ReleasePreProcessingDurationSeconds", func() {
 			RegisterNewReleasePipelineProcessing(startTime, processingStartTime,
-				releasePreProcessingDurationSecondsLabels[0],
-				releasePreProcessingDurationSecondsLabels[1],
-				releasePreProcessingDurationSecondsLabels[2],
+				"reason",
+				"target",
+				"type",
 			)
 			Expect(testutil.CollectAndCompare(ReleasePreProcessingDurationSeconds,
 				test.NewHistogramReader(
@@ -219,9 +225,9 @@ var _ = Describe("Release metrics", Ordered, func() {
 		It("increments ReleaseConcurrentProcessingsTotal", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(0)))
 			RegisterNewReleasePipelineProcessing(startTime, processingStartTime,
-				releasePreProcessingDurationSecondsLabels[0],
-				releasePreProcessingDurationSecondsLabels[1],
-				releasePreProcessingDurationSecondsLabels[2],
+				"reason",
+				"target",
+				"type",
 			)
 			Expect(testutil.ToFloat64(ReleaseConcurrentProcessingsTotal.WithLabelValues())).To(Equal(float64(1)))
 		})
