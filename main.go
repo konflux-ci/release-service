@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -70,6 +71,9 @@ func main() {
 	var metricsAddr string
 	var enableHttp2 bool
 	var enableLeaderElection bool
+	var leaderRenewDeadline time.Duration
+	var leaseDuration time.Duration
+	var leaderElectorRetryPeriod time.Duration
 	var probeAddr string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -77,6 +81,13 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.DurationVar(&leaderRenewDeadline, "leader-renew-deadline", 10*time.Second,
+		"Leader RenewDeadline is the duration that the acting controlplane "+
+			"will retry refreshing leadership before giving up.")
+	flag.DurationVar(&leaseDuration, "lease-duration", 15*time.Second,
+		"Lease Duration is the duration that non-leader candidates will wait to force acquire leadership.")
+	flag.DurationVar(&leaderElectorRetryPeriod, "leader-elector-retry-period", 2*time.Second, "RetryPeriod is the duration the "+
+		"LeaderElector clients should wait between tries of actions.")
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -90,6 +101,9 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "f3d4c01a.redhat.com",
+		RenewDeadline:          &leaderRenewDeadline,
+		LeaseDuration:          &leaseDuration,
+		RetryPeriod:            &leaderElectorRetryPeriod,
 		Metrics: server.Options{
 			BindAddress: metricsAddr,
 		},
