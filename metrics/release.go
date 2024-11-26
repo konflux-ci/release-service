@@ -125,12 +125,13 @@ var (
 // observation for the Release duration and increasing the total number of releases. If either the startTime or the
 // completionTime parameters are nil, no action will be taken.
 func RegisterCompletedRelease(startTime, completionTime *metav1.Time,
-	finalProcessingReason, managedProcessingReason, releaseReason, target, tenantProcessingReason, validationReason string) {
+	tenantProcessingReason, managedProcessingReason, finalProcessingReason, releaseReason, target, validationReason string) {
 	if startTime == nil || completionTime == nil {
 		return
 	}
 
-	// Prometheus fails if these are not in alphabetical order
+	// the label sequence here does not need to be alphabetical, as it is only assigning
+	// the data to the label, so changed to a logical order as the pipelines are executed
 	labels := prometheus.Labels{
 		"tenant_pipeline_processing_reason":  tenantProcessingReason,
 		"managed_pipeline_processing_reason": managedProcessingReason,
