@@ -3046,6 +3046,60 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(result.Err).NotTo(HaveOccurred())
 		})
 
+		It("should return false if ReleasePlan has no Pipeline Set and ReleasePlanAdmission is not found", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource: &v1alpha1.ReleasePlan{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-plan",
+							Namespace: "default",
+						},
+						Spec: v1alpha1.ReleasePlanSpec{
+							Application:            application.Name,
+							ReleaseGracePeriodDays: 6,
+							Target:                 "default",
+						},
+					},
+				},
+			})
+
+			result := adapter.validatePipelineDefined()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).NotTo(HaveOccurred())
+		})
+
+		It("should return false if ReleasePlan has no Pipeline Set and ReleasePlanAdmission is set to auto-release false", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Err:        fmt.Errorf("with auto-release label set to false"),
+				},
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource: &v1alpha1.ReleasePlan{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-plan",
+							Namespace: "default",
+						},
+						Spec: v1alpha1.ReleasePlanSpec{
+							Application:            application.Name,
+							ReleaseGracePeriodDays: 6,
+							Target:                 "default",
+						},
+					},
+				},
+			})
+
+			result := adapter.validatePipelineDefined()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).NotTo(HaveOccurred())
+		})
+
 		It("should set the target in the release status to the ReleasePlan namespace if no target is defined", func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
