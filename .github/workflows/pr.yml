@@ -93,7 +93,7 @@ jobs:
       - name: Run Go Tests
         run: make test
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
       - name: Ensure make build succeeds
         run: make build
       - name: Ensure make bundle succeeds
