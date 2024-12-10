@@ -76,6 +76,10 @@ var _ = BeforeSuite(func() {
 			),
 			filepath.Join(
 				build.Default.GOPATH,
+				"pkg", "mod", test.GetRelativeDependencyPath("tektoncd/pipeline"), "config", "300-crds",
+			),
+			filepath.Join(
+				build.Default.GOPATH,
 				"pkg", "mod", test.GetRelativeDependencyPath("application-api"), "config", "crd", "bases",
 			),
 			filepath.Join(
