@@ -16,7 +16,10 @@ limitations under the License.
 
 package utils
 
-import tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+import (
+	"fmt"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+)
 
 // Param defines the parameters for a given resolver in PipelineRef
 type Param struct {
@@ -62,6 +65,17 @@ type ParameterizedPipeline struct {
 	// Params is a slice of parameters for a given resolver
 	// +optional
 	Params []Param `json:"params,omitempty"`
+}
+
+// GetRevision returns the value of the revision param. If not found an error will be raised.
+func (pr *PipelineRef) GetRevision() (string, error) {
+	for _, param := range pr.Params {
+		if param.Name == "revision" {
+			return param.Value, nil
+		}
+	}
+
+	return "", fmt.Errorf("no revision found")
 }
 
 // ToTektonPipelineRef converts a PipelineRef object to Tekton's own PipelineRef type and returns it.
