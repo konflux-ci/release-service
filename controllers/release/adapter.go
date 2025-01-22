@@ -25,6 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/konflux-ci/operator-toolkit/controller"
+	toolkitmetadata "github.com/konflux-ci/operator-toolkit/metadata"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/loader"
 	"github.com/konflux-ci/release-service/metadata"
@@ -332,6 +333,53 @@ func (a *adapter) EnsureFinalPipelineIsProcessed() (controller.OperationResult, 
 		}
 
 		return controller.RequeueOnErrorOrContinue(a.registerFinalProcessingData(pipelineRun))
+	}
+
+	return controller.ContinueProcessing()
+}
+
+// EnsureApplicationMetadataIsSet is an operation that will ensure that the owner reference is set
+// to be the application the Release was created for and that all annotations and labels from the
+// Snapshot pertaining to Pipelines as Code or the RhtapDomain prefix are copied to the Release.
+func (a *adapter) EnsureApplicationMetadataIsSet() (controller.OperationResult, error) {
+	if len(a.release.OwnerReferences) > 0 {
+		return controller.ContinueProcessing()
+	}
+
+	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
+
+	snapshot, err := a.loader.GetSnapshot(a.ctx, a.client, a.release)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+
+	application, err := a.loader.GetApplication(a.ctx, a.client, releasePlan)
+	if err != nil {
+		a.release.MarkReleaseFailed("This Release is for a nonexistent Application")
+		return controller.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
+	}
+
+	err = ctrl.SetControllerReference(application, a.release, a.client.Scheme())
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
+
+	// Propagate PaC annotations and labels
+	_ = toolkitmetadata.CopyAnnotationsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.PipelinesAsCodePrefix)
+	_ = toolkitmetadata.CopyLabelsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.PipelinesAsCodePrefix)
+
+	// Propagate annotations and labels prefixed with the RhtapDomain prefix
+	_ = toolkitmetadata.CopyAnnotationsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.RhtapDomain)
+	_ = toolkitmetadata.CopyLabelsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.RhtapDomain)
+
+	err = a.client.Patch(a.ctx, a.release, patch)
+	if err != nil && !errors.IsNotFound(err) {
+		return controller.RequeueWithError(err)
 	}
 
 	return controller.ContinueProcessing()
