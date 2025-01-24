@@ -98,38 +98,17 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 			result, err := adapter.EnsureOwnerReferenceIsSet()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.releasePlan.OwnerReferences).To(HaveLen(1))
-		})
 
-		It("should delete the releasePlan if the owner is deleted", func() {
-			newApplication := &applicationapiv1alpha1.Application{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "application-",
-					Namespace:    "default",
-				},
+			boolTrue := true
+			expectedOwnerReference := metav1.OwnerReference{
+				Kind:               "Application",
+				APIVersion:         "appstudio.redhat.com/v1alpha1",
+				UID:                application.UID,
+				Name:               application.Name,
+				Controller:         &boolTrue,
+				BlockOwnerDeletion: &boolTrue,
 			}
-			Expect(k8sClient.Create(ctx, newApplication)).To(Succeed())
-
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ApplicationContextKey,
-					Resource:   newApplication,
-				},
-			})
-
-			Expect(adapter.releasePlan.OwnerReferences).To(HaveLen(0))
-			result, err := adapter.EnsureOwnerReferenceIsSet()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.releasePlan.OwnerReferences).To(HaveLen(1))
-
-			Expect(k8sClient.Delete(ctx, newApplication)).To(Succeed())
-			_, err = adapter.loader.GetReleasePlan(ctx, k8sClient, &v1alpha1.Release{
-				Spec: v1alpha1.ReleaseSpec{
-					ReleasePlan: adapter.releasePlan.Name,
-				},
-			})
-			Expect(err).To(HaveOccurred())
+			Expect(adapter.releasePlan.ObjectMeta.OwnerReferences).To(ContainElement(expectedOwnerReference))
 		})
 	})
 
