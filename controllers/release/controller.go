@@ -79,6 +79,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		adapter.EnsureConfigIsLoaded, // This operation sets the config in the adapter to be used in other operations.
 		adapter.EnsureReleaseIsRunning,
 		adapter.EnsureReleaseIsValid,
+		adapter.EnsureApplicationMetadataIsSet,
 		adapter.EnsureFinalizerIsAdded,
 		adapter.EnsureReleaseExpirationTimeIsAdded,
 		adapter.EnsureTenantPipelineIsProcessed,

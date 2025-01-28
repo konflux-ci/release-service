@@ -1202,6 +1202,127 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 	})
 
+	Context("When EnsureApplicationMetadataIsSet is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("should do nothing if the Release already has an owner reference", func() {
+			adapter.release.OwnerReferences = []metav1.OwnerReference{
+				{Kind: "Application", Name: "foo"},
+			}
+
+			Expect(adapter.release.OwnerReferences).To(HaveLen(1))
+			result, err := adapter.EnsureApplicationMetadataIsSet()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.OwnerReferences).To(HaveLen(1))
+		})
+
+		It("should fail if the ReleasePlan does not exist", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result, err := adapter.EnsureApplicationMetadataIsSet()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(adapter.release.OwnerReferences).To(HaveLen(0))
+		})
+
+		It("should fail if the Snapshot does not exist", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.SnapshotContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result, err := adapter.EnsureApplicationMetadataIsSet()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(adapter.release.OwnerReferences).To(HaveLen(0))
+		})
+
+		It("should fail if the Application does not exist", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ApplicationContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result, err := adapter.EnsureApplicationMetadataIsSet()
+			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.OwnerReferences).To(HaveLen(0))
+		})
+
+		It("should set the owner reference", func() {
+			Expect(adapter.release.OwnerReferences).To(HaveLen(0))
+			result, err := adapter.EnsureApplicationMetadataIsSet()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			boolTrue := true
+			expectedOwnerReference := metav1.OwnerReference{
+				Kind:               "Application",
+				APIVersion:         "appstudio.redhat.com/v1alpha1",
+				UID:                application.UID,
+				Name:               application.Name,
+				Controller:         &boolTrue,
+				BlockOwnerDeletion: &boolTrue,
+			}
+			Expect(adapter.release.ObjectMeta.OwnerReferences).To(ContainElement(expectedOwnerReference))
+		})
+
+		It("should add the annotations and labels that have the proper prefix from the snapshot", func() {
+			metadataSnapshot := &applicationapiv1alpha1.Snapshot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "metadata-snapshot",
+					Namespace: "default",
+					Labels: map[string]string{
+						metadata.PipelinesAsCodePrefix + "/foo": "value",
+						metadata.RhtapDomain + "/bar":           "value2",
+						"something-else":                        "value3",
+					},
+					Annotations: map[string]string{
+						metadata.PipelinesAsCodePrefix + "/test": "value",
+						metadata.RhtapDomain + "/baz":            "value2",
+						"something-else-else":                    "value3",
+					},
+				},
+				Spec: applicationapiv1alpha1.SnapshotSpec{
+					Application: application.Name,
+				},
+			}
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.SnapshotContextKey,
+					Resource:   metadataSnapshot,
+				},
+			})
+			Expect(adapter.release.Labels).To(HaveLen(0))
+			Expect(adapter.release.Annotations).To(HaveLen(0))
+
+			result, err := adapter.EnsureApplicationMetadataIsSet()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.Labels).To(HaveLen(2))
+			Expect(adapter.release.Annotations).To(HaveLen(2))
+		})
+	})
+
 	When("EnsureReleaseExpirationTimeIsAdded is called", func() {
 		var adapter *adapter
 		var newReleasePlan *v1alpha1.ReleasePlan
