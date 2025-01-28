@@ -539,6 +539,7 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  releasePlan.Spec.Application,
 			metadata.PipelinesTypeLabel:    metadata.FinalPipelineType,
+			metadata.ServiceNameLabel:      metadata.ServiceName,
 			metadata.ReleaseNameLabel:      a.release.Name,
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
 			metadata.ReleaseSnapshotLabel:  a.release.Spec.Snapshot,
@@ -578,6 +579,7 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  resources.ReleasePlan.Spec.Application,
 			metadata.PipelinesTypeLabel:    metadata.ManagedPipelineType,
+			metadata.ServiceNameLabel:      metadata.ServiceName,
 			metadata.ReleaseNameLabel:      a.release.Name,
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
 			metadata.ReleaseSnapshotLabel:  a.release.Spec.Snapshot,
@@ -619,6 +621,7 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  releasePlan.Spec.Application,
 			metadata.PipelinesTypeLabel:    metadata.TenantPipelineType,
+			metadata.ServiceNameLabel:      metadata.ServiceName,
 			metadata.ReleaseNameLabel:      a.release.Name,
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
 			metadata.ReleaseSnapshotLabel:  a.release.Spec.Snapshot,

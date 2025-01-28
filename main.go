@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -27,6 +28,7 @@ import (
 	"github.com/konflux-ci/operator-toolkit/controller"
 	"github.com/konflux-ci/operator-toolkit/webhook"
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks"
+	"github.com/konflux-ci/release-service/metadata"
 
 	"go.uber.org/zap/zapcore"
 
@@ -37,10 +39,13 @@ import (
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -67,16 +72,29 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableHttp2 bool
-	var enableLeaderElection bool
-	var probeAddr string
+	var (
+		metricsAddr              string
+		enableHttp2              bool
+		enableLeaderElection     bool
+		probeAddr                string
+		leaderRenewDeadline      time.Duration
+		leaseDuration            time.Duration
+		leaderElectorRetryPeriod time.Duration
+	)
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableHttp2, "enable-http2", false, "Enable HTTP/2 for the metrics and webhook servers.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.DurationVar(&leaderRenewDeadline, "leader-renew-deadline", 10*time.Second,
+		"Leader RenewDeadline is the duration that the acting controlplane "+
+			"will retry refreshing leadership before giving up.")
+	flag.DurationVar(&leaseDuration, "lease-duration", 15*time.Second,
+		"Lease Duration is the duration that non-leader candidates will wait to force acquire leadership.")
+	flag.DurationVar(&leaderElectorRetryPeriod, "leader-elector-retry-period", 2*time.Second, "RetryPeriod is the duration the "+
+		"LeaderElector clients should wait between tries of actions.")
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -87,9 +105,28 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				// we want to cache PipelineRuns only created by this operator.
+				&tektonv1.PipelineRun{}: cache.ByObject{
+					Label: labels.SelectorFromSet(labels.Set{metadata.ServiceNameLabel: metadata.ServiceName}),
+				},
+				// also cache other watched objects, but no filter is required.
+				&appstudiov1alpha1.Release{}:              {},
+				&appstudiov1alpha1.ReleasePlan{}:          {},
+				&appstudiov1alpha1.ReleasePlanAdmission{}: {},
+				// objects that the operator does not watch, but are used by it.
+				&appstudiov1alpha1.ReleaseServiceConfig{}: {},
+				&applicationapiv1alpha1.Snapshot{}:        {},
+				&applicationapiv1alpha1.Application{}:     {},
+			},
+		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "f3d4c01a.redhat.com",
+		RenewDeadline:          &leaderRenewDeadline,
+		LeaseDuration:          &leaseDuration,
+		RetryPeriod:            &leaderElectorRetryPeriod,
 		Metrics: server.Options{
 			BindAddress: metricsAddr,
 		},
