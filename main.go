@@ -19,7 +19,9 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -27,6 +29,7 @@ import (
 	"github.com/konflux-ci/operator-toolkit/controller"
 	"github.com/konflux-ci/operator-toolkit/webhook"
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks"
+	"github.com/konflux-ci/release-service/metadata"
 
 	"go.uber.org/zap/zapcore"
 
@@ -37,10 +40,13 @@ import (
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -56,6 +62,16 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+type ControllerFlags struct {
+	metricsAddr              string
+	enableHttp2              bool
+	enableLeaderElection     bool
+	leaderRenewDeadline      time.Duration
+	leaseDuration            time.Duration
+	leaderElectorRetryPeriod time.Duration
+	probeAddr                string
+}
+
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(appstudiov1alpha1.AddToScheme(scheme))
@@ -66,17 +82,65 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-func main() {
-	var metricsAddr string
-	var enableHttp2 bool
-	var enableLeaderElection bool
-	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableHttp2, "enable-http2", false, "Enable HTTP/2 for the metrics and webhook servers.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+// setupManager creates and returns a new ctrl.Manager instance
+func setupManager() ctrl.Manager {
+	cf := ControllerFlags{}
+	readControllerFlags(&cf)
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&tektonv1.PipelineRun{}: cache.ByObject{
+					Label: labels.SelectorFromSet(labels.Set{metadata.ServiceNameLabel: metadata.ServiceName}),
+				},
+			},
+		},
+		HealthProbeBindAddress: cf.probeAddr,
+		LeaderElection:         cf.enableLeaderElection,
+		LeaderElectionID:       "f3d4c01a.redhat.com",
+		RenewDeadline:          &cf.leaderRenewDeadline,
+		LeaseDuration:          &cf.leaseDuration,
+		RetryPeriod:            &cf.leaderElectorRetryPeriod,
+		Metrics: server.Options{
+			BindAddress: cf.metricsAddr,
+		},
+		WebhookServer: crwebhook.NewServer(crwebhook.Options{
+			Port: 9443,
+			TLSOpts: []func(*tls.Config){
+				func(c *tls.Config) {
+					if !cf.enableHttp2 {
+						c.NextProtos = []string{"http/1.1"}
+					}
+				},
+			},
+		}),
+		Scheme: scheme,
+	})
+
+	if err != nil {
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	return mgr
+}
+
+// readControllerFlags reads the command line arguments, binds them to the controller, parses and sets up the controller
+// logger
+func readControllerFlags(c *ControllerFlags) {
+	flag.StringVar(&c.metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&c.probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&c.enableHttp2, "enable-http2", false, "Enable HTTP/2 for the metrics and webhook servers.")
+	flag.BoolVar(&c.enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.DurationVar(&c.leaderRenewDeadline, "leader-renew-deadline", 10*time.Second,
+		"Leader RenewDeadline is the duration that the acting controlplane "+
+			"will retry refreshing leadership before giving up.")
+	flag.DurationVar(&c.leaseDuration, "lease-duration", 15*time.Second,
+		"Lease Duration is the duration that non-leader candidates will wait to force acquire leadership.")
+	flag.DurationVar(&c.leaderElectorRetryPeriod, "leader-elector-retry-period", 2*time.Second, "RetryPeriod is the duration the "+
+		"LeaderElector clients should wait between tries of actions.")
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
@@ -85,69 +149,32 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "f3d4c01a.redhat.com",
-		Metrics: server.Options{
-			BindAddress: metricsAddr,
-		},
-		WebhookServer: crwebhook.NewServer(crwebhook.Options{
-			Port: 9443,
-			TLSOpts: []func(*tls.Config){
-				func(c *tls.Config) {
-					if !enableHttp2 {
-						c.NextProtos = []string{"http/1.1"}
-					}
-				},
-			},
-		}),
-		Scheme: scheme,
-	})
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	// Set a default value for the DEFAULT_RELEASE_PVC environment variable
-	if os.Getenv("DEFAULT_RELEASE_PVC") == "" {
-		err := os.Setenv("DEFAULT_RELEASE_PVC", "release-pvc")
+// loadVariableFromEnv loads an environment variable setting a default value in case of empty or unset
+func loadVariableFromEnv(name, defaultValue string) {
+	if os.Getenv(name) == "" {
+		err := os.Setenv(name, defaultValue)
 		if err != nil {
-			setupLog.Error(err, "unable to setup DEFAULT_RELEASE_PVC environment variable")
+			setupLog.Error(err, fmt.Sprintf("unable to setup %s environment variable", name))
 			os.Exit(1)
 		}
 	}
+	setupLog.Info(fmt.Sprintf("loaded env var `%s` with value `%s`", name, os.Getenv(name)))
+}
 
-	// Set a default value for the DEFAULT_RELEASE_WORKSPACE_NAME environment variable
-	if os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME") == "" {
-		err := os.Setenv("DEFAULT_RELEASE_WORKSPACE_NAME", "release-workspace")
-		if err != nil {
-			setupLog.Error(err, "unable to setup DEFAULT_RELEASE_WORKSPACE_NAME environment variable")
-			os.Exit(1)
-		}
-	}
+func main() {
+	mgr := setupManager()
 
-	// Set a default value for the DEFAULT_RELEASE_WORKSPACE_SIZE environment variable
-	if os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE") == "" {
-		err := os.Setenv("DEFAULT_RELEASE_WORKSPACE_SIZE", "1Gi")
-		if err != nil {
-			setupLog.Error(err, "unable to setup DEFAULT_RELEASE_WORKSPACE_SIZE environment variable")
-			os.Exit(1)
-		}
-	}
+	loadVariableFromEnv("DEFAULT_RELEASE_PVC", "release-pvc")
+	loadVariableFromEnv("DEFAULT_RELEASE_WORKSPACE_NAME", "release-workspace")
+	loadVariableFromEnv("DEFAULT_RELEASE_WORKSPACE_SIZE", "1Gi")
+	loadVariableFromEnv("ENTERPRISE_CONTRACT_CONFIG_MAP", "enterprise-contract-service/ec-defaults")
 
 	setUpControllers(mgr)
 	setUpWebhooks(mgr)
 
-	err = os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "enterprise-contract-service/ec-defaults")
-	if err != nil {
-		setupLog.Error(err, "unable to setup ENTERPRISE_CONTRACT_CONFIG_MAP environment variable")
-		os.Exit(1)
-	}
-
 	//+kubebuilder:scaffold:builder
-
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
