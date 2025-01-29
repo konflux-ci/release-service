@@ -16,7 +16,10 @@ limitations under the License.
 
 package utils
 
-import tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+import (
+	"fmt"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+)
 
 // Param defines the parameters for a given resolver in PipelineRef
 type Param struct {
@@ -86,6 +89,16 @@ func (pr *PipelineRef) ToTektonPipelineRef() *tektonv1.PipelineRef {
 	}
 
 	return tektonPipelineRef
+}
+
+func (pr *PipelineRef) GetPipelinePathInRepo() (string, error) {
+	for _, p := range pr.Params {
+		if p.Name == "pathInRepo" {
+			return p.Value, nil
+		}
+	}
+
+	return "", fmt.Errorf("no path found")
 }
 
 // GetTektonParams returns the ParameterizedPipeline []Param as []tektonv1.Param.

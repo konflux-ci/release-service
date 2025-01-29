@@ -572,7 +572,7 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 // will be extracted from the given ReleasePlanAdmission. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
-	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.ManagedPipelineType, resources.ReleasePlanAdmission.Namespace).
+	builder := utils.NewPipelineRunBuilder(metadata.ManagedPipelineType, resources.ReleasePlanAdmission.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
@@ -589,13 +589,30 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_bundle"}).
 		WithPipelineRef(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccountName).
-		WithTimeouts(&resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
-		WithWorkspaceFromVolumeTemplate(
+		WithTimeouts(&resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts)
+
+	pathInRepo, err := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetPipelinePathInRepo()
+	if err != nil {
+		builder.WithWorkspaceFromVolumeTemplate(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
-		).
-		Build()
+		)
+	} else {
+		volumeType, ok := a.releaseServiceConfig.Spec.VolumeTypes[pathInRepo]
+		if ok && volumeType == "emptyDir" {
+			builder.WithWorkspaceFromEmptyDir(
+				os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
+				os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
+			)
+		} else {
+			builder.WithWorkspaceFromVolumeTemplate(
+				os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
+				os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
+			)
+		}
+	}
 
+	pipelineRun, err := builder.Build()
 	if err != nil {
 		return nil, err
 	}

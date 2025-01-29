@@ -239,6 +239,25 @@ func (b *PipelineRunBuilder) WithTimeouts(timeouts, defaultTimeouts *tektonv1.Ti
 	return b
 }
 
+func (b *PipelineRunBuilder) WithWorkspaceFromEmptyDir(name, size string) *PipelineRunBuilder {
+	quantity, err := resource.ParseQuantity(size)
+	if err != nil {
+		b.err = multierror.Append(b.err, fmt.Errorf("invalid size format: %v", err))
+		return b
+	}
+
+	workspace := tektonv1.WorkspaceBinding{
+		Name: name,
+		EmptyDir: &corev1.EmptyDirVolumeSource{
+			SizeLimit: &quantity,
+		},
+	}
+
+	b.pipelineRun.Spec.Workspaces = append(b.pipelineRun.Spec.Workspaces, workspace)
+
+	return b
+}
+
 // WithWorkspaceFromVolumeTemplate creates and adds a workspace binding to the PipelineRun's spec using
 // the provided workspace name and volume size.
 func (b *PipelineRunBuilder) WithWorkspaceFromVolumeTemplate(name, size string) *PipelineRunBuilder {

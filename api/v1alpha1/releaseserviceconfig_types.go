@@ -33,6 +33,8 @@ type ReleaseServiceConfigSpec struct {
 	// DefaultTimeouts contain the default Tekton timeouts to be used in case they are
 	// not specified in the ReleasePlanAdmission resource.
 	DefaultTimeouts tektonv1.TimeoutFields `json:"defaultTimeouts,omitempty"`
+
+	VolumeTypes map[string]string `json:"volumeTypes,omitempty"`
 }
 
 // ReleaseServiceConfigStatus defines the observed state of ReleaseServiceConfig.
