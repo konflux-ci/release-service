@@ -20,11 +20,14 @@ import "fmt"
 
 // Common constants
 const (
-	// rhtapDomain is the prefix of the application label
+	// RhtapDomain is the prefix of the application label
 	RhtapDomain = "appstudio.openshift.io"
 
 	// MaxLabelLength is the maximum allowed characters in a label value
 	MaxLabelLength = 63
+
+	// Release service name
+	ServiceName = "release"
 )
 
 // Prefixes used by the release controller package
@@ -46,6 +49,9 @@ var (
 
 	// AutomatedLabel is the label name for marking a Release as automated
 	AutomatedLabel = fmt.Sprintf("release.%s/automated", RhtapDomain)
+
+	// ServiceNameLabel is the label used to specify the service associated with an object
+	ServiceNameLabel = fmt.Sprintf("%s/%s", RhtapDomain, "service")
 
 	// ReleasePlanAdmissionLabel is the ReleasePlan label for the name of the ReleasePlanAdmission to use
 	ReleasePlanAdmissionLabel = fmt.Sprintf("release.%s/releasePlanAdmission", RhtapDomain)
