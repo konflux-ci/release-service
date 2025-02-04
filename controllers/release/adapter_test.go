@@ -45,6 +45,7 @@ import (
 	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -1599,6 +1600,34 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{Name: "parameter1", Value: "value1"},
 				{Name: "parameter2", Value: "value2"},
 			}
+			parameterizedPipeline.TaskRunSpecs = []tektonv1.PipelineTaskRunSpec{
+				{
+					PipelineTaskName: "task1",
+					ComputeResources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("200m"),
+							corev1.ResourceMemory: resource.MustParse("256Mi"),
+						},
+					},
+				},
+				{
+					PipelineTaskName: "task2",
+					ComputeResources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("200m"),
+							corev1.ResourceMemory: resource.MustParse("256Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("400m"),
+							corev1.ResourceMemory: resource.MustParse("512Mi"),
+						},
+					},
+				},
+			}
 			parameterizedPipeline.Timeouts = tektonv1.TimeoutFields{
 				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
 			}
@@ -1689,6 +1718,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				}
 			}
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+		})
+
+		It("contains the proper taskRunSpecs", func() {
+			Expect(pipelineRun.Spec.TaskRunSpecs).To(Equal(newReleasePlan.Spec.TenantPipeline.TaskRunSpecs))
 		})
 
 		It("contains the proper timeout value", func() {
@@ -1816,6 +1849,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
 		})
 
+		It("contains the proper taskRunSpecs", func() {
+			Expect(pipelineRun.Spec.TaskRunSpecs).To(Equal(releasePlanAdmission.Spec.Pipeline.TaskRunSpecs))
+		})
+
 		It("contains the proper timeout value", func() {
 			Expect(pipelineRun.Spec.Timeouts.Pipeline).To(Equal(releasePlanAdmission.Spec.Pipeline.Timeouts.Pipeline))
 		})
@@ -1859,6 +1896,34 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.Params = []tektonutils.Param{
 				{Name: "parameter1", Value: "value1"},
 				{Name: "parameter2", Value: "value2"},
+			}
+			parameterizedPipeline.TaskRunSpecs = []tektonv1.PipelineTaskRunSpec{
+				{
+					PipelineTaskName: "task1",
+					ComputeResources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("200m"),
+							corev1.ResourceMemory: resource.MustParse("256Mi"),
+						},
+					},
+				},
+				{
+					PipelineTaskName: "task2",
+					ComputeResources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("200m"),
+							corev1.ResourceMemory: resource.MustParse("256Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("400m"),
+							corev1.ResourceMemory: resource.MustParse("512Mi"),
+						},
+					},
+				},
 			}
 			parameterizedPipeline.Timeouts = tektonv1.TimeoutFields{
 				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
@@ -1954,6 +2019,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		It("contains the proper timeout value", func() {
 			Expect(pipelineRun.Spec.Timeouts.Pipeline).To(Equal(newReleasePlan.Spec.FinalPipeline.Timeouts.Pipeline))
+		})
+
+		It("contains the proper taskRunSpecs", func() {
+			Expect(pipelineRun.Spec.TaskRunSpecs).To(Equal(newReleasePlan.Spec.FinalPipeline.TaskRunSpecs))
 		})
 
 	})
@@ -3382,6 +3451,34 @@ var _ = Describe("Release adapter", Ordered, func() {
 						},
 					},
 					ServiceAccountName: "service-account",
+					TaskRunSpecs: []tektonv1.PipelineTaskRunSpec{
+						{
+							PipelineTaskName: "task1",
+							ComputeResources: &corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("100m"),
+									corev1.ResourceMemory: resource.MustParse("128Mi"),
+								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("200m"),
+									corev1.ResourceMemory: resource.MustParse("256Mi"),
+								},
+							},
+						},
+						{
+							PipelineTaskName: "task2",
+							ComputeResources: &corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("200m"),
+									corev1.ResourceMemory: resource.MustParse("256Mi"),
+								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("400m"),
+									corev1.ResourceMemory: resource.MustParse("512Mi"),
+								},
+							},
+						},
+					},
 					Timeouts: tektonv1.TimeoutFields{
 						Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
 					},
