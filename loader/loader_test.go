@@ -30,19 +30,21 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		createResources func()
 		deleteResources func()
 
-		application                 *applicationapiv1alpha1.Application
-		component                   *applicationapiv1alpha1.Component
-		enterpriseContractConfigMap *corev1.ConfigMap
-		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
-		finalPipelineRun            *tektonv1.PipelineRun
-		managedPipelineRun          *tektonv1.PipelineRun
-		tenantPipelineRun           *tektonv1.PipelineRun
-		release                     *v1alpha1.Release
-		releasePlan                 *v1alpha1.ReleasePlan
-		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
-		releaseServiceConfig        *v1alpha1.ReleaseServiceConfig
-		roleBinding                 *rbac.RoleBinding
-		snapshot                    *applicationapiv1alpha1.Snapshot
+		application                  *applicationapiv1alpha1.Application
+		component                    *applicationapiv1alpha1.Component
+		enterpriseContractConfigMap  *corev1.ConfigMap
+		enterpriseContractPolicy     *ecapiv1alpha1.EnterpriseContractPolicy
+		finalPipelineRun             *tektonv1.PipelineRun
+		managedCollectorsPipelineRun *tektonv1.PipelineRun
+		managedPipelineRun           *tektonv1.PipelineRun
+		tenantCollectorsPipelineRun  *tektonv1.PipelineRun
+		tenantPipelineRun            *tektonv1.PipelineRun
+		release                      *v1alpha1.Release
+		releasePlan                  *v1alpha1.ReleasePlan
+		releasePlanAdmission         *v1alpha1.ReleasePlanAdmission
+		releaseServiceConfig         *v1alpha1.ReleaseServiceConfig
+		roleBinding                  *rbac.RoleBinding
+		snapshot                     *applicationapiv1alpha1.Snapshot
 	)
 
 	AfterAll(func() {
@@ -377,6 +379,12 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("calling GetReleasePipelineRun", func() {
+		It("returns an error when called with an unexpected Pipeline type", func() {
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, "foo")
+			Expect(returnedObject).To(BeNil())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid type"))
+		})
 
 		It("returns a Final PipelineRun if the labels match with the release data", func() {
 			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.FinalPipelineType)
@@ -385,11 +393,25 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(returnedObject.Name).To(Equal(finalPipelineRun.Name))
 		})
 
+		It("returns a Managed Collectors PipelineRun if the labels match with the release data", func() {
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.ManagedCollectorsPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
+			Expect(returnedObject.Name).To(Equal(managedCollectorsPipelineRun.Name))
+		})
+
 		It("returns a Managed PipelineRun if the labels match with the release data", func() {
 			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.ManagedPipelineType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
 			Expect(returnedObject.Name).To(Equal(managedPipelineRun.Name))
+		})
+
+		It("returns a Tenant Collecotrs PipelineRun if the labels match with the release data", func() {
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.TenantCollectorsPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
+			Expect(returnedObject.Name).To(Equal(tenantCollectorsPipelineRun.Name))
 		})
 
 		It("returns a Tenant PipelineRun if the labels match with the release data", func() {
@@ -601,6 +623,19 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, finalPipelineRun)).To(Succeed())
 
+		managedCollectorsPipelineRun = &tektonv1.PipelineRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					metadata.ReleaseNameLabel:      release.Name,
+					metadata.ReleaseNamespaceLabel: release.Namespace,
+					metadata.PipelinesTypeLabel:    metadata.ManagedCollectorsPipelineType,
+				},
+				Name:      "managed-collectors-pipeline-run",
+				Namespace: "default",
+			},
+		}
+		Expect(k8sClient.Create(ctx, managedCollectorsPipelineRun)).To(Succeed())
+
 		managedPipelineRun = &tektonv1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
@@ -608,11 +643,24 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					metadata.ReleaseNamespaceLabel: release.Namespace,
 					metadata.PipelinesTypeLabel:    metadata.ManagedPipelineType,
 				},
-				Name:      "pipeline-run",
+				Name:      "managed-pipeline-run",
 				Namespace: "default",
 			},
 		}
 		Expect(k8sClient.Create(ctx, managedPipelineRun)).To(Succeed())
+
+		tenantCollectorsPipelineRun = &tektonv1.PipelineRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					metadata.ReleaseNameLabel:      release.Name,
+					metadata.ReleaseNamespaceLabel: release.Namespace,
+					metadata.PipelinesTypeLabel:    metadata.TenantCollectorsPipelineType,
+				},
+				Name:      "tenant-collectors-pipeline-run",
+				Namespace: "default",
+			},
+		}
+		Expect(k8sClient.Create(ctx, tenantCollectorsPipelineRun)).To(Succeed())
 
 		tenantPipelineRun = &tektonv1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{

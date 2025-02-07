@@ -44,25 +44,27 @@ var _ = Describe("Release metrics", Ordered, func() {
 
 		It("does nothing if the start time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(nil, completionTime, "", "", "", "", "", "")
+			RegisterCompletedRelease(nil, completionTime, "", "", "", "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("does nothing if the completion time is nil", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(startTime, nil, "", "", "", "", "", "")
+			RegisterCompletedRelease(startTime, nil, "", "", "", "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
 		})
 
 		It("decrements ReleaseConcurrentTotal", func() {
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(0)))
-			RegisterCompletedRelease(startTime, completionTime, "", "", "", "", "", "")
+			RegisterCompletedRelease(startTime, completionTime, "", "", "", "", "", "", "", "")
 			Expect(testutil.ToFloat64(ReleaseConcurrentTotal.WithLabelValues())).To(Equal(float64(-1)))
 		})
 
 		It("adds an observation to ReleaseDurationSeconds", func() {
 			RegisterCompletedRelease(startTime, completionTime,
+				"tenantCollectorsReason",
 				"tenantReason",
+				"managedCollectorsReason",
 				"managedReason",
 				"finalReason",
 				"releaseReason",
@@ -74,14 +76,16 @@ var _ = Describe("Release metrics", Ordered, func() {
                 # TYPE release_total counter
             `
 			expected := `
-                release_total{final_pipeline_processing_reason="finalReason",managed_pipeline_processing_reason="managedReason",release_reason="releaseReason",target="targetTenantName",tenant_pipeline_processing_reason="tenantReason",validation_reason="validationReason"} 1
+                release_total{final_pipeline_processing_reason="finalReason",managed_collectors_pipeline_processing_reason="managedCollectorsReason",managed_pipeline_processing_reason="managedReason",release_reason="releaseReason",target="targetTenantName",tenant_collectors_pipeline_processing_reason="tenantCollectorsReason",tenant_pipeline_processing_reason="tenantReason",validation_reason="validationReason"} 1
             `
 			Expect(testutil.CollectAndCompare(ReleaseTotal, strings.NewReader(metadata+expected), "release_total")).To(Succeed())
 		})
 
 		It("increments ReleaseTotal", func() {
 			RegisterCompletedRelease(startTime, completionTime,
+				"tenantCollectorsReason",
 				"tenantReason",
+				"managedCollectorsReason",
 				"managedReason",
 				"finalReason",
 				"releaseReason",
@@ -93,7 +97,7 @@ var _ = Describe("Release metrics", Ordered, func() {
                 # TYPE release_total counter
             `
 			expected := `
-                release_total{final_pipeline_processing_reason="finalReason",managed_pipeline_processing_reason="managedReason",release_reason="releaseReason",target="targetTenantName",tenant_pipeline_processing_reason="tenantReason",validation_reason="validationReason"} 1
+                release_total{final_pipeline_processing_reason="finalReason",managed_collectors_pipeline_processing_reason="managedCollectorsReason",managed_pipeline_processing_reason="managedReason",release_reason="releaseReason",target="targetTenantName",tenant_collectors_pipeline_processing_reason="tenantCollectorsReason",tenant_pipeline_processing_reason="tenantReason",validation_reason="validationReason"} 1
             `
 			Expect(testutil.CollectAndCompare(ReleaseTotal, strings.NewReader(metadata+expected), "release_total")).To(Succeed())
 		})
