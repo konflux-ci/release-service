@@ -2183,43 +2183,57 @@ var _ = Describe("Release adapter", Ordered, func() {
 		var (
 			adapter     *adapter
 			pipelineRun *tektonv1.PipelineRun
+			resources   *loader.ProcessingResources
 		)
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
 
-			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+			if pipelineRun != nil {
+				Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+			}
 		})
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
 			adapter.releaseServiceConfig = releaseServiceConfig
-			resources := &loader.ProcessingResources{
+			pipelineRun = nil
+			resources = &loader.ProcessingResources{
 				ReleasePlan:                 releasePlan,
 				ReleasePlanAdmission:        releasePlanAdmission,
 				EnterpriseContractConfigMap: enterpriseContractConfigMap,
 				EnterpriseContractPolicy:    enterpriseContractPolicy,
 				Snapshot:                    snapshot,
 			}
+		})
 
+		It("returns a PipelineRun with the right prefix", func() {
 			var err error
 			pipelineRun, err = adapter.createManagedPipelineRun(resources)
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
-		})
 
-		It("returns a PipelineRun with the right prefix", func() {
 			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1.PipelineRun{})))
 			Expect(pipelineRun.Name).To(HavePrefix("managed"))
 		})
 
 		It("has the release reference", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(adapter.release.Kind))))
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
 				fmt.Sprintf("%s%c%s", adapter.release.Namespace, types.Separator, adapter.release.Name))))
 		})
 
 		It("has the releasePlan reference", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			name := []rune(releasePlan.Kind)
 			name[0] = unicode.ToLower(name[0])
 
@@ -2229,6 +2243,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("has the releasePlanAdmission reference", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			name := []rune(releasePlanAdmission.Kind)
 			name[0] = unicode.ToLower(name[0])
 
@@ -2238,6 +2257,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("has the releaseServiceConfig reference", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			name := []rune(releaseServiceConfig.Kind)
 			name[0] = unicode.ToLower(name[0])
 
@@ -2247,17 +2271,32 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("has the snapshot reference", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", strings.ToLower(snapshot.Kind))))
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
 				fmt.Sprintf("%s%c%s", snapshot.Namespace, types.Separator, snapshot.Name))))
 		})
 
 		It("has owner annotations", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			Expect(pipelineRun.GetAnnotations()[handler.NamespacedNameAnnotation]).To(ContainSubstring(adapter.release.Name))
 			Expect(pipelineRun.GetAnnotations()[handler.TypeAnnotation]).To(ContainSubstring("Release"))
 		})
 
 		It("has release labels", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.ManagedPipelineType))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
@@ -2265,6 +2304,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("references the pipeline specified in the ReleasePlanAdmission", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			var pipelineUrl string
 			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
 			for i := range resolverParams {
@@ -2276,6 +2320,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("contains a parameter with the taskGitUrl", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
 			var url string
 			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
@@ -2288,6 +2337,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("contains a parameter with the taskGitRevision", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
 			var revision string
 			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
@@ -2300,17 +2354,103 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("contains the proper timeout value", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			Expect(pipelineRun.Spec.Timeouts.Pipeline).To(Equal(releasePlanAdmission.Spec.Pipeline.Timeouts.Pipeline))
 		})
 
 		It("contains a parameter with the verify ec task bundle", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			bundle := enterpriseContractConfigMap.Data["verify_ec_task_bundle"]
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(bundle)))))
 		})
 
 		It("contains a parameter with the json representation of the EnterpriseContractPolicy", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
 			jsonSpec, _ := json.Marshal(enterpriseContractPolicy.Spec)
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(jsonSpec)))))
+		})
+
+		It("contains a workspace using EmptyDir if there's an override for the pipeline", func() {
+			url, revision, pathInRepo, err := releasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
+			Expect(err).To(BeNil())
+			Expect(url).NotTo(BeEmpty())
+			Expect(revision).NotTo(BeEmpty())
+			Expect(pathInRepo).NotTo(BeEmpty())
+
+			releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					EmptyDirOverrides: []v1alpha1.EmptyDirOverrides{
+						{
+							Url:        url,
+							Revision:   revision,
+							PathInRepo: pathInRepo,
+						},
+					},
+				},
+			}
+			releaseServiceConfig.Kind = "ReleaseServiceConfig"
+			adapter.releaseServiceConfig = releaseServiceConfig
+
+			var pipelineRun *tektonv1.PipelineRun
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
+			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
+			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
+		})
+
+		It("contains a workspace using EmptyDir if there's an override for the pipeline using regex", func() {
+			_, _, pathInRepo, err := releasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
+			Expect(err).To(BeNil())
+			Expect(pathInRepo).NotTo(BeEmpty())
+
+			releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					EmptyDirOverrides: []v1alpha1.EmptyDirOverrides{
+						{
+							Url:        ".*",
+							Revision:   ".*",
+							PathInRepo: pathInRepo,
+						},
+					},
+				},
+			}
+			releaseServiceConfig.Kind = "ReleaseServiceConfig"
+			adapter.releaseServiceConfig = releaseServiceConfig
+
+			var pipelineRun *tektonv1.PipelineRun
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
+			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
+			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
+		})
+
+		It("contains a workspace using EmptyDir if there's not an override for the pipeline", func() {
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
+			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).NotTo(BeNil())
+			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).To(BeNil())
 		})
 	})
 

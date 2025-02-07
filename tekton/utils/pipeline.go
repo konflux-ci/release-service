@@ -67,6 +67,28 @@ type ParameterizedPipeline struct {
 	Params []Param `json:"params,omitempty"`
 }
 
+// GetGitResolverParams returns the common parameters found in a Git resolver. That is url, revision and pathInRepo.
+// If the PipelineRef doesn't use a git resolver this function will return an error.
+func (pr *PipelineRef) GetGitResolverParams() (string, string, string, error) {
+	if pr.Resolver != "git" {
+		return "", "", "", fmt.Errorf("not a git ref")
+	}
+
+	var url, revision, pathInRepo string
+	for _, param := range pr.Params {
+		switch param.Name {
+		case "url":
+			url = param.Value
+		case "revision":
+			revision = param.Value
+		case "pathInRepo":
+			pathInRepo = param.Value
+		}
+	}
+
+	return url, revision, pathInRepo, nil
+}
+
 // GetRevision returns the value of the revision param. If not found an error will be raised.
 func (pr *PipelineRef) GetRevision() (string, error) {
 	for _, param := range pr.Params {
