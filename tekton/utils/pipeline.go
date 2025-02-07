@@ -51,6 +51,10 @@ type Pipeline struct {
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
+	// TaskRunSpecs is the PipelineTaskRunSpec to be used in the PipelineRun execution
+	// +optional
+	TaskRunSpecs []tektonv1.PipelineTaskRunSpec `json:"taskRunSpecs,omitempty"`
+
 	// Timeouts defines the different Timeouts to use in the PipelineRun execution
 	// +optional
 	Timeouts tektonv1.TimeoutFields `json:"timeouts,omitempty"`
