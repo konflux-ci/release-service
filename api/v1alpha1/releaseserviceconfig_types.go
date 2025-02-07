@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"regexp"
 )
 
 const ReleaseServiceConfigResourceName string = "release-service-config"
@@ -33,6 +34,25 @@ type ReleaseServiceConfigSpec struct {
 	// DefaultTimeouts contain the default Tekton timeouts to be used in case they are
 	// not specified in the ReleasePlanAdmission resource.
 	DefaultTimeouts tektonv1.TimeoutFields `json:"defaultTimeouts,omitempty"`
+
+	// VolumeOverrides is a map containing the volume type for specific Pipeline git refs
+	// +optional
+	EmptyDirOverrides []EmptyDirOverrides `json:"EmptyDirOverrides,omitempty"`
+}
+
+// EmptyDirOverrides defines the values usually set in a PipelineRef using a git resolver.
+type EmptyDirOverrides struct {
+	// Url is the url to the git repo
+	// +required
+	Url string `json:"url"`
+
+	// Revision is the git revision where the Pipeline definition can be found
+	// +required
+	Revision string `json:"revision"`
+
+	// PathInRepo is the path within the git repository where the Pipeline definition can be found
+	// +required
+	PathInRepo string `json:"pathInRepo"`
 }
 
 // ReleaseServiceConfigStatus defines the observed state of ReleaseServiceConfig.
@@ -50,6 +70,27 @@ type ReleaseServiceConfig struct {
 
 	Spec   ReleaseServiceConfigSpec   `json:"spec,omitempty"`
 	Status ReleaseServiceConfigStatus `json:"status,omitempty"`
+}
+
+// IsPipelineOverridden checks whether there is a EmptyDirOverride matching the given url, revision and pathInRepo.
+func (rsc *ReleaseServiceConfig) IsPipelineOverridden(url, revision, pathInRepo string) bool {
+	for _, override := range rsc.Spec.EmptyDirOverrides {
+		urlRegex, err := regexp.Compile(override.Url)
+		if err != nil || !urlRegex.MatchString(url) {
+			continue
+		}
+
+		revisionRegex, err := regexp.Compile(override.Revision)
+		if err != nil || !revisionRegex.MatchString(revision) {
+			continue
+		}
+
+		if override.PathInRepo == pathInRepo {
+			return true
+		}
+	}
+
+	return false
 }
 
 //+kubebuilder:object:root=true

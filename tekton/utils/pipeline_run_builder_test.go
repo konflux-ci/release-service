@@ -109,6 +109,37 @@ var _ = Describe("PipelineRun builder", func() {
 		})
 	})
 
+	When("WithEmptyDirVolume method is called", func() {
+		var (
+			builder *PipelineRunBuilder
+			name    string
+		)
+
+		BeforeEach(func() {
+			builder = NewPipelineRunBuilder("testPrefix", "testNamespace")
+			name = "sampleWorkspace"
+		})
+
+		It("should add a new workspace using emptyDir with the correct name and size", func() {
+			size := "5Gi"
+			builder.WithEmptyDirVolume(name, size)
+			Expect(len(builder.pipelineRun.Spec.Workspaces)).To(Equal(1))
+
+			workspaceBinding := builder.pipelineRun.Spec.Workspaces[0]
+			Expect(workspaceBinding.EmptyDir).NotTo(BeNil())
+			Expect(workspaceBinding.Name).To(Equal(name))
+			workspaceQuantity := workspaceBinding.EmptyDir.SizeLimit
+			Expect(workspaceQuantity.String()).To(Equal(size))
+		})
+
+		It("should fail if the size is not in the right format", func() {
+			builder.WithEmptyDirVolume(name, "invalid")
+			_, err := builder.Build()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid size format"))
+		})
+	})
+
 	When("WithFinalizer method is called", func() {
 		var (
 			builder *PipelineRunBuilder

@@ -42,6 +42,30 @@ spec:
           spec:
             description: ReleaseServiceConfigSpec defines the desired state of ReleaseServiceConfig.
             properties:
+              EmptyDirOverrides:
+                description: VolumeOverrides is a map containing the volume type for
+                  specific Pipeline git refs
+                items:
+                  description: EmptyDirOverrides defines the values usually set in
+                    a PipelineRef using a git resolver.
+                  properties:
+                    pathInRepo:
+                      description: PathInRepo is the path within the git repository
+                        where the Pipeline definition can be found
+                      type: string
+                    revision:
+                      description: Revision is the git revision where the Pipeline
+                        definition can be found
+                      type: string
+                    url:
+                      description: Url is the url to the git repo
+                      type: string
+                  required:
+                  - pathInRepo
+                  - revision
+                  - url
+                  type: object
+                type: array
               debug:
                 description: |-
                   Debug is the boolean that specifies whether or not the Release Service should run
