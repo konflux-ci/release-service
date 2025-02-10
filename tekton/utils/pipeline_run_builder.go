@@ -70,6 +70,27 @@ func (b *PipelineRunBuilder) WithAnnotations(annotations map[string]string) *Pip
 	return b
 }
 
+// WithEmptyDirVolume creates and adds a workspace backed by EmptyDir and using the provided
+// workspace name and volume size.
+func (b *PipelineRunBuilder) WithEmptyDirVolume(name, size string) *PipelineRunBuilder {
+	quantity, err := resource.ParseQuantity(size)
+	if err != nil {
+		b.err = multierror.Append(b.err, fmt.Errorf("invalid size format: %v", err))
+		return b
+	}
+
+	workspace := tektonv1.WorkspaceBinding{
+		Name: name,
+		EmptyDir: &corev1.EmptyDirVolumeSource{
+			SizeLimit: &quantity,
+		},
+	}
+
+	b.pipelineRun.Spec.Workspaces = append(b.pipelineRun.Spec.Workspaces, workspace)
+
+	return b
+}
+
 // WithFinalizer adds the given finalizer to the PipelineRun's metadata.
 func (b *PipelineRunBuilder) WithFinalizer(finalizer string) *PipelineRunBuilder {
 	controllerutil.AddFinalizer(b.pipelineRun, finalizer)

@@ -59,6 +59,22 @@ var _ = Describe("Pipeline", func() {
 		}
 	})
 
+	When("GetGitResolverParams method is called", func() {
+		It("should return all the common parameters", func() {
+			url, revision, pathInRepo, err := gitRef.GetGitResolverParams()
+			Expect(url).To(Equal("my-git-url"))
+			Expect(revision).To(Equal("my-revision"))
+			Expect(pathInRepo).To(Equal("my-path-in-repo"))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should fail if a git resolver is not used", func() {
+			_, _, _, err := bundleRef.GetGitResolverParams()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not a git ref"))
+		})
+	})
+
 	When("GetRevision method is called", func() {
 		It("should return the revision if it exists", func() {
 			revision, err := gitRef.GetRevision()
