@@ -18,6 +18,7 @@ package handlers
 
 import (
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 
 	"github.com/konflux-ci/release-service/api/v1alpha1"
@@ -28,54 +29,58 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+var _ crtHandler.EventHandler = &EnqueueRequestForMatchedResource[client.Object]{}
+
 // EnqueueRequestForMatchedResource enqueues Request containing the Name and Namespace of the resource(s) specified in the
 // Status of the ReleasePlans and ReleasePlanAdmissions that are the source of the Event. The source of the event
 // triggers reconciliation of the parent resource.
-type EnqueueRequestForMatchedResource struct{}
-
-var _ crtHandler.EventHandler = &EnqueueRequestForMatchedResource{}
+type EnqueueRequestForMatchedResource[object client.Object] struct{}
 
 // Create implements EventHandler.
-func (e *EnqueueRequestForMatchedResource) Create(_ context.Context, _ event.CreateEvent, _ workqueue.RateLimitingInterface) {
+func (e *EnqueueRequestForMatchedResource[T]) Create(_ context.Context, _ event.TypedCreateEvent[T], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	// A freshly created resource won't have any resources in its status
 }
 
 // Update implements EventHandler.
-func (e *EnqueueRequestForMatchedResource) Update(_ context.Context, updateEvent event.UpdateEvent, rateLimitingInterface workqueue.RateLimitingInterface) {
-	if releasePlan, ok := updateEvent.ObjectOld.(*v1alpha1.ReleasePlan); ok {
-		enqueueRequest(releasePlan.Status.ReleasePlanAdmission.Name, rateLimitingInterface)
-	} else if releasePlanAdmission, ok := updateEvent.ObjectOld.(*v1alpha1.ReleasePlanAdmission); ok {
-		for _, releasePlan := range releasePlanAdmission.Status.ReleasePlans {
+func (e *EnqueueRequestForMatchedResource[T]) Update(_ context.Context, updateEvent event.TypedUpdateEvent[T], rateLimitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	switch object := any(updateEvent.ObjectOld).(type) {
+	case *v1alpha1.ReleasePlan:
+		enqueueRequest(object.Status.ReleasePlanAdmission.Name, rateLimitingInterface)
+	case *v1alpha1.ReleasePlanAdmission:
+		for _, releasePlan := range object.Status.ReleasePlans {
 			enqueueRequest(releasePlan.Name, rateLimitingInterface)
 		}
 	}
 
-	if releasePlan, ok := updateEvent.ObjectNew.(*v1alpha1.ReleasePlan); ok {
-		enqueueRequest(releasePlan.Status.ReleasePlanAdmission.Name, rateLimitingInterface)
-	} else if releasePlanAdmission, ok := updateEvent.ObjectNew.(*v1alpha1.ReleasePlanAdmission); ok {
-		for _, releasePlan := range releasePlanAdmission.Status.ReleasePlans {
+	switch object := any(updateEvent.ObjectNew).(type) {
+	case *v1alpha1.ReleasePlan:
+		enqueueRequest(object.Status.ReleasePlanAdmission.Name, rateLimitingInterface)
+	case *v1alpha1.ReleasePlanAdmission:
+		for _, releasePlan := range object.Status.ReleasePlans {
 			enqueueRequest(releasePlan.Name, rateLimitingInterface)
 		}
 	}
 }
 
 // Delete implements EventHandler.
-func (e *EnqueueRequestForMatchedResource) Delete(_ context.Context, deleteEvent event.DeleteEvent, rateLimitingInterface workqueue.RateLimitingInterface) {
-	if releasePlan, ok := deleteEvent.Object.(*v1alpha1.ReleasePlan); ok {
-		enqueueRequest(releasePlan.Status.ReleasePlanAdmission.Name, rateLimitingInterface)
-	} else if releasePlanAdmission, ok := deleteEvent.Object.(*v1alpha1.ReleasePlanAdmission); ok {
-		for _, releasePlan := range releasePlanAdmission.Status.ReleasePlans {
+func (e *EnqueueRequestForMatchedResource[T]) Delete(_ context.Context, deleteEvent event.TypedDeleteEvent[T], rateLimitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	switch object := any(deleteEvent.Object).(type) {
+	case *v1alpha1.ReleasePlan:
+		enqueueRequest(object.Status.ReleasePlanAdmission.Name, rateLimitingInterface)
+	case *v1alpha1.ReleasePlanAdmission:
+		for _, releasePlan := range object.Status.ReleasePlans {
 			enqueueRequest(releasePlan.Name, rateLimitingInterface)
 		}
 	}
 }
 
 // Generic implements EventHandler.
-func (e *EnqueueRequestForMatchedResource) Generic(_ context.Context, genericEvent event.GenericEvent, rateLimitingInterface workqueue.RateLimitingInterface) {
-	if releasePlan, ok := genericEvent.Object.(*v1alpha1.ReleasePlan); ok {
-		enqueueRequest(releasePlan.Status.ReleasePlanAdmission.Name, rateLimitingInterface)
-	} else if releasePlanAdmission, ok := genericEvent.Object.(*v1alpha1.ReleasePlanAdmission); ok {
-		for _, releasePlan := range releasePlanAdmission.Status.ReleasePlans {
+func (e *EnqueueRequestForMatchedResource[T]) Generic(_ context.Context, genericEvent event.TypedGenericEvent[T], rateLimitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	switch object := any(genericEvent.Object).(type) {
+	case *v1alpha1.ReleasePlan:
+		enqueueRequest(object.Status.ReleasePlanAdmission.Name, rateLimitingInterface)
+	case *v1alpha1.ReleasePlanAdmission:
+		for _, releasePlan := range object.Status.ReleasePlans {
 			enqueueRequest(releasePlan.Name, rateLimitingInterface)
 		}
 	}
@@ -83,7 +88,7 @@ func (e *EnqueueRequestForMatchedResource) Generic(_ context.Context, genericEve
 
 // enqueueRequest parses the provided string to extract the namespace and name into a
 // types.NamespacedName and adds a request to the RateLimitingInterface with it.
-func enqueueRequest(namespacedNameString string, rateLimitingInterface workqueue.RateLimitingInterface) {
+func enqueueRequest(namespacedNameString string, rateLimitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	values := strings.SplitN(namespacedNameString, "/", 2)
 
 	if len(values) < 2 {
