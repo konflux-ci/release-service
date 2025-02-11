@@ -249,6 +249,12 @@ func (b *PipelineRunBuilder) WithServiceAccount(serviceAccount string) *Pipeline
 	return b
 }
 
+// WithTaskRunSpecs sets the provided TaskRunSpecs to the PipelineRun's spec.
+func (b *PipelineRunBuilder) WithTaskRunSpecs(taskRunSpecs ...tektonv1.PipelineTaskRunSpec) *PipelineRunBuilder {
+	b.pipelineRun.Spec.TaskRunSpecs = taskRunSpecs
+	return b
+}
+
 // WithTimeouts sets the Timeouts for the PipelineRun.
 func (b *PipelineRunBuilder) WithTimeouts(timeouts, defaultTimeouts *tektonv1.TimeoutFields) *PipelineRunBuilder {
 	if timeouts == nil || *timeouts == (tektonv1.TimeoutFields{}) {

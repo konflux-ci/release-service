@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
@@ -392,6 +393,48 @@ var _ = Describe("PipelineRun builder", func() {
 			serviceAccount := "sampleServiceAccount"
 			builder.WithServiceAccount(serviceAccount)
 			Expect(builder.pipelineRun.Spec.TaskRunTemplate.ServiceAccountName).To(Equal(serviceAccount))
+		})
+	})
+
+	When("WithTaskRunSpecs method is called", func() {
+		It("should set the TaskRunSpecs for the PipelineRun's spec", func() {
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			taskRunSpecs := []tektonv1.PipelineTaskRunSpec{
+				{
+					PipelineTaskName: "task1",
+					ComputeResources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("200m"),
+							corev1.ResourceMemory: resource.MustParse("256Mi"),
+						},
+					},
+				},
+				{
+					PipelineTaskName: "task2",
+					ComputeResources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("200m"),
+							corev1.ResourceMemory: resource.MustParse("256Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("400m"),
+							corev1.ResourceMemory: resource.MustParse("512Mi"),
+						},
+					},
+				},
+			}
+			builder.WithTaskRunSpecs(taskRunSpecs...)
+			Expect(builder.pipelineRun.Spec.TaskRunSpecs).To(Equal(taskRunSpecs))
+		})
+
+		It("should handle an empty TaskRunSpecs", func() {
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			builder.WithTaskRunSpecs()
+			Expect(builder.pipelineRun.Spec.TaskRunSpecs).To(BeEmpty())
 		})
 	})
 

@@ -828,6 +828,7 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 		WithOwner(a.release).
 		WithPipelineRef(releasePlan.Spec.FinalPipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(releasePlan.Spec.FinalPipeline.ServiceAccountName).
+		WithTaskRunSpecs(releasePlan.Spec.FinalPipeline.TaskRunSpecs...).
 		WithTimeouts(&releasePlan.Spec.FinalPipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
 		WithWorkspaceFromVolumeTemplate(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
@@ -870,6 +871,7 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_bundle"}).
 		WithPipelineRef(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccountName).
+		WithTaskRunSpecs(resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs...).
 		WithTimeouts(&resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts)
 
 	url, revision, pathInRepo, err := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
@@ -920,6 +922,7 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 		WithOwner(a.release).
 		WithPipelineRef(releasePlan.Spec.TenantPipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(releasePlan.Spec.TenantPipeline.ServiceAccountName).
+		WithTaskRunSpecs(releasePlan.Spec.TenantPipeline.TaskRunSpecs...).
 		WithTimeouts(&releasePlan.Spec.TenantPipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
 		WithWorkspaceFromVolumeTemplate(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
