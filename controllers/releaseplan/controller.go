@@ -74,7 +74,7 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.ReleasePlan{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}, predicates.MatchPredicate())).
-		Watches(&v1alpha1.ReleasePlanAdmission{}, &handlers.EnqueueRequestForMatchedResource{},
+		Watches(&v1alpha1.ReleasePlanAdmission{}, &handlers.EnqueueRequestForMatchedResource[client.Object]{},
 			builder.WithPredicates(predicates.MatchPredicate())).
 		Complete(c)
 }

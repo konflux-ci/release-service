@@ -8,12 +8,16 @@ rules:
   - appstudio.redhat.com
   resources:
   - applications/finalizers
+  - releaseplans/finalizers
+  - releases/finalizers
   verbs:
   - update
 - apiGroups:
   - appstudio.redhat.com
   resources:
   - enterprisecontractpolicies
+  - releaseplanadmissions
+  - releaseserviceconfigs
   verbs:
   - get
   - list
@@ -37,78 +41,8 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - releaseplanadmissions
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
   - releaseplanadmissions/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
-  - releaseplans
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
-  - releaseplans/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
   - releaseplans/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
-  - releaseplansadmissions
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
-  - releases
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
-  - releases/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - appstudio.redhat.com
-  resources:
   - releases/status
   verbs:
   - get
@@ -117,10 +51,16 @@ rules:
 - apiGroups:
   - appstudio.redhat.com
   resources:
-  - releaseserviceconfigs
+  - releaseplans
+  - releaseplansadmissions
+  - releases
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - ""
