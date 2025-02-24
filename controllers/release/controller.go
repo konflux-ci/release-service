@@ -106,7 +106,7 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Release{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}, predicates.IgnoreBackups{})).
-		Watches(&tektonv1.PipelineRun{}, &libhandler.EnqueueRequestForAnnotation{
+		Watches(&tektonv1.PipelineRun{}, &libhandler.EnqueueRequestForAnnotation[client.Object]{
 			Type: schema.GroupKind{
 				Kind:  "Release",
 				Group: "appstudio.redhat.com",
