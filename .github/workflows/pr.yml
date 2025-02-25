@@ -8,7 +8,7 @@ on:
 jobs:
   go:
     name: Check sources
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       OPERATOR_SDK_VERSION: v1.18.0
     steps:
@@ -100,7 +100,7 @@ jobs:
         run: make bundle
   docker:
     name: Check docker build
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
