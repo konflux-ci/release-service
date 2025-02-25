@@ -2,3 +2,27 @@
 # Ignore build and test binaries.
 bin/
 testbin/
+
+# Development and test directories
+hack/
+integration-tests/
+# Comment it since network-policy.yaml is in this directory
+config/
+
+# Git and CI related files
+.github/
+.tekton/
+.gitignore
+.gitlint
+.sonarcloud.properties
+
+# Build and configuration files
+codecov.yml
+PROJECT
+Makefile
+LICENSE
+
+# Documentation files
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+README.md

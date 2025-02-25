@@ -26,3 +26,18 @@ spec:
           protocol: TCP
         - port: 443
           protocol: TCP
+    # Open traffic to SeaLights
+    - to:
+      - ipBlock:
+          cidr: 159.60.128.87/32
+      ports:
+        - port: 443
+          protocol: TCP
+    # Allow DNS queries so SeaLights can resolve the api url
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: openshift-dns
+      ports:
+        - port: 5353
+          protocol: UDP
