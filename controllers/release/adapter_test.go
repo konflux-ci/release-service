@@ -1938,6 +1938,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.ManagedCollectorsPipelineType))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
+			Expect(pipelineRun.GetLabels()[metadata.ServiceNameLabel]).To(Equal(metadata.ServiceName))
 		})
 
 		It("contains a parameter with the collectorsResourceType", func() {
@@ -2022,6 +2023,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.TenantCollectorsPipelineType))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
+			Expect(pipelineRun.GetLabels()[metadata.ServiceNameLabel]).To(Equal(metadata.ServiceName))
 		})
 
 		It("contains a parameter with the collectorsResourceType", func() {
@@ -2177,6 +2179,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))
+			Expect(pipelineRun.GetLabels()[metadata.ServiceNameLabel]).To(Equal(metadata.ServiceName))
 		})
 
 		It("contains a parameter with the taskGitUrl", func() {
@@ -2334,6 +2337,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))
+			Expect(pipelineRun.GetLabels()[metadata.ServiceNameLabel]).To(Equal(metadata.ServiceName))
 		})
 
 		It("references the pipeline specified in the ReleasePlanAdmission", func() {

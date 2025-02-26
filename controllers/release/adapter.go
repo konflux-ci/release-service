@@ -681,6 +681,7 @@ func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType, namespace, revis
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
 			metadata.PipelinesTypeLabel:    pipelineType,
+			metadata.ServiceNameLabel:      metadata.ServiceName,
 			metadata.ReleaseNameLabel:      a.release.Name,
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
 		}).
