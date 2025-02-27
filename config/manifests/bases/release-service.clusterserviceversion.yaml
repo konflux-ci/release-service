@@ -1,0 +1,65 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: release-service.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: ReleasePlanAdmission is the Schema for the ReleasePlanAdmissions
+        API.
+      displayName: Release Plan Admission
+      kind: ReleasePlanAdmission
+      name: releaseplanadmissions.appstudio.redhat.com
+      version: v1alpha1
+    - description: ReleasePlan is the Schema for the ReleasePlans API.
+      displayName: Release Plan
+      kind: ReleasePlan
+      name: releaseplans.appstudio.redhat.com
+      version: v1alpha1
+    - description: Release is the Schema for the releases API
+      displayName: Release
+      kind: Release
+      name: releases.appstudio.redhat.com
+      version: v1alpha1
+    - description: ReleaseServiceConfig is the Schema for the releaseserviceconfigs
+        API
+      displayName: Release Service Config
+      kind: ReleaseServiceConfig
+      name: releaseserviceconfigs.appstudio.redhat.com
+      version: v1alpha1
+  description: Release Service description. TODO.
+  displayName: Release Service
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - release-service
+  links:
+  - name: Release Service
+    url: https://release-service.domain
+  maintainers:
+  - email: your@email.com
+    name: Maintainer Name
+  maturity: alpha
+  provider:
+    name: Provider Name
+    url: https://your.domain
+  version: 0.0.0

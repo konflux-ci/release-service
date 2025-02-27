@@ -18,13 +18,14 @@ package handlers
 
 import (
 	"context"
+	"time"
 
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllertest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -34,13 +35,14 @@ import (
 var _ = Describe("EnqueueRequestForMatchedResource", func() {
 	var ctx = context.TODO()
 
-	var rateLimitingInterface workqueue.RateLimitingInterface
-	var instance EnqueueRequestForMatchedResource
+	var rateLimitingInterface workqueue.TypedRateLimitingInterface[reconcile.Request]
+	var instance EnqueueRequestForMatchedResource[client.Object]
 	var releasePlan *v1alpha1.ReleasePlan
 	var releasePlanAdmission *v1alpha1.ReleasePlanAdmission
 
 	BeforeEach(func() {
-		rateLimitingInterface = &controllertest.Queue{Interface: workqueue.New()}
+		limiter := workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](1*time.Millisecond, 1*time.Second)
+		rateLimitingInterface = workqueue.NewTypedRateLimitingQueue[reconcile.Request](limiter)
 		releasePlan = &v1alpha1.ReleasePlan{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "default",
@@ -71,7 +73,7 @@ var _ = Describe("EnqueueRequestForMatchedResource", func() {
 				},
 			},
 		}
-		instance = EnqueueRequestForMatchedResource{}
+		instance = EnqueueRequestForMatchedResource[client.Object]{}
 	})
 
 	When("A CreateEvent occurs", func() {
