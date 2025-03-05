@@ -26,3 +26,13 @@ spec:
           protocol: TCP
         - port: 443
           protocol: TCP
+    - to:
+      - ipBlock:
+          cidr: 159.60.128.0/24  # CIDR of Sealight server Endpoint.
+      ports:
+        - port: 6443
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+        - port: 53
+          protocol: UDP
