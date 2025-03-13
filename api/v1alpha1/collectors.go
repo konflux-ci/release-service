@@ -1,5 +1,11 @@
 package v1alpha1
 
+const (
+	DefaultReleaseCatalogUrl      = "https://github.com/konflux-ci/release-service-catalog.git"
+	DefaultReleaseCatalogRevision = "production"
+	DefaultCollectorPipelinePath  = "pipelines/run-collectors/run-collectors.yaml"
+)
+
 // Collectors holds the list of collectors to be executed as part of the release workflow along with the
 // ServiceAccount to be used in the PipelineRun.
 // +kubebuilder:object:generate=true
