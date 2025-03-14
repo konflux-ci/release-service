@@ -104,6 +104,17 @@ func (pr *PipelineRef) GetRevision() (string, error) {
 	return "", fmt.Errorf("no revision found")
 }
 
+// GetUrl returns the value of the url param. If not found an error will be raised.
+func (pr *PipelineRef) GetUrl() (string, error) {
+	for _, param := range pr.Params {
+		if param.Name == "url" {
+			return param.Value, nil
+		}
+	}
+
+	return "", fmt.Errorf("no url found")
+}
+
 // ToTektonPipelineRef converts a PipelineRef object to Tekton's own PipelineRef type and returns it.
 func (pr *PipelineRef) ToTektonPipelineRef() *tektonv1.PipelineRef {
 	params := tektonv1.Params{}
