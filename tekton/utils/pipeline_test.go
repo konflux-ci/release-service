@@ -75,6 +75,20 @@ var _ = Describe("Pipeline", func() {
 		})
 	})
 
+	When("GetUrl method is called", func() {
+		It("should return the url if it exists", func() {
+			url, err := gitRef.GetUrl()
+			Expect(url).To(Equal("my-git-url"))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should not return the url if it does not exist", func() {
+			url, err := bundleRef.GetUrl()
+			Expect(url).To(BeEmpty())
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	When("GetRevision method is called", func() {
 		It("should return the revision if it exists", func() {
 			revision, err := gitRef.GetRevision()

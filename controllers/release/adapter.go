@@ -668,7 +668,7 @@ func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, 
 }
 
 // getCollectorsPipelineRunBuilder generates a builder to use while creating a collectors PipelineRun.
-func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType, namespace, revision string) *utils.PipelineRunBuilder {
+func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType, namespace, url string, revision string) *utils.PipelineRunBuilder {
 	previousRelease, err := a.loader.GetPreviousRelease(a.ctx, a.client, a.release)
 	previousReleaseNamespaceName := ""
 	if err == nil && previousRelease != nil {
@@ -701,7 +701,7 @@ func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType, namespace, revis
 			Params: []utils.Param{
 				{
 					Name:  "url",
-					Value: "https://github.com/konflux-ci/release-service-catalog.git",
+					Value: url,
 				},
 				{
 					Name:  "revision",
@@ -709,7 +709,7 @@ func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType, namespace, revis
 				},
 				{
 					Name:  "pathInRepo",
-					Value: "pipelines/run-collectors/run-collectors.yaml",
+					Value: v1alpha1.DefaultCollectorPipelinePath,
 				},
 			},
 		}).ToTektonPipelineRef()).
@@ -721,13 +721,16 @@ func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType, namespace, revis
 
 // createManagedCollectorsPipelineRun creates a PipelineRun to run the collectors Pipeline for collectors in the ReleasePlanAdmission.
 func (a *adapter) createManagedCollectorsPipelineRun(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*tektonv1.PipelineRun, error) {
+	url, err := releasePlanAdmission.Spec.Pipeline.PipelineRef.GetUrl()
+	if err != nil {
+		url = v1alpha1.DefaultReleaseCatalogUrl
+	}
 	revision, err := releasePlanAdmission.Spec.Pipeline.PipelineRef.GetRevision()
 	if err != nil {
-		revision = "production"
+		revision = v1alpha1.DefaultReleaseCatalogRevision
 	}
-
 	var pipelineRun *tektonv1.PipelineRun
-	pipelineRun, err = a.getCollectorsPipelineRunBuilder(metadata.ManagedCollectorsPipelineType, releasePlanAdmission.Namespace, revision).
+	pipelineRun, err = a.getCollectorsPipelineRunBuilder(metadata.ManagedCollectorsPipelineType, releasePlanAdmission.Namespace, url, revision).
 		WithParams(
 			tektonv1.Param{
 				Name: "collectorsResourceType",
@@ -762,20 +765,23 @@ func (a *adapter) createManagedCollectorsPipelineRun(releasePlanAdmission *v1alp
 
 // createTenantCollectorsPipelineRun creates a PipelineRun to run the collectors Pipeline for collectors in the ReleasePlan.
 func (a *adapter) createTenantCollectorsPipelineRun(releasePlan *v1alpha1.ReleasePlan, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*tektonv1.PipelineRun, error) {
+	var url string
 	var revision string
 	var err error
 
 	if releasePlanAdmission != nil {
+		url, err = releasePlanAdmission.Spec.Pipeline.PipelineRef.GetUrl()
+		if url == "" || err != nil {
+			url = v1alpha1.DefaultReleaseCatalogUrl
+		}
 		revision, err = releasePlanAdmission.Spec.Pipeline.PipelineRef.GetRevision()
-	}
-
-	// Check outside the if block to ensure revision has a good value (ignore RPA revision if error not nil).
-	if revision == "" || err != nil {
-		revision = "production"
+		if revision == "" || err != nil {
+			revision = v1alpha1.DefaultReleaseCatalogRevision
+		}
 	}
 
 	var pipelineRun *tektonv1.PipelineRun
-	pipelineRun, err = a.getCollectorsPipelineRunBuilder(metadata.TenantCollectorsPipelineType, releasePlan.Namespace, revision).
+	pipelineRun, err = a.getCollectorsPipelineRunBuilder(metadata.TenantCollectorsPipelineType, releasePlan.Namespace, url, revision).
 		WithParams(
 			tektonv1.Param{
 				Name: "collectorsResourceType",
