@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM registry.access.redhat.com/ubi9/go-toolset:9.5-1742890357 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:9.5-1743094161 as builder
 
 USER 1001
 
@@ -21,7 +21,7 @@ ENV ENABLE_WEBHOOKS=${ENABLE_WEBHOOKS}
 
 # Use ubi-micro as minimal base image to package the manager binary
 # See https://catalog.redhat.com/software/containers/ubi9/ubi-micro/615bdf943f6014fa45ae1b58
-FROM registry.access.redhat.com/ubi9/ubi-micro:9.5-1741861735
+FROM registry.access.redhat.com/ubi9/ubi-micro:9.5-1742939100
 COPY --from=builder /opt/app-root/src/manager /
 
 # It is mandatory to set these labels
