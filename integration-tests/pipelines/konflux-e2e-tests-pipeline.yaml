@@ -97,6 +97,9 @@ spec:
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
       runAfter:
         - rosa-hcp-metadata
         - test-metadata
@@ -131,6 +134,9 @@ spec:
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
       runAfter:
         - provision-rosa
       taskRef:
@@ -171,6 +177,9 @@ spec:
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
       taskRef:
         resolver: git
         params:
@@ -210,6 +219,9 @@ spec:
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
       taskRef:
         resolver: git
         params:
@@ -235,6 +247,9 @@ spec:
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
       taskRef:
         resolver: git
         params:
