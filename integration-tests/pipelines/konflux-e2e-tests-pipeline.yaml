@@ -94,12 +94,12 @@ spec:
           value: $(context.pipelineRun.name)
     - name: provision-rosa
       when:
-        - input: "$(tasks.test-metadata.results.test-event-type)"
-          operator: in
-          values: ["pull_request"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
       runAfter:
         - rosa-hcp-metadata
         - test-metadata
@@ -131,12 +131,12 @@ spec:
     - name: konflux-e2e-tests
       timeout: 3h
       when:
-        - input: "$(tasks.test-metadata.results.test-event-type)"
-          operator: in
-          values: ["pull_request"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
       runAfter:
         - provision-rosa
       taskRef:
@@ -174,12 +174,12 @@ spec:
   finally:
     - name: deprovision-rosa-collect-artifacts
       when:
-        - input: "$(tasks.test-metadata.results.test-event-type)"
-          operator: in
-          values: ["pull_request"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
       taskRef:
         resolver: git
         params:
@@ -216,12 +216,12 @@ spec:
           value: "$(tasks.status)"
     - name: quality-dashboard-upload
       when:
-        - input: "$(tasks.test-metadata.results.test-event-type)"
-          operator: in
-          values: ["pull_request"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
       taskRef:
         resolver: git
         params:
@@ -244,12 +244,12 @@ spec:
           value: "$(tasks.test-metadata.results.test-event-type)"
     - name: pull-request-status-message
       when:
-        - input: "$(tasks.test-metadata.results.test-event-type)"
-          operator: in
-          values: ["pull_request"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
       taskRef:
         resolver: git
         params:
