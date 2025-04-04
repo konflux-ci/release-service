@@ -2407,14 +2407,16 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.Timeouts.Pipeline).To(Equal(releasePlanAdmission.Spec.Pipeline.Timeouts.Pipeline))
 		})
 
-		It("contains a parameter with the verify ec task bundle", func() {
+		It("contains parameters with the verify ec task bundle and verify conforma git revision", func() {
 			var err error
 			pipelineRun, err = adapter.createManagedPipelineRun(resources)
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 
 			bundle := enterpriseContractConfigMap.Data["verify_ec_task_bundle"]
+			revision := enterpriseContractConfigMap.Data["verify_ec_task_git_revision"]
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(bundle)))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(revision)))))
 		})
 
 		It("contains a parameter with the json representation of the EnterpriseContractPolicy", func() {
@@ -4249,7 +4251,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Namespace: "default",
 			},
 			Data: map[string]string{
-				"verify_ec_task_bundle": "test-bundle",
+				"verify_ec_task_bundle":       "test-bundle",
+				"verify_ec_task_git_revision": "main",
 			},
 		}
 		Expect(k8sClient.Create(ctx, enterpriseContractConfigMap)).Should(Succeed())
