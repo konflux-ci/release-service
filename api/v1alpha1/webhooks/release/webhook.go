@@ -79,6 +79,10 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
+	release := obj.(*v1alpha1.Release)
+	if len(release.Name) > 63 {
+		return nil, fmt.Errorf("release name must be no more than 63 characters, got %d characters", len(release.Name))
+	}
 	return nil, nil
 }
 
