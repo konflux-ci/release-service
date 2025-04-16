@@ -114,10 +114,10 @@ func (l *mockLoader) GetRelease(ctx context.Context, cli client.Client, name, na
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleaseContextKey, &v1alpha1.Release{})
 }
 
-// GetRoleBindingFromReleaseStatus returns the resource and error passed as values of the context.
-func (l *mockLoader) GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
+// GetRoleBindingFromReleaseStatusPipelineInfo returns the resource and error passed as values of the context.
+func (l *mockLoader) GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context, cli client.Client, pipelineInfo *v1alpha1.PipelineInfo) (*rbac.RoleBinding, error) {
 	if ctx.Value(RoleBindingContextKey) == nil {
-		return l.loader.GetRoleBindingFromReleaseStatus(ctx, cli, release)
+		return l.loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, cli, pipelineInfo)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, RoleBindingContextKey, &rbac.RoleBinding{})
 }
