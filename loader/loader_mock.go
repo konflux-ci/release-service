@@ -114,10 +114,26 @@ func (l *mockLoader) GetRelease(ctx context.Context, cli client.Client, name, na
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleaseContextKey, &v1alpha1.Release{})
 }
 
-// GetRoleBindingFromReleaseStatus returns the resource and error passed as values of the context.
-func (l *mockLoader) GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
+// GetRoleBindingFromTenantCollectors returns the resource and error passed as values of the context.
+func (l *mockLoader) GetRoleBindingFromTenantCollectors(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
 	if ctx.Value(RoleBindingContextKey) == nil {
-		return l.loader.GetRoleBindingFromReleaseStatus(ctx, cli, release)
+		return l.loader.GetRoleBindingFromTenantCollectors(ctx, cli, release)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, RoleBindingContextKey, &rbac.RoleBinding{})
+}
+
+// GetRoleBindingFromManagedCollectors returns the resource and error passed as values of the context.
+func (l *mockLoader) GetRoleBindingFromManagedCollectors(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
+	if ctx.Value(RoleBindingContextKey) == nil {
+		return l.loader.GetRoleBindingFromManagedCollectors(ctx, cli, release)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, RoleBindingContextKey, &rbac.RoleBinding{})
+}
+
+// GetRoleBindingFromManagedProcessing returns the resource and error passed as values of the context.
+func (l *mockLoader) GetRoleBindingFromManagedProcessing(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
+	if ctx.Value(RoleBindingContextKey) == nil {
+		return l.loader.GetRoleBindingFromManagedProcessing(ctx, cli, release)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, RoleBindingContextKey, &rbac.RoleBinding{})
 }

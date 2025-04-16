@@ -34,7 +34,9 @@ type ObjectLoader interface {
 	GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error)
 	GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
-	GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error)
+	GetRoleBindingFromTenantCollectors(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error)
+	GetRoleBindingFromManagedCollectors(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error)
+	GetRoleBindingFromManagedProcessing(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error)
 	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType string) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
 	GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error)
@@ -230,9 +232,51 @@ func (l *loader) GetRelease(ctx context.Context, cli client.Client, name, namesp
 	return release, toolkit.GetObject(name, namespace, cli, ctx, release)
 }
 
-// GetRoleBindingFromReleaseStatus returns the RoleBinding associated with the given Release. That association is defined
+// GetRoleBindingFromTenantCollectors returns the Tenant Collector RoleBinding associated with the given Release. That association is defined
 // by the namespaced name stored in the Release's status.
-func (l *loader) GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
+func (l *loader) GetRoleBindingFromTenantCollectors(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
+	roleBinding := &rbac.RoleBinding{}
+	roleBindingNamespacedName := strings.Split(release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBinding, string(types.Separator))
+	if len(roleBindingNamespacedName) != 2 {
+		return nil, fmt.Errorf("release doesn't contain a valid reference to a RoleBinding ('%s')",
+			release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBinding)
+	}
+
+	err := cli.Get(ctx, types.NamespacedName{
+		Namespace: roleBindingNamespacedName[0],
+		Name:      roleBindingNamespacedName[1],
+	}, roleBinding)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleBinding, nil
+}
+
+// GetRoleBindingFromManagedCollectors returns the Managed Collector RoleBinding associated with the given Release. That association is defined
+// by the namespaced name stored in the Release's status.
+func (l *loader) GetRoleBindingFromManagedCollectors(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
+	roleBinding := &rbac.RoleBinding{}
+	roleBindingNamespacedName := strings.Split(release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBinding, string(types.Separator))
+	if len(roleBindingNamespacedName) != 2 {
+		return nil, fmt.Errorf("release doesn't contain a valid reference to a RoleBinding ('%s')",
+			release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBinding)
+	}
+
+	err := cli.Get(ctx, types.NamespacedName{
+		Namespace: roleBindingNamespacedName[0],
+		Name:      roleBindingNamespacedName[1],
+	}, roleBinding)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleBinding, nil
+}
+
+// GetRoleBindingFromManagedProcessing returns the RoleBinding associated with the given Release. That association is defined
+// by the namespaced name stored in the Release's status.
+func (l *loader) GetRoleBindingFromManagedProcessing(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
 	roleBinding := &rbac.RoleBinding{}
 	roleBindingNamespacedName := strings.Split(release.Status.ManagedProcessing.RoleBinding, string(types.Separator))
 	if len(roleBindingNamespacedName) != 2 {

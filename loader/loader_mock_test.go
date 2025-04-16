@@ -142,7 +142,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	When("calling GetRoleBindingFromReleaseStatus", func() {
+	When("calling GetRoleBindingFromManagedProcessing", func() {
 		It("returns the resource and error from the context", func() {
 			roleBinding := &rbac.RoleBinding{}
 			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
@@ -151,7 +151,37 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource:   roleBinding,
 				},
 			})
-			resource, err := loader.GetRoleBindingFromReleaseStatus(mockContext, nil, nil)
+			resource, err := loader.GetRoleBindingFromManagedProcessing(mockContext, nil, nil)
+			Expect(resource).To(Equal(roleBinding))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	When("calling GetRoleBindingFromTenantCollectors", func() {
+		It("returns the resource and error from the context", func() {
+			roleBinding := &rbac.RoleBinding{}
+			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: RoleBindingContextKey,
+					Resource:   roleBinding,
+				},
+			})
+			resource, err := loader.GetRoleBindingFromTenantCollectors(mockContext, nil, nil)
+			Expect(resource).To(Equal(roleBinding))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	When("calling GetRoleBindingFromManagedCollectors", func() {
+		It("returns the resource and error from the context", func() {
+			roleBinding := &rbac.RoleBinding{}
+			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: RoleBindingContextKey,
+					Resource:   roleBinding,
+				},
+			})
+			resource, err := loader.GetRoleBindingFromManagedCollectors(mockContext, nil, nil)
 			Expect(resource).To(Equal(roleBinding))
 			Expect(err).To(BeNil())
 		})
