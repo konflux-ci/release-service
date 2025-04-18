@@ -1295,8 +1295,8 @@ func (a *adapter) registerFinalProcessingStatus(pipelineRun *tektonv1.PipelineRu
 	return a.client.Status().Patch(a.ctx, a.release, patch)
 }
 
-// validateApplication will ensure that the same Application is used in both, the Snapshot and the ReleasePlan. If the
-// resources reference different Applications, an error will be returned.
+// validateApplication will ensure that the same Application is used in both the Snapshot and the ReleasePlan. If the
+// resources reference different Applications, the Release will be marked as invalid.
 func (a *adapter) validateApplication() *controller.ValidationResult {
 	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
 	if err != nil {
@@ -1317,7 +1317,8 @@ func (a *adapter) validateApplication() *controller.ValidationResult {
 	}
 
 	if releasePlan.Spec.Application != snapshot.Spec.Application {
-		return &controller.ValidationResult{Err: fmt.Errorf("different Application referenced in ReleasePlan and Snapshot")}
+		a.release.MarkValidationFailed("different Application referenced in ReleasePlan and Snapshot")
+		return &controller.ValidationResult{Valid: false}
 	}
 
 	return &controller.ValidationResult{Valid: true}

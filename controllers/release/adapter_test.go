@@ -3355,6 +3355,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("returns invalid and error if the Application doesn't match", func() {
+			var conditionMsg string
 			newReleasePlan := releasePlan.DeepCopy()
 			newReleasePlan.Spec.Application = "non-existent"
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
@@ -3366,8 +3367,13 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			result := adapter.validateApplication()
 			Expect(result.Valid).To(BeFalse())
-			Expect(result.Err).To(HaveOccurred())
-			Expect(result.Err.Error()).To(Equal("different Application referenced in ReleasePlan and Snapshot"))
+			Expect(result.Err).NotTo(HaveOccurred())
+			for i := range adapter.release.Status.Conditions {
+				if adapter.release.Status.Conditions[i].Type == "Validated" {
+					conditionMsg = adapter.release.Status.Conditions[i].Message
+				}
+			}
+			Expect(conditionMsg).To(Equal("different Application referenced in ReleasePlan and Snapshot"))
 		})
 
 		It("returns invalid if the ReleasePlan is not found", func() {
