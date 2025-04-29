@@ -14,6 +14,10 @@ type Collectors struct {
 	// +required
 	Items []CollectorItem `json:"items"`
 
+	// Secrets is the list of secrets to be used in the Collector's Pipeline
+	// +optional
+	Secrets []string `json:"secrets,omitempty"`
+
 	// ServiceAccountName is the ServiceAccount to use during the execution of the Collectors Pipeline
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional

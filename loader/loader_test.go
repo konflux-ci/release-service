@@ -350,18 +350,18 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	When("calling GetRoleBindingFromReleaseStatus", func() {
+	When("calling GetRoleBindingFromReleaseStatusPipelineInfo", func() {
 		It("fails to return a RoleBinding if the reference is not in the release", func() {
-			returnedObject, err := loader.GetRoleBindingFromReleaseStatus(ctx, k8sClient, release)
+			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &release.Status.ManagedProcessing)
 			Expect(returnedObject).To(BeNil())
-			Expect(err.Error()).To(ContainSubstring("release doesn't contain a valid reference to a RoleBinding"))
+			Expect(err.Error()).To(ContainSubstring("pipelineInfo doesn't contain a valid reference to a RoleBinding"))
 		})
 
 		It("fails to return a RoleBinding if the roleBinding does not exist", func() {
 			modifiedRelease := release.DeepCopy()
 			modifiedRelease.Status.ManagedProcessing.RoleBinding = "foo/bar"
 
-			returnedObject, err := loader.GetRoleBindingFromReleaseStatus(ctx, k8sClient, modifiedRelease)
+			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing)
 			Expect(returnedObject).To(BeNil())
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
@@ -371,7 +371,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedRelease.Status.ManagedProcessing.RoleBinding = fmt.Sprintf("%s%c%s", roleBinding.Namespace,
 				types.Separator, roleBinding.Name)
 
-			returnedObject, err := loader.GetRoleBindingFromReleaseStatus(ctx, k8sClient, modifiedRelease)
+			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&rbac.RoleBinding{}))
 			Expect(returnedObject.Name).To(Equal(roleBinding.Name))

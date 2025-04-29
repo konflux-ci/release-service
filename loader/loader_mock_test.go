@@ -142,7 +142,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
-	When("calling GetRoleBindingFromReleaseStatus", func() {
+	When("calling GetRoleBindingFromReleaseStatusPipelineInfo", func() {
 		It("returns the resource and error from the context", func() {
 			roleBinding := &rbac.RoleBinding{}
 			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
@@ -151,7 +151,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource:   roleBinding,
 				},
 			})
-			resource, err := loader.GetRoleBindingFromReleaseStatus(mockContext, nil, nil)
+			resource, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(mockContext, nil, nil)
 			Expect(resource).To(Equal(roleBinding))
 			Expect(err).To(BeNil())
 		})

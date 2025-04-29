@@ -34,7 +34,7 @@ type ObjectLoader interface {
 	GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error)
 	GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
-	GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error)
+	GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context, cli client.Client, pipelineInfo *v1alpha1.PipelineInfo) (*rbac.RoleBinding, error)
 	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType string) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
 	GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error)
@@ -230,14 +230,13 @@ func (l *loader) GetRelease(ctx context.Context, cli client.Client, name, namesp
 	return release, toolkit.GetObject(name, namespace, cli, ctx, release)
 }
 
-// GetRoleBindingFromReleaseStatus returns the RoleBinding associated with the given Release. That association is defined
-// by the namespaced name stored in the Release's status.
-func (l *loader) GetRoleBindingFromReleaseStatus(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*rbac.RoleBinding, error) {
+// GetRoleBindingFromReleaseStatusPipelineInfo returns the RoleBinding associated with the given PipelineInfo.
+// The association is defined by the namespaced name stored in the PipelineInfo's RoleBinding field.
+func (l *loader) GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context, cli client.Client, pipelineInfo *v1alpha1.PipelineInfo) (*rbac.RoleBinding, error) {
 	roleBinding := &rbac.RoleBinding{}
-	roleBindingNamespacedName := strings.Split(release.Status.ManagedProcessing.RoleBinding, string(types.Separator))
+	roleBindingNamespacedName := strings.Split(pipelineInfo.RoleBinding, string(types.Separator))
 	if len(roleBindingNamespacedName) != 2 {
-		return nil, fmt.Errorf("release doesn't contain a valid reference to a RoleBinding ('%s')",
-			release.Status.ManagedProcessing.RoleBinding)
+		return nil, fmt.Errorf("pipelineInfo doesn't contain a valid reference to a RoleBinding ('%s')", pipelineInfo.RoleBinding)
 	}
 
 	err := cli.Get(ctx, types.NamespacedName{

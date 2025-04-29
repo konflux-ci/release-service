@@ -101,6 +101,12 @@ spec:
                       - type
                       type: object
                     type: array
+                  secrets:
+                    description: Secrets is the list of secrets to be used in the
+                      Collector's Pipeline
+                    items:
+                      type: string
+                    type: array
                   serviceAccountName:
                     description: ServiceAccountName is the ServiceAccount to use during
                       the execution of the Collectors Pipeline
