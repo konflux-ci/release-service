@@ -53,6 +53,8 @@ type Controller struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=releaseserviceconfigs,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=internalrequests,verbs=create;delete;get;list;watch
 //InternalRequests RBAC is required to prevent `forbidden: user system:serviceaccount:release-service:release-service-controller-manager
 //is attempting to grant RBAC permissions not currently held`
