@@ -5,6 +5,12 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+- apiGroups:
   - appstudio.redhat.com
   resources:
   - applications/finalizers
@@ -74,6 +80,7 @@ rules:
   - rbac.authorization.k8s.io
   resources:
   - rolebindings
+  - roles
   verbs:
   - create
   - delete
