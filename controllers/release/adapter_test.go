@@ -624,7 +624,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should create a RoleBinding if all the required resources are present and none exists in the Release Status", func() {
+		It("should create RoleBindings if all the required resources are present and none exists in the Release Status", func() {
 			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
 			newReleasePlanAdmission.Spec.Collectors = &v1alpha1.Collectors{
 				Secrets:            []string{"bar", "foo"},
@@ -650,7 +650,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
 
-			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.ManagedRoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.SecretRoleBinding).To(BeEmpty())
 			result, err := adapter.EnsureManagedCollectorsPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -663,10 +665,21 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			})
 
-			roleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing)
-			Expect(roleBinding).NotTo(BeNil())
+			tenantRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "tenant")
+			Expect(tenantRoleBinding).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.client.Delete(adapter.ctx, roleBinding)).To(Succeed())
+			Expect(adapter.client.Delete(adapter.ctx, tenantRoleBinding)).To(Succeed())
+
+			managedRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "managed")
+			Expect(managedRoleBinding).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.client.Delete(adapter.ctx, managedRoleBinding)).To(Succeed())
+
+			secretRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "secret")
+			Expect(secretRoleBinding).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.client.Delete(adapter.ctx, secretRoleBinding)).To(Succeed())
+
 			// Still need to cleanup the PipelineRun
 			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.ManagedCollectorsPipelineType)
 			Expect(pipelineRun).NotTo(BeNil())
@@ -674,9 +687,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
 		})
 
-		It("should not create a RoleBinding if the Collectors have no ServiceAccount and Secrets set ", func() {
+		It("should not create RoleBindings if the Collectors has no ServiceAccount set", func() {
 			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
 			newReleasePlanAdmission.Spec.Collectors = &v1alpha1.Collectors{
+				Secrets: []string{"bar", "foo"},
 				Items: []v1alpha1.CollectorItem{
 					{
 						Name:   "foo",
@@ -698,7 +712,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
 
-			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.ManagedRoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.SecretRoleBinding).To(BeEmpty())
 			result, err := adapter.EnsureManagedCollectorsPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -711,9 +727,67 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			})
 
-			roleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing)
-			Expect(roleBinding).To(BeNil())
+			tenantRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "tenant")
+			Expect(tenantRoleBinding).To(BeNil())
 			Expect(err).To(HaveOccurred())
+
+			managedRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "managed")
+			Expect(managedRoleBinding).To(BeNil())
+			Expect(err).To(HaveOccurred())
+
+			secretRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "secret")
+			Expect(secretRoleBinding).To(BeNil())
+			Expect(err).To(HaveOccurred())
+
+			// Still need to cleanup the PipelineRun
+			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.ManagedCollectorsPipelineType)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("should not create a secrets roleBinding if the Collectors has no secrets set", func() {
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Spec.Collectors = &v1alpha1.Collectors{
+				ServiceAccountName: "foo",
+				Items: []v1alpha1.CollectorItem{
+					{
+						Name:   "foo",
+						Type:   "bar",
+						Params: []v1alpha1.Param{},
+					},
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   newReleasePlanAdmission,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+			})
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.SecretRoleBinding).To(BeEmpty())
+			result, err := adapter.EnsureManagedCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Reset MockedContext so that the RoleBinding that was just created can be fetched
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   newReleasePlanAdmission,
+				},
+			})
+
+			secretRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "secret")
+			Expect(secretRoleBinding).To(BeNil())
+			Expect(err).To(HaveOccurred())
+
 			// Still need to cleanup the PipelineRun
 			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.ManagedCollectorsPipelineType)
 			Expect(pipelineRun).NotTo(BeNil())
@@ -959,7 +1033,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 			adapter.release.MarkTenantPipelineProcessingSkipped()
 
-			Expect(adapter.release.Status.ManagedProcessing.RoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.ManagedProcessing.RoleBindings.TenantRoleBinding).To(BeEmpty())
 			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -978,10 +1052,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			})
 
-			roleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.ManagedProcessing)
-			Expect(roleBinding).NotTo(BeNil())
+			tenantRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.ManagedProcessing, "tenant")
+			Expect(tenantRoleBinding).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.client.Delete(adapter.ctx, roleBinding)).To(Succeed())
+			Expect(adapter.client.Delete(adapter.ctx, tenantRoleBinding)).To(Succeed())
+
 			// Still need to cleanup the PipelineRun
 			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.ManagedPipelineType)
 			Expect(pipelineRun).NotTo(BeNil())
@@ -1031,7 +1106,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 			adapter.release.MarkTenantPipelineProcessingSkipped()
 
-			Expect(adapter.release.Status.ManagedProcessing.RoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.ManagedProcessing.RoleBindings.TenantRoleBinding).To(BeEmpty())
 			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -1050,9 +1125,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			})
 
-			roleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.ManagedProcessing)
-			Expect(roleBinding).To(BeNil())
+			tenantRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.ManagedProcessing, "tenant")
+			Expect(tenantRoleBinding).To(BeNil())
 			Expect(err).To(HaveOccurred())
+
 			// Still need to cleanup the PipelineRun
 			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.ManagedPipelineType)
 			Expect(pipelineRun).NotTo(BeNil())
@@ -1187,7 +1263,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should create a RoleBinding if all the required resources are present and none exists in the Release Status", func() {
+		It("should create RoleBindings if all the required resources are present and none exists in the Release Status", func() {
 			newReleasePlan := releasePlan.DeepCopy()
 			newReleasePlan.Spec.Collectors = &v1alpha1.Collectors{
 				Secrets:            []string{"bar", "foo"},
@@ -1215,8 +1291,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Resource:   releasePlanAdmission,
 				},
 			})
-
-			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.SecretRoleBinding).To(BeEmpty())
 			result, err := adapter.EnsureTenantCollectorsPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -1229,9 +1304,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			})
 
-			roleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing)
+			tenantRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing, "secret")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.client.Delete(adapter.ctx, roleBinding)).To(Succeed())
+			Expect(adapter.client.Delete(adapter.ctx, tenantRoleBinding)).To(Succeed())
+
+			secretRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing, "tenant")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.client.Delete(adapter.ctx, secretRoleBinding)).To(Succeed())
+
 			// Still need to cleanup the PipelineRun
 			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.TenantCollectorsPipelineType)
 			Expect(pipelineRun).NotTo(BeNil())
@@ -1239,9 +1319,66 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
 		})
 
-		It("should not create a RoleBinding if the Collectors have no ServiceAccount and Secrets set ", func() {
+		It("should not create RoleBindings if the Collectors has no ServiceAccount set", func() {
 			newReleasePlan := releasePlan.DeepCopy()
 			newReleasePlan.Spec.Collectors = &v1alpha1.Collectors{
+				Secrets: []string{"bar", "foo"},
+				Items: []v1alpha1.CollectorItem{
+					{
+						Name:   "foo",
+						Type:   "bar",
+						Params: []v1alpha1.Param{},
+					},
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+			})
+			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.TenantRoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.SecretRoleBinding).To(BeEmpty())
+			result, err := adapter.EnsureTenantCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Reset MockedContext so that the RoleBinding that was just created can be fetched
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+			})
+
+			tenantRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing, "secret")
+			Expect(tenantRoleBinding).To(BeNil())
+			Expect(err).To(HaveOccurred())
+
+			secretRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing, "tenant")
+			Expect(secretRoleBinding).To(BeNil())
+			Expect(err).To(HaveOccurred())
+
+			// Still need to cleanup the PipelineRun
+			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.TenantCollectorsPipelineType)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("should not create a secrets roleBinding if the Collectors has no secrets set", func() {
+			newReleasePlan := releasePlan.DeepCopy()
+			newReleasePlan.Spec.Collectors = &v1alpha1.Collectors{
+				ServiceAccountName: "foo",
 				Items: []v1alpha1.CollectorItem{
 					{
 						Name:   "foo",
@@ -1266,7 +1403,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			})
 
-			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.SecretRoleBinding).To(BeEmpty())
 			result, err := adapter.EnsureTenantCollectorsPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -1279,9 +1416,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			})
 
-			roleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing)
-			Expect(roleBinding).To(BeNil())
+			secretRoleBinding, err := adapter.loader.GetRoleBindingFromReleaseStatusPipelineInfo(adapter.ctx, adapter.client, &adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing, "secret")
+			Expect(secretRoleBinding).To(BeNil())
 			Expect(err).To(HaveOccurred())
+
 			// Still need to cleanup the PipelineRun
 			pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.TenantCollectorsPipelineType)
 			Expect(pipelineRun).NotTo(BeNil())
@@ -1932,16 +2070,21 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should cleanup Collectors Tenant Role and RoleBinding after processing has finished", func() {
-			role := &rbac.Role{
+		It("should cleanup Collectors Tenant Role and RoleBindings after processing has finished", func() {
+			tenantRoleBinding := &rbac.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-role",
+					Name:      "new-tenant-role-binding",
 					Namespace: "default",
 				},
+				RoleRef: rbac.RoleRef{
+					APIGroup: rbac.GroupName,
+					Kind:     "ClusterRole",
+					Name:     "clusterrole",
+				},
 			}
-			rolebinding := &rbac.RoleBinding{
+			secretRoleBinding := &rbac.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "new-role-binding",
+					Name:      "new-secret-role-binding",
 					Namespace: "default",
 				},
 				RoleRef: rbac.RoleRef{
@@ -1950,11 +2093,20 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Name:     "foo-role",
 				},
 			}
-			Expect(adapter.client.Create(adapter.ctx, role)).To(Succeed())
-			Expect(adapter.client.Create(adapter.ctx, rolebinding)).To(Succeed())
+			secretRole := &rbac.Role{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-role",
+					Namespace: "default",
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, tenantRoleBinding)).To(Succeed())
+			Expect(adapter.client.Create(adapter.ctx, secretRole)).To(Succeed())
+			Expect(adapter.client.Create(adapter.ctx, secretRoleBinding)).To(Succeed())
 
-			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBinding =
-				fmt.Sprintf("%s%c%s", rolebinding.Namespace, types.Separator, rolebinding.Name)
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.TenantRoleBinding =
+				fmt.Sprintf("%s%c%s", tenantRoleBinding.Namespace, types.Separator, tenantRoleBinding.Name)
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.SecretRoleBinding =
+				fmt.Sprintf("%s%c%s", secretRoleBinding.Namespace, types.Separator, secretRoleBinding.Name)
 
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 			adapter.release.MarkTenantCollectorsPipelineProcessed()
@@ -1965,27 +2117,48 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(res.RequeueRequest).To(BeFalse())
 			Expect(res.CancelRequest).To(BeFalse())
 
-			checkRole := &rbac.Role{}
-			err = toolkit.GetObject(role.Name, role.Namespace, adapter.client, adapter.ctx, checkRole)
-			Expect(checkRole).To(Equal(&rbac.Role{}))
+			checkTenantRoleBinding := &rbac.RoleBinding{}
+			err = toolkit.GetObject(tenantRoleBinding.Name, tenantRoleBinding.Namespace, adapter.client, adapter.ctx, tenantRoleBinding)
+			Expect(checkTenantRoleBinding).To(Equal(&rbac.RoleBinding{}))
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 
-			checkRoleBinding := &rbac.RoleBinding{}
-			err = toolkit.GetObject(rolebinding.Name, rolebinding.Namespace, adapter.client, adapter.ctx, checkRoleBinding)
-			Expect(checkRoleBinding).To(Equal(&rbac.RoleBinding{}))
+			checkSecretRole := &rbac.Role{}
+			err = toolkit.GetObject(secretRole.Name, secretRole.Namespace, adapter.client, adapter.ctx, checkSecretRole)
+			Expect(checkSecretRole).To(Equal(&rbac.Role{}))
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+
+			checkSecretRoleBinding := &rbac.RoleBinding{}
+			err = toolkit.GetObject(secretRoleBinding.Name, secretRoleBinding.Namespace, adapter.client, adapter.ctx, checkSecretRoleBinding)
+			Expect(checkSecretRoleBinding).To(Equal(&rbac.RoleBinding{}))
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 
-		It("should cleanup Collectors Managed Role and RoleBinding after processing has finished", func() {
-			role := &rbac.Role{
+		It("should cleanup Collectors Managed Role and RoleBindings after processing has finished", func() {
+			tenantRoleBinding := &rbac.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-role",
+					Name:      "new-tenant-role-binding",
 					Namespace: "default",
 				},
+				RoleRef: rbac.RoleRef{
+					APIGroup: rbac.GroupName,
+					Kind:     "ClusterRole",
+					Name:     "clusterrole",
+				},
 			}
-			rolebinding := &rbac.RoleBinding{
+			managedRoleBinding := &rbac.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "new-role-binding",
+					Name:      "new-managed-role-binding",
+					Namespace: "default",
+				},
+				RoleRef: rbac.RoleRef{
+					APIGroup: rbac.GroupName,
+					Kind:     "ClusterRole",
+					Name:     "clusterrole",
+				},
+			}
+			secretRoleBinding := &rbac.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "new-secret-role-binding",
 					Namespace: "default",
 				},
 				RoleRef: rbac.RoleRef{
@@ -1994,11 +2167,23 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Name:     "foo-role",
 				},
 			}
-			Expect(adapter.client.Create(adapter.ctx, role)).To(Succeed())
-			Expect(adapter.client.Create(adapter.ctx, rolebinding)).To(Succeed())
+			secretRole := &rbac.Role{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-role",
+					Namespace: "default",
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, tenantRoleBinding)).To(Succeed())
+			Expect(adapter.client.Create(adapter.ctx, managedRoleBinding)).To(Succeed())
+			Expect(adapter.client.Create(adapter.ctx, secretRole)).To(Succeed())
+			Expect(adapter.client.Create(adapter.ctx, secretRoleBinding)).To(Succeed())
 
-			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBinding =
-				fmt.Sprintf("%s%c%s", rolebinding.Namespace, types.Separator, rolebinding.Name)
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding =
+				fmt.Sprintf("%s%c%s", tenantRoleBinding.Namespace, types.Separator, tenantRoleBinding.Name)
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.ManagedRoleBinding =
+				fmt.Sprintf("%s%c%s", managedRoleBinding.Namespace, types.Separator, managedRoleBinding.Name)
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.SecretRoleBinding =
+				fmt.Sprintf("%s%c%s", secretRoleBinding.Namespace, types.Separator, secretRoleBinding.Name)
 
 			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
 			adapter.release.MarkManagedCollectorsPipelineProcessing()
@@ -2009,14 +2194,24 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(res.RequeueRequest).To(BeFalse())
 			Expect(res.CancelRequest).To(BeFalse())
 
-			checkRole := &rbac.Role{}
-			err = toolkit.GetObject(role.Name, role.Namespace, adapter.client, adapter.ctx, checkRole)
-			Expect(checkRole).To(Equal(&rbac.Role{}))
+			checkTenantRoleBinding := &rbac.RoleBinding{}
+			err = toolkit.GetObject(tenantRoleBinding.Name, tenantRoleBinding.Namespace, adapter.client, adapter.ctx, checkTenantRoleBinding)
+			Expect(checkTenantRoleBinding).To(Equal(&rbac.RoleBinding{}))
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 
-			checkRoleBinding := &rbac.RoleBinding{}
-			err = toolkit.GetObject(rolebinding.Name, rolebinding.Namespace, adapter.client, adapter.ctx, checkRoleBinding)
-			Expect(checkRoleBinding).To(Equal(&rbac.RoleBinding{}))
+			checkManagedRoleBinding := &rbac.RoleBinding{}
+			err = toolkit.GetObject(managedRoleBinding.Name, managedRoleBinding.Namespace, adapter.client, adapter.ctx, checkManagedRoleBinding)
+			Expect(checkManagedRoleBinding).To(Equal(&rbac.RoleBinding{}))
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+
+			checkSecretRole := &rbac.Role{}
+			err = toolkit.GetObject(secretRole.Name, secretRole.Namespace, adapter.client, adapter.ctx, checkSecretRole)
+			Expect(checkSecretRole).To(Equal(&rbac.Role{}))
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+
+			checkSecretRoleBinding := &rbac.RoleBinding{}
+			err = toolkit.GetObject(secretRoleBinding.Name, secretRoleBinding.Namespace, adapter.client, adapter.ctx, checkSecretRoleBinding)
+			Expect(checkSecretRoleBinding).To(Equal(&rbac.RoleBinding{}))
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 	})
@@ -3074,7 +3269,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Policy: enterpriseContractPolicy.Name,
 				},
 			}
-			roleBinding, err := adapter.createRoleBindingForClusterRole("foo", newReleasePlanAdmission)
+			roleBinding, err := adapter.createRoleBindingForClusterRole("foo", newReleasePlanAdmission.Spec.Origin, newReleasePlanAdmission.Spec.Pipeline.ServiceAccountName, newReleasePlanAdmission.Namespace)
 			Expect(err).To(HaveOccurred())
 			Expect(roleBinding).To(BeNil())
 			Expect(err.Error()).To(ContainSubstring("is invalid"))
@@ -3088,7 +3283,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			})
 
-			roleBinding, err := adapter.createRoleBindingForClusterRole("foo", releasePlanAdmission)
+			roleBinding, err := adapter.createRoleBindingForClusterRole("foo", releasePlanAdmission.Spec.Origin, releasePlanAdmission.Spec.Pipeline.ServiceAccountName, releasePlanAdmission.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(roleBinding).NotTo(BeNil())
 			Expect(roleBinding.RoleRef.Name).To(Equal("foo"))
@@ -3348,7 +3543,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("does nothing if there is no PipelineRun", func() {
-			Expect(adapter.registerManagedCollectorsProcessingData(nil, nil)).To(Succeed())
+			Expect(adapter.registerManagedCollectorsProcessingData(nil, nil, nil, nil)).To(Succeed())
 			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun).To(BeEmpty())
 		})
 
@@ -3359,17 +3554,33 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Namespace: "default",
 				},
 			}
-			roleBinding := &rbac.RoleBinding{
+			tenantRoleBinding := &rbac.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "role-binding",
 					Namespace: "default",
 				},
 			}
-			Expect(adapter.registerManagedCollectorsProcessingData(pipelineRun, roleBinding)).To(Succeed())
+			managedRoleBinding := &rbac.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "role-binding",
+					Namespace: "default",
+				},
+			}
+			secretRoleBinding := &rbac.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "role-binding",
+					Namespace: "default",
+				},
+			}
+			Expect(adapter.registerManagedCollectorsProcessingData(pipelineRun, tenantRoleBinding, managedRoleBinding, secretRoleBinding)).To(Succeed())
 			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun).To(Equal(fmt.Sprintf("%s%c%s",
 				pipelineRun.Namespace, types.Separator, pipelineRun.Name)))
-			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBinding).To(Equal(fmt.Sprintf("%s%c%s",
-				roleBinding.Namespace, types.Separator, roleBinding.Name)))
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding).To(Equal(fmt.Sprintf("%s%c%s",
+				tenantRoleBinding.Namespace, types.Separator, tenantRoleBinding.Name)))
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.ManagedRoleBinding).To(Equal(fmt.Sprintf("%s%c%s",
+				managedRoleBinding.Namespace, types.Separator, managedRoleBinding.Name)))
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.SecretRoleBinding).To(Equal(fmt.Sprintf("%s%c%s",
+				secretRoleBinding.Namespace, types.Separator, secretRoleBinding.Name)))
 			Expect(adapter.release.IsManagedCollectorsPipelineProcessing()).To(BeTrue())
 		})
 
@@ -3381,8 +3592,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			}
 
-			Expect(adapter.registerManagedCollectorsProcessingData(pipelineRun, nil)).To(Succeed())
-			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBinding).To(BeEmpty())
+			Expect(adapter.registerManagedCollectorsProcessingData(pipelineRun, nil, nil, nil)).To(Succeed())
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings).To(Equal(v1alpha1.RoleBindingType{}))
 			Expect(adapter.release.IsManagedCollectorsPipelineProcessing()).To(BeTrue())
 		})
 	})
@@ -3399,7 +3610,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("does nothing if there is no PipelineRun", func() {
-			Expect(adapter.registerTenantCollectorsProcessingData(nil, nil)).To(Succeed())
+			Expect(adapter.registerTenantCollectorsProcessingData(nil, nil, nil)).To(Succeed())
 			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun).To(BeEmpty())
 		})
 
@@ -3410,17 +3621,25 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Namespace: "default",
 				},
 			}
-			roleBinding := &rbac.RoleBinding{
+			tenantRoleBinding := &rbac.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "role-binding",
+					Name:      "tenant-role-binding",
 					Namespace: "default",
 				},
 			}
-			Expect(adapter.registerTenantCollectorsProcessingData(pipelineRun, roleBinding)).To(Succeed())
+			secretRoleBinding := &rbac.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "secret-role-binding",
+					Namespace: "default",
+				},
+			}
+			Expect(adapter.registerTenantCollectorsProcessingData(pipelineRun, tenantRoleBinding, secretRoleBinding)).To(Succeed())
 			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun).To(Equal(fmt.Sprintf("%s%c%s",
 				pipelineRun.Namespace, types.Separator, pipelineRun.Name)))
-			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBinding).To(Equal(fmt.Sprintf("%s%c%s",
-				roleBinding.Namespace, types.Separator, roleBinding.Name)))
+			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.TenantRoleBinding).To(Equal(fmt.Sprintf("%s%c%s",
+				tenantRoleBinding.Namespace, types.Separator, tenantRoleBinding.Name)))
+			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.SecretRoleBinding).To(Equal(fmt.Sprintf("%s%c%s",
+				secretRoleBinding.Namespace, types.Separator, secretRoleBinding.Name)))
 			Expect(adapter.release.IsTenantCollectorsPipelineProcessing()).To(BeTrue())
 		})
 
@@ -3432,8 +3651,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			}
 
-			Expect(adapter.registerTenantCollectorsProcessingData(pipelineRun, nil)).To(Succeed())
-			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBinding).To(BeEmpty())
+			Expect(adapter.registerTenantCollectorsProcessingData(pipelineRun, nil, nil)).To(Succeed())
+			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings).To(Equal(v1alpha1.RoleBindingType{}))
 			Expect(adapter.release.IsTenantCollectorsPipelineProcessing()).To(BeTrue())
 		})
 	})
@@ -3491,17 +3710,17 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Namespace: "default",
 				},
 			}
-			roleBinding := &rbac.RoleBinding{
+			tenantRoleBinding := &rbac.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "role-binding",
+					Name:      "tenant-role-binding",
 					Namespace: "default",
 				},
 			}
-			Expect(adapter.registerManagedProcessingData(pipelineRun, roleBinding)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(pipelineRun, tenantRoleBinding)).To(Succeed())
 			Expect(adapter.release.Status.ManagedProcessing.PipelineRun).To(Equal(fmt.Sprintf("%s%c%s",
 				pipelineRun.Namespace, types.Separator, pipelineRun.Name)))
-			Expect(adapter.release.Status.ManagedProcessing.RoleBinding).To(Equal(fmt.Sprintf("%s%c%s",
-				roleBinding.Namespace, types.Separator, roleBinding.Name)))
+			Expect(adapter.release.Status.ManagedProcessing.RoleBindings.TenantRoleBinding).To(Equal(fmt.Sprintf("%s%c%s",
+				tenantRoleBinding.Namespace, types.Separator, tenantRoleBinding.Name)))
 			Expect(adapter.release.IsManagedPipelineProcessing()).To(BeTrue())
 		})
 
@@ -3514,7 +3733,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			}
 
 			Expect(adapter.registerManagedProcessingData(pipelineRun, nil)).To(Succeed())
-			Expect(adapter.release.Status.ManagedProcessing.RoleBinding).To(BeEmpty())
+			Expect(adapter.release.Status.ManagedProcessing.RoleBindings).To(Equal(v1alpha1.RoleBindingType{}))
 			Expect(adapter.release.IsManagedPipelineProcessing()).To(BeTrue())
 		})
 	})
