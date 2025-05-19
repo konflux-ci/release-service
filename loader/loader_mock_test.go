@@ -151,7 +151,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					Resource:   roleBinding,
 				},
 			})
-			resource, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(mockContext, nil, nil)
+			resource, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(mockContext, nil, nil, "managed")
 			Expect(resource).To(Equal(roleBinding))
 			Expect(err).To(BeNil())
 		})
