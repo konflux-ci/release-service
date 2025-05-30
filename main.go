@@ -20,9 +20,10 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
+
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
-	"time"
 
 	"github.com/konflux-ci/operator-toolkit/controller"
 	"github.com/konflux-ci/operator-toolkit/webhook"
