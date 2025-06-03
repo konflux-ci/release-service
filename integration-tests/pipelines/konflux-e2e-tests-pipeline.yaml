@@ -81,6 +81,7 @@ spec:
           value: $(context.pipelineRun.name)
     - name: provision-kind-cluster
       runAfter:
+        - sealights-refs
         - test-metadata
       when:
         - input: "$(tasks.test-metadata.results.pull-request-author)"
@@ -285,3 +286,31 @@ spec:
           value: cluster-provision.log
         - name: enable-test-results-analysis
           value: "true"
+    - name: quality-dashboard-upload
+      when:
+        - input: "$(tasks.test-metadata.results.pull-request-author)"
+          operator: notin
+          values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: common/tasks/quality-dashboard/0.1/quality-dashboard-upload.yaml
+      params:
+        - name: test-name
+          value: "$(context.pipelineRun.name)"
+        - name: oci-container
+          value: "$(params.oci-container-repo):$(context.pipelineRun.name)"
+        - name: quality-dashboard-api
+          value: $(params.quality-dashboard-api)
+        - name: pipeline-aggregate-status
+          value: "$(tasks.status)"
+        - name: test-event-type
+          value: "$(tasks.test-metadata.results.test-event-type)"
