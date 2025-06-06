@@ -24,6 +24,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ErrInvalidRoleBindingRef is returned when PipelineInfo.RoleBindings does no parse as “namespace/name”.
+var ErrInvalidRoleBindingRef = fmt.Errorf("pipelineInfo doesn't contain a valid reference to a RoleBinding")
+
 type ObjectLoader interface {
 	GetActiveReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error)
 	GetActiveReleasePlanAdmissionFromRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlanAdmission, error)
@@ -34,7 +37,7 @@ type ObjectLoader interface {
 	GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error)
 	GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
-	GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context, cli client.Client, pipelineInfo *v1alpha1.PipelineInfo) (*rbac.RoleBinding, error)
+	GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context, cli client.Client, pipelineInfo *v1alpha1.PipelineInfo, roleBindingType string) (*rbac.RoleBinding, error)
 	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType string) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
 	GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error)
@@ -230,15 +233,27 @@ func (l *loader) GetRelease(ctx context.Context, cli client.Client, name, namesp
 	return release, toolkit.GetObject(name, namespace, cli, ctx, release)
 }
 
-// GetRoleBindingFromReleaseStatusPipelineInfo returns the RoleBinding associated with the given PipelineInfo.
-// The association is defined by the namespaced name stored in the PipelineInfo's RoleBinding field.
-func (l *loader) GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context, cli client.Client, pipelineInfo *v1alpha1.PipelineInfo) (*rbac.RoleBinding, error) {
+// GetRoleBindingFromReleaseStatusPipelineInfo retrieves the RoleBinding associated with a PipelineInfo and role binding type..
+// The association is defined by the namespaced name stored in the RoleBindings field of the provided PipelineInfo.
+func (l *loader) GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context, cli client.Client, pipelineInfo *v1alpha1.PipelineInfo, roleBindingType string) (*rbac.RoleBinding, error) {
 	roleBinding := &rbac.RoleBinding{}
-	roleBindingNamespacedName := strings.Split(pipelineInfo.RoleBinding, string(types.Separator))
-	if len(roleBindingNamespacedName) != 2 {
-		return nil, fmt.Errorf("pipelineInfo doesn't contain a valid reference to a RoleBinding ('%s')", pipelineInfo.RoleBinding)
+
+	var namespacedName string
+	switch roleBindingType {
+	case "tenant":
+		namespacedName = pipelineInfo.RoleBindings.TenantRoleBinding
+	case "managed":
+		namespacedName = pipelineInfo.RoleBindings.ManagedRoleBinding
+	case "secret":
+		namespacedName = pipelineInfo.RoleBindings.SecretRoleBinding
+	default:
+		return nil, fmt.Errorf("invalid role binding type ('%s')", roleBindingType)
 	}
 
+	roleBindingNamespacedName := strings.Split(namespacedName, string(types.Separator))
+	if len(roleBindingNamespacedName) != 2 {
+		return nil, fmt.Errorf("%w: %q", ErrInvalidRoleBindingRef, namespacedName)
+	}
 	err := cli.Get(ctx, types.NamespacedName{
 		Namespace: roleBindingNamespacedName[0],
 		Name:      roleBindingNamespacedName[1],

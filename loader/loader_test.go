@@ -1,6 +1,7 @@
 package loader
 
 import (
+	stderrors "errors"
 	"fmt"
 	"os"
 	"strings"
@@ -351,27 +352,34 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("calling GetRoleBindingFromReleaseStatusPipelineInfo", func() {
-		It("fails to return a RoleBinding if the reference is not in the release", func() {
-			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &release.Status.ManagedProcessing)
+		It("fails to return a tenant RoleBinding if the reference is not in the release", func() {
+			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &release.Status.ManagedProcessing, "tenant")
 			Expect(returnedObject).To(BeNil())
-			Expect(err.Error()).To(ContainSubstring("pipelineInfo doesn't contain a valid reference to a RoleBinding"))
+			Expect(stderrors.Is(err, ErrInvalidRoleBindingRef)).To(BeTrue())
 		})
 
-		It("fails to return a RoleBinding if the roleBinding does not exist", func() {
+		It("fails to return a tenant RoleBinding if the roleBinding does not exist", func() {
 			modifiedRelease := release.DeepCopy()
-			modifiedRelease.Status.ManagedProcessing.RoleBinding = "foo/bar"
+			modifiedRelease.Status.ManagedProcessing.RoleBindings.TenantRoleBinding = "foo/bar"
 
-			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing)
+			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing, "tenant")
 			Expect(returnedObject).To(BeNil())
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 
+		It("fails to return a RoleBinding for an invalid type", func() {
+			modifiedRelease := release.DeepCopy()
+			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing, "foo")
+			Expect(returnedObject).To(BeNil())
+			Expect(err.Error()).To(ContainSubstring("invalid role binding type"))
+		})
+
 		It("returns the requested resource", func() {
 			modifiedRelease := release.DeepCopy()
-			modifiedRelease.Status.ManagedProcessing.RoleBinding = fmt.Sprintf("%s%c%s", roleBinding.Namespace,
+			modifiedRelease.Status.ManagedProcessing.RoleBindings.TenantRoleBinding = fmt.Sprintf("%s%c%s", roleBinding.Namespace,
 				types.Separator, roleBinding.Name)
 
-			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing)
+			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing, "tenant")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&rbac.RoleBinding{}))
 			Expect(returnedObject.Name).To(Equal(roleBinding.Name))

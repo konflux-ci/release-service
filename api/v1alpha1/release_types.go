@@ -134,6 +134,24 @@ type CollectorsInfo struct {
 	TenantCollectorsProcessing PipelineInfo `json:"tenantCollectorsProcessing,omitempty"`
 }
 
+// RoleBindingType defines the state of roleBindings for resource access within the Release pipelineRun.
+type RoleBindingType struct {
+	// TenantRoleBinding contains the namespaced name of the roleBinding created for accessing resources within the tenant namespace.
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	TenantRoleBinding string `json:"tenantRoleBinding,omitempty"`
+
+	// ManagedRoleBinding contains the namespaced name of the roleBinding created for accessing resources within the managed namespace.
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	ManagedRoleBinding string `json:"managedRoleBinding,omitempty"`
+
+	// SecretRoleBinding contains the namespaced name of the roleBinding created for accessing secrets within the namespace.
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	SecretRoleBinding string `json:"secretRoleBinding,omitempty"`
+}
+
 // PipelineInfo defines the observed state of a release pipeline processing.
 type PipelineInfo struct {
 	// CompletionTime is the time when the Release processing was completed
@@ -145,11 +163,10 @@ type PipelineInfo struct {
 	// +optional
 	PipelineRun string `json:"pipelineRun,omitempty"`
 
-	// RoleBinding contains the namespaced name of the roleBinding created for the managed Release PipelineRun
-	// executed as part of this release
-	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// RoleBindings defines the roleBindings for accessing resources during the Release
+	// PipelineRun executed as part of this release.
 	// +optional
-	RoleBinding string `json:"roleBinding,omitempty"`
+	RoleBindings RoleBindingType `json:"roleBindings,omitempty"`
 
 	// StartTime is the time when the Release processing started
 	// +optional

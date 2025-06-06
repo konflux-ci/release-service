@@ -124,12 +124,30 @@ spec:
                           managed Release PipelineRun executed as part of this release
                         pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                         type: string
-                      roleBinding:
+                      roleBindings:
                         description: |-
-                          RoleBinding contains the namespaced name of the roleBinding created for the managed Release PipelineRun
-                          executed as part of this release
-                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                        type: string
+                          RoleBindings defines the roleBindings for accessing resources during the Release
+                          PipelineRun executed as part of this release.
+                        properties:
+                          managedRoleBinding:
+                            description: ManagedRoleBinding contains the namespaced
+                              name of the roleBinding created for accessing resources
+                              within the managed namespace.
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                          secretRoleBinding:
+                            description: SecretRoleBinding contains the namespaced
+                              name of the roleBinding created for accessing secrets
+                              within the namespace.
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                          tenantRoleBinding:
+                            description: TenantRoleBinding contains the namespaced
+                              name of the roleBinding created for accessing resources
+                              within the tenant namespace.
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                        type: object
                       startTime:
                         description: StartTime is the time when the Release processing
                           started
@@ -150,12 +168,30 @@ spec:
                           managed Release PipelineRun executed as part of this release
                         pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                         type: string
-                      roleBinding:
+                      roleBindings:
                         description: |-
-                          RoleBinding contains the namespaced name of the roleBinding created for the managed Release PipelineRun
-                          executed as part of this release
-                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                        type: string
+                          RoleBindings defines the roleBindings for accessing resources during the Release
+                          PipelineRun executed as part of this release.
+                        properties:
+                          managedRoleBinding:
+                            description: ManagedRoleBinding contains the namespaced
+                              name of the roleBinding created for accessing resources
+                              within the managed namespace.
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                          secretRoleBinding:
+                            description: SecretRoleBinding contains the namespaced
+                              name of the roleBinding created for accessing secrets
+                              within the namespace.
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                          tenantRoleBinding:
+                            description: TenantRoleBinding contains the namespaced
+                              name of the roleBinding created for accessing resources
+                              within the tenant namespace.
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                        type: object
                       startTime:
                         description: StartTime is the time when the Release processing
                           started
@@ -243,12 +279,30 @@ spec:
                       Release PipelineRun executed as part of this release
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
-                  roleBinding:
+                  roleBindings:
                     description: |-
-                      RoleBinding contains the namespaced name of the roleBinding created for the managed Release PipelineRun
-                      executed as part of this release
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                    type: string
+                      RoleBindings defines the roleBindings for accessing resources during the Release
+                      PipelineRun executed as part of this release.
+                    properties:
+                      managedRoleBinding:
+                        description: ManagedRoleBinding contains the namespaced name
+                          of the roleBinding created for accessing resources within
+                          the managed namespace.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                      secretRoleBinding:
+                        description: SecretRoleBinding contains the namespaced name
+                          of the roleBinding created for accessing secrets within
+                          the namespace.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                      tenantRoleBinding:
+                        description: TenantRoleBinding contains the namespaced name
+                          of the roleBinding created for accessing resources within
+                          the tenant namespace.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                    type: object
                   startTime:
                     description: StartTime is the time when the Release processing
                       started
@@ -269,12 +323,30 @@ spec:
                       Release PipelineRun executed as part of this release
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
-                  roleBinding:
+                  roleBindings:
                     description: |-
-                      RoleBinding contains the namespaced name of the roleBinding created for the managed Release PipelineRun
-                      executed as part of this release
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                    type: string
+                      RoleBindings defines the roleBindings for accessing resources during the Release
+                      PipelineRun executed as part of this release.
+                    properties:
+                      managedRoleBinding:
+                        description: ManagedRoleBinding contains the namespaced name
+                          of the roleBinding created for accessing resources within
+                          the managed namespace.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                      secretRoleBinding:
+                        description: SecretRoleBinding contains the namespaced name
+                          of the roleBinding created for accessing secrets within
+                          the namespace.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                      tenantRoleBinding:
+                        description: TenantRoleBinding contains the namespaced name
+                          of the roleBinding created for accessing resources within
+                          the tenant namespace.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                    type: object
                   startTime:
                     description: StartTime is the time when the Release processing
                       started
@@ -304,12 +376,30 @@ spec:
                       Release PipelineRun executed as part of this release
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
-                  roleBinding:
+                  roleBindings:
                     description: |-
-                      RoleBinding contains the namespaced name of the roleBinding created for the managed Release PipelineRun
-                      executed as part of this release
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                    type: string
+                      RoleBindings defines the roleBindings for accessing resources during the Release
+                      PipelineRun executed as part of this release.
+                    properties:
+                      managedRoleBinding:
+                        description: ManagedRoleBinding contains the namespaced name
+                          of the roleBinding created for accessing resources within
+                          the managed namespace.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                      secretRoleBinding:
+                        description: SecretRoleBinding contains the namespaced name
+                          of the roleBinding created for accessing secrets within
+                          the namespace.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                      tenantRoleBinding:
+                        description: TenantRoleBinding contains the namespaced name
+                          of the roleBinding created for accessing resources within
+                          the tenant namespace.
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                    type: object
                   startTime:
                     description: StartTime is the time when the Release processing
                       started
