@@ -98,10 +98,12 @@ spec:
           - name: revision
             value: main
           - name: pathInRepo
-            value: tasks/mapt-oci/kind-aws-spot/provision/0.1/kind-aws-provision.yaml
+            value: tasks/mapt-oci/kind-aws-spot/provision/0.2/kind-aws-provision.yaml
       params:
         - name: secret-aws-credentials
           value: mapt-kind-secret
+        - name: cluster-access-secret-name
+          value: kfg-$(context.pipelineRun.name)
         - name: id
           value: $(context.pipelineRun.name)
         - name: tags
@@ -114,6 +116,10 @@ spec:
           value: $(context.pipelineRun.name)
         - name: ownerUid
           value: $(context.pipelineRun.uid)
+        - name: oci-ref
+          value: $(params.oci-container-repo):$(context.pipelineRun.name)
+        - name: credentials-secret-name
+          value: $(params.konflux-test-infra-secret)
     - name: deploy-konflux
       when:
         - input: "$(tasks.test-metadata.results.pull-request-author)"
@@ -132,10 +138,10 @@ spec:
           - name: revision
             value: main
           - name: pathInRepo
-            value: tasks/konflux-ci/deploy/0.1/deploy-konflux-ci.yaml
+            value: tasks/konflux-ci/deploy/0.2/deploy-konflux-ci.yaml
       params:
         - name: cluster-access-secret
-          value: $(tasks.provision-kind-cluster.results.cluster-access-secret)
+          value: kfg-$(context.pipelineRun.name)
         - name: component-name
           value: release-service
         - name: component-pr-owner
@@ -144,6 +150,10 @@ spec:
           value: $(tasks.test-metadata.results.git-revision)
         - name: component-pr-source-branch
           value: $(tasks.test-metadata.results.source-repo-branch)
+        - name: oci-ref
+          value: $(params.oci-container-repo):$(context.pipelineRun.name)
+        - name: credentials-secret-name
+          value: $(params.konflux-test-infra-secret)
     - name: konflux-e2e-tests
       timeout: 3h
       when:
@@ -186,7 +196,7 @@ spec:
         - name: enable-sealights
           value: $(params.enable-sealights)
         - name: cluster-access-secret-name
-          value: $(tasks.provision-kind-cluster.results.cluster-access-secret)
+          value: kfg-$(context.pipelineRun.name)
         - name: test-environment
           value: "upstream"
   finally:
@@ -239,7 +249,7 @@ spec:
         - name: id
           value: $(context.pipelineRun.name)
         - name: cluster-access-secret
-          value: $(tasks.provision-kind-cluster.results.cluster-access-secret)
+          value: kfg-$(context.pipelineRun.name)
         - name: oci-container
           value: $(params.oci-container-repo):$(context.pipelineRun.name)
         - name: oci-credentials
