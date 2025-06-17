@@ -1684,7 +1684,8 @@ func (a *adapter) validatePipelineDefined() *controller.ValidationResult {
 		}
 		releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
 		if err != nil {
-			if errors.IsNotFound(err) || strings.Contains(err.Error(), "with auto-release label set to false") {
+			if errors.IsNotFound(err) || strings.Contains(err.Error(), "with auto-release label set to false") ||
+				strings.Contains(err.Error(), "Origin of the releasePlanAdmission") {
 				a.release.MarkValidationFailed(err.Error())
 				return &controller.ValidationResult{Valid: false}
 			}

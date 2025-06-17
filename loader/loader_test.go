@@ -179,6 +179,30 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(returnedObject).To(BeNil())
 		})
 
+		It("fails to return a ReleasePlanAdmission from ReleasePlan label when targeted RPA has incorrect origin", func() {
+			modifiedReleasePlan := releasePlan.DeepCopy()
+			modifiedReleasePlan.Labels = map[string]string{
+				metadata.ReleasePlanAdmissionLabel: "new-release-plan-admission",
+			}
+
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Name = "new-release-plan-admission"
+			newReleasePlanAdmission.ResourceVersion = ""
+			newReleasePlanAdmission.Spec.Origin = "non-existent-origin"
+			Expect(k8sClient.Create(ctx, newReleasePlanAdmission)).To(Succeed())
+			// Wait until the new releasePlanAdmission is cached
+			Eventually(func() error {
+				return k8sClient.Get(ctx, client.ObjectKey{Name: newReleasePlanAdmission.Name, Namespace: newReleasePlanAdmission.Namespace}, newReleasePlanAdmission)
+			}).Should(Succeed())
+
+			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("does not match the namespace"))
+			Expect(returnedObject).To(BeNil())
+
+			Expect(k8sClient.Delete(ctx, newReleasePlanAdmission)).To(Succeed())
+		})
+
 		It("fails to return a release plan admission if the target does not match", func() {
 			modifiedReleasePlan := releasePlan.DeepCopy()
 			modifiedReleasePlan.Spec.Target = "non-existent-target"
