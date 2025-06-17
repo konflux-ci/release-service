@@ -124,6 +124,11 @@ func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client
 		if err != nil {
 			return nil, err
 		}
+		if releasePlanAdmission.Spec.Origin != releasePlan.Namespace {
+			return nil, fmt.Errorf("releasePlan (%+s) targets releasePlanAdmission (%+s) by label, but the Origin"+
+				" of the releasePlanAdmission (%+s) does not match the namespace of the releasePlan (%+s)",
+				releasePlan.Name, designatedReleasePlanAdmissionName, releasePlanAdmission.Spec.Origin, releasePlan.Namespace)
+		}
 		return releasePlanAdmission, nil
 	}
 
