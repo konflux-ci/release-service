@@ -241,7 +241,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	When("IsFinalPipelineProcessed method is called", func() {
+	When("IsFinalPipelineProcessedSuccessfully method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -250,26 +250,26 @@ var _ = Describe("Release type", func() {
 
 		It("should return true when the final pipeline processed condition status is True", func() {
 			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.IsFinalPipelineProcessed()).To(BeTrue())
+			Expect(release.IsFinalPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("should return false when the final pipeline processed condition status is False", func() {
 			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionFalse, SucceededReason)
-			Expect(release.IsFinalPipelineProcessed()).To(BeFalse())
+			Expect(release.IsFinalPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 		It("should return false when the final pipeline processed condition status is Unknown", func() {
 			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionUnknown, SucceededReason)
-			Expect(release.IsFinalPipelineProcessed()).To(BeFalse())
+			Expect(release.IsFinalPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 		It("should return false when the final pipeline processed condition is missing", func() {
-			Expect(release.IsFinalPipelineProcessed()).To(BeFalse())
+			Expect(release.IsFinalPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 	})
 
-	When("IsManagedCollectorsPipelineProcessed method is called", func() {
+	When("IsManagedCollectorsPipelineProcessedSuccessfully method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -278,25 +278,25 @@ var _ = Describe("Release type", func() {
 
 		It("should return true when the managed collectors pipeline processed condition status is True", func() {
 			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.IsManagedCollectorsPipelineProcessed()).To(BeTrue())
+			Expect(release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("should return false when the managed collectors pipeline processed condition status is False", func() {
 			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionFalse, SucceededReason)
-			Expect(release.IsManagedCollectorsPipelineProcessed()).To(BeFalse())
+			Expect(release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 		It("should return false when the managed collectors pipeline processed condition status is Unknown", func() {
 			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionUnknown, SucceededReason)
-			Expect(release.IsManagedCollectorsPipelineProcessed()).To(BeFalse())
+			Expect(release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 		It("should return false when the managed collectors pipeline processed condition is missing", func() {
-			Expect(release.IsManagedCollectorsPipelineProcessed()).To(BeFalse())
+			Expect(release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 	})
 
-	When("IsManagedPipelineProcessed method is called", func() {
+	When("IsManagedPipelineProcessedSuccessfully method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -305,25 +305,25 @@ var _ = Describe("Release type", func() {
 
 		It("should return true when the managed pipeline processed condition status is True", func() {
 			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.IsManagedPipelineProcessed()).To(BeTrue())
+			Expect(release.IsManagedPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("should return false when the managed pipeline processed condition status is False", func() {
 			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, SucceededReason)
-			Expect(release.IsManagedPipelineProcessed()).To(BeFalse())
+			Expect(release.IsManagedPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 		It("should return false when the managed pipeline processed condition status is Unknown", func() {
 			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionUnknown, SucceededReason)
-			Expect(release.IsManagedPipelineProcessed()).To(BeFalse())
+			Expect(release.IsManagedPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 		It("should return false when the managed pipeline processed condition is missing", func() {
-			Expect(release.IsManagedPipelineProcessed()).To(BeFalse())
+			Expect(release.IsManagedPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 	})
 
-	When("IsTenantCollectorsPipelineProcessed method is called", func() {
+	When("IsTenantCollectorsPipelineProcessedSuccessfully method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -332,25 +332,25 @@ var _ = Describe("Release type", func() {
 
 		It("should return true when the tenant collectors pipeline processed condition status is True", func() {
 			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.IsTenantCollectorsPipelineProcessed()).To(BeTrue())
+			Expect(release.IsTenantCollectorsPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("should return false when the tenant collectors pipeline processed condition status is False", func() {
 			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionFalse, SucceededReason)
-			Expect(release.IsTenantCollectorsPipelineProcessed()).To(BeFalse())
+			Expect(release.IsTenantCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 		It("should return false when the tenant collectors pipeline processed condition status is Unknown", func() {
 			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionUnknown, SucceededReason)
-			Expect(release.IsTenantCollectorsPipelineProcessed()).To(BeFalse())
+			Expect(release.IsTenantCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 		It("should return false when the tenant collectors pipeline processed condition is missing", func() {
-			Expect(release.IsTenantCollectorsPipelineProcessed()).To(BeFalse())
+			Expect(release.IsTenantCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 	})
 
-	When("IsTenantPipelineProcessed method is called", func() {
+	When("IsTenantPipelineProcessedSuccessfully method is called", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -359,21 +359,156 @@ var _ = Describe("Release type", func() {
 
 		It("should return true when the tenant pipeline processed condition status is True", func() {
 			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SucceededReason)
-			Expect(release.IsTenantPipelineProcessed()).To(BeTrue())
+			Expect(release.IsTenantPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("should return false when the tenant pipeline processed condition status is False", func() {
 			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionFalse, SucceededReason)
-			Expect(release.IsTenantPipelineProcessed()).To(BeFalse())
+			Expect(release.IsTenantPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 		It("should return false when the tenant pipeline processed condition status is Unknown", func() {
 			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionUnknown, SucceededReason)
-			Expect(release.IsTenantPipelineProcessed()).To(BeFalse())
+			Expect(release.IsTenantPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 		It("should return false when the tenant pipeline processed condition is missing", func() {
-			Expect(release.IsTenantPipelineProcessed()).To(BeFalse())
+			Expect(release.IsTenantPipelineProcessedSuccessfully()).To(BeFalse())
+		})
+	})
+
+	When("IsTenantCollectorsPipelineSkipped method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the tenant collectors pipeline processed condition status is True with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			Expect(release.IsTenantCollectorsPipelineSkipped()).To(BeTrue())
+		})
+
+		It("should return false when the tenant collectors pipeline skipped condition status is False with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionFalse, SkippedReason)
+			Expect(release.IsTenantCollectorsPipelineSkipped()).To(BeFalse())
+		})
+
+		It("should return false when the tenant collectors pipeline processed condition status is Unknown with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionUnknown, SkippedReason)
+			Expect(release.IsTenantCollectorsPipelineSkipped()).To(BeFalse())
+		})
+
+		It("should return false when the tenant pipeline processed condition is missing", func() {
+			Expect(release.IsTenantCollectorsPipelineSkipped()).To(BeFalse())
+		})
+	})
+
+	When("IsManagedCollectorsPipelineSkipped method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the managed collectors pipeline processed condition status is True with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			Expect(release.IsManagedCollectorsPipelineSkipped()).To(BeTrue())
+		})
+
+		It("should return false when the managed collectors pipeline skipped condition status is False with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionFalse, SkippedReason)
+			Expect(release.IsManagedCollectorsPipelineSkipped()).To(BeFalse())
+		})
+
+		It("should return false when the managed collectors pipeline processed condition status is Unknown with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionUnknown, SkippedReason)
+			Expect(release.IsManagedCollectorsPipelineSkipped()).To(BeFalse())
+		})
+
+		It("should return false when the managed collectors pipeline processed condition is missing", func() {
+			Expect(release.IsManagedCollectorsPipelineSkipped()).To(BeFalse())
+		})
+	})
+
+	When("IsTenantPipelineSkipped method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the tenant pipeline processed condition status is True with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			Expect(release.IsTenantPipelineSkipped()).To(BeTrue())
+		})
+
+		It("should return false when the tenant pipeline skipped condition status is False with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionFalse, SkippedReason)
+			Expect(release.IsTenantPipelineSkipped()).To(BeFalse())
+		})
+
+		It("should return false when the tenant pipeline processed condition status is Unknown with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionUnknown, SkippedReason)
+			Expect(release.IsTenantPipelineSkipped()).To(BeFalse())
+		})
+
+		It("should return false when the tenant pipeline processed condition is missing", func() {
+			Expect(release.IsTenantPipelineSkipped()).To(BeFalse())
+		})
+	})
+
+	When("IsManagedPipelineSkipped method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the managed pipeline processed condition status is True with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			Expect(release.IsManagedPipelineSkipped()).To(BeTrue())
+		})
+
+		It("should return false when the managed pipeline skipped condition status is False with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, SkippedReason)
+			Expect(release.IsManagedPipelineSkipped()).To(BeFalse())
+		})
+
+		It("should return false when the managed pipeline processed condition status is Unknown with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionUnknown, SkippedReason)
+			Expect(release.IsManagedPipelineSkipped()).To(BeFalse())
+		})
+
+		It("should return false when the managed pipeline processed condition is missing", func() {
+			Expect(release.IsManagedPipelineSkipped()).To(BeFalse())
+		})
+	})
+
+	When("IsFinalPipelineSkipped method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the final pipeline processed condition status is True with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			Expect(release.IsFinalPipelineSkipped()).To(BeTrue())
+		})
+
+		It("should return false when the final pipeline skipped condition status is False with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionFalse, SkippedReason)
+			Expect(release.IsFinalPipelineSkipped()).To(BeFalse())
+		})
+
+		It("should return false when the final pipeline processed condition status is Unknown with the Skipped reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionUnknown, SkippedReason)
+			Expect(release.IsFinalPipelineSkipped()).To(BeFalse())
+		})
+
+		It("should return false when the final pipeline processed condition is missing", func() {
+			Expect(release.IsFinalPipelineSkipped()).To(BeFalse())
 		})
 	})
 
@@ -616,6 +751,33 @@ var _ = Describe("Release type", func() {
 
 		It("should return false when the validated condition is missing", func() {
 			Expect(release.IsValid()).To(BeFalse())
+		})
+	})
+
+	When("IsFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return true when the released condition status is False with Failed reason", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.IsFailed()).To(BeTrue())
+		})
+
+		It("should return false when the released condition status is True", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.IsFailed()).To(BeFalse())
+		})
+
+		It("should return false when the released condition status is Unknown", func() {
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionUnknown, FailedReason)
+			Expect(release.IsFailed()).To(BeFalse())
+		})
+
+		It("should return false when the released condition is missing", func() {
+			Expect(release.IsFailed()).To(BeFalse())
 		})
 	})
 

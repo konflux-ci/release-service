@@ -240,28 +240,28 @@ func (r *Release) IsAutomated() bool {
 	return r.Status.Automated
 }
 
-// IsFinalPipelineProcessed checks whether the Release Final Pipeline was successfully processed.
-func (r *Release) IsFinalPipelineProcessed() bool {
+// IsFinalPipelineProcessedSuccessfully checks whether the Release Final Pipeline was successfully processed.
+func (r *Release) IsFinalPipelineProcessedSuccessfully() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, finalProcessedConditionType.String())
 }
 
-// IsManagedCollectorsPipelineProcessed checks whether the Release Managed Collectors Pipeline was successfully processed.
-func (r *Release) IsManagedCollectorsPipelineProcessed() bool {
+// IsManagedCollectorsPipelineProcessedSuccessfully checks whether the Release Managed Collectors Pipeline was successfully processed.
+func (r *Release) IsManagedCollectorsPipelineProcessedSuccessfully() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, managedCollectorsProcessedConditionType.String())
 }
 
-// IsManagedPipelineProcessed checks whether the Release Managed Pipeline was successfully processed.
-func (r *Release) IsManagedPipelineProcessed() bool {
+// IsManagedPipelineProcessedSuccessfully checks whether the Release Managed Pipeline was successfully processed.
+func (r *Release) IsManagedPipelineProcessedSuccessfully() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, managedProcessedConditionType.String())
 }
 
-// IsTenantCollectorsPipelineProcessed checks whether the Release Tenant Collectors Pipeline was successfully processed.
-func (r *Release) IsTenantCollectorsPipelineProcessed() bool {
+// IsTenantCollectorsPipelineProcessedSuccessfully checks whether the Release Tenant Collectors Pipeline was successfully processed.
+func (r *Release) IsTenantCollectorsPipelineProcessedSuccessfully() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, tenantCollectorsProcessedConditionType.String())
 }
 
-// IsTenantPipelineProcessed checks whether the Release Tenant Pipeline was successfully processed.
-func (r *Release) IsTenantPipelineProcessed() bool {
+// IsTenantPipelineProcessedSuccessfully checks whether the Release Tenant Pipeline was successfully processed.
+func (r *Release) IsTenantPipelineProcessedSuccessfully() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, tenantProcessedConditionType.String())
 }
 
@@ -290,6 +290,31 @@ func (r *Release) IsTenantPipelineProcessing() bool {
 	return r.isPhaseProgressing(tenantProcessedConditionType)
 }
 
+// IsFinalPipelineSkipped checks whether the Release Final Pipeline processing was skipped.
+func (r *Release) IsFinalPipelineSkipped() bool {
+	return r.isPhaseSkipped(finalProcessedConditionType)
+}
+
+// IsManagedCollectorsPipelineSkipped checks whether the Release Managed Collectors Pipeline was skipped.
+func (r *Release) IsManagedCollectorsPipelineSkipped() bool {
+	return r.isPhaseSkipped(managedCollectorsProcessedConditionType)
+}
+
+// IsManagedPipelineSkipped checks whether the Release Managed Pipeline processing was skipped.
+func (r *Release) IsManagedPipelineSkipped() bool {
+	return r.isPhaseSkipped(managedProcessedConditionType)
+}
+
+// IsTenantCollectorsPipelineSkipped checks whether the Release Tenant Collectors Pipeline was skipped.
+func (r *Release) IsTenantCollectorsPipelineSkipped() bool {
+	return r.isPhaseSkipped(tenantCollectorsProcessedConditionType)
+}
+
+// IsTenantPipelineSkipped checks whether the Release Tenant Pipeline was skipped.
+func (r *Release) IsTenantPipelineSkipped() bool {
+	return r.isPhaseSkipped(tenantProcessedConditionType)
+}
+
 // IsReleased checks whether the Release has finished successfully.
 func (r *Release) IsReleased() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, releasedConditionType.String())
@@ -303,6 +328,12 @@ func (r *Release) IsReleasing() bool {
 // IsValid checks whether the Release validation has finished successfully.
 func (r *Release) IsValid() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, validatedConditionType.String())
+}
+
+// IsFailed checks whether the Release has failed.
+func (r *Release) IsFailed() bool {
+	condition := meta.FindStatusCondition(r.Status.Conditions, releasedConditionType.String())
+	return condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == FailedReason.String()
 }
 
 // MarkFinalPipelineProcessed marks the Release Final Pipeline as processed.
@@ -783,6 +814,12 @@ func (r *Release) isPhaseProgressing(conditionType conditions.ConditionType) boo
 	default:
 		return condition.Status == metav1.ConditionFalse && condition.Reason == ProgressingReason.String()
 	}
+}
+
+// isPhaseSkipped checks whether a Release phase was skipped.
+func (r *Release) isPhaseSkipped(conditionType conditions.ConditionType) bool {
+	condition := meta.FindStatusCondition(r.Status.Conditions, conditionType.String())
+	return condition != nil && condition.Status == metav1.ConditionTrue && condition.Reason == SkippedReason.String()
 }
 
 // +kubebuilder:object:root=true

@@ -398,7 +398,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsFinalPipelineProcessing()).To(BeFalse())
-			Expect(adapter.release.IsFinalPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsFinalPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("should register the processing data if the PipelineRun already exists", func() {
@@ -505,6 +505,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
 			adapter.releaseServiceConfig = releaseServiceConfig
+			adapter.release.MarkReleasing("")
 		})
 
 		It("should do nothing if the Release managed collectors pipeline is complete", func() {
@@ -526,14 +527,16 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.IsFinalPipelineProcessing()).To(BeFalse())
 		})
 
-		It("should do nothing if the Release tenant collectors pipeline processing failed", func() {
+		It("should mark the pipeline as Skipped if the release has failed", func() {
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 			adapter.release.MarkTenantCollectorsPipelineProcessingFailed("")
+			adapter.release.MarkReleaseFailed("")
 
-			result, err := adapter.EnsureManagedPipelineIsProcessed()
+			result, err := adapter.EnsureManagedCollectorsPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.IsManagedPipelineProcessing()).To(BeFalse())
+			Expect(adapter.release.IsManagedCollectorsPipelineProcessing()).To(BeFalse())
+			Expect(adapter.release.IsManagedCollectorsPipelineSkipped()).To(BeTrue())
 		})
 
 		It("should requeue with error if fetching the Release managed collectors pipeline returns an error besides not found", func() {
@@ -570,7 +573,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsManagedCollectorsPipelineProcessing()).To(BeFalse())
-			Expect(adapter.release.IsManagedCollectorsPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsManagedCollectorsPipelineSkipped()).To(BeTrue())
 		})
 
 		It("should register the processing data if the PipelineRun already exists", func() {
@@ -837,6 +840,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
 			adapter.releaseServiceConfig = releaseServiceConfig
+			adapter.release.MarkReleasing("")
 		})
 
 		It("should do nothing if the Release managed pipeline is already complete", func() {
@@ -859,24 +863,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.IsManagedPipelineProcessing()).To(BeFalse())
 		})
 
-		It("should do nothing if the Release tenant pipeline processing failed", func() {
+		It("should mark the Managed Pipeline Processing as Skipped if the release has failed", func() {
 			adapter.release.MarkTenantPipelineProcessing()
 			adapter.release.MarkTenantPipelineProcessingFailed("")
+			adapter.release.MarkReleaseFailed("")
 
 			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsManagedPipelineProcessing()).To(BeFalse())
+			Expect(adapter.release.IsManagedPipelineSkipped()).To(BeTrue())
 		})
 
 		It("should requeue with error if fetching the Release managed pipeline returns an error besides not found", func() {
-			adapter.release.MarkTenantPipelineProcessingSkipped()
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePipelineRunContextKey,
 					Err:        fmt.Errorf("some error"),
 				},
 			})
+			adapter.release.MarkTenantPipelineProcessingSkipped()
 
 			result, err := adapter.EnsureManagedPipelineIsProcessed()
 			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
@@ -901,7 +907,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsManagedPipelineProcessing()).To(BeFalse())
-			Expect(adapter.release.IsManagedPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsManagedPipelineSkipped()).To(BeTrue())
 		})
 
 		It("should mark the Managed Pipeline Processing as Skipped if the ReleasePlanAdmission has no pipeline", func() {
@@ -939,7 +945,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsManagedPipelineProcessing()).To(BeFalse())
-			Expect(adapter.release.IsManagedPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsManagedPipelineSkipped()).To(BeTrue())
 		})
 
 		It("should continue if the PipelineRun exists and the release managed pipeline processing has started", func() {
@@ -1208,7 +1214,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsTenantCollectorsPipelineProcessing()).To(BeFalse())
-			Expect(adapter.release.IsTenantCollectorsPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsTenantCollectorsPipelineSkipped()).To(BeTrue())
 		})
 
 		It("should register the processing data if the PipelineRun already exists", func() {
@@ -1472,6 +1478,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
 			adapter.releaseServiceConfig = releaseServiceConfig
+			adapter.release.MarkReleasing("")
 		})
 
 		It("should do nothing if the Release tenant pipeline is complete", func() {
@@ -1482,6 +1489,18 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsTenantPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should mark the Release tenant pipeline as Skipped if the release has failed", func() {
+			adapter.release.MarkManagedCollectorsPipelineProcessing()
+			adapter.release.MarkManagedCollectorsPipelineProcessingFailed("")
+			adapter.release.MarkReleaseFailed("")
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsTenantPipelineProcessing()).To(BeFalse())
+			Expect(adapter.release.IsTenantPipelineSkipped()).To(BeTrue())
 		})
 
 		It("should do nothing if the Release managed collectors pipeline processing has not yet completed", func() {
@@ -1525,7 +1544,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsTenantPipelineProcessing()).To(BeFalse())
-			Expect(adapter.release.IsTenantPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsTenantPipelineSkipped()).To(BeTrue())
 		})
 
 		It("should register the processing data if the PipelineRun already exists", func() {
@@ -3796,7 +3815,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.release.MarkManagedCollectorsPipelineProcessing()
 
 			Expect(adapter.registerManagedCollectorsProcessingStatus(pipelineRun)).To(Succeed())
-			Expect(adapter.release.IsManagedCollectorsPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("sets the Release as ManagedCollectors Processing failed if the PipelineRun didn't succeed", func() {
@@ -3806,7 +3825,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			Expect(adapter.registerManagedCollectorsProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasManagedCollectorsPipelineProcessingFinished()).To(BeTrue())
-			Expect(adapter.release.IsManagedCollectorsPipelineProcessed()).To(BeFalse())
+			Expect(adapter.release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 	})
 
@@ -3838,7 +3857,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 
 			Expect(adapter.registerTenantCollectorsProcessingStatus(pipelineRun)).To(Succeed())
-			Expect(adapter.release.IsTenantCollectorsPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsTenantCollectorsPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("sets the Release as Tenant Collectors Processing failed if the PipelineRun didn't succeed", func() {
@@ -3848,7 +3867,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			Expect(adapter.registerTenantCollectorsProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasTenantCollectorsPipelineProcessingFinished()).To(BeTrue())
-			Expect(adapter.release.IsTenantCollectorsPipelineProcessed()).To(BeFalse())
+			Expect(adapter.release.IsTenantCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 	})
 
@@ -3880,7 +3899,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.release.MarkTenantPipelineProcessing()
 
 			Expect(adapter.registerTenantProcessingStatus(pipelineRun)).To(Succeed())
-			Expect(adapter.release.IsTenantPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsTenantPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("sets the Release as Tenant Processing failed if the PipelineRun didn't succeed", func() {
@@ -3890,7 +3909,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			Expect(adapter.registerTenantProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
-			Expect(adapter.release.IsTenantPipelineProcessed()).To(BeFalse())
+			Expect(adapter.release.IsTenantPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 	})
 
@@ -3922,7 +3941,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.release.MarkManagedPipelineProcessing()
 
 			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
-			Expect(adapter.release.IsManagedPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsManagedPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("sets the Release as Managed Processing failed if the PipelineRun didn't succeed", func() {
@@ -3932,7 +3951,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
-			Expect(adapter.release.IsManagedPipelineProcessed()).To(BeFalse())
+			Expect(adapter.release.IsManagedPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 	})
 
@@ -3964,7 +3983,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.release.MarkFinalPipelineProcessing()
 
 			Expect(adapter.registerFinalProcessingStatus(pipelineRun)).To(Succeed())
-			Expect(adapter.release.IsFinalPipelineProcessed()).To(BeTrue())
+			Expect(adapter.release.IsFinalPipelineProcessedSuccessfully()).To(BeTrue())
 		})
 
 		It("sets the Release as Final Processing failed if the PipelineRun didn't succeed", func() {
@@ -3974,7 +3993,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			Expect(adapter.registerFinalProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasFinalPipelineProcessingFinished()).To(BeTrue())
-			Expect(adapter.release.IsFinalPipelineProcessed()).To(BeFalse())
+			Expect(adapter.release.IsFinalPipelineProcessedSuccessfully()).To(BeFalse())
 		})
 
 	})
