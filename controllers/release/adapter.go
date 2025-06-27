@@ -161,7 +161,7 @@ func (a *adapter) EnsureReleaseIsCompleted() (controller.OperationResult, error)
 	}
 
 	// The final pipeline processing has to complete for a Release to be completed
-	if !a.release.IsFinalPipelineProcessed() {
+	if !a.release.IsFinalPipelineProcessedSuccessfully() {
 		return controller.ContinueProcessing()
 	}
 
@@ -189,9 +189,15 @@ func (a *adapter) EnsureReleaseIsRunning() (controller.OperationResult, error) {
 // EnsureManagedCollectorsPipelineIsProcessed is an operation that will ensure that a Managed Collectors Release
 // PipelineRun associated to the Release being processed exists. Otherwise, it will be created.
 func (a *adapter) EnsureManagedCollectorsPipelineIsProcessed() (controller.OperationResult, error) {
-	if a.release.HasManagedCollectorsPipelineProcessingFinished() || !a.release.HasTenantCollectorsPipelineProcessingFinished() ||
-		!a.release.IsTenantCollectorsPipelineProcessed() {
+	if a.release.HasManagedCollectorsPipelineProcessingFinished() || !a.release.HasTenantCollectorsPipelineProcessingFinished() {
 		return controller.ContinueProcessing()
+	}
+
+	if a.release.IsFailed() {
+		// release failed, so we skip the managed collectors pipeline processing
+		patch := client.MergeFrom(a.release.DeepCopy())
+		a.release.MarkManagedCollectorsPipelineProcessingSkipped()
+		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 	}
 
 	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedCollectorsPipelineType)
@@ -316,7 +322,7 @@ func (a *adapter) EnsureTenantCollectorsPipelineIsProcessed() (controller.Operat
 		return controller.RequeueWithError(err)
 	}
 
-	if pipelineRun == nil || !a.release.IsTenantCollectorsPipelineProcessed() {
+	if pipelineRun == nil || !a.release.IsTenantCollectorsPipelineProcessedSuccessfully() {
 		releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
 		if err != nil {
 			return controller.RequeueWithError(err)
@@ -395,6 +401,13 @@ func (a *adapter) EnsureTenantPipelineIsProcessed() (controller.OperationResult,
 		return controller.ContinueProcessing()
 	}
 
+	if a.release.IsFailed() {
+		// release failed, so we skip the tenant pipeline processing
+		patch := client.MergeFrom(a.release.DeepCopy())
+		a.release.MarkTenantPipelineProcessingSkipped()
+		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+	}
+
 	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.TenantPipelineType)
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
@@ -437,9 +450,15 @@ func (a *adapter) EnsureTenantPipelineIsProcessed() (controller.OperationResult,
 // EnsureManagedPipelineIsProcessed is an operation that will ensure that a managed Release PipelineRun associated to the Release
 // being processed and a RoleBinding to grant its serviceAccount permissions exist. Otherwise, it will create them.
 func (a *adapter) EnsureManagedPipelineIsProcessed() (controller.OperationResult, error) {
-	if a.release.HasManagedPipelineProcessingFinished() || !a.release.HasTenantPipelineProcessingFinished() ||
-		!a.release.IsTenantPipelineProcessed() {
+	if a.release.HasManagedPipelineProcessingFinished() || !a.release.HasTenantPipelineProcessingFinished() {
 		return controller.ContinueProcessing()
+	}
+
+	if a.release.IsFailed() {
+		// release is marked as failed, so we skip the managed pipeline processing
+		patch := client.MergeFrom(a.release.DeepCopy())
+		a.release.MarkManagedPipelineProcessingSkipped()
+		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 	}
 
 	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedPipelineType)
