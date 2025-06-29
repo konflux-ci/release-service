@@ -1,6 +1,8 @@
 module github.com/konflux-ci/release-service
 
-go 1.22.9
+go 1.23
+
+toolchain go1.23.9
 
 require (
 	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.79
