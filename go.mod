@@ -1,6 +1,8 @@
 module github.com/konflux-ci/release-service
 
-go 1.22.9
+go 1.23.0
+
+toolchain go1.23.9
 
 require (
 	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.79
@@ -108,7 +110,7 @@ require (
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
-	golang.org/x/time v0.5.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/api v0.181.0 // indirect
 	google.golang.org/grpc v1.67.0 // indirect
