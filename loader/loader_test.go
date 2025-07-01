@@ -239,7 +239,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	})
 
 	When("calling GetMatchingReleasePlans", func() {
-		var releasePlanTwo, releasePlanDiffApp *v1alpha1.ReleasePlan
+		var releasePlanTwo, releasePlanDiffApp, releasePlanWithLabel *v1alpha1.ReleasePlan
 
 		BeforeEach(func() {
 			releasePlanTwo = releasePlan.DeepCopy()
@@ -249,20 +249,49 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			releasePlanDiffApp.Name = "rp-diff"
 			releasePlanDiffApp.Spec.Application = "some-other-app"
 			releasePlanDiffApp.ResourceVersion = ""
+			releasePlanWithLabel = releasePlan.DeepCopy()
+			releasePlanWithLabel.Name = "rp-with-label"
+			releasePlanWithLabel.Labels = map[string]string{
+				metadata.ReleasePlanAdmissionLabel: releasePlanAdmission.Name,
+			}
+			releasePlanWithLabel.ResourceVersion = ""
 			Expect(k8sClient.Create(ctx, releasePlanTwo)).To(Succeed())
 			Expect(k8sClient.Create(ctx, releasePlanDiffApp)).To(Succeed())
+			Expect(k8sClient.Create(ctx, releasePlanWithLabel)).To(Succeed())
 		})
 
 		AfterEach(func() {
 			Expect(k8sClient.Delete(ctx, releasePlanTwo)).To(Succeed())
 			Expect(k8sClient.Delete(ctx, releasePlanDiffApp)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, releasePlanWithLabel)).To(Succeed())
 		})
 
-		It("returns the requested list of release plans", func() {
+		It("returns only ReleasePlans with matching label when label exists", func() {
 			Eventually(func() bool {
 				returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, releasePlanAdmission)
+				return returnedObject != &v1alpha1.ReleasePlanList{} && err == nil && len(returnedObject.Items) == 1
+			}).Should(BeTrue())
+		})
+
+		It("returns ReleasePlan with matching label even when other ReleasePlans exist", func() {
+			Eventually(func() bool {
+				returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, releasePlanAdmission)
+				return returnedObject.Items[0].Name == releasePlanWithLabel.Name && err == nil && len(returnedObject.Items) == 1
+			}).Should(BeTrue())
+		})
+
+		It("falls back to all ReleasePlans when no label matches", func() {
+			unmatchedReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			unmatchedReleasePlanAdmission.Name = "other-rpa"
+			unmatchedReleasePlanAdmission.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, unmatchedReleasePlanAdmission)).To(Succeed())
+
+			Eventually(func() bool {
+				returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, unmatchedReleasePlanAdmission)
 				return returnedObject != &v1alpha1.ReleasePlanList{} && err == nil && len(returnedObject.Items) == 2
-			})
+			}).Should(BeTrue())
+
+			Expect(k8sClient.Delete(ctx, unmatchedReleasePlanAdmission)).To(Succeed())
 		})
 
 		It("does not return a ReleasePlan with a different application", func() {
@@ -275,7 +304,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					}
 				}
 				return returnedObject != &v1alpha1.ReleasePlanList{} && err == nil && contains == false
-			})
+			}).Should(BeTrue())
 		})
 
 		It("fails to return release plans if origin is empty", func() {
