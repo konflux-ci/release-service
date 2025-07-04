@@ -169,8 +169,8 @@ func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client
 
 // GetMatchingReleasePlans returns a list of all ReleasePlans that target the given ReleasePlanAdmission's
 // namespace, specify an application that is included in the ReleasePlanAdmission's application list, and
-// are in the namespace specified by the ReleasePlanAdmission's origin. If the List operation fails, an
-// error will be returned.
+// are in the namespace specified by the ReleasePlanAdmission's origin. optionally filter by the ReleasePlanAdmission
+// label (falling back to all). If the List operation fails, an error will be returned.
 func (l *loader) GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error) {
 
 	if releasePlanAdmission.Spec.Origin == "" {
@@ -180,14 +180,32 @@ func (l *loader) GetMatchingReleasePlans(ctx context.Context, cli client.Client,
 	releasePlans := &v1alpha1.ReleasePlanList{}
 	err := cli.List(ctx, releasePlans,
 		client.InNamespace(releasePlanAdmission.Spec.Origin),
-		client.MatchingFields{"spec.target": releasePlanAdmission.Namespace})
+		client.MatchingFields{"spec.target": releasePlanAdmission.Namespace},
+		client.MatchingLabels{metadata.ReleasePlanAdmissionLabel: releasePlanAdmission.Name})
 	if err != nil {
 		return nil, err
+	}
+
+	// If no ReleasePlans have matching labels, fall back to all ReleasePlans
+	if len(releasePlans.Items) == 0 {
+		err := cli.List(ctx, releasePlans,
+			client.InNamespace(releasePlanAdmission.Spec.Origin),
+			client.MatchingFields{"spec.target": releasePlanAdmission.Namespace})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for i := len(releasePlans.Items) - 1; i >= 0; i-- {
 		if !slices.Contains(releasePlanAdmission.Spec.Applications, releasePlans.Items[i].Spec.Application) {
 			// Remove ReleasePlans that do not have matching applications from the list
+			releasePlans.Items = append(releasePlans.Items[:i], releasePlans.Items[i+1:]...)
+			continue
+		}
+
+		labelValue, found := releasePlans.Items[i].GetLabels()[metadata.ReleasePlanAdmissionLabel]
+		if found && labelValue != releasePlanAdmission.Name {
+			// Remove ReleasePlans whose label doesn’t match the ReleasePlanAdmission name
 			releasePlans.Items = append(releasePlans.Items[:i], releasePlans.Items[i+1:]...)
 		}
 	}
