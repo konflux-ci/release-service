@@ -19,6 +19,7 @@ const (
 	ApplicationContextKey
 	EnterpriseContractConfigMapContextKey
 	EnterpriseContractPolicyContextKey
+	MobsterConfigMapContextKey
 	MatchedReleasePlansContextKey
 	MatchedReleasePlanAdmissionContextKey
 	PreviousReleaseContextKey
@@ -80,6 +81,14 @@ func (l *mockLoader) GetEnterpriseContractConfigMap(ctx context.Context, cli cli
 		return l.loader.GetEnterpriseContractConfigMap(ctx, cli)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, EnterpriseContractConfigMapContextKey, &corev1.ConfigMap{})
+}
+
+// GetMobsterConfigMap returns the resource and error passed as values of the context.
+func (l *mockLoader) GetMobsterConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
+	if ctx.Value(MobsterConfigMapContextKey) == nil {
+		return l.loader.GetMobsterConfigMap(ctx, cli)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, MobsterConfigMapContextKey, &corev1.ConfigMap{})
 }
 
 // GetMatchingReleasePlanAdmission returns the resource and error passed as values of the context.
