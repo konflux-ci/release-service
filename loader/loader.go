@@ -33,6 +33,7 @@ type ObjectLoader interface {
 	GetApplication(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*applicationapiv1alpha1.Application, error)
 	GetEnterpriseContractConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error)
 	GetEnterpriseContractPolicy(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*ecapiv1alpha1.EnterpriseContractPolicy, error)
+	GetMobsterConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error)
 	GetMatchingReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error)
 	GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error)
 	GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error)
@@ -100,16 +101,27 @@ func (l *loader) GetEnterpriseContractPolicy(ctx context.Context, cli client.Cli
 // GetEnterpriseContractConfigMap returns the defaults ConfigMap in the Enterprise Contract namespace . If the ENTERPRISE_CONTRACT_CONFIG_MAP
 // value is invalid or not set, nil is returned. If the ConfigMap is not found or the Get operation fails, an error is returned.
 func (l *loader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
-	enterpriseContractConfigMap := &corev1.ConfigMap{}
-	namespacedName := os.Getenv("ENTERPRISE_CONTRACT_CONFIG_MAP")
+	name := os.Getenv("ENTERPRISE_CONTRACT_CONFIG_MAP")
+	return l.GetConfigMap(name, ctx, cli)
+}
 
+// GetMobsterConfigMap returns the defaults ConfigMap in the Mobster namespace. If the MOBSTER_CONFIG_MAP
+// value is invalid or not set, nil is returned. If the ConfigMap is not found or the Get operation fails, an error is returned.
+func (l *loader) GetMobsterConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
+	name := os.Getenv("MOBSTER_CONFIG_MAP")
+	return l.GetConfigMap(name, ctx, cli)
+}
+
+// GetConfigMap returns the ConfigMap specified by the namespaced name. If the name
+// value is invalid or not set, nil is returned. If the ConfigMap is not found or the Get operation fails, an error is returned.
+func (l *loader) GetConfigMap(namespacedName string, ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
+	configMap := &corev1.ConfigMap{}
 	if index := strings.IndexByte(namespacedName, '/'); index >= 0 {
-		return enterpriseContractConfigMap, toolkit.GetObject(namespacedName[index+1:], namespacedName[:index],
-			cli, ctx, enterpriseContractConfigMap)
+		return configMap, toolkit.GetObject(namespacedName[index+1:], namespacedName[:index],
+			cli, ctx, configMap)
 	}
 
 	return nil, nil
-
 }
 
 // GetMatchingReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.
@@ -334,6 +346,7 @@ func (l *loader) GetSnapshot(ctx context.Context, cli client.Client, release *v1
 
 // ProcessingResources contains the required resources to process the Release.
 type ProcessingResources struct {
+	MobsterConfigMap            *corev1.ConfigMap
 	EnterpriseContractConfigMap *corev1.ConfigMap
 	EnterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
 	ReleasePlan                 *v1alpha1.ReleasePlan
@@ -363,6 +376,11 @@ func (l *loader) GetProcessingResources(ctx context.Context, cli client.Client, 
 	}
 
 	resources.EnterpriseContractPolicy, err = l.GetEnterpriseContractPolicy(ctx, cli, resources.ReleasePlanAdmission)
+	if err != nil {
+		return resources, err
+	}
+
+	resources.MobsterConfigMap, err = l.GetMobsterConfigMap(ctx, cli)
 	if err != nil {
 		return resources, err
 	}
