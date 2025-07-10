@@ -35,6 +35,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		component                    *applicationapiv1alpha1.Component
 		enterpriseContractConfigMap  *corev1.ConfigMap
 		enterpriseContractPolicy     *ecapiv1alpha1.EnterpriseContractPolicy
+		mobsterConfigMap             *corev1.ConfigMap
 		finalPipelineRun             *tektonv1.PipelineRun
 		managedCollectorsPipelineRun *tektonv1.PipelineRun
 		managedPipelineRun           *tektonv1.PipelineRun
@@ -137,6 +138,23 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&ecapiv1alpha1.EnterpriseContractPolicy{}))
 			Expect(returnedObject.Name).To(Equal(enterpriseContractPolicy.Name))
+		})
+	})
+
+	When("calling GetMobsterConfigMap", func() {
+		It("returns nil when the MOBSTER_CONFIG_MAP variable is not set", func() {
+			os.Unsetenv("MOBSTER_CONFIG_MAP")
+			returnedObject, err := loader.GetMobsterConfigMap(ctx, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).To(BeNil())
+		})
+
+		It("returns the requested mobster configmap", func() {
+			os.Setenv("MOBSTER_CONFIG_MAP", "default/mobster-defaults")
+			returnedObject, err := loader.GetMobsterConfigMap(ctx, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(Equal(&corev1.ConfigMap{}))
+			Expect(returnedObject.Name).To(Equal(mobsterConfigMap.Name))
 		})
 	})
 
@@ -524,11 +542,13 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	When("calling GetProcessingResources", func() {
 		It("returns all the relevant resources", func() {
 			os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "default/ec-defaults")
+			os.Setenv("MOBSTER_CONFIG_MAP", "default/mobster-defaults")
 			resources, err := loader.GetProcessingResources(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*resources).To(MatchFields(IgnoreExtras, Fields{
 				"EnterpriseContractConfigMap": Not(BeNil()),
 				"EnterpriseContractPolicy":    Not(BeNil()),
+				"MobsterConfigMap":            Not(BeNil()),
 				"ReleasePlan":                 Not(BeNil()),
 				"ReleasePlanAdmission":        Not(BeNil()),
 				"Snapshot":                    Not(BeNil()),
@@ -588,6 +608,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, enterpriseContractPolicy)).Should(Succeed())
+
+		mobsterConfigMap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mobster-defaults",
+				Namespace: "default",
+			},
+		}
+		Expect(k8sClient.Create(ctx, mobsterConfigMap)).Should(Succeed())
 
 		releasePlan = &v1alpha1.ReleasePlan{
 			ObjectMeta: metav1.ObjectMeta{
