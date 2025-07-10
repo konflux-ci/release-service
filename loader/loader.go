@@ -102,19 +102,19 @@ func (l *loader) GetEnterpriseContractPolicy(ctx context.Context, cli client.Cli
 // value is invalid or not set, nil is returned. If the ConfigMap is not found or the Get operation fails, an error is returned.
 func (l *loader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
 	name := os.Getenv("ENTERPRISE_CONTRACT_CONFIG_MAP")
-	return l.GetConfigMap(name, ctx, cli)
+	return l.getConfigMap(name, ctx, cli)
 }
 
 // GetMobsterConfigMap returns the defaults ConfigMap in the Mobster namespace. If the MOBSTER_CONFIG_MAP
 // value is invalid or not set, nil is returned. If the ConfigMap is not found or the Get operation fails, an error is returned.
 func (l *loader) GetMobsterConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
 	name := os.Getenv("MOBSTER_CONFIG_MAP")
-	return l.GetConfigMap(name, ctx, cli)
+	return l.getConfigMap(name, ctx, cli)
 }
 
-// GetConfigMap returns the ConfigMap specified by the namespaced name. If the name
+// getConfigMap returns the ConfigMap specified by the namespaced name. If the name
 // value is invalid or not set, nil is returned. If the ConfigMap is not found or the Get operation fails, an error is returned.
-func (l *loader) GetConfigMap(namespacedName string, ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
+func (l *loader) getConfigMap(namespacedName string, ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
 	configMap := &corev1.ConfigMap{}
 	if index := strings.IndexByte(namespacedName, '/'); index >= 0 {
 		return configMap, toolkit.GetObject(namespacedName[index+1:], namespacedName[:index],
