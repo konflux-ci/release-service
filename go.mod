@@ -1,6 +1,8 @@
 module github.com/konflux-ci/release-service
 
-go 1.22.9
+go 1.23
+
+toolchain go1.23.9
 
 require (
 	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.79
@@ -59,6 +61,7 @@ require (
 	k8s.io/apiserver v0.31.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.30.3 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 
 )
 
@@ -124,6 +127,5 @@ require (
 	k8s.io/kube-openapi v0.0.0-20250701173324-9bd5c66d9911 // indirect
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
