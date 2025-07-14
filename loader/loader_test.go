@@ -27,7 +27,7 @@ import (
 
 var _ = Describe("Release Adapter", Ordered, func() {
 	var (
-		loader          ObjectLoader
+		oLoader         ObjectLoader
 		createResources func()
 		deleteResources func()
 
@@ -56,12 +56,12 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	BeforeAll(func() {
 		createResources()
 
-		loader = NewLoader()
+		oLoader = NewLoader()
 	})
 
 	When("calling GetActiveReleasePlanAdmission", func() {
 		It("returns an active release plan admission", func() {
-			returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
+			returnedObject, err := oLoader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleasePlanAdmission{}))
 			Expect(returnedObject.Name).To(Equal(releasePlanAdmission.Name))
@@ -78,7 +78,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			releasePlan.Spec.Application = "auto-release-test"
 
 			Eventually(func() bool {
-				returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
+				returnedObject, err := oLoader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
 				return returnedObject == nil && err != nil && strings.Contains(err.Error(), "with auto-release label set to false")
 			})
 
@@ -89,7 +89,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetActiveReleasePlanAdmissionFromRelease", func() {
 		It("returns an active release plan admission", func() {
-			returnedObject, err := loader.GetActiveReleasePlanAdmissionFromRelease(ctx, k8sClient, release)
+			returnedObject, err := oLoader.GetActiveReleasePlanAdmissionFromRelease(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleasePlanAdmission{}))
 			Expect(returnedObject.Name).To(Equal(releasePlanAdmission.Name))
@@ -99,7 +99,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedRelease := release.DeepCopy()
 			modifiedRelease.Spec.ReleasePlan = "non-existent-release-plan"
 
-			returnedObject, err := loader.GetActiveReleasePlanAdmissionFromRelease(ctx, k8sClient, modifiedRelease)
+			returnedObject, err := oLoader.GetActiveReleasePlanAdmissionFromRelease(ctx, k8sClient, modifiedRelease)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 			Expect(returnedObject).To(BeNil())
@@ -108,7 +108,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetApplication", func() {
 		It("returns the requested application", func() {
-			returnedObject, err := loader.GetApplication(ctx, k8sClient, releasePlan)
+			returnedObject, err := oLoader.GetApplication(ctx, k8sClient, releasePlan)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Application{}))
 			Expect(returnedObject.Name).To(Equal(application.Name))
@@ -118,14 +118,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	When("calling GetEnterpriseContractConfigMap", func() {
 		It("returns nil when the ENTERPRISE_CONTRACT_CONFIG_MAP variable is not set", func() {
 			os.Unsetenv("ENTERPRISE_CONTRACT_CONFIG_MAP")
-			returnedObject, err := loader.GetEnterpriseContractConfigMap(ctx, k8sClient)
+			returnedObject, err := oLoader.GetEnterpriseContractConfigMap(ctx, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).To(BeNil())
 		})
 
 		It("returns the requested enterprise contract configmap", func() {
 			os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "default/ec-defaults")
-			returnedObject, err := loader.GetEnterpriseContractConfigMap(ctx, k8sClient)
+			returnedObject, err := oLoader.GetEnterpriseContractConfigMap(ctx, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&corev1.ConfigMap{}))
 			Expect(returnedObject.Name).To(Equal(enterpriseContractConfigMap.Name))
@@ -134,7 +134,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetEnterpriseContractPolicy", func() {
 		It("returns the requested enterprise contract policy", func() {
-			returnedObject, err := loader.GetEnterpriseContractPolicy(ctx, k8sClient, releasePlanAdmission)
+			returnedObject, err := oLoader.GetEnterpriseContractPolicy(ctx, k8sClient, releasePlanAdmission)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&ecapiv1alpha1.EnterpriseContractPolicy{}))
 			Expect(returnedObject.Name).To(Equal(enterpriseContractPolicy.Name))
@@ -144,14 +144,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	When("calling GetMobsterConfigMap", func() {
 		It("returns nil when the MOBSTER_CONFIG_MAP variable is not set", func() {
 			os.Unsetenv("MOBSTER_CONFIG_MAP")
-			returnedObject, err := loader.GetMobsterConfigMap(ctx, k8sClient)
+			returnedObject, err := oLoader.GetMobsterConfigMap(ctx, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).To(BeNil())
 		})
 
 		It("returns the requested mobster configmap", func() {
 			os.Setenv("MOBSTER_CONFIG_MAP", "default/mobster-defaults")
-			returnedObject, err := loader.GetMobsterConfigMap(ctx, k8sClient)
+			returnedObject, err := oLoader.GetMobsterConfigMap(ctx, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&corev1.ConfigMap{}))
 			Expect(returnedObject.Name).To(Equal(mobsterConfigMap.Name))
@@ -160,7 +160,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetMatchingReleasePlanAdmission", func() {
 		It("returns a release plan admission", func() {
-			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, releasePlan)
+			returnedObject, err := oLoader.GetMatchingReleasePlanAdmission(ctx, k8sClient, releasePlan)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleasePlanAdmission{}))
 			Expect(returnedObject.Name).To(Equal(releasePlanAdmission.Name))
@@ -178,7 +178,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(k8sClient.Create(ctx, newReleasePlanAdmission)).To(Succeed())
 
 			Eventually(func() bool {
-				returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+				returnedObject, err := oLoader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
 				return err == nil && returnedObject.Name == newReleasePlanAdmission.Name
 			})
 
@@ -191,7 +191,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				metadata.ReleasePlanAdmissionLabel: "foo",
 			}
 
-			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+			returnedObject, err := oLoader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 			Expect(returnedObject).To(BeNil())
@@ -213,7 +213,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				return k8sClient.Get(ctx, client.ObjectKey{Name: newReleasePlanAdmission.Name, Namespace: newReleasePlanAdmission.Namespace}, newReleasePlanAdmission)
 			}).Should(Succeed())
 
-			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+			returnedObject, err := oLoader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("does not match the namespace"))
 			Expect(returnedObject).To(BeNil())
@@ -225,7 +225,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedReleasePlan := releasePlan.DeepCopy()
 			modifiedReleasePlan.Spec.Target = "non-existent-target"
 
-			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+			returnedObject, err := oLoader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no ReleasePlanAdmission found in namespace"))
 			Expect(returnedObject).To(BeNil())
@@ -235,7 +235,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedReleasePlan := releasePlan.DeepCopy()
 			modifiedReleasePlan.Spec.Target = ""
 
-			returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
+			returnedObject, err := oLoader.GetMatchingReleasePlanAdmission(ctx, k8sClient, modifiedReleasePlan)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("has no target"))
 			Expect(returnedObject).To(BeNil())
@@ -248,7 +248,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(k8sClient.Create(ctx, newReleasePlanAdmission)).To(Succeed())
 
 			Eventually(func() bool {
-				returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, releasePlan)
+				returnedObject, err := oLoader.GetMatchingReleasePlanAdmission(ctx, k8sClient, releasePlan)
 				return returnedObject == nil && err != nil && strings.Contains(err.Error(), "multiple ReleasePlanAdmissions")
 			})
 
@@ -286,14 +286,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		It("returns only ReleasePlans with matching label when label exists", func() {
 			Eventually(func() bool {
-				returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, releasePlanAdmission)
+				returnedObject, err := oLoader.GetMatchingReleasePlans(ctx, k8sClient, releasePlanAdmission)
 				return returnedObject != &v1alpha1.ReleasePlanList{} && err == nil && len(returnedObject.Items) == 1
 			}).Should(BeTrue())
 		})
 
 		It("returns ReleasePlan with matching label even when other ReleasePlans exist", func() {
 			Eventually(func() bool {
-				returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, releasePlanAdmission)
+				returnedObject, err := oLoader.GetMatchingReleasePlans(ctx, k8sClient, releasePlanAdmission)
 				return returnedObject.Items[0].Name == releasePlanWithLabel.Name && err == nil && len(returnedObject.Items) == 1
 			}).Should(BeTrue())
 		})
@@ -305,7 +305,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(k8sClient.Create(ctx, unmatchedReleasePlanAdmission)).To(Succeed())
 
 			Eventually(func() bool {
-				returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, unmatchedReleasePlanAdmission)
+				returnedObject, err := oLoader.GetMatchingReleasePlans(ctx, k8sClient, unmatchedReleasePlanAdmission)
 				return returnedObject != &v1alpha1.ReleasePlanList{} && err == nil && len(returnedObject.Items) == 2
 			}).Should(BeTrue())
 
@@ -314,7 +314,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		It("does not return a ReleasePlan with a different application", func() {
 			Eventually(func() bool {
-				returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, releasePlanAdmission)
+				returnedObject, err := oLoader.GetMatchingReleasePlans(ctx, k8sClient, releasePlanAdmission)
 				contains := false
 				for _, releasePlan := range returnedObject.Items {
 					if releasePlan.Spec.Application == "some-other-app" {
@@ -329,7 +329,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedReleasePlanAdmission := releasePlanAdmission.DeepCopy()
 			modifiedReleasePlanAdmission.Spec.Origin = ""
 
-			returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, modifiedReleasePlanAdmission)
+			returnedObject, err := oLoader.GetMatchingReleasePlans(ctx, k8sClient, modifiedReleasePlanAdmission)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("releasePlanAdmission has no origin, so no ReleasePlans can be found"))
 			Expect(returnedObject).To(BeNil())
@@ -354,7 +354,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 
 		It("returns a NotFound error if no previous release is found", func() {
-			returnedObject, err := loader.GetPreviousRelease(ctx, k8sClient, release)
+			returnedObject, err := oLoader.GetPreviousRelease(ctx, k8sClient, release)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 			Expect(returnedObject).To(BeNil())
@@ -374,7 +374,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				return k8sClient.Get(ctx, client.ObjectKey{Name: newerRelease.Name, Namespace: newerRelease.Namespace}, newerRelease)
 			}).Should(Succeed())
 
-			returnedObject, err := loader.GetPreviousRelease(ctx, k8sClient, newerRelease)
+			returnedObject, err := oLoader.GetPreviousRelease(ctx, k8sClient, newerRelease)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(returnedObject).ToNot(BeNil())
 			Expect(returnedObject.Name).To(Equal(release.Name))
@@ -406,7 +406,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				return k8sClient.Get(ctx, client.ObjectKey{Name: mostRecentRelease.Name, Namespace: mostRecentRelease.Namespace}, mostRecentRelease)
 			}).Should(Succeed())
 
-			returnedObject, err := loader.GetPreviousRelease(ctx, k8sClient, mostRecentRelease)
+			returnedObject, err := oLoader.GetPreviousRelease(ctx, k8sClient, mostRecentRelease)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(returnedObject).ToNot(BeNil())
 			Expect(returnedObject.Name).To(Equal(newerRelease.Name))
@@ -415,7 +415,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetRelease", func() {
 		It("returns the requested release", func() {
-			returnedObject, err := loader.GetRelease(ctx, k8sClient, release.Name, release.Namespace)
+			returnedObject, err := oLoader.GetRelease(ctx, k8sClient, release.Name, release.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&v1alpha1.Release{}))
 			Expect(returnedObject.Name).To(Equal(release.Name))
@@ -424,7 +424,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetRoleBindingFromReleaseStatusPipelineInfo", func() {
 		It("fails to return a tenant RoleBinding if the reference is not in the release", func() {
-			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &release.Status.ManagedProcessing, "tenant")
+			returnedObject, err := oLoader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &release.Status.ManagedProcessing, "tenant")
 			Expect(returnedObject).To(BeNil())
 			Expect(stderrors.Is(err, ErrInvalidRoleBindingRef)).To(BeTrue())
 		})
@@ -433,14 +433,14 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedRelease := release.DeepCopy()
 			modifiedRelease.Status.ManagedProcessing.RoleBindings.TenantRoleBinding = "foo/bar"
 
-			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing, "tenant")
+			returnedObject, err := oLoader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing, "tenant")
 			Expect(returnedObject).To(BeNil())
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 
 		It("fails to return a RoleBinding for an invalid type", func() {
 			modifiedRelease := release.DeepCopy()
-			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing, "foo")
+			returnedObject, err := oLoader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing, "foo")
 			Expect(returnedObject).To(BeNil())
 			Expect(err.Error()).To(ContainSubstring("invalid role binding type"))
 		})
@@ -450,7 +450,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedRelease.Status.ManagedProcessing.RoleBindings.TenantRoleBinding = fmt.Sprintf("%s%c%s", roleBinding.Namespace,
 				types.Separator, roleBinding.Name)
 
-			returnedObject, err := loader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing, "tenant")
+			returnedObject, err := oLoader.GetRoleBindingFromReleaseStatusPipelineInfo(ctx, k8sClient, &modifiedRelease.Status.ManagedProcessing, "tenant")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&rbac.RoleBinding{}))
 			Expect(returnedObject.Name).To(Equal(roleBinding.Name))
@@ -459,42 +459,42 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetReleasePipelineRun", func() {
 		It("returns an error when called with an unexpected Pipeline type", func() {
-			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, "foo")
+			returnedObject, err := oLoader.GetReleasePipelineRun(ctx, k8sClient, release, "foo")
 			Expect(returnedObject).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("invalid type"))
 		})
 
 		It("returns a Final PipelineRun if the labels match with the release data", func() {
-			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.FinalPipelineType)
+			returnedObject, err := oLoader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.FinalPipelineType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
 			Expect(returnedObject.Name).To(Equal(finalPipelineRun.Name))
 		})
 
 		It("returns a Managed Collectors PipelineRun if the labels match with the release data", func() {
-			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.ManagedCollectorsPipelineType)
+			returnedObject, err := oLoader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.ManagedCollectorsPipelineType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
 			Expect(returnedObject.Name).To(Equal(managedCollectorsPipelineRun.Name))
 		})
 
 		It("returns a Managed PipelineRun if the labels match with the release data", func() {
-			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.ManagedPipelineType)
+			returnedObject, err := oLoader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.ManagedPipelineType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
 			Expect(returnedObject.Name).To(Equal(managedPipelineRun.Name))
 		})
 
 		It("returns a Tenant Collecotrs PipelineRun if the labels match with the release data", func() {
-			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.TenantCollectorsPipelineType)
+			returnedObject, err := oLoader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.TenantCollectorsPipelineType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
 			Expect(returnedObject.Name).To(Equal(tenantCollectorsPipelineRun.Name))
 		})
 
 		It("returns a Tenant PipelineRun if the labels match with the release data", func() {
-			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.TenantPipelineType)
+			returnedObject, err := oLoader.GetReleasePipelineRun(ctx, k8sClient, release, metadata.TenantPipelineType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&tektonv1.PipelineRun{}))
 			Expect(returnedObject.Name).To(Equal(tenantPipelineRun.Name))
@@ -504,7 +504,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedRelease := release.DeepCopy()
 			modifiedRelease.Name = "non-existing-release"
 
-			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, modifiedRelease, metadata.ManagedPipelineType)
+			returnedObject, err := oLoader.GetReleasePipelineRun(ctx, k8sClient, modifiedRelease, metadata.ManagedPipelineType)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).To(BeNil())
 		})
@@ -512,7 +512,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetReleasePlan", func() {
 		It("returns the requested release plan", func() {
-			returnedObject, err := loader.GetReleasePlan(ctx, k8sClient, release)
+			returnedObject, err := oLoader.GetReleasePlan(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleasePlan{}))
 			Expect(returnedObject.Name).To(Equal(releasePlan.Name))
@@ -521,7 +521,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetReleaseServiceConfig", func() {
 		It("returns the requested ReleaseServiceConfig", func() {
-			returnedObject, err := loader.GetReleaseServiceConfig(ctx, k8sClient, releaseServiceConfig.Name, releaseServiceConfig.Namespace)
+			returnedObject, err := oLoader.GetReleaseServiceConfig(ctx, k8sClient, releaseServiceConfig.Name, releaseServiceConfig.Namespace)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&v1alpha1.ReleaseServiceConfig{}))
 			Expect(returnedObject.Name).To(Equal(releaseServiceConfig.Name))
@@ -530,7 +530,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetSnapshot", func() {
 		It("returns the requested snapshot", func() {
-			returnedObject, err := loader.GetSnapshot(ctx, k8sClient, release)
+			returnedObject, err := oLoader.GetSnapshot(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Snapshot{}))
 			Expect(returnedObject.Name).To(Equal(snapshot.Name))
@@ -543,7 +543,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		It("returns all the relevant resources", func() {
 			os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "default/ec-defaults")
 			os.Setenv("MOBSTER_CONFIG_MAP", "default/mobster-defaults")
-			resources, err := loader.GetProcessingResources(ctx, k8sClient, release)
+			resources, err := oLoader.GetProcessingResources(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*resources).To(MatchFields(IgnoreExtras, Fields{
 				"EnterpriseContractConfigMap": Not(BeNil()),
@@ -559,7 +559,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedRelease := release.DeepCopy()
 			modifiedRelease.Spec.Snapshot = "non-existent-snapshot"
 
-			_, err := loader.GetProcessingResources(ctx, k8sClient, modifiedRelease)
+			_, err := oLoader.GetProcessingResources(ctx, k8sClient, modifiedRelease)
 			Expect(err).To(HaveOccurred())
 		})
 	})
