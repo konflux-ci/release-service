@@ -158,6 +158,41 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
+	When("calling getConfigMap", func() {
+		var l *loader
+
+		BeforeEach(func() {
+			l = &loader{}
+		})
+
+		It("returns nil when namespacedName is empty", func() {
+			configMap, err := l.getConfigMap("", ctx, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(configMap).To(BeNil())
+		})
+
+		It("returns nil when namespacedName has no slash", func() {
+			configMap, err := l.getConfigMap("invalid-format", ctx, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(configMap).To(BeNil())
+		})
+
+		It("returns the configmap when namespacedName is valid", func() {
+			configMap, err := l.getConfigMap("default/ec-defaults", ctx, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(configMap).NotTo(BeNil())
+			Expect(configMap.Name).To(Equal("ec-defaults"))
+			Expect(configMap.Namespace).To(Equal("default"))
+		})
+
+		It("returns an error when the configmap does not exist", func() {
+			configMap, err := l.getConfigMap("nonexistent-namespace/nonexistent-configmap", ctx, k8sClient)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(configMap).NotTo(BeNil())
+		})
+	})
+
 	When("calling GetMatchingReleasePlanAdmission", func() {
 		It("returns a release plan admission", func() {
 			returnedObject, err := oLoader.GetMatchingReleasePlanAdmission(ctx, k8sClient, releasePlan)
