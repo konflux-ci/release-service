@@ -124,7 +124,11 @@ func (rp *ReleasePlan) setMatchedStatus(releasePlanAdmission *ReleasePlanAdmissi
 	if releasePlanAdmission != nil {
 		rp.Status.ReleasePlanAdmission.Name = fmt.Sprintf("%s%c%s", releasePlanAdmission.GetNamespace(),
 			types.Separator, releasePlanAdmission.GetName())
-		rp.Status.ReleasePlanAdmission.Active = (releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel] == "true")
+		active := (releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel] == "true")
+		if _, found := releasePlanAdmission.GetLabels()[metadata.BlockReleasesLabel]; found {
+			active = (releasePlanAdmission.GetLabels()[metadata.BlockReleasesLabel] == "false")
+		}
+		rp.Status.ReleasePlanAdmission.Active = active
 	}
 
 	conditions.SetCondition(&rp.Status.Conditions, MatchedConditionType, status, MatchedReason)

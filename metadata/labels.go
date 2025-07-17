@@ -50,6 +50,9 @@ var (
 	// AutomatedLabel is the label name for marking a Release as automated
 	AutomatedLabel = fmt.Sprintf("release.%s/automated", RhtapDomain)
 
+	// BlockReleasesLabel is the label name for the block-releases setting
+	BlockReleasesLabel = fmt.Sprintf("release.%s/block-releases", RhtapDomain)
+
 	// ServiceNameLabel is the label used to specify the service associated with an object
 	ServiceNameLabel = fmt.Sprintf("%s/%s", RhtapDomain, "service")
 

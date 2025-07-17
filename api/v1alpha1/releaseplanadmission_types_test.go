@@ -36,7 +36,8 @@ var _ = Describe("ReleasePlanAdmission type", func() {
 					Name:      "rp",
 					Namespace: "default",
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel: "true",
+						metadata.AutoReleaseLabel:   "true",
+						metadata.BlockReleasesLabel: "false",
 					},
 				},
 			}
@@ -77,7 +78,8 @@ var _ = Describe("ReleasePlanAdmission type", func() {
 					Name:      "rp",
 					Namespace: "default",
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel: "true",
+						metadata.AutoReleaseLabel:   "true",
+						metadata.BlockReleasesLabel: "false",
 					},
 				},
 			}
@@ -112,7 +114,8 @@ var _ = Describe("ReleasePlanAdmission type", func() {
 					Name:      "r",
 					Namespace: "default",
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel: "true",
+						metadata.AutoReleaseLabel:   "true",
+						metadata.BlockReleasesLabel: "false",
 					},
 				},
 			}

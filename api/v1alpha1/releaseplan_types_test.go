@@ -125,5 +125,16 @@ var _ = Describe("ReleasePlan type", func() {
 			Expect(condition).NotTo(BeNil())
 			Expect(condition.Status).To(Equal(metav1.ConditionUnknown))
 		})
+
+		It("should set the ReleasePlanAdmission and matched condition using the block-releases label", func() {
+			releasePlanAdmission.Labels[metadata.BlockReleasesLabel] = "false"
+			releasePlanAdmission.Labels[metadata.AutoReleaseLabel] = "false"
+			releasePlan.setMatchedStatus(releasePlanAdmission, metav1.ConditionUnknown)
+			Expect(releasePlan.Status.ReleasePlanAdmission.Name).To(Equal("default/rpa"))
+			Expect(releasePlan.Status.ReleasePlanAdmission.Active).To(BeTrue())
+			condition := meta.FindStatusCondition(releasePlan.Status.Conditions, MatchedConditionType.String())
+			Expect(condition).NotTo(BeNil())
+			Expect(condition.Status).To(Equal(metav1.ConditionUnknown))
+		})
 	})
 })

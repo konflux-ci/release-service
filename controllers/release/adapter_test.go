@@ -4410,7 +4410,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 							Name:      "release-plan-admission",
 							Namespace: "default",
 							Labels: map[string]string{
-								metadata.AutoReleaseLabel: "true",
+								metadata.AutoReleaseLabel:   "true",
+								metadata.BlockReleasesLabel: "false",
 							},
 						},
 						Spec: v1alpha1.ReleasePlanAdmissionSpec{
@@ -4448,7 +4449,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 							Name:      "release-plan",
 							Namespace: "default",
 							Labels: map[string]string{
-								metadata.AutoReleaseLabel: "true",
+								metadata.AutoReleaseLabel:   "true",
+								metadata.BlockReleasesLabel: "false",
 							},
 						},
 						Spec: v1alpha1.ReleasePlanSpec{
@@ -4542,7 +4544,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 							Name:      "release-plan-admission",
 							Namespace: "default",
 							Labels: map[string]string{
-								metadata.AutoReleaseLabel: "true",
+								metadata.AutoReleaseLabel:   "true",
+								metadata.BlockReleasesLabel: "false",
 							},
 						},
 						Spec: v1alpha1.ReleasePlanAdmissionSpec{
@@ -4642,7 +4645,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 							Name:      "release-plan-admission",
 							Namespace: "default",
 							Labels: map[string]string{
-								metadata.AutoReleaseLabel: "true",
+								metadata.AutoReleaseLabel:   "true",
+								metadata.BlockReleasesLabel: "false",
 							},
 						},
 						Spec: v1alpha1.ReleasePlanAdmissionSpec{
@@ -4736,7 +4740,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 							Name:      "release-plan-admission",
 							Namespace: "default",
 							Labels: map[string]string{
-								metadata.AutoReleaseLabel: "true",
+								metadata.AutoReleaseLabel:   "true",
+								metadata.BlockReleasesLabel: "false",
 							},
 						},
 						Spec: v1alpha1.ReleasePlanAdmissionSpec{
@@ -4967,7 +4972,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Name:      "release-plan-admission",
 				Namespace: "default",
 				Labels: map[string]string{
-					metadata.AutoReleaseLabel: "true",
+					metadata.AutoReleaseLabel:   "true",
+					metadata.BlockReleasesLabel: "false",
 				},
 			},
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
