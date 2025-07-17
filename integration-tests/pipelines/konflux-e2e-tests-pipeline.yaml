@@ -46,6 +46,9 @@ spec:
         in another Konflux component repo. Will pass the component built image from the snapshot.'
     - name: enable-sealights
       description: "A flag to enable or disable the Sealights integration feature. When set to 'true', test results are sent to Sealights for analysis; otherwise, this feature is skipped."
+      default: "false"
+    - name: enable-sl-plugin
+      description: "Enable Sealights ginkgo plugin to scan the e2e tests that will report to Sealights."
       default: "true"
   tasks:
     - name: sealights-refs
@@ -151,6 +154,10 @@ spec:
           value: $(params.oci-container-repo):$(context.pipelineRun.name)
         - name: credentials-secret-name
           value: $(params.konflux-test-infra-secret)
+        - name: component-image-repository
+          value: $(tasks.sealights-refs.results.sealights-container-repo)
+        - name: component-image-tag
+          value: $(tasks.sealights-refs.results.sealights-container-tag)
     - name: konflux-e2e-tests
       timeout: 3h
       when:
@@ -192,6 +199,8 @@ spec:
           value: $(params.test-stage)
         - name: enable-sealights
           value: $(params.enable-sealights)
+        - name: enable-sl-plugin
+          value: $(params.enable-sl-plugin)
         - name: cluster-access-secret-name
           value: kfg-$(context.pipelineRun.name)
         - name: test-environment
