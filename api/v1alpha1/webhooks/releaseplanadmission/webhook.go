@@ -44,6 +44,18 @@ func (w *Webhook) Default(ctx context.Context, obj runtime.Object) error {
 			releasePlanAdmission.Labels = map[string]string{
 				metadata.AutoReleaseLabel: "true",
 			}
+		} else {
+			releasePlanAdmission.Labels[metadata.AutoReleaseLabel] = "true"
+		}
+	}
+
+	if _, found := releasePlanAdmission.GetLabels()[metadata.BlockReleasesLabel]; !found {
+		if releasePlanAdmission.Labels == nil {
+			releasePlanAdmission.Labels = map[string]string{
+				metadata.BlockReleasesLabel: "false",
+			}
+		} else {
+			releasePlanAdmission.Labels[metadata.BlockReleasesLabel] = "false"
 		}
 	}
 
@@ -67,12 +79,12 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
-	return w.validateAutoReleaseLabel(obj)
+	return w.validateBlockReleasesLabel(obj)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
-	return w.validateAutoReleaseLabel(newObj)
+	return w.validateBlockReleasesLabel(newObj)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
@@ -80,13 +92,19 @@ func (w *Webhook) ValidateDelete(ctx context.Context, obj runtime.Object) (warni
 	return nil, nil
 }
 
-// validateAutoReleaseLabel throws an error if the auto-release label value is set to anything besides true or false.
-func (w *Webhook) validateAutoReleaseLabel(obj runtime.Object) (warnings admission.Warnings, err error) {
+// validateAutoReleaseLabel throws an error if the block-releases label value is set to anything besides true or false.
+// This function also temporarily supports the auto-release label.
+func (w *Webhook) validateBlockReleasesLabel(obj runtime.Object) (warnings admission.Warnings, err error) {
 	releasePlanAdmission := obj.(*v1alpha1.ReleasePlanAdmission)
 
 	if value, found := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]; found {
 		if value != "true" && value != "false" {
 			return nil, fmt.Errorf("'%s' label can only be set to true or false", metadata.AutoReleaseLabel)
+		}
+	}
+	if value, found := releasePlanAdmission.GetLabels()[metadata.BlockReleasesLabel]; found {
+		if value != "true" && value != "false" {
+			return nil, fmt.Errorf("'%s' label can only be set to true or false", metadata.BlockReleasesLabel)
 		}
 	}
 	return nil, nil

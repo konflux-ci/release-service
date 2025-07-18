@@ -84,6 +84,25 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			releasePlan.Spec.Application = application.Name
 			Expect(k8sClient.Delete(ctx, disabledReleasePlanAdmission)).To(Succeed())
 		})
+
+		It("fails to return an active release plan admission if the block releases label is set to true", func() {
+			// Use a new application for this test so we don't have timing issues
+			disabledReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			disabledReleasePlanAdmission.Labels[metadata.BlockReleasesLabel] = "true"
+			disabledReleasePlanAdmission.Name = "disabled-release-plan-admission"
+			disabledReleasePlanAdmission.Spec.Applications = []string{"block-releases-test"}
+			disabledReleasePlanAdmission.ResourceVersion = ""
+			Expect(k8sClient.Create(ctx, disabledReleasePlanAdmission)).To(Succeed())
+			releasePlan.Spec.Application = "block-releases-test"
+
+			Eventually(func() bool {
+				returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
+				return returnedObject == nil && err != nil && strings.Contains(err.Error(), "with block-releases label set to false")
+			})
+
+			releasePlan.Spec.Application = application.Name
+			Expect(k8sClient.Delete(ctx, disabledReleasePlanAdmission)).To(Succeed())
+		})
 	})
 
 	When("calling GetActiveReleasePlanAdmissionFromRelease", func() {
@@ -614,7 +633,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Name:      "release-plan-admission",
 				Namespace: "default",
 				Labels: map[string]string{
-					metadata.AutoReleaseLabel: "true",
+					metadata.AutoReleaseLabel:   "true",
+					metadata.BlockReleasesLabel: "false",
 				},
 			},
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{

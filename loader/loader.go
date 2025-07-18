@@ -52,9 +52,9 @@ func NewLoader() ObjectLoader {
 }
 
 // GetActiveReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.
-// Only ReleasePlanAdmissions with the 'auto-release' label set to true (or missing the label, which is
-// treated the same as having the label and it being set to true) will be searched for. If a matching
-// ReleasePlanAdmission is not found or the List operation fails, an error will be returned.
+// Only ReleasePlanAdmissions with the 'auto-release' label set to true and the 'block-releases' label
+// set to false will be searched for. If a matching ReleasePlanAdmission is not found or the List
+// operation fails, an error will be returned.
 func (l *loader) GetActiveReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error) {
 	releasePlanAdmission, err := l.GetMatchingReleasePlanAdmission(ctx, cli, releasePlan)
 	if err != nil {
@@ -64,6 +64,12 @@ func (l *loader) GetActiveReleasePlanAdmission(ctx context.Context, cli client.C
 	labelValue, found := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]
 	if found && labelValue == "false" {
 		return nil, fmt.Errorf("found ReleasePlanAdmission '%s' with auto-release label set to false",
+			releasePlanAdmission.Name)
+	}
+
+	labelValue, found = releasePlanAdmission.GetLabels()[metadata.BlockReleasesLabel]
+	if found && labelValue == "true" {
+		return nil, fmt.Errorf("found ReleasePlanAdmission '%s' with block-releases label set to true",
 			releasePlanAdmission.Name)
 	}
 

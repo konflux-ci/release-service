@@ -44,7 +44,7 @@ func MatchPredicate() predicate.Predicate {
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return haveApplicationsChanged(e.ObjectOld, e.ObjectNew) ||
-				hasAutoReleaseLabelChanged(e.ObjectOld, e.ObjectNew) ||
+				hasBehaviorLabelChanged(e.ObjectOld, e.ObjectNew) ||
 				hasMatchConditionChanged(e.ObjectOld, e.ObjectNew) ||
 				hasSourceChanged(e.ObjectOld, e.ObjectNew)
 		},
@@ -61,10 +61,16 @@ func hasConditionChanged(conditionOld, conditionNew *metav1.Condition) bool {
 	return !conditionOld.LastTransitionTime.Equal(&conditionNew.LastTransitionTime)
 }
 
-// hasAutoReleaseLabelChanged returns true if the auto-release label value is
+// hasBehaviorLabelChanged returns true if the auto-release or block-releases label value is
 // different between the two objects.
-func hasAutoReleaseLabelChanged(objectOld, objectNew client.Object) bool {
-	return objectOld.GetLabels()[metadata.AutoReleaseLabel] != objectNew.GetLabels()[metadata.AutoReleaseLabel]
+func hasBehaviorLabelChanged(objectOld, objectNew client.Object) bool {
+	if objectOld.GetLabels()[metadata.AutoReleaseLabel] != objectNew.GetLabels()[metadata.AutoReleaseLabel] {
+		return true
+	}
+	if objectOld.GetLabels()[metadata.BlockReleasesLabel] != objectNew.GetLabels()[metadata.BlockReleasesLabel] {
+		return true
+	}
+	return false
 }
 
 // haveApplicationsChanged returns true if passed objects are of the same kind and the

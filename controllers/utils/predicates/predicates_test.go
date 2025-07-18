@@ -43,8 +43,8 @@ var _ = Describe("Predicates", Ordered, func() {
 	Context("Working with ReleasePlans and ReleasePlanAdmissions", func() {
 		var releasePlan, releasePlanDiffApp, releasePlanDiffLabel,
 			releasePlanDiffTarget, releasePlanDiffStatus *v1alpha1.ReleasePlan
-		var releasePlanAdmission, releasePlanAdmissionDiffApps, releasePlanAdmissionDiffOrigin,
-			releasePlanAdmissionDiffStatus *v1alpha1.ReleasePlanAdmission
+		var releasePlanAdmission, releasePlanAdmissionDiffApps, releasePlanAdmissionDiffLabel,
+			releasePlanAdmissionDiffOrigin, releasePlanAdmissionDiffStatus *v1alpha1.ReleasePlanAdmission
 		var instance predicate.Predicate
 
 		BeforeAll(func() {
@@ -120,7 +120,7 @@ var _ = Describe("Predicates", Ordered, func() {
 					Name:      "releaseplanadmission",
 					Namespace: namespace,
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel: "true",
+						metadata.BlockReleasesLabel: "false",
 					},
 				},
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
@@ -152,6 +152,32 @@ var _ = Describe("Predicates", Ordered, func() {
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
 					Applications: []string{
 						"diff",
+					},
+					Origin: namespace2,
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "quay.io/some/bundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
+						},
+					},
+					Policy: "policy",
+				},
+			}
+			releasePlanAdmissionDiffLabel = &v1alpha1.ReleasePlanAdmission{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "releaseplanadmission-label",
+					Namespace: namespace,
+					Labels: map[string]string{
+						metadata.BlockReleasesLabel: "true",
+					},
+				},
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Applications: []string{
+						applicationName,
 					},
 					Origin: namespace2,
 					Pipeline: &tektonutils.Pipeline{
@@ -270,6 +296,14 @@ var _ = Describe("Predicates", Ordered, func() {
 				Expect(instance.Update(contextEvent)).To(BeTrue())
 			})
 
+			It("returns true when the block-releases label changes", func() {
+				contextEvent := event.UpdateEvent{
+					ObjectOld: releasePlanAdmission,
+					ObjectNew: releasePlanAdmissionDiffLabel,
+				}
+				Expect(instance.Update(contextEvent)).To(BeTrue())
+			})
+
 			It("returns true when the target changes between ReleasePlans", func() {
 				contextEvent := event.UpdateEvent{
 					ObjectOld: releasePlan,
@@ -384,7 +418,7 @@ var _ = Describe("Predicates", Ordered, func() {
 		})
 	})
 
-	When("calling hasAutoReleaseLabelChanged", func() {
+	When("calling hasBehaviorLabelChanged", func() {
 		var podTrue, podFalse, podMissing *corev1.Pod
 
 		BeforeAll(func() {
@@ -392,7 +426,8 @@ var _ = Describe("Predicates", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: nil,
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel: "true",
+						metadata.AutoReleaseLabel:   "true",
+						metadata.BlockReleasesLabel: "false",
 					},
 				},
 			}
@@ -400,7 +435,8 @@ var _ = Describe("Predicates", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: nil,
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel: "false",
+						metadata.AutoReleaseLabel:   "false",
+						metadata.BlockReleasesLabel: "true",
 					},
 				},
 			}
@@ -413,31 +449,31 @@ var _ = Describe("Predicates", Ordered, func() {
 		})
 
 		It("returns true when the first object has no labels", func() {
-			Expect(hasAutoReleaseLabelChanged(podMissing, podTrue)).To(BeTrue())
+			Expect(hasBehaviorLabelChanged(podMissing, podTrue)).To(BeTrue())
 		})
 
 		It("returns true when the second object has no labels", func() {
-			Expect(hasAutoReleaseLabelChanged(podTrue, podFalse)).To(BeTrue())
+			Expect(hasBehaviorLabelChanged(podTrue, podFalse)).To(BeTrue())
 		})
 
 		It("returns true when the first object has a true label and second has a false label", func() {
-			Expect(hasAutoReleaseLabelChanged(podTrue, podFalse)).To(BeTrue())
+			Expect(hasBehaviorLabelChanged(podTrue, podFalse)).To(BeTrue())
 		})
 
 		It("returns true when the first object has a false label and second has a true label", func() {
-			Expect(hasAutoReleaseLabelChanged(podFalse, podTrue)).To(BeTrue())
+			Expect(hasBehaviorLabelChanged(podFalse, podTrue)).To(BeTrue())
 		})
 
 		It("returns false when the both objects have the label set to false", func() {
-			Expect(hasAutoReleaseLabelChanged(podFalse, podFalse)).To(BeFalse())
+			Expect(hasBehaviorLabelChanged(podFalse, podFalse)).To(BeFalse())
 		})
 
 		It("returns false when the both objects have the label set to true", func() {
-			Expect(hasAutoReleaseLabelChanged(podTrue, podTrue)).To(BeFalse())
+			Expect(hasBehaviorLabelChanged(podTrue, podTrue)).To(BeFalse())
 		})
 
 		It("returns false when the both objects are missing the label", func() {
-			Expect(hasAutoReleaseLabelChanged(podMissing, podMissing)).To(BeFalse())
+			Expect(hasBehaviorLabelChanged(podMissing, podMissing)).To(BeFalse())
 		})
 	})
 })
