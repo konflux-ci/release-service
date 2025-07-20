@@ -218,6 +218,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = os.Setenv("MOBSTER_CONFIG_MAP", "mobster/mobster-defaults")
+	if err != nil {
+		setupLog.Error(err, "unable to setup MOBSTER_CONFIG_MAP environment variable")
+		os.Exit(1)
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
