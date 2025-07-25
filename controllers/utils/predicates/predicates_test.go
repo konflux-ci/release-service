@@ -146,7 +146,7 @@ var _ = Describe("Predicates", Ordered, func() {
 					Name:      "releaseplanadmission-app",
 					Namespace: namespace,
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel: "true",
+						metadata.BlockReleasesLabel: "false",
 					},
 				},
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
@@ -198,7 +198,7 @@ var _ = Describe("Predicates", Ordered, func() {
 					Name:      "releaseplanadmission-origin",
 					Namespace: namespace,
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel: "true",
+						metadata.BlockReleasesLabel: "false",
 					},
 				},
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
@@ -224,7 +224,7 @@ var _ = Describe("Predicates", Ordered, func() {
 					Name:      "releaseplanadmission-status",
 					Namespace: namespace,
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel: "true",
+						metadata.BlockReleasesLabel: "false",
 					},
 				},
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
@@ -426,7 +426,6 @@ var _ = Describe("Predicates", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: nil,
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel:   "true",
 						metadata.BlockReleasesLabel: "false",
 					},
 				},
@@ -435,7 +434,6 @@ var _ = Describe("Predicates", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: nil,
 					Labels: map[string]string{
-						metadata.AutoReleaseLabel:   "false",
 						metadata.BlockReleasesLabel: "true",
 					},
 				},

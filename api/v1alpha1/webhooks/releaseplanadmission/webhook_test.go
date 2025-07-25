@@ -66,22 +66,6 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 		Expect(err == nil || errors.IsNotFound(err)).To(BeTrue())
 	})
 
-	When("a ReleasePlanAdmission is created without the auto-release label", func() {
-		It("should get the label added with its value set to true", func() {
-			Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      releasePlanAdmission.Name,
-					Namespace: releasePlanAdmission.Namespace,
-				}, releasePlanAdmission)
-
-				labelValue, ok := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]
-
-				return err == nil && ok && labelValue == "true"
-			}, timeout).Should(BeTrue())
-		})
-	})
-
 	When("a ReleasePlanAdmission is created without the block-releases label", func() {
 		It("should get the label added with its value set to false", func() {
 			Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
@@ -98,57 +82,12 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 		})
 	})
 
-	When("a ReleasePlanAdmission is created with an invalid auto-release label value", func() {
-		It("should get rejected until the value is valid", func() {
-			releasePlanAdmission.Labels = map[string]string{metadata.AutoReleaseLabel: "foo"}
-			err := k8sClient.Create(ctx, releasePlanAdmission)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("'%s' label can only be set to true or false", metadata.AutoReleaseLabel))
-		})
-	})
-
 	When("a ReleasePlanAdmission is created with an invalid block-releases label value", func() {
 		It("should get rejected until the value is valid", func() {
 			releasePlanAdmission.Labels = map[string]string{metadata.BlockReleasesLabel: "foo"}
 			err := k8sClient.Create(ctx, releasePlanAdmission)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("'%s' label can only be set to true or false", metadata.BlockReleasesLabel))
-		})
-	})
-
-	When("a ReleasePlanAdmission is created with a valid auto-release label value", func() {
-		It("shouldn't be modified", func() {
-			By("setting label to true")
-			localReleasePlanAdmission := releasePlanAdmission.DeepCopy()
-			localReleasePlanAdmission.Labels = map[string]string{metadata.AutoReleaseLabel: "true"}
-			Expect(k8sClient.Create(ctx, localReleasePlanAdmission)).Should(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      localReleasePlanAdmission.Name,
-					Namespace: localReleasePlanAdmission.Namespace,
-				}, localReleasePlanAdmission)
-
-				labelValue, ok := localReleasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]
-
-				return err == nil && ok && labelValue == "true"
-			}, timeout).Should(BeTrue())
-
-			Expect(k8sClient.Delete(ctx, localReleasePlanAdmission)).To(Succeed())
-
-			By("setting label to false")
-			localReleasePlanAdmission = releasePlanAdmission.DeepCopy()
-			localReleasePlanAdmission.Labels = map[string]string{metadata.AutoReleaseLabel: "false"}
-			Expect(k8sClient.Create(ctx, localReleasePlanAdmission)).Should(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      localReleasePlanAdmission.Name,
-					Namespace: localReleasePlanAdmission.Namespace,
-				}, localReleasePlanAdmission)
-
-				labelValue, ok := localReleasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]
-
-				return err == nil && ok && labelValue == "false"
-			}, timeout).Should(BeTrue())
 		})
 	})
 
@@ -185,16 +124,6 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 
 				return err == nil && ok && labelValue == "false"
 			}, timeout).Should(BeTrue())
-		})
-	})
-
-	When("a ReleasePlanAdmission is updated using an invalid auto-release label value", func() {
-		It("shouldn't be modified", func() {
-			Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
-			releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel] = "foo"
-			err := k8sClient.Update(ctx, releasePlanAdmission)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("'%s' label can only be set to true or false", metadata.AutoReleaseLabel))
 		})
 	})
 
