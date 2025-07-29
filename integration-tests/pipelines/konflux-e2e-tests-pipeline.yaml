@@ -51,7 +51,21 @@ spec:
       description: "Enable Sealights ginkgo plugin to scan the e2e tests that will report to Sealights."
       default: "true"
   tasks:
+    - name: check-if-e2e-irrelevant
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/check-if-e2e-irrelevant/0.1/check-if-e2e-irrelevant.yaml
     - name: sealights-refs
+      when:
+        - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
+          operator: in
+          values: ["false"]
       taskRef:
         resolver: git
         params:
@@ -65,6 +79,10 @@ spec:
         - name: SNAPSHOT
           value: $(params.SNAPSHOT)
     - name: test-metadata
+      when:
+        - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
+          operator: in
+          values: ["false"]
       taskRef:
         resolver: git
         params:
@@ -84,6 +102,9 @@ spec:
         - sealights-refs
         - test-metadata
       when:
+        - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
+          operator: in
+          values: ["false"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
@@ -122,6 +143,9 @@ spec:
           value: $(params.konflux-test-infra-secret)
     - name: deploy-konflux
       when:
+        - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
+          operator: in
+          values: ["false"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
@@ -138,7 +162,7 @@ spec:
           - name: revision
             value: main
           - name: pathInRepo
-            value: tasks/konflux-ci/deploy/0.2/deploy-konflux-ci.yaml
+            value: tasks/konflux-ci/deploy/0.3/deploy-konflux-ci.yaml
       params:
         - name: cluster-access-secret
           value: kfg-$(context.pipelineRun.name)
@@ -158,9 +182,16 @@ spec:
           value: $(tasks.sealights-refs.results.sealights-container-repo)
         - name: component-image-tag
           value: $(tasks.sealights-refs.results.sealights-container-tag)
+        - name: oci-credentials
+          value: konflux-test-infra
+        - name: build-credentials
+          value: konflux-e2e-secrets
     - name: konflux-e2e-tests
       timeout: 3h
       when:
+        - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
+          operator: in
+          values: ["false"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
@@ -208,6 +239,9 @@ spec:
   finally:
     - name: store-pipeline-status
       when:
+        - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
+          operator: in
+          values: ["false"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
@@ -234,6 +268,9 @@ spec:
           value: $(tasks.status)
     - name: deprovision-kind-cluster
       when:
+        - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
+          operator: in
+          values: ["false"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
@@ -262,6 +299,9 @@ spec:
           value: konflux-test-infra
     - name: pull-request-status-message
       when:
+        - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
+          operator: in
+          values: ["false"]
         - input: "$(tasks.test-metadata.results.pull-request-author)"
           operator: notin
           values: ["red-hat-konflux[bot]"]
