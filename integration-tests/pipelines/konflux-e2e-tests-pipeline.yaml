@@ -134,11 +134,11 @@ spec:
         resolver: git
         params:
           - name: url
-            value: https://github.com/konflux-ci/tekton-integration-catalog
+            value: https://github.com/jinqi7/konflux-qe-definitions
           - name: revision
-            value: main
+            value: sealights_token 
           - name: pathInRepo
-            value: tasks/konflux-ci/deploy/0.2/deploy-konflux-ci.yaml
+            value: tasks/konflux-ci/deploy/0.3/deploy-konflux-ci.yaml
       params:
         - name: cluster-access-secret
           value: kfg-$(context.pipelineRun.name)
@@ -158,6 +158,10 @@ spec:
           value: $(tasks.sealights-refs.results.sealights-container-repo)
         - name: component-image-tag
           value: $(tasks.sealights-refs.results.sealights-container-tag)
+        - name: oci-credentials
+          value: konflux-test-infra
+        - name: build-credentials
+          value: konflux-e2e-secrets
     - name: konflux-e2e-tests
       timeout: 3h
       when:
