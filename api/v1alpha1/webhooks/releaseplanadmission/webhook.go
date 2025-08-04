@@ -39,16 +39,6 @@ type Webhook struct {
 func (w *Webhook) Default(ctx context.Context, obj runtime.Object) error {
 	releasePlanAdmission := obj.(*v1alpha1.ReleasePlanAdmission)
 
-	if _, found := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]; !found {
-		if releasePlanAdmission.Labels == nil {
-			releasePlanAdmission.Labels = map[string]string{
-				metadata.AutoReleaseLabel: "true",
-			}
-		} else {
-			releasePlanAdmission.Labels[metadata.AutoReleaseLabel] = "true"
-		}
-	}
-
 	if _, found := releasePlanAdmission.GetLabels()[metadata.BlockReleasesLabel]; !found {
 		if releasePlanAdmission.Labels == nil {
 			releasePlanAdmission.Labels = map[string]string{
@@ -93,15 +83,9 @@ func (w *Webhook) ValidateDelete(ctx context.Context, obj runtime.Object) (warni
 }
 
 // validateAutoReleaseLabel throws an error if the block-releases label value is set to anything besides true or false.
-// This function also temporarily supports the auto-release label.
 func (w *Webhook) validateBlockReleasesLabel(obj runtime.Object) (warnings admission.Warnings, err error) {
 	releasePlanAdmission := obj.(*v1alpha1.ReleasePlanAdmission)
 
-	if value, found := releasePlanAdmission.GetLabels()[metadata.AutoReleaseLabel]; found {
-		if value != "true" && value != "false" {
-			return nil, fmt.Errorf("'%s' label can only be set to true or false", metadata.AutoReleaseLabel)
-		}
-	}
 	if value, found := releasePlanAdmission.GetLabels()[metadata.BlockReleasesLabel]; found {
 		if value != "true" && value != "false" {
 			return nil, fmt.Errorf("'%s' label can only be set to true or false", metadata.BlockReleasesLabel)
