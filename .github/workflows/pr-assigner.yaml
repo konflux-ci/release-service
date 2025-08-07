@@ -1,0 +1,44 @@
+---
+name: PR Assignment
+
+on:
+  pull_request_target:
+    types: [opened, review_request_removed, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  assign-pr:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: .github/scripts/pr-assigner/package-lock.json
+
+      - name: Install dependencies
+        working-directory: .github/scripts/pr-assigner
+        run: npm ci
+
+      - name: Run reviewer assignment
+        working-directory: .github/scripts/pr-assigner
+        run: node assign_reviewers.js
+        env:
+          EVENT_TYPE: ${{ github.event.action }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REMOVED_REVIEWER: ${{ github.event.requested_reviewer.login }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          USER_MAP_URL: https://gist.githubusercontent.com/davidmogar/cbe426b9ca93aefe727d822e24e13e0d/raw/user_map.yaml

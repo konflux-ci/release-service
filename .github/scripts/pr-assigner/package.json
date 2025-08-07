@@ -1,0 +1,9 @@
+{
+  "name": "pr-assigner",
+  "version": "1.0.0",
+  "dependencies": {
+    "@octokit/core": "^5.2.2",
+    "node-fetch": "^2.6.11",
+    "yaml": "^2.3.5"
+  }
+}
