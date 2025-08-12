@@ -312,9 +312,9 @@ spec:
         resolver: git
         params:
           - name: url
-            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+            value: https://github.com/Troy876/tekton-integration-catalog.git
           - name: revision
-            value: main
+            value: KFLUXDP-195
           - name: pathInRepo
             value: common/tasks/pull-request-comment/0.1/pull-request-comment.yaml
       params:
@@ -341,4 +341,6 @@ spec:
         - name: cluster-provision-log-name
           value: cluster-provision.log
         - name: enable-test-results-analysis
+          value: "true"
+        - name: enable-artifact-browser
           value: "true"
