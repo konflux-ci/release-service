@@ -342,5 +342,5 @@ spec:
           value: cluster-provision.log
         - name: enable-test-results-analysis
           value: "true"
-        - name: enable-artifact-browser
+        - name: artifact-browser-url
           value: "true"
