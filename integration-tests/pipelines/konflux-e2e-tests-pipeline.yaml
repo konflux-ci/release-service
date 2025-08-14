@@ -343,4 +343,4 @@ spec:
         - name: enable-test-results-analysis
           value: "true"
         - name: artifact-browser-url
-          value: "true"
+          value: $(params.artifact-browser-url)
