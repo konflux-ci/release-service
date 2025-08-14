@@ -50,6 +50,10 @@ spec:
     - name: enable-sl-plugin
       description: "Enable Sealights ginkgo plugin to scan the e2e tests that will report to Sealights."
       default: "true"
+    - name: artifact-browser-url
+      description: "URL to the artifact browser deployment. If provided, a link will be added to PR comments."
+      default: ""
+      type: string
   tasks:
     - name: check-if-e2e-irrelevant
       taskRef:
