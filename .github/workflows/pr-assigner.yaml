@@ -1,9 +1,9 @@
 ---
-name: Assign Reviewers
+name: Assign PR
 
 on:
   pull_request_target:
-    types: [opened, ready_for_review, review_request_removed]
+    types: [opened, ready_for_review, unassigned]
 
 permissions:
   contents: read
@@ -18,6 +18,6 @@ jobs:
         with:
           event-type: ${{ github.event.action }}
           pr-number: ${{ github.event.pull_request.number }}
-          removed-reviewer: ${{ github.event.requested_reviewer.login || '' }}
+          removed-assignee: ${{ github.event.action == 'unassigned' && github.event.assignee.login || '' }}
           github-token: ${{ secrets.PR_ASSIGNER_PAT_TOKEN }}
           slack-webhook: ${{ secrets.PR_ASSIGNER_SLACK_WEBHOOK }}
