@@ -142,7 +142,7 @@ spec:
         - name: credentials-secret-name
           value: $(params.konflux-test-infra-secret)
         - name: spot-increase-rate
-          value: 50
+          value: 80
     - name: deploy-konflux
       when:
         - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
