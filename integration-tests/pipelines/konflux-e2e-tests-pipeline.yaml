@@ -141,6 +141,8 @@ spec:
           value: $(params.oci-container-repo):$(context.pipelineRun.name)
         - name: credentials-secret-name
           value: $(params.konflux-test-infra-secret)
+        - name: spot-increase-rate
+          value: 80
     - name: deploy-konflux
       when:
         - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
@@ -339,6 +341,6 @@ spec:
         - name: e2e-log-name
           value: e2e-tests.log
         - name: cluster-provision-log-name
-          value: cluster-provision.log
+          value: kind-aws-provision.log
         - name: enable-test-results-analysis
           value: "true"
