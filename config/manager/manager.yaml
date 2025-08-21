@@ -31,6 +31,9 @@ spec:
         - /manager
         args:
         - --leader-elect
+        - --lease-duration=60s
+        - --leader-renew-deadline=30s
+        - --leader-elector-retry-period=10s
         image: controller:latest
         name: manager
         securityContext:
