@@ -30,7 +30,10 @@ spec:
       - command:
         - /manager
         args:
-        - --leader-elect=false
+          # https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/
+          # https://dev.to/sklarsa/how-to-add-kubernetes-powered-leader-election-to-your-go-apps-57jh
+          # NOTE: Re-enable this when replicas > 1
+          - --leader-elect=false
         image: controller:latest
         name: manager
         securityContext:
