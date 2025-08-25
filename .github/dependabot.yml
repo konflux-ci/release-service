@@ -12,14 +12,6 @@ updates:
     commit-message:
       # Prefix attached to commit messages with relevant reference to package
       prefix: "chore(actions): "
-    # List of users permitted to review and approve Dependabot PRs
-    reviewers:
-      - "davidmogar"
-      - "johnbieren"
-      - "theflockers"
-      - "scoheb"
-      - "happybhati"
-      - "mmalina"
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -27,10 +19,3 @@ updates:
       day: "monday"
     commit-message:
       prefix: "chore(go): "
-    reviewers:
-      - "davidmogar"
-      - "johnbieren"
-      - "theflockers"
-      - "scoheb"
-      - "happybhati"
-      - "mmalina"
