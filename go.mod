@@ -11,8 +11,8 @@ require (
 	github.com/operator-framework/operator-lib v0.19.0
 	github.com/redhat-appstudio/application-api v0.0.0-20240106104232-18f545e48a03
 	github.com/tektoncd/pipeline v0.66.0
-	k8s.io/api v0.33.2
-	k8s.io/apimachinery v0.33.2
+	k8s.io/api v0.33.4
+	k8s.io/apimachinery v0.33.4
 	k8s.io/client-go v0.33.2
 	knative.dev/pkg v0.0.0-20240416145024-0f34a8815650
 	sigs.k8s.io/controller-runtime v0.21.0
