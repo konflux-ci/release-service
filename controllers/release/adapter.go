@@ -25,6 +25,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
+	integrationgitops "github.com/konflux-ci/integration-service/gitops"
 	"github.com/konflux-ci/operator-toolkit/controller"
 	toolkitmetadata "github.com/konflux-ci/operator-toolkit/metadata"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
@@ -32,8 +34,6 @@ import (
 	"github.com/konflux-ci/release-service/metadata"
 	"github.com/konflux-ci/release-service/syncer"
 	"github.com/konflux-ci/release-service/tekton/utils"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
-	integrationgitops "github.com/redhat-appstudio/integration-service/gitops"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
