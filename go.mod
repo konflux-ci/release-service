@@ -100,7 +100,7 @@ require (
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/prometheus/statsd_exporter v0.23.0 // indirect
-	github.com/redhat-appstudio/integration-service v0.0.0-20231025084434-b3f521c408d1
+	github.com/redhat-appstudio/integration-service b2c1a341e6fc
 	github.com/spf13/pflag v1.0.7 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
