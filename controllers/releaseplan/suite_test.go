@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
 	"github.com/konflux-ci/operator-toolkit/test"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"k8s.io/client-go/rest"

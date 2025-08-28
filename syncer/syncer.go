@@ -19,7 +19,7 @@ package syncer
 import (
 	"context"
 	"github.com/go-logr/logr"
-	applicationapiv1alpha1 "github.com/redhat-appstudio/application-api/api/v1alpha1"
+	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
