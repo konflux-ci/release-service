@@ -13,15 +13,15 @@ jobs:
       OPERATOR_SDK_VERSION: v1.39.1
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version-file: go.mod
       - name: Cache Operator SDK ${{ env.OPERATOR_SDK_VERSION }}
-        uses: actions/cache@v4
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
         id: cache-operator-sdk
         with:
           path: ~/cache
@@ -43,7 +43,7 @@ jobs:
           make kustomize controller-gen
       - name: Cache go modules
         id: cache-mod
-        uses: actions/cache@v4
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -71,7 +71,7 @@ jobs:
             git --no-pager diff ':(exclude)bin/kustomize' ':(exclude)bin/controller-gen'
             exit 1
           fi
-      - uses: dominikh/staticcheck-action@v1.4.0
+      - uses: dominikh/staticcheck-action@024238d2898c874f26d723e7d0ff4308c35589a2 # v1.4.0
         with:
           version: "2025.1.1"
           install-go: false
@@ -93,7 +93,7 @@ jobs:
       - name: Run Go Tests
         run: make test
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@fdcc8476540edceab3de004e990f80d881c6cc00 # v5
       - name: Ensure make build succeeds
         run: make build
       - name: Ensure make bundle succeeds
@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           fetch-depth: 0
       - name: Check if dockerimage build is working
@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
