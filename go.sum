@@ -87,8 +87,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/emicklei/go-restful/v3 v3.12.1 h1:PJMDIM/ak7btuL8Ex0iYET9hxM3CI2sjZtzpL63nKAU=
 github.com/emicklei/go-restful/v3 v3.12.1/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
-github.com/enterprise-contract/enterprise-contract-controller/api v0.1.134 h1:/H1pM/1Ub+MYv03/RY5T6rlcOf2VKEROLeUnvW98w2o=
-github.com/enterprise-contract/enterprise-contract-controller/api v0.1.134/go.mod h1:YfIsqAmIc3ncPfxOw6LEsngWdeAVSO+V7svjoNpxyKs=
+github.com/enterprise-contract/enterprise-contract-controller/api v0.1.142 h1:fyHTDQxkxd3F+W6Cw2yw70hp1eePmqhpuCKYAm6hpps=
+github.com/enterprise-contract/enterprise-contract-controller/api v0.1.142/go.mod h1:Et2gX+btVTBwCMcHTCgIL1b9+tMDbzsIuf61vBiINoU=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
