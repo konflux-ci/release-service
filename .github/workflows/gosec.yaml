@@ -15,13 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           fetch-depth: 1
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Run Gosec Security Scanner
         id: gosec
-        uses: securego/gosec@master
+        uses: securego/gosec@5af1117217e476b56a63eaa9ea28eeeb91fbc5ff # master
         with:
           args: -exclude-generated ./...
         env:
@@ -29,7 +29,7 @@ jobs:
         continue-on-error: true
       - name: Run Gosec Security Scanner - save SARIF
         id: gosec-sarif
-        uses: securego/gosec@master
+        uses: securego/gosec@5af1117217e476b56a63eaa9ea28eeeb91fbc5ff # master
         with:
           # we let the report trigger a failure using the GitHub Security features.
           args: -exclude-generated -fmt sarif -out results.sarif ./...
@@ -37,7 +37,7 @@ jobs:
           GOROOT: ""
         continue-on-error: true
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@2d92b76c45b91eb80fc44c74ce3fce0ee94e8f9d # v3
         with:
           sarif_file: results.sarif
       - name: Check gosec result
