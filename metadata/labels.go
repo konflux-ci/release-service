@@ -18,6 +18,32 @@ package metadata
 
 import "fmt"
 
+// PipelineType represents the type of a pipeline
+type PipelineType string
+
+// String returns the string representation of the PipelineType
+func (pt PipelineType) String() string {
+	return string(pt)
+}
+
+// Pipeline type enum values
+const (
+	// ManagedCollectorsPipelineType is the value to be used in the PipelinesTypeLabel for managed collector Pipelines
+	ManagedCollectorsPipelineType PipelineType = "managed-collectors"
+
+	// TenantCollectorsPipelineType is the value to be used in the PipelinesTypeLabel for tenant collector Pipelines
+	TenantCollectorsPipelineType PipelineType = "tenant-collectors"
+
+	// FinalPipelineType is the value to be used in the PipelinesTypeLabel for final Pipelines
+	FinalPipelineType PipelineType = "final"
+
+	// ManagedPipelineType is the value to be used in the PipelinesTypeLabel for managed Pipelines
+	ManagedPipelineType PipelineType = "managed"
+
+	// TenantPipelineType is the value to be used in the PipelinesTypeLabel for tenant Pipelines
+	TenantPipelineType PipelineType = "tenant"
+)
+
 // Common constants
 const (
 	// RhtapDomain is the prefix of the application label
@@ -31,9 +57,18 @@ const (
 )
 
 // Prefixes used by the release controller package
-var (
+const (
 	// PipelinesAsCodePrefix contains the prefix applied to labels and annotations copied from Pipelines as Code resources.
 	PipelinesAsCodePrefix = "pac.test.appstudio.openshift.io"
+)
+
+// Prefixes to be used by Release Pipelines labels
+var (
+	// pipelinesLabelPrefix is the prefix of the pipelines label
+	pipelinesLabelPrefix = fmt.Sprintf("pipelines.%s", RhtapDomain)
+
+	// releaseLabelPrefix is the prefix of the release labels
+	releaseLabelPrefix = fmt.Sprintf("release.%s", RhtapDomain)
 )
 
 // Labels used by the release api package
@@ -60,34 +95,10 @@ var (
 	ReleasePlanAdmissionLabel = fmt.Sprintf("release.%s/releasePlanAdmission", RhtapDomain)
 )
 
-// Prefixes to be used by Release Pipelines labels
-var (
-	// pipelinesLabelPrefix is the prefix of the pipelines label
-	pipelinesLabelPrefix = fmt.Sprintf("pipelines.%s", RhtapDomain)
-
-	// releaseLabelPrefix is the prefix of the release labels
-	releaseLabelPrefix = fmt.Sprintf("release.%s", RhtapDomain)
-)
-
 // Labels to be used within Release PipelineRuns
 var (
 	// ApplicationNameLabel is the label used to specify the application associated with the PipelineRun
 	ApplicationNameLabel = fmt.Sprintf("%s/%s", RhtapDomain, "application")
-
-	// ManagedCollectorsPipelineType is the value to be used in the PipelinesTypeLabel for managed collector Pipelines
-	ManagedCollectorsPipelineType = "managed-collectors"
-
-	// TenantCollectorsPipelineType is the value to be used in the PipelinesTypeLabel for tenant collector Pipelines
-	TenantCollectorsPipelineType = "tenant-collectors"
-
-	// FinalPipelineType is the value to be used in the PipelinesTypeLabel for final Pipelines
-	FinalPipelineType = "final"
-
-	// ManagedPipelineType is the value to be used in the PipelinesTypeLabel for managed Pipelines
-	ManagedPipelineType = "managed"
-
-	// TenantPipelineType is the value to be used in the PipelinesTypeLabel for tenant Pipelines
-	TenantPipelineType = "tenant"
 
 	// PipelinesTypeLabel is the label used to describe the type of pipeline
 	PipelinesTypeLabel = fmt.Sprintf("%s/%s", pipelinesLabelPrefix, "type")

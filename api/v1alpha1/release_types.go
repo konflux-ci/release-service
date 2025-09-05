@@ -350,7 +350,7 @@ func (r *Release) MarkFinalPipelineProcessed() {
 		r.Status.FinalProcessing.CompletionTime,
 		SucceededReason.String(),
 		r.Status.Target,
-		metadata.FinalPipelineType,
+		metadata.FinalPipelineType.String(),
 	)
 }
 
@@ -368,7 +368,7 @@ func (r *Release) MarkManagedCollectorsPipelineProcessed() {
 		r.Status.CollectorsProcessing.ManagedCollectorsProcessing.CompletionTime,
 		SucceededReason.String(),
 		r.Status.Target,
-		metadata.ManagedCollectorsPipelineType,
+		metadata.ManagedCollectorsPipelineType.String(),
 	)
 }
 
@@ -386,7 +386,7 @@ func (r *Release) MarkManagedPipelineProcessed() {
 		r.Status.ManagedProcessing.CompletionTime,
 		SucceededReason.String(),
 		r.Status.Target,
-		metadata.ManagedPipelineType,
+		metadata.ManagedPipelineType.String(),
 	)
 }
 
@@ -404,7 +404,7 @@ func (r *Release) MarkTenantCollectorsPipelineProcessed() {
 		r.Status.CollectorsProcessing.TenantCollectorsProcessing.CompletionTime,
 		SucceededReason.String(),
 		r.Status.Target,
-		metadata.TenantCollectorsPipelineType,
+		metadata.TenantCollectorsPipelineType.String(),
 	)
 }
 
@@ -422,7 +422,7 @@ func (r *Release) MarkTenantPipelineProcessed() {
 		r.Status.TenantProcessing.CompletionTime,
 		SucceededReason.String(),
 		r.Status.Target,
-		metadata.TenantPipelineType,
+		metadata.TenantPipelineType.String(),
 	)
 }
 
@@ -443,7 +443,7 @@ func (r *Release) MarkFinalPipelineProcessing() {
 		r.Status.FinalProcessing.StartTime,
 		ProgressingReason.String(),
 		r.Status.Target,
-		metadata.FinalPipelineType,
+		metadata.FinalPipelineType.String(),
 	)
 }
 
@@ -464,7 +464,7 @@ func (r *Release) MarkManagedCollectorsPipelineProcessing() {
 		r.Status.CollectorsProcessing.ManagedCollectorsProcessing.StartTime,
 		ProgressingReason.String(),
 		r.Status.Target,
-		metadata.ManagedPipelineType,
+		metadata.ManagedPipelineType.String(),
 	)
 }
 
@@ -485,7 +485,7 @@ func (r *Release) MarkManagedPipelineProcessing() {
 		r.Status.ManagedProcessing.StartTime,
 		ProgressingReason.String(),
 		r.Status.Target,
-		metadata.ManagedPipelineType,
+		metadata.ManagedPipelineType.String(),
 	)
 }
 
@@ -506,7 +506,7 @@ func (r *Release) MarkTenantCollectorsPipelineProcessing() {
 		r.Status.CollectorsProcessing.TenantCollectorsProcessing.StartTime,
 		ProgressingReason.String(),
 		r.Status.Target,
-		metadata.TenantCollectorsPipelineType,
+		metadata.TenantCollectorsPipelineType.String(),
 	)
 }
 
@@ -527,7 +527,7 @@ func (r *Release) MarkTenantPipelineProcessing() {
 		r.Status.TenantProcessing.StartTime,
 		ProgressingReason.String(),
 		r.Status.Target,
-		metadata.TenantPipelineType,
+		metadata.TenantPipelineType.String(),
 	)
 }
 
@@ -545,7 +545,7 @@ func (r *Release) MarkFinalPipelineProcessingFailed(message string) {
 		r.Status.FinalProcessing.CompletionTime,
 		FailedReason.String(),
 		r.Status.Target,
-		metadata.FinalPipelineType,
+		metadata.FinalPipelineType.String(),
 	)
 }
 
@@ -563,7 +563,7 @@ func (r *Release) MarkManagedCollectorsPipelineProcessingFailed(message string) 
 		r.Status.CollectorsProcessing.ManagedCollectorsProcessing.CompletionTime,
 		FailedReason.String(),
 		r.Status.Target,
-		metadata.ManagedCollectorsPipelineType,
+		metadata.ManagedCollectorsPipelineType.String(),
 	)
 }
 
@@ -581,7 +581,7 @@ func (r *Release) MarkManagedPipelineProcessingFailed(message string) {
 		r.Status.ManagedProcessing.CompletionTime,
 		FailedReason.String(),
 		r.Status.Target,
-		metadata.ManagedPipelineType,
+		metadata.ManagedPipelineType.String(),
 	)
 }
 
@@ -599,7 +599,7 @@ func (r *Release) MarkTenantCollectorsPipelineProcessingFailed(message string) {
 		r.Status.CollectorsProcessing.TenantCollectorsProcessing.CompletionTime,
 		FailedReason.String(),
 		r.Status.Target,
-		metadata.TenantCollectorsPipelineType,
+		metadata.TenantCollectorsPipelineType.String(),
 	)
 }
 
@@ -617,7 +617,7 @@ func (r *Release) MarkTenantPipelineProcessingFailed(message string) {
 		r.Status.TenantProcessing.CompletionTime,
 		FailedReason.String(),
 		r.Status.Target,
-		metadata.TenantPipelineType,
+		metadata.TenantPipelineType.String(),
 	)
 }
 
