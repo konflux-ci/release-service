@@ -2487,7 +2487,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		It("returns a PipelineRun with the right prefix", func() {
 			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1.PipelineRun{})))
-			Expect(pipelineRun.Name).To(HavePrefix(metadata.ManagedCollectorsPipelineType))
+			Expect(pipelineRun.Name).To(HavePrefix(metadata.ManagedCollectorsPipelineType.String()))
 		})
 
 		It("has the release reference", func() {
@@ -2501,7 +2501,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("has release labels", func() {
-			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.ManagedCollectorsPipelineType))
+			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.ManagedCollectorsPipelineType.String()))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 			Expect(pipelineRun.GetLabels()[metadata.ServiceNameLabel]).To(Equal(metadata.ServiceName))
@@ -2571,7 +2571,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		It("returns a PipelineRun with the right prefix", func() {
 			Expect(reflect.TypeOf(pipelineRun)).To(Equal(reflect.TypeOf(&tektonv1.PipelineRun{})))
-			Expect(pipelineRun.Name).To(HavePrefix(metadata.TenantCollectorsPipelineType))
+			Expect(pipelineRun.Name).To(HavePrefix(metadata.TenantCollectorsPipelineType.String()))
 		})
 
 		It("has the release reference", func() {
@@ -2586,7 +2586,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("has release labels", func() {
-			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.TenantCollectorsPipelineType))
+			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.TenantCollectorsPipelineType.String()))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 			Expect(pipelineRun.GetLabels()[metadata.ServiceNameLabel]).To(Equal(metadata.ServiceName))
@@ -2741,7 +2741,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("has release labels", func() {
-			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.TenantPipelineType))
+			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.TenantPipelineType.String()))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))
@@ -2899,7 +2899,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.ManagedPipelineType))
+			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.ManagedPipelineType.String()))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))
@@ -3186,7 +3186,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("has release labels", func() {
-			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.FinalPipelineType))
+			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.FinalPipelineType.String()))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))

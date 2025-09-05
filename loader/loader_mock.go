@@ -8,6 +8,7 @@ import (
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
@@ -123,7 +124,7 @@ func (l *mockLoader) GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Con
 }
 
 // GetReleasePipelineRun returns the resource and error passed as values of the context.
-func (l *mockLoader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType string) (*tektonv1.PipelineRun, error) {
+func (l *mockLoader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType metadata.PipelineType) (*tektonv1.PipelineRun, error) {
 	if ctx.Value(ReleasePipelineRunContextKey) == nil {
 		return l.loader.GetReleasePipelineRun(ctx, cli, release, pipelineType)
 	}

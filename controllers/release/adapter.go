@@ -819,7 +819,7 @@ func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, 
 }
 
 // getCollectorsPipelineRunBuilder generates a builder to use while creating a collectors PipelineRun.
-func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType, namespace, url string, revision string) *utils.PipelineRunBuilder {
+func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType metadata.PipelineType, namespace, url string, revision string) *utils.PipelineRunBuilder {
 	previousRelease, err := a.loader.GetPreviousRelease(a.ctx, a.client, a.release)
 	previousReleaseNamespaceName := ""
 	if err == nil && previousRelease != nil {
@@ -827,11 +827,11 @@ func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType, namespace, url s
 			previousRelease.Namespace, types.Separator, previousRelease.Name)
 	}
 
-	return utils.NewPipelineRunBuilder(pipelineType, namespace).
+	return utils.NewPipelineRunBuilder(pipelineType.String(), namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
-			metadata.PipelinesTypeLabel:    pipelineType,
+			metadata.PipelinesTypeLabel:    pipelineType.String(),
 			metadata.ServiceNameLabel:      metadata.ServiceName,
 			metadata.ReleaseNameLabel:      a.release.Name,
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
@@ -970,12 +970,12 @@ func (a *adapter) createTenantCollectorsPipelineRun(releasePlan *v1alpha1.Releas
 // will be extracted from the given ReleasePlan. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snapshot *applicationapiv1alpha1.Snapshot) (*tektonv1.PipelineRun, error) {
-	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.FinalPipelineType, releasePlan.Namespace).
+	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.FinalPipelineType.String(), releasePlan.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  releasePlan.Spec.Application,
-			metadata.PipelinesTypeLabel:    metadata.FinalPipelineType,
+			metadata.PipelinesTypeLabel:    metadata.FinalPipelineType.String(),
 			metadata.ServiceNameLabel:      metadata.ServiceName,
 			metadata.ReleaseNameLabel:      a.release.Name,
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
@@ -1011,12 +1011,12 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 // will be extracted from the given ReleasePlanAdmission. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
-	builder := utils.NewPipelineRunBuilder(metadata.ManagedPipelineType, resources.ReleasePlanAdmission.Namespace).
+	builder := utils.NewPipelineRunBuilder(metadata.ManagedPipelineType.String(), resources.ReleasePlanAdmission.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  resources.ReleasePlan.Spec.Application,
-			metadata.PipelinesTypeLabel:    metadata.ManagedPipelineType,
+			metadata.PipelinesTypeLabel:    metadata.ManagedPipelineType.String(),
 			metadata.ServiceNameLabel:      metadata.ServiceName,
 			metadata.ReleaseNameLabel:      a.release.Name,
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
@@ -1065,12 +1065,12 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 // will be extracted from the given ReleasePlan. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, snapshot *applicationapiv1alpha1.Snapshot) (*tektonv1.PipelineRun, error) {
-	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.TenantPipelineType, releasePlan.Namespace).
+	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.TenantPipelineType.String(), releasePlan.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  releasePlan.Spec.Application,
-			metadata.PipelinesTypeLabel:    metadata.TenantPipelineType,
+			metadata.PipelinesTypeLabel:    metadata.TenantPipelineType.String(),
 			metadata.ServiceNameLabel:      metadata.ServiceName,
 			metadata.ReleaseNameLabel:      a.release.Name,
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
