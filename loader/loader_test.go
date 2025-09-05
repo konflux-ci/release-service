@@ -441,7 +441,8 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetReleasePipelineRun", func() {
 		It("returns an error when called with an unexpected Pipeline type", func() {
-			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, "foo")
+			invalidPipelineType := metadata.PipelineType("invalid-type")
+			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, release, invalidPipelineType)
 			Expect(returnedObject).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("invalid type"))
@@ -676,7 +677,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Labels: map[string]string{
 					metadata.ReleaseNameLabel:      release.Name,
 					metadata.ReleaseNamespaceLabel: release.Namespace,
-					metadata.PipelinesTypeLabel:    metadata.FinalPipelineType,
+					metadata.PipelinesTypeLabel:    metadata.FinalPipelineType.String(),
 				},
 				Name:      "final-pipeline-run",
 				Namespace: "default",
@@ -689,7 +690,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Labels: map[string]string{
 					metadata.ReleaseNameLabel:      release.Name,
 					metadata.ReleaseNamespaceLabel: release.Namespace,
-					metadata.PipelinesTypeLabel:    metadata.ManagedCollectorsPipelineType,
+					metadata.PipelinesTypeLabel:    metadata.ManagedCollectorsPipelineType.String(),
 				},
 				Name:      "managed-collectors-pipeline-run",
 				Namespace: "default",
@@ -702,7 +703,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Labels: map[string]string{
 					metadata.ReleaseNameLabel:      release.Name,
 					metadata.ReleaseNamespaceLabel: release.Namespace,
-					metadata.PipelinesTypeLabel:    metadata.ManagedPipelineType,
+					metadata.PipelinesTypeLabel:    metadata.ManagedPipelineType.String(),
 				},
 				Name:      "managed-pipeline-run",
 				Namespace: "default",
@@ -715,7 +716,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Labels: map[string]string{
 					metadata.ReleaseNameLabel:      release.Name,
 					metadata.ReleaseNamespaceLabel: release.Namespace,
-					metadata.PipelinesTypeLabel:    metadata.TenantCollectorsPipelineType,
+					metadata.PipelinesTypeLabel:    metadata.TenantCollectorsPipelineType.String(),
 				},
 				Name:      "tenant-collectors-pipeline-run",
 				Namespace: "default",
@@ -728,7 +729,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Labels: map[string]string{
 					metadata.ReleaseNameLabel:      release.Name,
 					metadata.ReleaseNamespaceLabel: release.Namespace,
-					metadata.PipelinesTypeLabel:    metadata.TenantPipelineType,
+					metadata.PipelinesTypeLabel:    metadata.TenantPipelineType.String(),
 				},
 				Name:      "tenant-pipeline-run",
 				Namespace: "default",

@@ -60,7 +60,7 @@ var _ = Describe("Predicates", Ordered, func() {
 		It("should return true when an updated event is received for a succeeded managed PipelineRun", func() {
 			var releasePipelineRun *v1.PipelineRun
 			releasePipelineRun, err = utils.NewPipelineRunBuilder("pipeline-run", "default").
-				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.ManagedPipelineType}).
+				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.ManagedPipelineType.String()}).
 				Build()
 			Expect(err).NotTo(HaveOccurred())
 			contextEvent := event.UpdateEvent{

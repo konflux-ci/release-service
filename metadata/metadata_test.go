@@ -33,6 +33,16 @@ func TestMetadata(t *testing.T) {
 
 var _ = Describe("Metadata", func() {
 
+	Context("PipelineType enum", func() {
+		It("should return correct string representation", func() {
+			Expect(ManagedCollectorsPipelineType.String()).To(Equal("managed-collectors"))
+			Expect(TenantCollectorsPipelineType.String()).To(Equal("tenant-collectors"))
+			Expect(FinalPipelineType.String()).To(Equal("final"))
+			Expect(ManagedPipelineType.String()).To(Equal("managed"))
+			Expect(TenantPipelineType.String()).To(Equal("tenant"))
+		})
+	})
+
 	Context("addEntries function", func() {
 		When("called with an empty destination map", func() {
 			src := map[string]string{

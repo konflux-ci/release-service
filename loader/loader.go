@@ -38,7 +38,7 @@ type ObjectLoader interface {
 	GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
 	GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context, cli client.Client, pipelineInfo *v1alpha1.PipelineInfo, roleBindingType string) (*rbac.RoleBinding, error)
-	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType string) (*tektonv1.PipelineRun, error)
+	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType metadata.PipelineType) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
 	GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error)
 	GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error)
@@ -290,7 +290,7 @@ func (l *loader) GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context
 
 // GetReleasePipelineRun returns the Release PipelineRun of the specified type referenced by the given Release
 // or nil if it's not found. In the case the List operation fails, an error will be returned.
-func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType string) (*tektonv1.PipelineRun, error) {
+func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType metadata.PipelineType) (*tektonv1.PipelineRun, error) {
 	if pipelineType != metadata.ManagedCollectorsPipelineType && pipelineType != metadata.ManagedPipelineType &&
 		pipelineType != metadata.TenantCollectorsPipelineType && pipelineType != metadata.TenantPipelineType && pipelineType != metadata.FinalPipelineType {
 		return nil, fmt.Errorf("cannot fetch Release PipelineRun with invalid type %s", pipelineType)
@@ -302,7 +302,7 @@ func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, r
 		client.MatchingLabels{
 			metadata.ReleaseNameLabel:      release.Name,
 			metadata.ReleaseNamespaceLabel: release.Namespace,
-			metadata.PipelinesTypeLabel:    pipelineType,
+			metadata.PipelinesTypeLabel:    pipelineType.String(),
 		})
 	if err == nil && len(pipelineRuns.Items) > 0 {
 		return &pipelineRuns.Items[0], nil
