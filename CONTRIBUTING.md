@@ -4,7 +4,7 @@ Contributions of all kinds are welcome. In particular pull requests are apprecia
 
 ## Code of Conduct
 
-Our [company values](https://www.redhat.com/en/about/brand/standards/culture) guide us in our day-to-day interactions and decision-making. Our open source projects are no exception and they will define the standards for how to engage with the project through a [code of conduct](CODE_OF_CONDUCT.md). 
+Our [company values](https://www.redhat.com/en/about/brand/standards/culture) guide us in our day-to-day interactions and decision-making. Our open source projects are no exception and they will define the standards for how to engage with the project through a [code of conduct](CODE_OF_CONDUCT.md).
 
 Please, make sure you read both of them before contributing, so you can help us to maintain a healthy community.
 
@@ -61,11 +61,6 @@ Overall explanation of what this commit is achieving and the motivation behind i
 
 Signed-off-by: Your Name <your-name@your-email.com>
 ```
-
-### Signing commits
-
-This project also enforces GPG signed commits. More information on commit signing and how to do it can be found in the [git official docs](
-https://git-scm.com/book/en/v2/Git-Tools-Signing-Your-Work) or in [this GitHub guide](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits). You can see whether or not the commit was successfully signed by the `Verified` bubble next to your commit in the GitHub UI or using `git log`.
 
 ### Pull Requests
 
