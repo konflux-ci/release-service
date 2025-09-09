@@ -259,8 +259,8 @@ github.com/klauspost/compress v1.18.0 h1:c/Cqfb0r+Yi+JtIEq73FWXVkRonBlf0CRNYc8Zt
 github.com/klauspost/compress v1.18.0/go.mod h1:2Pp+KzxcywXVXMr50+X0Q/Lsb43OQHYWRCY2AiWywWQ=
 github.com/konflux-ci/application-api v0.0.0-20250324201748-5a9670bf7679 h1:mtLA7dQ9iIncxYoOLgty2B1l1cucnp/tsbxQaKn9Myw=
 github.com/konflux-ci/application-api v0.0.0-20250324201748-5a9670bf7679/go.mod h1:948Z+a1IbfRT0RtoHzWWSN9YEucSbMJTHaMhz7dVICc=
-github.com/konflux-ci/integration-service v0.0.0-20250831020813-f55219891c5a h1:ow9U/OcbOYXcszHcwxG7Ze1Og7b1DYUz4A/4sqc0TlY=
-github.com/konflux-ci/integration-service v0.0.0-20250831020813-f55219891c5a/go.mod h1:z3S/9bcL/rjALRtkbbL7cFs26uRbl0mXMn3sSnhJO5I=
+github.com/konflux-ci/integration-service v0.0.0-20250908103823-07c88d72d7b0 h1:aCE44POXYsuWbpBpYnkzKc7gmwdmLoQPLAWd5YU9tQQ=
+github.com/konflux-ci/integration-service v0.0.0-20250908103823-07c88d72d7b0/go.mod h1:z3S/9bcL/rjALRtkbbL7cFs26uRbl0mXMn3sSnhJO5I=
 github.com/konflux-ci/operator-toolkit v0.0.0-20240402130556-ef6dcbeca69d h1:z7j3mglNoXvIrw5Vz/Ul+izoITRaqYURPIWrFoEyHgI=
 github.com/konflux-ci/operator-toolkit v0.0.0-20240402130556-ef6dcbeca69d/go.mod h1:AcChx7FjpYSIkDvQgaUKyauuF0PXm3ivB5MqZSC9Eis=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
