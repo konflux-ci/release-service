@@ -6,7 +6,7 @@ require (
 	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.142
 	github.com/go-logr/logr v1.4.3
 	github.com/konflux-ci/application-api v0.0.0-20250324201748-5a9670bf7679
-	github.com/konflux-ci/integration-service v0.0.0-20250831020813-f55219891c5a
+	github.com/konflux-ci/integration-service v0.0.0-20250908103823-07c88d72d7b0
 	github.com/konflux-ci/operator-toolkit v0.0.0-20240402130556-ef6dcbeca69d
 	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/onsi/gomega v1.38.2
