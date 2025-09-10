@@ -33,7 +33,7 @@ var _ = Describe("Utils", Ordered, func() {
 
 		It("should return true when the PipelineRun is of type 'tenant-collectors'", func() {
 			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
-				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.TenantCollectorsPipelineType}).
+				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.TenantCollectorsPipelineType.String()}).
 				Build()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(isReleasePipelineRun(pipelineRun)).To(BeTrue())
@@ -41,7 +41,7 @@ var _ = Describe("Utils", Ordered, func() {
 
 		It("should return true when the PipelineRun is of type 'managed-collectors'", func() {
 			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
-				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.ManagedCollectorsPipelineType}).
+				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.ManagedCollectorsPipelineType.String()}).
 				Build()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(isReleasePipelineRun(pipelineRun)).To(BeTrue())
@@ -49,7 +49,7 @@ var _ = Describe("Utils", Ordered, func() {
 
 		It("should return true when the PipelineRun is of type 'final'", func() {
 			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
-				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.FinalPipelineType}).
+				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.FinalPipelineType.String()}).
 				Build()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(isReleasePipelineRun(pipelineRun)).To(BeTrue())
@@ -57,7 +57,7 @@ var _ = Describe("Utils", Ordered, func() {
 
 		It("should return true when the PipelineRun is of type 'managed'", func() {
 			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
-				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.ManagedPipelineType}).
+				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.ManagedPipelineType.String()}).
 				Build()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(isReleasePipelineRun(pipelineRun)).To(BeTrue())
@@ -65,7 +65,7 @@ var _ = Describe("Utils", Ordered, func() {
 
 		It("should return true when the PipelineRun is of type 'tenant'", func() {
 			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
-				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.TenantPipelineType}).
+				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.TenantPipelineType.String()}).
 				Build()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(isReleasePipelineRun(pipelineRun)).To(BeTrue())
