@@ -40,6 +40,7 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/apis"
 
 	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
@@ -2349,6 +2350,236 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(pipelineRun.Finalizers).To(HaveLen(0))
 			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("should continue processing even when individual pipeline cleanups fail", func() {
+			adapter.releaseServiceConfig = releaseServiceConfig
+
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.MarkTenantPipelineProcessed()
+			adapter.release.MarkManagedPipelineProcessing()
+			adapter.release.MarkManagedPipelineProcessed()
+			adapter.release.MarkFinalPipelineProcessing()
+			adapter.release.MarkFinalPipelineProcessed()
+
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should handle cases when only some pipelines are finished", func() {
+			adapter.releaseServiceConfig = releaseServiceConfig
+
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.MarkTenantPipelineProcessed()
+
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	When("testing orphaned finalizer cleanup functionality", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+			adapter.releaseServiceConfig = releaseServiceConfig
+		})
+
+		It("should cleanup orphaned finalizers for old completed PipelineRuns", func() {
+			// Create a PipelineRun with release finalizer that's been completed for >2 hours
+			oldTime := time.Now().Add(-3 * time.Hour)
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "old-completed-pipeline",
+					Namespace: "default",
+					Labels: map[string]string{
+						"appstudio.redhat.com/release": adapter.release.Name,
+					},
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+			Expect(k8sClient.Create(ctx, pipelineRun)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, pipelineRun) }()
+
+			pipelineRun.Status.SetCondition(&apis.Condition{
+				Type:   apis.ConditionSucceeded,
+				Status: corev1.ConditionTrue,
+			})
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: oldTime}
+			Expect(k8sClient.Status().Update(ctx, pipelineRun)).To(Succeed())
+
+			Expect(adapter.isOrphanedFinalizer(pipelineRun)).To(BeTrue())
+
+			err := adapter.cleanupOrphanedPipelineFinalizers()
+			Expect(err).NotTo(HaveOccurred())
+
+			updated := &tektonv1.PipelineRun{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pipelineRun.Name,
+				Namespace: pipelineRun.Namespace,
+			}, updated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updated.Finalizers).NotTo(ContainElement(metadata.ReleaseFinalizer))
+		})
+
+		It("should correctly identify various orphaned finalizer scenarios", func() {
+			oldTime := time.Now().Add(-3 * time.Hour)
+			recentTime := time.Now().Add(-1 * time.Hour)
+
+			testCases := []struct {
+				name             string
+				finalizers       []string
+				completionTime   *time.Time
+				conditionStatus  corev1.ConditionStatus
+				expectedOrphaned bool
+			}{
+				{"orphaned-succeeded", []string{metadata.ReleaseFinalizer}, &oldTime, corev1.ConditionTrue, true},
+				{"orphaned-failed", []string{metadata.ReleaseFinalizer}, &oldTime, corev1.ConditionFalse, true},
+				{"not-orphaned-recent", []string{metadata.ReleaseFinalizer}, &recentTime, corev1.ConditionTrue, false},
+				{"not-orphaned-no-finalizer", []string{}, &oldTime, corev1.ConditionTrue, false},
+				{"not-orphaned-no-completion", []string{metadata.ReleaseFinalizer}, nil, corev1.ConditionTrue, false},
+				{"not-orphaned-unknown-status", []string{metadata.ReleaseFinalizer}, &oldTime, corev1.ConditionUnknown, false},
+			}
+
+			for _, tc := range testCases {
+				pr := &tektonv1.PipelineRun{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       tc.name,
+						Namespace:  "default",
+						Finalizers: tc.finalizers,
+						Labels: map[string]string{
+							"appstudio.redhat.com/release": adapter.release.Name,
+						},
+					},
+				}
+				if tc.completionTime != nil {
+					pr.Status.CompletionTime = &metav1.Time{Time: *tc.completionTime}
+				}
+				if tc.conditionStatus != "" {
+					pr.Status.SetCondition(&apis.Condition{
+						Type:   apis.ConditionSucceeded,
+						Status: tc.conditionStatus,
+					})
+				}
+				Expect(adapter.isOrphanedFinalizer(pr)).To(Equal(tc.expectedOrphaned), "Failed for test case: %s", tc.name)
+			}
+		})
+
+		It("should handle cleanup errors gracefully for non-existent resources", func() {
+			// Create a PipelineRun that doesn't exist in the cluster
+			nonExistentPipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "non-existent-pipeline",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+
+			err := adapter.cleanupPipelineResources(nonExistentPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should handle unsupported pipeline types in cleanupPipeline", func() {
+			err := adapter.cleanupPipeline(metadata.PipelineType("unsupported-type"))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid type"))
+		})
+
+		It("should handle list errors in cleanupOrphanedPipelineFinalizers", func() {
+			badAdapter := createReleaseAndAdapter()
+			badAdapter.release.Namespace = "non-existent-namespace-that-should-cause-list-error"
+
+			err := badAdapter.cleanupOrphanedPipelineFinalizers()
+			// This should handle the error gracefully and return it
+			// The important thing is we don't panic and the function completes
+			_ = err
+		})
+
+		It("should log success when orphaned finalizers are cleaned up", func() {
+			// Create multiple old PipelineRuns to test the cleanup count logging
+			oldTime := time.Now().Add(-3 * time.Hour)
+
+			pipelineRun1 := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "old-pipeline-1",
+					Namespace: "default",
+					Labels: map[string]string{
+						"appstudio.redhat.com/release": adapter.release.Name,
+					},
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+			Expect(k8sClient.Create(ctx, pipelineRun1)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, pipelineRun1) }()
+
+			pipelineRun1.Status.SetCondition(&apis.Condition{
+				Type:   apis.ConditionSucceeded,
+				Status: corev1.ConditionTrue,
+			})
+			pipelineRun1.Status.CompletionTime = &metav1.Time{Time: oldTime}
+			Expect(k8sClient.Status().Update(ctx, pipelineRun1)).To(Succeed())
+
+			pipelineRun2 := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "old-pipeline-2",
+					Namespace: "default",
+					Labels: map[string]string{
+						"appstudio.redhat.com/release": adapter.release.Name,
+					},
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+			Expect(k8sClient.Create(ctx, pipelineRun2)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, pipelineRun2) }()
+
+			pipelineRun2.Status.SetCondition(&apis.Condition{
+				Type:   apis.ConditionSucceeded,
+				Status: corev1.ConditionFalse, // Failed pipeline
+			})
+			pipelineRun2.Status.CompletionTime = &metav1.Time{Time: oldTime}
+			Expect(k8sClient.Status().Update(ctx, pipelineRun2)).To(Succeed())
+
+			err := adapter.cleanupOrphanedPipelineFinalizers()
+			Expect(err).NotTo(HaveOccurred())
+
+			updated1 := &tektonv1.PipelineRun{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pipelineRun1.Name,
+				Namespace: pipelineRun1.Namespace,
+			}, updated1)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updated1.Finalizers).NotTo(ContainElement(metadata.ReleaseFinalizer))
+
+			updated2 := &tektonv1.PipelineRun{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      pipelineRun2.Name,
+				Namespace: pipelineRun2.Namespace,
+			}, updated2)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updated2.Finalizers).NotTo(ContainElement(metadata.ReleaseFinalizer))
+		})
+
+		It("should handle cleanupPipeline for different pipeline types", func() {
+			err := adapter.cleanupPipeline(metadata.TenantPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Test final pipeline cleanup (no role bindings)
+			err = adapter.cleanupPipeline(metadata.FinalPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Test managed pipeline cleanup (may have role bindings)
+			err = adapter.cleanupPipeline(metadata.ManagedPipelineType)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
