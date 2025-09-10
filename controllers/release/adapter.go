@@ -765,11 +765,87 @@ func (a *adapter) EnsureCollectorsProcessingResourcesAreCleanedUp() (controller.
 // Processing step are cleaned up once processing is finished. This exists in conjunction with EnsureFinalizersAreCalled because
 // the finalizers should be removed from the pipelineRuns even if the Release is not marked for deletion for quota reasons.
 func (a *adapter) EnsureReleaseProcessingResourcesAreCleanedUp() (controller.OperationResult, error) {
-	if !a.release.HasTenantPipelineProcessingFinished() || !a.release.HasManagedPipelineProcessingFinished() || !a.release.HasFinalPipelineProcessingFinished() {
+	var cleanupErrors []error
+
+	defer func() {
+		if len(cleanupErrors) > 0 {
+			a.logger.Error(fmt.Errorf("pipeline cleanup errors: %v", cleanupErrors),
+				"Some pipeline cleanups failed, but Release will continue")
+		}
+	}()
+
+	if !a.release.HasTenantPipelineProcessingFinished() {
 		return controller.ContinueProcessing()
 	}
 
-	return controller.RequeueOnErrorOrContinue(a.finalizeRelease(false))
+	if err := a.cleanupPipeline(metadata.TenantPipelineType); err != nil {
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("tenant pipeline cleanup failed: %w", err))
+	}
+
+	if !a.release.HasManagedPipelineProcessingFinished() {
+		return controller.ContinueProcessing()
+	}
+
+	if err := a.cleanupPipeline(metadata.ManagedPipelineType); err != nil {
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("managed pipeline cleanup failed: %w", err))
+	}
+
+	if !a.release.HasFinalPipelineProcessingFinished() {
+		return controller.ContinueProcessing()
+	}
+
+	if err := a.cleanupPipeline(metadata.FinalPipelineType); err != nil {
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("final pipeline cleanup failed: %w", err))
+	}
+
+	return controller.ContinueProcessing()
+}
+
+// cleanupPipeline handles pipeline cleanup for any pipeline type
+func (a *adapter) cleanupPipeline(pipelineType metadata.PipelineType) error {
+	// Get the pipeline run
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, pipelineType)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	if pipelineRun == nil {
+		return nil
+	}
+
+	// Get role bindings based on pipeline type
+	var roleBindings []*rbac.RoleBinding
+	if pipelineType == metadata.ManagedPipelineType {
+		tenantRoleBinding, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.ManagedProcessing, "tenant")
+		if err == nil && tenantRoleBinding != nil {
+			roleBindings = append(roleBindings, tenantRoleBinding)
+		}
+	} else if pipelineType != metadata.TenantPipelineType && pipelineType != metadata.FinalPipelineType {
+		return fmt.Errorf("unsupported pipeline type: %s", pipelineType.String())
+	}
+
+	return a.cleanupPipelineResources(pipelineRun, roleBindings...)
+}
+
+// cleanupPipelineResources - Simple one-shot cleanup (no retries, orphaned cleanup will handle failures)
+func (a *adapter) cleanupPipelineResources(pipelineRun *tektonv1.PipelineRun, roleBindings ...*rbac.RoleBinding) error {
+	err := a.cleanupProcessingResources(pipelineRun, roleBindings...)
+	if err != nil && !errors.IsNotFound(err) {
+		pipelineRunName := "unknown"
+		if pipelineRun != nil {
+			pipelineRunName = pipelineRun.Name
+		}
+		a.logger.Error(err, "Pipeline cleanup failed", "pipelineRun", pipelineRunName)
+		return err
+	}
+
+	if err == nil {
+		pipelineRunName := "unknown"
+		if pipelineRun != nil {
+			pipelineRunName = pipelineRun.Name
+		}
+		a.logger.Info("Pipeline cleanup successful", "pipelineRun", pipelineRunName)
+	}
+	return nil
 }
 
 // cleanupProcessingResources removes the finalizer from the PipelineRun created for the Release Processing
@@ -781,8 +857,11 @@ func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, 
 		}
 
 		err := a.client.Delete(a.ctx, roleBinding)
-		if err != nil {
-			return err
+		if err != nil && !errors.IsNotFound(err) && !errors.IsForbidden(err) {
+			a.logger.V(1).Info("Failed to delete RoleBinding, continuing with finalizer removal",
+				"roleBinding", roleBinding.Name,
+				"namespace", roleBinding.Namespace,
+				"error", err.Error())
 		}
 
 		if roleBinding.RoleRef.Kind == "Role" {
@@ -791,12 +870,14 @@ func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, 
 				Namespace: roleBinding.Namespace,
 				Name:      roleBinding.RoleRef.Name,
 			}, role)
-			if err != nil {
-				return err
-			}
-			err = a.client.Delete(a.ctx, role)
-			if err != nil {
-				return err
+			if err == nil {
+				err = a.client.Delete(a.ctx, role)
+				if err != nil && !errors.IsNotFound(err) && !errors.IsForbidden(err) {
+					a.logger.V(1).Info("Failed to delete Role, continuing with finalizer removal",
+						"role", role.Name,
+						"namespace", role.Namespace,
+						"error", err.Error())
+				}
 			}
 		}
 	}
