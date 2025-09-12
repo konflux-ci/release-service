@@ -35,6 +35,7 @@ import (
 	"github.com/konflux-ci/release-service/syncer"
 	"github.com/konflux-ci/release-service/tekton/utils"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -765,11 +766,141 @@ func (a *adapter) EnsureCollectorsProcessingResourcesAreCleanedUp() (controller.
 // Processing step are cleaned up once processing is finished. This exists in conjunction with EnsureFinalizersAreCalled because
 // the finalizers should be removed from the pipelineRuns even if the Release is not marked for deletion for quota reasons.
 func (a *adapter) EnsureReleaseProcessingResourcesAreCleanedUp() (controller.OperationResult, error) {
-	if !a.release.HasTenantPipelineProcessingFinished() || !a.release.HasManagedPipelineProcessingFinished() || !a.release.HasFinalPipelineProcessingFinished() {
-		return controller.ContinueProcessing()
+	var cleanupErrors []error
+
+	if a.release.HasTenantPipelineProcessingFinished() {
+		if err := a.cleanupPipeline(metadata.TenantPipelineType); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("tenant pipeline cleanup failed: %w", err))
+		}
 	}
 
-	return controller.RequeueOnErrorOrContinue(a.finalizeRelease(false))
+	if a.release.HasManagedPipelineProcessingFinished() {
+		if err := a.cleanupPipeline(metadata.ManagedPipelineType); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("managed pipeline cleanup failed: %w", err))
+		}
+	}
+
+	if a.release.HasFinalPipelineProcessingFinished() {
+		if err := a.cleanupPipeline(metadata.FinalPipelineType); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("final pipeline cleanup failed: %w", err))
+		}
+	}
+
+	if len(cleanupErrors) > 0 {
+		a.logger.Error(fmt.Errorf("pipeline cleanup errors: %v", cleanupErrors),
+			"Some pipeline cleanups failed, but Release will continue")
+	}
+
+	err := a.cleanupOrphanedPipelineFinalizers()
+	if err != nil {
+		a.logger.Error(err, "Failed to cleanup orphaned finalizers, but Release will continue")
+	}
+
+	return controller.ContinueProcessing()
+}
+
+// cleanupPipeline handles pipeline cleanup for any pipeline type.
+func (a *adapter) cleanupPipeline(pipelineType metadata.PipelineType) error {
+	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, pipelineType)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	if pipelineRun == nil {
+		return nil
+	}
+
+	var roleBindings []*rbac.RoleBinding
+	if pipelineType == metadata.ManagedPipelineType {
+		tenantRoleBinding, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.ManagedProcessing, "tenant")
+		if err == nil && tenantRoleBinding != nil {
+			roleBindings = append(roleBindings, tenantRoleBinding)
+		}
+	} else if pipelineType != metadata.TenantPipelineType && pipelineType != metadata.FinalPipelineType {
+		return fmt.Errorf("unsupported pipeline type: %s", pipelineType.String())
+	}
+
+	return a.cleanupPipelineResources(pipelineRun, roleBindings...)
+}
+
+// cleanupPipelineResources - Simple one-shot cleanup (no retries, orphaned cleanup will handle failures)
+func (a *adapter) cleanupPipelineResources(pipelineRun *tektonv1.PipelineRun, roleBindings ...*rbac.RoleBinding) error {
+	err := a.cleanupProcessingResources(pipelineRun, roleBindings...)
+	if err != nil && !errors.IsNotFound(err) {
+		pipelineRunName := "unknown"
+		if pipelineRun != nil {
+			pipelineRunName = pipelineRun.Name
+		}
+		a.logger.Error(err, "Pipeline cleanup failed", "pipelineRun", pipelineRunName)
+		return err
+	}
+
+	// Success case (including IsNotFound which is considered success)
+	if err == nil {
+		pipelineRunName := "unknown"
+		if pipelineRun != nil {
+			pipelineRunName = pipelineRun.Name
+		}
+		a.logger.Info("Pipeline cleanup successful", "pipelineRun", pipelineRunName)
+	}
+	return nil
+}
+
+// cleanupOrphanedPipelineFinalizers cleans up finalizers on completed PipelineRuns that failed to clean up.
+func (a *adapter) cleanupOrphanedPipelineFinalizers() error {
+	var prList tektonv1.PipelineRunList
+	err := a.client.List(a.ctx, &prList,
+		client.InNamespace(a.release.Namespace),
+		client.MatchingLabels{"appstudio.redhat.com/release": a.release.Name})
+	if err != nil {
+		return fmt.Errorf("failed to list PipelineRuns for orphaned cleanup: %w", err)
+	}
+
+	cleanedCount := 0
+	for _, pr := range prList.Items {
+		if !a.isOrphanedFinalizer(&pr) {
+			continue
+		}
+
+		a.logger.Info("Cleaning up orphaned finalizer",
+			"pipelineRun", pr.Name,
+			"completionTime", pr.Status.CompletionTime,
+			"condition", pr.Status.GetCondition(apis.ConditionSucceeded))
+
+		if err := a.cleanupProcessingResources(&pr); err != nil {
+			a.logger.Error(err, "Failed to cleanup orphaned finalizer", "pipelineRun", pr.Name)
+			continue
+		}
+		cleanedCount++
+	}
+
+	if cleanedCount > 0 {
+		a.logger.Info("Cleaned up orphaned finalizers", "count", cleanedCount, "release", a.release.Name)
+	}
+	return nil
+}
+
+// isOrphanedFinalizer determines if a PipelineRun has an orphaned release finalizer.
+func (a *adapter) isOrphanedFinalizer(pr *tektonv1.PipelineRun) bool {
+	const orphanedThreshold = 2 * time.Hour
+
+	if !controllerutil.ContainsFinalizer(pr, metadata.ReleaseFinalizer) ||
+		pr.Status.CompletionTime == nil ||
+		time.Since(pr.Status.CompletionTime.Time) < orphanedThreshold {
+		return false
+	}
+
+	condition := pr.Status.GetCondition(apis.ConditionSucceeded)
+	if condition == nil || (condition.Status != corev1.ConditionTrue && condition.Status != corev1.ConditionFalse) {
+		return false
+	}
+
+	a.logger.V(1).Info("Found orphaned finalizer candidate",
+		"pipelineRun", pr.Name,
+		"age", time.Since(pr.Status.CompletionTime.Time),
+		"status", condition.Status,
+		"reason", condition.Reason)
+
+	return true
 }
 
 // cleanupProcessingResources removes the finalizer from the PipelineRun created for the Release Processing
@@ -781,8 +912,11 @@ func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, 
 		}
 
 		err := a.client.Delete(a.ctx, roleBinding)
-		if err != nil {
-			return err
+		if err != nil && !errors.IsNotFound(err) && !errors.IsForbidden(err) {
+			a.logger.V(1).Info("Failed to delete RoleBinding, continuing with finalizer removal",
+				"roleBinding", roleBinding.Name,
+				"namespace", roleBinding.Namespace,
+				"error", err.Error())
 		}
 
 		if roleBinding.RoleRef.Kind == "Role" {
@@ -791,12 +925,14 @@ func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, 
 				Namespace: roleBinding.Namespace,
 				Name:      roleBinding.RoleRef.Name,
 			}, role)
-			if err != nil {
-				return err
-			}
-			err = a.client.Delete(a.ctx, role)
-			if err != nil {
-				return err
+			if err == nil {
+				err = a.client.Delete(a.ctx, role)
+				if err != nil && !errors.IsNotFound(err) && !errors.IsForbidden(err) {
+					a.logger.V(1).Info("Failed to delete Role, continuing with finalizer removal",
+						"role", role.Name,
+						"namespace", role.Namespace,
+						"error", err.Error())
+				}
 			}
 		}
 	}
@@ -1182,9 +1318,9 @@ func (a *adapter) createRoleBindingForClusterRole(clusterRole, roleBindingNamesp
 }
 
 // finalizeRelease will finalize the Release being processed, removing the associated resources. The pipelineRuns are optionally
-// deleted so that EnsureReleaseProcessingResourcesAreCleanedUp can call this and just remove the finalizers, but
-// EnsureFinalizersAreCalled will remove the finalizers and delete the pipelineRuns. If the pipelineRuns were deleted in
-// EnsureReleaseProcessingResourcesAreCleanedUp, they could be removed before all the tracking data is saved.
+// deleted based on the delete parameter. This function is called by EnsureFinalizersAreCalled when a Release is being deleted
+// to clean up all associated PipelineRuns and their finalizers. Individual pipeline cleanup during normal operation is now
+// handled by EnsureReleaseProcessingResourcesAreCleanedUp using cleanupProcessingResources for each completed pipeline.
 func (a *adapter) finalizeRelease(delete bool) error {
 	// Cleanup Managed Collectors Processing Resources
 	managedCollectorsPipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedCollectorsPipelineType)
