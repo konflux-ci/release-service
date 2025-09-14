@@ -12,8 +12,8 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/operator-framework/operator-lib v0.19.0
 	github.com/tektoncd/pipeline v1.4.0
-	k8s.io/api v0.34.0
-	k8s.io/apimachinery v0.34.0
+	k8s.io/api v0.34.1
+	k8s.io/apimachinery v0.34.1
 	k8s.io/client-go v1.5.2
 	knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883
 	sigs.k8s.io/controller-runtime v0.22.1
@@ -67,7 +67,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250826171959-ef028d996bc1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250826171959-ef028d996bc1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
-	k8s.io/apiserver v0.34.0 // indirect
+	k8s.io/apiserver v0.34.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
@@ -126,8 +126,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.34.0 // indirect
-	k8s.io/component-base v0.34.0 // indirect
+	k8s.io/apiextensions-apiserver v0.34.1 // indirect
+	k8s.io/component-base v0.34.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
@@ -136,4 +136,4 @@ require (
 )
 
 // This is to work around errors like package k8s.io/client-go/X provided by k8s.io/client-go at latest version v0.34.0 but not at required version v1.5.2
-replace k8s.io/client-go => k8s.io/client-go v0.34.0
+replace k8s.io/client-go => k8s.io/client-go v0.34.1
