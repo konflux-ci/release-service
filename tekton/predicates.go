@@ -17,25 +17,29 @@ limitations under the License.
 package tekton
 
 import (
+	"github.com/konflux-ci/release-service/metadata"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-// ReleasePipelineRunSucceededPredicate returns a predicate which filters out all objects except
-// Release PipelineRuns which have just succeeded.
-func ReleasePipelineRunSucceededPredicate() predicate.Predicate {
+// ReleasePipelineRunLifecyclePredicate is a predicate to select Release PipelineRuns during
+// key lifecycle events: successful completion, deletion with finalizers, or finalizer changes.
+func ReleasePipelineRunLifecyclePredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(createEvent event.CreateEvent) bool {
 			return false
 		},
 		DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
-			return false
+			return isReleasePipelineRun(deleteEvent.Object) &&
+				controllerutil.ContainsFinalizer(deleteEvent.Object, metadata.ReleaseFinalizer)
 		},
 		GenericFunc: func(genericEvent event.GenericEvent) bool {
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return isReleasePipelineRun(e.ObjectNew) && hasPipelineSucceeded(e.ObjectNew)
+			return isReleasePipelineRun(e.ObjectNew) &&
+				(hasPipelineSucceeded(e.ObjectNew) || hasFinalizersChanged(e.ObjectOld, e.ObjectNew))
 		},
 	}
 }
