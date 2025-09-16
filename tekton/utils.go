@@ -17,6 +17,8 @@ limitations under the License.
 package tekton
 
 import (
+	"reflect"
+
 	"github.com/konflux-ci/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"knative.dev/pkg/apis"
@@ -47,4 +49,17 @@ func hasPipelineSucceeded(object client.Object) bool {
 	}
 
 	return false
+}
+
+// hasFinalizersChanged returns true if the finalizers have changed between old and new objects.
+// This helps detect when other controllers (like Tekton) are modifying finalizers during deletion.
+func hasFinalizersChanged(oldObj, newObj client.Object) bool {
+	if oldObj == nil || newObj == nil {
+		return false
+	}
+
+	oldFinalizers := oldObj.GetFinalizers()
+	newFinalizers := newObj.GetFinalizers()
+
+	return !reflect.DeepEqual(oldFinalizers, newFinalizers)
 }
