@@ -3,7 +3,7 @@ module github.com/konflux-ci/release-service
 go 1.24.4
 
 require (
-	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.155
+	github.com/enterprise-contract/enterprise-contract-controller/api v0.1.159
 	github.com/go-logr/logr v1.4.3
 	github.com/konflux-ci/application-api v0.0.0-20250324201748-5a9670bf7679
 	github.com/konflux-ci/integration-service v0.0.0-20250915152802-cec5d540d177
