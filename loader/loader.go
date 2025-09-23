@@ -13,7 +13,7 @@ import (
 
 	toolkit "github.com/konflux-ci/operator-toolkit/loader"
 
-	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
+	ecapiv1alpha1 "github.com/conforma/crds/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/metadata"

@@ -24,7 +24,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
+	ecapiv1alpha1 "github.com/conforma/crds/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
 	"github.com/konflux-ci/operator-toolkit/test"
 	appstudiov1alpha1 "github.com/konflux-ci/release-service/api/v1alpha1"
@@ -81,7 +81,7 @@ var _ = BeforeSuite(func() {
 			),
 			filepath.Join(
 				build.Default.GOPATH,
-				"pkg", "mod", test.GetRelativeDependencyPath("enterprise-contract-controller"), "config",
+				"pkg", "mod", test.GetRelativeDependencyPath("crds"), "config",
 			),
 		},
 		ErrorIfCRDPathMissing: true,
