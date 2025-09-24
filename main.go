@@ -20,9 +20,10 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
+
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
-	"time"
 
 	"github.com/konflux-ci/operator-toolkit/controller"
 	"github.com/konflux-ci/operator-toolkit/webhook"
@@ -35,7 +36,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	ecapiv1alpha1 "github.com/enterprise-contract/enterprise-contract-controller/api/v1alpha1"
+	ecapiv1alpha1 "github.com/conforma/crds/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/labels"
