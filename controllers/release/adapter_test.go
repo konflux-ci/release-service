@@ -17,8 +17,11 @@ limitations under the License.
 package release
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"reflect"
 	"strings"
@@ -437,14 +440,12 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should create a pipelineRun and register the processing data if all the required resources are present", func() {
-			releasePlan := &v1alpha1.ReleasePlan{}
-
 			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
+					{Name: "url", Value: "https://github.com/test/repo.git"},
+					{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
 					{Name: "pathInRepo", Value: "my-path"},
 				},
 			}
@@ -1083,8 +1084,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 						PipelineRef: tektonutils.PipelineRef{
 							Resolver: "git",
 							Params: []tektonutils.Param{
-								{Name: "url", Value: "my-url"},
-								{Name: "revision", Value: "my-revision"},
+								{Name: "url", Value: "https://github.com/test/repo.git"},
+								{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
 								{Name: "pathInRepo", Value: "my-path"},
 							},
 						},
@@ -1584,14 +1585,12 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should create a pipelineRun and register the processing data if all the required resources are present", func() {
-			releasePlan := &v1alpha1.ReleasePlan{}
-
 			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
+					{Name: "url", Value: "https://github.com/test/repo.git"},
+					{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
 					{Name: "pathInRepo", Value: "my-path"},
 				},
 			}
@@ -2280,8 +2279,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
+					{Name: "url", Value: "https://github.com/test/repo.git"},
+					{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
 					{Name: "pathInRepo", Value: "my-path"},
 				},
 			}
@@ -2642,8 +2641,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
+					{Name: "url", Value: "https://github.com/test/repo.git"},
+					{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
 					{Name: "pathInRepo", Value: "my-path"},
 				},
 			}
@@ -2912,48 +2911,21 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 
-			var pipelineUrl string
 			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
-			for i := range resolverParams {
-				if resolverParams[i].Name == "url" {
-					pipelineUrl = resolverParams[i].Value.StringVal
+			expectedParams := releasePlanAdmission.Spec.Pipeline.PipelineRef.Params
+
+			Expect(len(resolverParams)).To(Equal(len(expectedParams)))
+			for i, expectedParam := range expectedParams {
+				found := false
+				for _, actualParam := range resolverParams {
+					if actualParam.Name == expectedParam.Name {
+						Expect(actualParam.Value.StringVal).To(Equal(expectedParam.Value))
+						found = true
+						break
+					}
 				}
+				Expect(found).To(BeTrue(), fmt.Sprintf("Expected parameter %s not found", expectedParams[i].Name))
 			}
-			Expect(pipelineUrl).To(Equal(releasePlanAdmission.Spec.Pipeline.PipelineRef.Params[0].Value))
-		})
-
-		It("contains a parameter with the taskGitUrl", func() {
-			var err error
-			pipelineRun, err = adapter.createManagedPipelineRun(resources)
-			Expect(pipelineRun).NotTo(BeNil())
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
-			var url string
-			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
-			for i := range resolverParams {
-				if resolverParams[i].Name == "url" {
-					url = resolverParams[i].Value.StringVal
-				}
-			}
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", url)))
-		})
-
-		It("contains a parameter with the taskGitRevision", func() {
-			var err error
-			pipelineRun, err = adapter.createManagedPipelineRun(resources)
-			Expect(pipelineRun).NotTo(BeNil())
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
-			var revision string
-			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
-			for i := range resolverParams {
-				if resolverParams[i].Name == "revision" {
-					revision = resolverParams[i].Value.StringVal
-				}
-			}
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
 		})
 
 		It("contains the proper taskRunSpecs", func() {
@@ -2995,67 +2967,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(jsonSpec)))))
 		})
 
-		It("contains a workspace using EmptyDir if there's an override for the pipeline", func() {
-			url, revision, pathInRepo, err := releasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
-			Expect(err).To(BeNil())
-			Expect(url).NotTo(BeEmpty())
-			Expect(revision).NotTo(BeEmpty())
-			Expect(pathInRepo).NotTo(BeEmpty())
-
-			releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
-				Spec: v1alpha1.ReleaseServiceConfigSpec{
-					EmptyDirOverrides: []v1alpha1.EmptyDirOverrides{
-						{
-							Url:        url,
-							Revision:   revision,
-							PathInRepo: pathInRepo,
-						},
-					},
-				},
-			}
-			releaseServiceConfig.Kind = "ReleaseServiceConfig"
-			adapter.releaseServiceConfig = releaseServiceConfig
-
-			var pipelineRun *tektonv1.PipelineRun
-			pipelineRun, err = adapter.createManagedPipelineRun(resources)
-			Expect(pipelineRun).NotTo(BeNil())
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
-			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
-			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
-		})
-
-		It("contains a workspace using EmptyDir if there's an override for the pipeline using regex", func() {
-			_, _, pathInRepo, err := releasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
-			Expect(err).To(BeNil())
-			Expect(pathInRepo).NotTo(BeEmpty())
-
-			releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
-				Spec: v1alpha1.ReleaseServiceConfigSpec{
-					EmptyDirOverrides: []v1alpha1.EmptyDirOverrides{
-						{
-							Url:        ".*",
-							Revision:   ".*",
-							PathInRepo: pathInRepo,
-						},
-					},
-				},
-			}
-			releaseServiceConfig.Kind = "ReleaseServiceConfig"
-			adapter.releaseServiceConfig = releaseServiceConfig
-
-			var pipelineRun *tektonv1.PipelineRun
-			pipelineRun, err = adapter.createManagedPipelineRun(resources)
-			Expect(pipelineRun).NotTo(BeNil())
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
-			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
-			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
-		})
-
-		It("contains a workspace using EmptyDir if there's not an override for the pipeline", func() {
+		It("contains a workspace using VolumeClaimTemplate if there's not an override for the pipeline", func() {
 			var err error
 			pipelineRun, err = adapter.createManagedPipelineRun(resources)
 			Expect(pipelineRun).NotTo(BeNil())
@@ -3064,6 +2976,303 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
 			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).NotTo(BeNil())
 			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).To(BeNil())
+		})
+
+		Context("with git resolver setup", func() {
+			var originalPipelineRef tektonutils.PipelineRef
+
+			BeforeEach(func() {
+				originalPipelineRef = resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef
+				resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef = tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/test/repo.git"},
+						{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
+						{Name: "pathInRepo", Value: "my-path"},
+					},
+				}
+			})
+
+			AfterEach(func() {
+				resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef = originalPipelineRef
+			})
+
+			It("contains a parameter with the taskGitUrl", func() {
+				var err error
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
+				var url string
+				resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+				for i := range resolverParams {
+					if resolverParams[i].Name == "url" {
+						url = resolverParams[i].Value.StringVal
+					}
+				}
+				Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", url)))
+			})
+
+			It("contains a parameter with the taskGitRevision", func() {
+				var err error
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
+				var revision string
+				resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+				for i := range resolverParams {
+					if resolverParams[i].Name == "revision" {
+						revision = resolverParams[i].Value.StringVal
+					}
+				}
+				Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+			})
+
+			It("contains a workspace using EmptyDir if there's an override for the pipeline", func() {
+				url, revision, pathInRepo, err := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
+				Expect(err).To(BeNil())
+				Expect(url).NotTo(BeEmpty())
+				Expect(revision).NotTo(BeEmpty())
+				Expect(pathInRepo).NotTo(BeEmpty())
+
+				releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
+					Spec: v1alpha1.ReleaseServiceConfigSpec{
+						EmptyDirOverrides: []v1alpha1.EmptyDirOverrides{
+							{
+								Url:        url,
+								Revision:   revision,
+								PathInRepo: pathInRepo,
+							},
+						},
+					},
+				}
+				releaseServiceConfig.Kind = "ReleaseServiceConfig"
+				adapter.releaseServiceConfig = releaseServiceConfig
+
+				var pipelineRun *tektonv1.PipelineRun
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
+				Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
+				Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
+			})
+
+			It("contains a workspace using EmptyDir if there's an override for the pipeline using regex", func() {
+				_, _, pathInRepo, err := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
+				Expect(err).To(BeNil())
+				Expect(pathInRepo).NotTo(BeEmpty())
+
+				releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
+					Spec: v1alpha1.ReleaseServiceConfigSpec{
+						EmptyDirOverrides: []v1alpha1.EmptyDirOverrides{
+							{
+								Url:        ".*",
+								Revision:   ".*",
+								PathInRepo: pathInRepo,
+							},
+						},
+					},
+				}
+				releaseServiceConfig.Kind = "ReleaseServiceConfig"
+				adapter.releaseServiceConfig = releaseServiceConfig
+
+				var pipelineRun *tektonv1.PipelineRun
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
+				Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
+				Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
+			})
+		})
+
+		Context("Git Reference Rewriting Integration", func() {
+			var mockHttpServer *httptest.Server
+
+			BeforeEach(func() {
+				mockHttpServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if strings.Contains(r.URL.Path, "/commits/main") {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusOK)
+						response := map[string]string{
+							"sha": "abcdef1234567890abcdef1234567890abcdef12",
+						}
+						_ = json.NewEncoder(w).Encode(response)
+					} else {
+						w.WriteHeader(http.StatusNotFound)
+					}
+				}))
+
+				adapter.ctx = context.WithValue(adapter.ctx, tektonutils.GitHubAPIBaseURLKey, mockHttpServer.URL)
+			})
+
+			AfterEach(func() {
+				if mockHttpServer != nil {
+					mockHttpServer.Close()
+				}
+			})
+
+			It("resolves git pipeline reference to SHA and adds pipelineGitRevision parameter", func() {
+				resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef = tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/test/repo.git"},
+						{Name: "revision", Value: "main"},
+						{Name: "pathInRepo", Value: "path/to/pipeline.yaml"},
+					},
+				}
+
+				var err error
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				foundParam := false
+				for _, param := range pipelineRun.Spec.Params {
+					if param.Name == "pipelineGitRevision" {
+						foundParam = true
+						Expect(param.Value.StringVal).To(Equal("abcdef1234567890abcdef1234567890abcdef12"))
+						break
+					}
+				}
+				Expect(foundParam).To(BeTrue(), "pipelineGitRevision parameter should be added when SHA resolution succeeds")
+
+				resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+				revisionResolved := false
+				for _, param := range resolverParams {
+					if param.Name == "revision" {
+						Expect(param.Value.StringVal).To(Equal("abcdef1234567890abcdef1234567890abcdef12"))
+						revisionResolved = true
+						break
+					}
+				}
+				Expect(revisionResolved).To(BeTrue(), "Pipeline reference revision should be resolved to SHA")
+			})
+
+			It("returns error when SHA resolution fails (triggers requeue)", func() {
+				resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef = tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/invalid/repo.git"},
+						{Name: "revision", Value: "nonexistent-branch"},
+						{Name: "pathInRepo", Value: "path/to/pipeline.yaml"},
+					},
+				}
+
+				var err error
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).To(BeNil())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("failed to resolve managed pipeline git reference to commit SHA"))
+			})
+
+			It("handles non-git resolvers without attempting SHA resolution", func() {
+				resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef = tektonutils.PipelineRef{
+					Resolver: "cluster",
+					Params: []tektonutils.Param{
+						{Name: "name", Value: "my-pipeline"},
+						{Name: "namespace", Value: "default"},
+					},
+				}
+
+				var err error
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, param := range pipelineRun.Spec.Params {
+					Expect(param.Name).NotTo(Equal("pipelineGitRevision"), "pipelineGitRevision parameter should not be added for non-git resolvers")
+				}
+
+				resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+				for _, param := range resolverParams {
+					if param.Name == "name" {
+						Expect(param.Value.StringVal).To(Equal("my-pipeline"))
+						break
+					}
+				}
+			})
+
+			It("does not attempt SHA resolution for non-git resolvers", func() {
+				resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef = tektonutils.PipelineRef{
+					Resolver: "bundles",
+					Params: []tektonutils.Param{
+						{Name: "bundle", Value: "registry.io/pipeline:latest"},
+						{Name: "name", Value: "release-pipeline"},
+					},
+				}
+
+				var err error
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, param := range pipelineRun.Spec.Params {
+					Expect(param.Name).NotTo(Equal("pipelineGitRevision"), "pipelineGitRevision parameter should not be added for non-git resolvers")
+				}
+
+				Expect(string(pipelineRun.Spec.PipelineRef.ResolverRef.Resolver)).To(Equal("bundles"))
+			})
+
+			It("enables git reference rewriting when SHA resolution succeeds", func() {
+				resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef = tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/test/repo.git"},
+						{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
+						{Name: "pathInRepo", Value: "path/to/pipeline.yaml"},
+					},
+				}
+
+				var err error
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				foundParam := false
+				for _, param := range pipelineRun.Spec.Params {
+					if param.Name == "pipelineGitRevision" {
+						foundParam = true
+						Expect(param.Value.StringVal).To(HaveLen(40), "SHA should be 40 characters long")
+						break
+					}
+				}
+				Expect(foundParam).To(BeTrue(), "Git reference rewriting should be enabled when SHA resolution succeeds")
+			})
+
+			It("preserves all other parameters when adding pipelineGitRevision", func() {
+				resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef = tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/test/repo.git"},
+						{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
+						{Name: "pathInRepo", Value: "path/to/pipeline.yaml"},
+					},
+				}
+
+				var err error
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				paramNames := make([]string, 0, len(pipelineRun.Spec.Params))
+				for _, param := range pipelineRun.Spec.Params {
+					paramNames = append(paramNames, param.Name)
+				}
+
+				Expect(paramNames).To(ContainElement("release"))
+				Expect(paramNames).To(ContainElement("releasePlan"))
+				Expect(paramNames).To(ContainElement("releasePlanAdmission"))
+				Expect(paramNames).To(ContainElement("releaseServiceConfig"))
+				Expect(paramNames).To(ContainElement("snapshot"))
+				Expect(paramNames).To(ContainElement("pipelineGitRevision"))
+			})
 		})
 	})
 
@@ -3087,8 +3296,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
+					{Name: "url", Value: "https://github.com/test/repo.git"},
+					{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
 					{Name: "pathInRepo", Value: "my-path"},
 				},
 			}
@@ -3192,28 +3401,56 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))
 		})
 
-		It("contains a parameter with the taskGitUrl", func() {
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
-			var url string
-			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
-			for i := range resolverParams {
-				if resolverParams[i].Name == "url" {
-					url = resolverParams[i].Value.StringVal
-				}
-			}
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", url)))
-		})
+		Context("with git resolver setup", func() {
+			var (
+				originalPipelineRef tektonutils.PipelineRef
+				testPipelineRun     *tektonv1.PipelineRun
+			)
 
-		It("contains a parameter with the taskGitRevision", func() {
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
-			var revision string
-			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
-			for i := range resolverParams {
-				if resolverParams[i].Name == "revision" {
-					revision = resolverParams[i].Value.StringVal
+			BeforeEach(func() {
+				originalPipelineRef = newReleasePlan.Spec.FinalPipeline.PipelineRef
+				newReleasePlan.Spec.FinalPipeline.PipelineRef = tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/test/repo.git"},
+						{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
+						{Name: "pathInRepo", Value: "my-path"},
+					},
 				}
-			}
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+
+				var err error
+				testPipelineRun, err = adapter.createFinalPipelineRun(newReleasePlan, snapshot)
+				Expect(testPipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				newReleasePlan.Spec.FinalPipeline.PipelineRef = originalPipelineRef
+			})
+
+			It("contains a parameter with the taskGitUrl", func() {
+				Expect(testPipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
+				var url string
+				resolverParams := testPipelineRun.Spec.PipelineRef.ResolverRef.Params
+				for i := range resolverParams {
+					if resolverParams[i].Name == "url" {
+						url = resolverParams[i].Value.StringVal
+					}
+				}
+				Expect(testPipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", url)))
+			})
+
+			It("contains a parameter with the taskGitRevision", func() {
+				Expect(testPipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
+				var revision string
+				resolverParams := testPipelineRun.Spec.PipelineRef.ResolverRef.Params
+				for i := range resolverParams {
+					if resolverParams[i].Name == "revision" {
+						revision = resolverParams[i].Value.StringVal
+					}
+				}
+				Expect(testPipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+			})
 		})
 
 		It("contains the proper timeout value", func() {
@@ -3326,8 +3563,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
+					{Name: "url", Value: "https://github.com/test/repo.git"},
+					{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
 					{Name: "pathInRepo", Value: "my-path"},
 				},
 			}
@@ -4519,8 +4756,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
+					{Name: "url", Value: "https://github.com/test/repo.git"},
+					{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
 					{Name: "pathInRepo", Value: "my-path"},
 				},
 			}
@@ -4871,6 +5108,152 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 	})
 
+	Context("When testing git reference resolution helper methods", func() {
+		var (
+			adapter        *adapter
+			mockHttpServer *httptest.Server
+		)
+
+		const (
+			testURL       = "https://github.com/test/repo.git"
+			testSHA       = "1234567890abcdef1234567890abcdef12345678"
+			invalidURL    = "https://github.com/invalid/repo.git"
+			testPath      = "my-path"
+			testBranch    = "main"
+			invalidBranch = "nonexistent-branch"
+		)
+
+		newGitRef := func(revision string) tektonutils.PipelineRef {
+			return tektonutils.PipelineRef{
+				Resolver: "git",
+				Params: []tektonutils.Param{
+					{Name: "url", Value: testURL},
+					{Name: "revision", Value: revision},
+					{Name: "pathInRepo", Value: testPath},
+				},
+			}
+		}
+
+		newClusterRef := func() tektonutils.PipelineRef {
+			return tektonutils.PipelineRef{
+				Resolver: "cluster",
+				Params: []tektonutils.Param{
+					{Name: "name", Value: "test-pipeline"},
+					{Name: "namespace", Value: "default"},
+				},
+			}
+		}
+
+		failingRef := func() tektonutils.PipelineRef {
+			return tektonutils.PipelineRef{
+				Resolver: "git",
+				Params: []tektonutils.Param{
+					{Name: "url", Value: invalidURL},
+					{Name: "revision", Value: invalidBranch},
+					{Name: "pathInRepo", Value: testPath},
+				},
+			}
+		}
+
+		extractRevisionFromPipelineRef := func(pipelineRef *tektonv1.PipelineRef) string {
+			for _, param := range pipelineRef.ResolverRef.Params {
+				if param.Name == "revision" {
+					return param.Value.StringVal
+				}
+			}
+			return ""
+		}
+
+		testScenarios := []struct {
+			name        string
+			inputRef    func() tektonutils.PipelineRef
+			inputType   string
+			shouldError bool
+			expectedSHA string
+		}{
+			{"branch resolution", func() tektonutils.PipelineRef { return newGitRef(testBranch) }, "test", false, testSHA},
+			{"existing SHA", func() tektonutils.PipelineRef { return newGitRef(testSHA) }, "test", false, testSHA},
+			{"non-git resolver", newClusterRef, "test", false, ""},
+			{"failed resolution", failingRef, "test", true, ""},
+		}
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+
+			mockHttpServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.Contains(r.URL.Path, "/commits/"+testBranch) {
+					w.Header().Set("Content-Type", "application/json")
+					_ = json.NewEncoder(w).Encode(map[string]string{"sha": testSHA})
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+
+			adapter.ctx = context.WithValue(adapter.ctx, tektonutils.GitHubAPIBaseURLKey, mockHttpServer.URL)
+		})
+
+		AfterEach(func() {
+			if mockHttpServer != nil {
+				mockHttpServer.Close()
+			}
+		})
+
+		for _, scenario := range testScenarios {
+			Context(fmt.Sprintf("when %s", scenario.name), func() {
+				var inputRef tektonutils.PipelineRef
+
+				BeforeEach(func() {
+					inputRef = scenario.inputRef()
+				})
+
+				It("resolvePipelineReference works correctly", func() {
+					pipelineRef, sha, err := adapter.resolvePipelineReference(inputRef, scenario.inputType)
+
+					if scenario.shouldError {
+						Expect(err).To(HaveOccurred())
+						Expect(pipelineRef).To(BeNil())
+						Expect(sha).To(BeEmpty())
+					} else {
+						Expect(err).NotTo(HaveOccurred())
+						Expect(pipelineRef).NotTo(BeNil())
+						Expect(sha).To(Equal(scenario.expectedSHA))
+
+						if inputRef.Resolver == "git" && scenario.expectedSHA != "" {
+							Expect(extractRevisionFromPipelineRef(pipelineRef)).To(Equal(scenario.expectedSHA))
+						}
+					}
+				})
+
+				It("resolveCollectorPipelineReference works correctly", func() {
+					sha, err := adapter.resolveCollectorPipelineReference(inputRef, scenario.inputType+"-collector")
+
+					if scenario.shouldError {
+						Expect(err).To(HaveOccurred())
+						Expect(sha).To(BeEmpty())
+					} else {
+						Expect(err).NotTo(HaveOccurred())
+						Expect(sha).To(Equal(scenario.expectedSHA))
+					}
+				})
+			})
+		}
+
+		Context("when testing error message customization", func() {
+			It("includes correct pipeline type in resolvePipelineReference errors", func() {
+				_, _, err := adapter.resolvePipelineReference(failingRef(), "managed")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("managed pipeline"))
+			})
+
+			It("includes correct collector type in resolveCollectorPipelineReference errors", func() {
+				_, err := adapter.resolveCollectorPipelineReference(failingRef(), "tenant collector")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("tenant collector"))
+			})
+		})
+
+	})
+
 	createReleaseAndAdapter = func() *adapter {
 		release := &v1alpha1.Release{
 			ObjectMeta: metav1.ObjectMeta{
@@ -4977,8 +5360,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 					PipelineRef: tektonutils.PipelineRef{
 						Resolver: "git",
 						Params: []tektonutils.Param{
-							{Name: "url", Value: "my-url"},
-							{Name: "revision", Value: "my-revision"},
+							{Name: "url", Value: "https://github.com/test/repo.git"},
+							{Name: "revision", Value: "abcdef1234567890abcdef1234567890abcdef12"},
 							{Name: "pathInRepo", Value: "my-path"},
 						},
 					},
