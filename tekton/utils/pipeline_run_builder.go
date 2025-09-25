@@ -23,6 +23,7 @@ import (
 	"unicode"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/konflux-ci/release-service/git"
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -215,29 +216,41 @@ func (b *PipelineRunBuilder) WithParamsFromConfigMap(configMap *corev1.ConfigMap
 func (b *PipelineRunBuilder) WithPipelineRef(pipelineRef *tektonv1.PipelineRef) *PipelineRunBuilder {
 	b.pipelineRun.Spec.PipelineRef = pipelineRef
 
-	if pipelineRef.Resolver == "git" {
-		for _, param := range pipelineRef.Params {
-			if param.Name == "revision" {
-				b.WithParams(tektonv1.Param{
-					Name: "taskGitRevision",
-					Value: tektonv1.ParamValue{
-						Type:      tektonv1.ParamTypeString,
-						StringVal: param.Value.StringVal,
-					},
-				})
-			}
+	if pipelineRef != nil && pipelineRef.ResolverRef.Resolver == "git" {
+		return b.WithGitResolution()
+	}
 
-			if param.Name == "url" {
-				b.WithParams(tektonv1.Param{
-					Name: "taskGitUrl",
-					Value: tektonv1.ParamValue{
-						Type:      tektonv1.ParamTypeString,
-						StringVal: param.Value.StringVal,
-					},
-				})
-			}
+	return b
+}
+
+func (b *PipelineRunBuilder) WithGitResolution() *PipelineRunBuilder {
+	pipelineRef := b.pipelineRun.Spec.PipelineRef
+	if pipelineRef == nil || pipelineRef.ResolverRef.Resolver != "git" {
+		return b
+	}
+
+	var gitURL, revision string
+
+	for _, param := range pipelineRef.ResolverRef.Params {
+		switch param.Name {
+		case "url":
+			gitURL = param.Value.StringVal
+		case "revision":
+			revision = param.Value.StringVal
 		}
 	}
+
+	resolvedSHA, err := git.ResolveBranchToSHA(gitURL, revision)
+	if err != nil {
+		b.err = multierror.Append(b.err, fmt.Errorf("git resolution failed: %w", err))
+		return b
+	}
+
+	b.WithParams(
+		tektonv1.Param{Name: "taskGitUrl", Value: tektonv1.ParamValue{Type: tektonv1.ParamTypeString, StringVal: gitURL}},
+		tektonv1.Param{Name: "taskGitRevision", Value: tektonv1.ParamValue{Type: tektonv1.ParamTypeString, StringVal: resolvedSHA}},
+		tektonv1.Param{Name: "pipelineGitRevision", Value: tektonv1.ParamValue{Type: tektonv1.ParamTypeString, StringVal: resolvedSHA}},
+	)
 
 	return b
 }
