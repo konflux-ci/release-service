@@ -437,15 +437,13 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should create a pipelineRun and register the processing data if all the required resources are present", func() {
-			releasePlan := &v1alpha1.ReleasePlan{}
-
 			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
-					{Name: "pathInRepo", Value: "my-path"},
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
 			parameterizedPipeline.Params = []tektonutils.Param{
@@ -456,7 +454,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
 			}
 
-			releasePlan = &v1alpha1.ReleasePlan{
+			localReleasePlan := &v1alpha1.ReleasePlan{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "release-plan",
 					Namespace: "default",
@@ -467,12 +465,12 @@ var _ = Describe("Release adapter", Ordered, func() {
 					ReleaseGracePeriodDays: 6,
 				},
 			}
-			releasePlan.Kind = "ReleasePlan"
+			localReleasePlan.Kind = "ReleasePlan"
 
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanContextKey,
-					Resource:   releasePlan,
+					Resource:   localReleasePlan,
 				},
 				{
 					ContextKey: loader.SnapshotContextKey,
@@ -1083,9 +1081,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 						PipelineRef: tektonutils.PipelineRef{
 							Resolver: "git",
 							Params: []tektonutils.Param{
-								{Name: "url", Value: "my-url"},
-								{Name: "revision", Value: "my-revision"},
-								{Name: "pathInRepo", Value: "my-path"},
+								{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+								{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 							},
 						},
 					},
@@ -1584,15 +1582,13 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should create a pipelineRun and register the processing data if all the required resources are present", func() {
-			releasePlan := &v1alpha1.ReleasePlan{}
-
 			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
-					{Name: "pathInRepo", Value: "my-path"},
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
 			parameterizedPipeline.Params = []tektonutils.Param{
@@ -1603,7 +1599,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
 			}
 
-			releasePlan = &v1alpha1.ReleasePlan{
+			localReleasePlan := &v1alpha1.ReleasePlan{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "release-plan",
 					Namespace: "default",
@@ -1615,12 +1611,12 @@ var _ = Describe("Release adapter", Ordered, func() {
 					ReleaseGracePeriodDays: 6,
 				},
 			}
-			releasePlan.Kind = "ReleasePlan"
+			localReleasePlan.Kind = "ReleasePlan"
 
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanContextKey,
-					Resource:   releasePlan,
+					Resource:   localReleasePlan,
 				},
 				{
 					ContextKey: loader.SnapshotContextKey,
@@ -2281,9 +2277,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
-					{Name: "pathInRepo", Value: "my-path"},
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
 			parameterizedPipeline.Params = []tektonutils.Param{
@@ -2394,9 +2390,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
-					{Name: "pathInRepo", Value: "my-path"},
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "master"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
 
@@ -2488,9 +2484,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
-					{Name: "pathInRepo", Value: "my-path"},
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "master"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
 
@@ -3076,9 +3072,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
-					{Name: "pathInRepo", Value: "my-path"},
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
 			parameterizedPipeline.Params = []tektonutils.Param{
@@ -3346,48 +3342,21 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 
-			var pipelineUrl string
 			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
-			for i := range resolverParams {
-				if resolverParams[i].Name == "url" {
-					pipelineUrl = resolverParams[i].Value.StringVal
+			expectedParams := releasePlanAdmission.Spec.Pipeline.PipelineRef.Params
+
+			Expect(len(resolverParams)).To(Equal(len(expectedParams)))
+			for i, expectedParam := range expectedParams {
+				found := false
+				for _, actualParam := range resolverParams {
+					if actualParam.Name == expectedParam.Name {
+						Expect(actualParam.Value.StringVal).To(Equal(expectedParam.Value))
+						found = true
+						break
+					}
 				}
+				Expect(found).To(BeTrue(), fmt.Sprintf("Expected parameter %s not found", expectedParams[i].Name))
 			}
-			Expect(pipelineUrl).To(Equal(releasePlanAdmission.Spec.Pipeline.PipelineRef.Params[0].Value))
-		})
-
-		It("contains a parameter with the taskGitUrl", func() {
-			var err error
-			pipelineRun, err = adapter.createManagedPipelineRun(resources)
-			Expect(pipelineRun).NotTo(BeNil())
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
-			var url string
-			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
-			for i := range resolverParams {
-				if resolverParams[i].Name == "url" {
-					url = resolverParams[i].Value.StringVal
-				}
-			}
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", url)))
-		})
-
-		It("contains a parameter with the taskGitRevision", func() {
-			var err error
-			pipelineRun, err = adapter.createManagedPipelineRun(resources)
-			Expect(pipelineRun).NotTo(BeNil())
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
-			var revision string
-			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
-			for i := range resolverParams {
-				if resolverParams[i].Name == "revision" {
-					revision = resolverParams[i].Value.StringVal
-				}
-			}
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
 		})
 
 		It("contains the proper taskRunSpecs", func() {
@@ -3429,67 +3398,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(jsonSpec)))))
 		})
 
-		It("contains a workspace using EmptyDir if there's an override for the pipeline", func() {
-			url, revision, pathInRepo, err := releasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
-			Expect(err).To(BeNil())
-			Expect(url).NotTo(BeEmpty())
-			Expect(revision).NotTo(BeEmpty())
-			Expect(pathInRepo).NotTo(BeEmpty())
-
-			releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
-				Spec: v1alpha1.ReleaseServiceConfigSpec{
-					EmptyDirOverrides: []v1alpha1.EmptyDirOverrides{
-						{
-							Url:        url,
-							Revision:   revision,
-							PathInRepo: pathInRepo,
-						},
-					},
-				},
-			}
-			releaseServiceConfig.Kind = "ReleaseServiceConfig"
-			adapter.releaseServiceConfig = releaseServiceConfig
-
-			var pipelineRun *tektonv1.PipelineRun
-			pipelineRun, err = adapter.createManagedPipelineRun(resources)
-			Expect(pipelineRun).NotTo(BeNil())
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
-			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
-			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
-		})
-
-		It("contains a workspace using EmptyDir if there's an override for the pipeline using regex", func() {
-			_, _, pathInRepo, err := releasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
-			Expect(err).To(BeNil())
-			Expect(pathInRepo).NotTo(BeEmpty())
-
-			releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
-				Spec: v1alpha1.ReleaseServiceConfigSpec{
-					EmptyDirOverrides: []v1alpha1.EmptyDirOverrides{
-						{
-							Url:        ".*",
-							Revision:   ".*",
-							PathInRepo: pathInRepo,
-						},
-					},
-				},
-			}
-			releaseServiceConfig.Kind = "ReleaseServiceConfig"
-			adapter.releaseServiceConfig = releaseServiceConfig
-
-			var pipelineRun *tektonv1.PipelineRun
-			pipelineRun, err = adapter.createManagedPipelineRun(resources)
-			Expect(pipelineRun).NotTo(BeNil())
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
-			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
-			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
-		})
-
-		It("contains a workspace using EmptyDir if there's not an override for the pipeline", func() {
+		It("contains a workspace using VolumeClaimTemplate if there's not an override for the pipeline", func() {
 			var err error
 			pipelineRun, err = adapter.createManagedPipelineRun(resources)
 			Expect(pipelineRun).NotTo(BeNil())
@@ -3499,6 +3408,121 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).NotTo(BeNil())
 			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).To(BeNil())
 		})
+
+		Context("with git resolver setup", func() {
+			var originalPipelineRef tektonutils.PipelineRef
+
+			BeforeEach(func() {
+				originalPipelineRef = resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef
+				resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef = tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+						{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					},
+				}
+			})
+
+			AfterEach(func() {
+				resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef = originalPipelineRef
+			})
+
+			It("contains a parameter with the taskGitUrl", func() {
+				var err error
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
+				var url string
+				resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+				for i := range resolverParams {
+					if resolverParams[i].Name == "url" {
+						url = resolverParams[i].Value.StringVal
+					}
+				}
+				Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", url)))
+			})
+
+			It("contains a parameter with the taskGitRevision", func() {
+				var err error
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
+				var revision string
+				resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
+				for i := range resolverParams {
+					if resolverParams[i].Name == "revision" {
+						revision = resolverParams[i].Value.StringVal
+					}
+				}
+				Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+			})
+
+			It("contains a workspace using EmptyDir if there's an override for the pipeline", func() {
+				url, revision, pathInRepo, err := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
+				Expect(err).To(BeNil())
+				Expect(url).NotTo(BeEmpty())
+				Expect(revision).NotTo(BeEmpty())
+				Expect(pathInRepo).NotTo(BeEmpty())
+
+				releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
+					Spec: v1alpha1.ReleaseServiceConfigSpec{
+						EmptyDirOverrides: []v1alpha1.EmptyDirOverrides{
+							{
+								Url:        url,
+								Revision:   revision,
+								PathInRepo: pathInRepo,
+							},
+						},
+					},
+				}
+				releaseServiceConfig.Kind = "ReleaseServiceConfig"
+				adapter.releaseServiceConfig = releaseServiceConfig
+
+				var pipelineRun *tektonv1.PipelineRun
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
+				Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
+				Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
+			})
+
+			It("contains a workspace using EmptyDir if there's an override for the pipeline using regex", func() {
+				_, _, pathInRepo, err := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
+				Expect(err).To(BeNil())
+				Expect(pathInRepo).NotTo(BeEmpty())
+
+				releaseServiceConfig := &v1alpha1.ReleaseServiceConfig{
+					Spec: v1alpha1.ReleaseServiceConfigSpec{
+						EmptyDirOverrides: []v1alpha1.EmptyDirOverrides{
+							{
+								Url:        ".*",
+								Revision:   ".*",
+								PathInRepo: pathInRepo,
+							},
+						},
+					},
+				}
+				releaseServiceConfig.Kind = "ReleaseServiceConfig"
+				adapter.releaseServiceConfig = releaseServiceConfig
+
+				var pipelineRun *tektonv1.PipelineRun
+				pipelineRun, err = adapter.createManagedPipelineRun(resources)
+				Expect(pipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
+				Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
+				Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
+			})
+		})
+
 	})
 
 	When("createFinalPipelineRun is called", func() {
@@ -3521,9 +3545,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
-					{Name: "pathInRepo", Value: "my-path"},
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
 			parameterizedPipeline.Params = []tektonutils.Param{
@@ -3626,28 +3650,56 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))
 		})
 
-		It("contains a parameter with the taskGitUrl", func() {
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
-			var url string
-			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
-			for i := range resolverParams {
-				if resolverParams[i].Name == "url" {
-					url = resolverParams[i].Value.StringVal
-				}
-			}
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", url)))
-		})
+		Context("with git resolver setup", func() {
+			var (
+				originalPipelineRef tektonutils.PipelineRef
+				testPipelineRun     *tektonv1.PipelineRun
+			)
 
-		It("contains a parameter with the taskGitRevision", func() {
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
-			var revision string
-			resolverParams := pipelineRun.Spec.PipelineRef.ResolverRef.Params
-			for i := range resolverParams {
-				if resolverParams[i].Name == "revision" {
-					revision = resolverParams[i].Value.StringVal
+			BeforeEach(func() {
+				originalPipelineRef = newReleasePlan.Spec.FinalPipeline.PipelineRef
+				newReleasePlan.Spec.FinalPipeline.PipelineRef = tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+						{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					},
 				}
-			}
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+
+				var err error
+				testPipelineRun, err = adapter.createFinalPipelineRun(newReleasePlan, snapshot)
+				Expect(testPipelineRun).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				newReleasePlan.Spec.FinalPipeline.PipelineRef = originalPipelineRef
+			})
+
+			It("contains a parameter with the taskGitUrl", func() {
+				Expect(testPipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitUrl")))
+				var url string
+				resolverParams := testPipelineRun.Spec.PipelineRef.ResolverRef.Params
+				for i := range resolverParams {
+					if resolverParams[i].Name == "url" {
+						url = resolverParams[i].Value.StringVal
+					}
+				}
+				Expect(testPipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", url)))
+			})
+
+			It("contains a parameter with the taskGitRevision", func() {
+				Expect(testPipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "taskGitRevision")))
+				var revision string
+				resolverParams := testPipelineRun.Spec.PipelineRef.ResolverRef.Params
+				for i := range resolverParams {
+					if resolverParams[i].Name == "revision" {
+						revision = resolverParams[i].Value.StringVal
+					}
+				}
+				Expect(testPipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+			})
 		})
 
 		It("contains the proper timeout value", func() {
@@ -3713,9 +3765,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 						PipelineRef: tektonutils.PipelineRef{
 							Resolver: "git",
 							Params: []tektonutils.Param{
-								{Name: "url", Value: "my-url"},
-								{Name: "revision", Value: "my-revision"},
-								{Name: "pathInRepo", Value: "my-path"},
+								{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+								{Name: "revision", Value: "master"},
+								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 							},
 						},
 					},
@@ -3760,9 +3812,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
-					{Name: "pathInRepo", Value: "my-path"},
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
 			parameterizedPipeline.Params = []tektonutils.Param{
@@ -4953,9 +5005,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
 				Params: []tektonutils.Param{
-					{Name: "url", Value: "my-url"},
-					{Name: "revision", Value: "my-revision"},
-					{Name: "pathInRepo", Value: "my-path"},
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
 			parameterizedPipeline.Params = []tektonutils.Param{
@@ -5411,9 +5463,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 					PipelineRef: tektonutils.PipelineRef{
 						Resolver: "git",
 						Params: []tektonutils.Param{
-							{Name: "url", Value: "my-url"},
-							{Name: "revision", Value: "my-revision"},
-							{Name: "pathInRepo", Value: "my-path"},
+							{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+							{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+							{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 						},
 					},
 					ServiceAccountName: "service-account",
