@@ -280,8 +280,8 @@ github.com/konflux-ci/application-api v0.0.0-20250324201748-5a9670bf7679 h1:mtLA
 github.com/konflux-ci/application-api v0.0.0-20250324201748-5a9670bf7679/go.mod h1:948Z+a1IbfRT0RtoHzWWSN9YEucSbMJTHaMhz7dVICc=
 github.com/konflux-ci/integration-service v0.0.0-20250926041429-d8fdf303ef31 h1:zRpawYGWvz1wakoiWFRpf17P/AXRN3Sm2UtGFnIqTNw=
 github.com/konflux-ci/integration-service v0.0.0-20250926041429-d8fdf303ef31/go.mod h1:e6d2/6RAWHblE0wsSSuJ/SWQhdVLRglThtDYCCko5/k=
-github.com/konflux-ci/operator-toolkit v0.0.0-20240402130556-ef6dcbeca69d h1:z7j3mglNoXvIrw5Vz/Ul+izoITRaqYURPIWrFoEyHgI=
-github.com/konflux-ci/operator-toolkit v0.0.0-20240402130556-ef6dcbeca69d/go.mod h1:AcChx7FjpYSIkDvQgaUKyauuF0PXm3ivB5MqZSC9Eis=
+github.com/konflux-ci/operator-toolkit v0.0.0-20250903120054-1a071261f50b h1:DR9ogk4RQvVDPOe1Y4zKDc0zRt6sLSqSLwLmGkoVr30=
+github.com/konflux-ci/operator-toolkit v0.0.0-20250903120054-1a071261f50b/go.mod h1:pSxVvl3jAjQQG352j9gsxOegTQeY+1SGbVyEXj/PRDQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
