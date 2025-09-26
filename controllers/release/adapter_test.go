@@ -2260,8 +2260,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("Should continue if the Release final processing has not finished", func() {
-			adapter.release.MarkFinalPipelineProcessingSkipped()
+		It("should continue if the Release final processing has not finished", func() {
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			adapter.release.MarkManagedPipelineProcessingSkipped()
 			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
@@ -2322,10 +2323,15 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			adapter.release.MarkTenantPipelineProcessing()
 			adapter.release.MarkTenantPipelineProcessed()
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
 			adapter.release.MarkManagedPipelineProcessing()
 			adapter.release.MarkManagedPipelineProcessed()
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
 			adapter.release.MarkFinalPipelineProcessing()
 			adapter.release.MarkFinalPipelineProcessed()
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
 
 			// Ensure all pipelineRuns have finalizers removed
 			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
@@ -2349,6 +2355,278 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(pipelineRun.Finalizers).To(HaveLen(0))
 			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("should continue processing even when individual pipeline cleanups fail", func() {
+			adapter.releaseServiceConfig = releaseServiceConfig
+
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.MarkTenantPipelineProcessed()
+			adapter.release.MarkManagedPipelineProcessing()
+			adapter.release.MarkManagedPipelineProcessed()
+			adapter.release.MarkFinalPipelineProcessing()
+			adapter.release.MarkFinalPipelineProcessed()
+
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should handle cases when only some pipelines are finished", func() {
+			adapter.releaseServiceConfig = releaseServiceConfig
+
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.MarkTenantPipelineProcessed()
+
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should handle cleanup errors gracefully and continue processing", func() {
+			adapter.releaseServiceConfig = releaseServiceConfig
+
+			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
+			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
+				Resolver: "git",
+				Params: []tektonutils.Param{
+					{Name: "url", Value: "my-url"},
+					{Name: "revision", Value: "my-revision"},
+					{Name: "pathInRepo", Value: "my-path"},
+				},
+			}
+
+			newReleasePlan := &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-release-plan",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanSpec{
+					Application:    application.Name,
+					TenantPipeline: &parameterizedPipeline,
+				},
+			}
+			newReleasePlan.Kind = "ReleasePlan"
+
+			tenantPipelineRun, err := adapter.createTenantPipelineRun(newReleasePlan, snapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tenantPipelineRun).NotTo(BeNil())
+			defer func() { _ = k8sClient.Delete(ctx, tenantPipelineRun) }()
+
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.MarkTenantPipelineProcessed()
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			updated, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.TenantPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updated).NotTo(BeNil())
+			Expect(updated.Finalizers).NotTo(ContainElement(metadata.ReleaseFinalizer))
+		})
+
+		It("should collect errors but continue processing", func() {
+			adapter.release.MarkTenantPipelineProcessed()
+			adapter.release.MarkManagedPipelineProcessed()
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
+			adapter.loader = loader.NewMockLoader()
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource:   nil,
+					Err:        fmt.Errorf("loader error"),
+				},
+			})
+
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should optimize by early returning based on pipeline execution order", func() {
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
+			result, err = adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			adapter.release.MarkManagedPipelineProcessingSkipped()
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
+			result, err = adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	When("cleanupPipeline is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("should successfully cleanup tenant pipeline", func() {
+			adapter.releaseServiceConfig = releaseServiceConfig
+			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
+			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
+				Resolver: "git",
+				Params: []tektonutils.Param{
+					{Name: "url", Value: "my-url"},
+					{Name: "revision", Value: "my-revision"},
+					{Name: "pathInRepo", Value: "my-path"},
+				},
+			}
+
+			newReleasePlan := &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cleanup", Namespace: "default"},
+				Spec:       v1alpha1.ReleasePlanSpec{Application: application.Name, TenantPipeline: &parameterizedPipeline},
+			}
+			newReleasePlan.Kind = "ReleasePlan"
+
+			tenantPR, err := adapter.createTenantPipelineRun(newReleasePlan, snapshot)
+			Expect(err).NotTo(HaveOccurred())
+			defer func() { _ = k8sClient.Delete(ctx, tenantPR) }()
+
+			err = adapter.cleanupPipeline(metadata.TenantPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+
+			updated, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.TenantPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updated.Finalizers).NotTo(ContainElement(metadata.ReleaseFinalizer))
+		})
+
+		It("should handle error scenarios", func() {
+			err := adapter.cleanupPipeline("unsupported-type")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid type"))
+
+			adapter.loader = loader.NewMockLoader()
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{ContextKey: loader.ReleasePipelineRunContextKey, Resource: nil, Err: fmt.Errorf("loader error")},
+			})
+
+			err = adapter.cleanupPipeline(metadata.TenantPipelineType)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("loader error"))
+		})
+
+	})
+
+	When("cleanupPipelineResources is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("should handle all cleanup scenarios with appropriate logging", func() {
+			testCases := []struct {
+				name            string
+				setupPipeline   func() *tektonv1.PipelineRun
+				createInCluster bool
+				expectError     bool
+			}{
+				{
+					name: "successful cleanup",
+					setupPipeline: func() *tektonv1.PipelineRun {
+						return &tektonv1.PipelineRun{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:       "successful-cleanup",
+								Namespace:  "default",
+								Finalizers: []string{metadata.ReleaseFinalizer},
+							},
+						}
+					},
+					createInCluster: true,
+					expectError:     false,
+				},
+				{
+					name: "nil pipelineRun",
+					setupPipeline: func() *tektonv1.PipelineRun {
+						return nil
+					},
+					createInCluster: false,
+					expectError:     false,
+				},
+				{
+					name: "cleanup success (not in cluster - treated as already cleaned)",
+					setupPipeline: func() *tektonv1.PipelineRun {
+						return &tektonv1.PipelineRun{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:       "not-in-cluster",
+								Namespace:  "default",
+								Finalizers: []string{metadata.ReleaseFinalizer},
+							},
+						}
+					},
+					createInCluster: false,
+					expectError:     false,
+				},
+				{
+					name: "IsNotFound handled as success",
+					setupPipeline: func() *tektonv1.PipelineRun {
+						return &tektonv1.PipelineRun{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:       "not-found-pipeline",
+								Namespace:  "default",
+								Finalizers: []string{metadata.ReleaseFinalizer},
+							},
+						}
+					},
+					createInCluster: false,
+					expectError:     false,
+				},
+			}
+
+			for _, tc := range testCases {
+				pipelineRun := tc.setupPipeline()
+
+				if pipelineRun != nil && tc.createInCluster {
+					Expect(k8sClient.Create(ctx, pipelineRun)).To(Succeed())
+					defer func(pr *tektonv1.PipelineRun) {
+						_ = k8sClient.Delete(ctx, pr)
+					}(pipelineRun)
+				}
+
+				err := adapter.cleanupPipelineResources(pipelineRun)
+
+				if tc.expectError {
+					Expect(err).To(HaveOccurred(), "Case: %s", tc.name)
+				} else {
+					Expect(err).NotTo(HaveOccurred(), "Case: %s", tc.name)
+
+					if pipelineRun != nil && tc.createInCluster {
+						updated := &tektonv1.PipelineRun{}
+						err = k8sClient.Get(ctx, types.NamespacedName{
+							Name:      pipelineRun.Name,
+							Namespace: pipelineRun.Namespace,
+						}, updated)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(updated.Finalizers).NotTo(ContainElement(metadata.ReleaseFinalizer), "Case: %s", tc.name)
+					}
+				}
+			}
 		})
 	})
 
@@ -2449,6 +2727,102 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		It("should not error if either resource is nil", func() {
 			err := adapter.cleanupProcessingResources(nil, nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should continue processing when RoleBinding deletion fails", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "pipeline-run-rb-fail",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+
+			nonExistentRoleBinding := &rbac.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "non-existent-rb",
+					Namespace: "default",
+				},
+				RoleRef: rbac.RoleRef{
+					APIGroup: rbac.GroupName,
+					Kind:     "Role",
+					Name:     "non-existent-role",
+				},
+			}
+
+			err := adapter.cleanupProcessingResources(pipelineRun, nonExistentRoleBinding)
+			Expect(err).NotTo(HaveOccurred())
+
+			checkPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(pipelineRun.Name, pipelineRun.Namespace, adapter.client, adapter.ctx, checkPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkPipelineRun.Finalizers).To(HaveLen(0))
+
+			Expect(adapter.client.Delete(adapter.ctx, checkPipelineRun)).To(Succeed())
+		})
+
+		It("should continue processing when Role deletion fails", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "pipeline-run-role-fail",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+
+			roleBinding := &rbac.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "rb-with-missing-role",
+					Namespace: "default",
+				},
+				RoleRef: rbac.RoleRef{
+					APIGroup: rbac.GroupName,
+					Kind:     "Role",
+					Name:     "missing-role",
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, roleBinding)).To(Succeed())
+
+			err := adapter.cleanupProcessingResources(pipelineRun, roleBinding)
+			Expect(err).NotTo(HaveOccurred())
+
+			checkPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(pipelineRun.Name, pipelineRun.Namespace, adapter.client, adapter.ctx, checkPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkPipelineRun.Finalizers).To(HaveLen(0))
+
+			Expect(adapter.client.Delete(adapter.ctx, checkPipelineRun)).To(Succeed())
+		})
+
+		It("should succeed when PipelineRun has no finalizer", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run-no-finalizer",
+					Namespace: "default",
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+
+			err := adapter.cleanupProcessingResources(pipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("should handle PipelineRun without finalizer gracefully", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run-no-finalizer",
+					Namespace: "default",
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+			defer func() { _ = adapter.client.Delete(adapter.ctx, pipelineRun) }()
+
+			err := adapter.cleanupProcessingResources(pipelineRun)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
