@@ -17,7 +17,9 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"fmt"
+
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 )
 
@@ -159,4 +161,66 @@ func (prp *ParameterizedPipeline) GetTektonParams() []tektonv1.Param {
 // IsClusterScoped returns whether the PipelineRef uses a cluster resolver or not.
 func (pr *PipelineRef) IsClusterScoped() bool {
 	return pr.Resolver == "cluster"
+}
+
+// resolveRevisionToSHA is a helper function that resolves a revision to an SHA if needed.
+// If the revision is already an SHA, returns it directly. Otherwise, resolves via GitHub API.
+func resolveRevisionToSHA(ctx context.Context, url, revision string) (string, error) {
+	if isSHA(revision) {
+		return revision, nil
+	}
+
+	resolvedSHA, err := ResolveBranchToSHA(ctx, url, revision)
+	if err != nil {
+		return "", err // Requeue on any resolution failure
+	}
+
+	return resolvedSHA, nil
+}
+
+// ResolveGitReferenceToCommitSHA resolves a git reference (branch name) to a commit SHA
+// using the GitHub API. Returns the commit SHA or an error if resolution fails.
+// If the revision is already an SHA, returns it directly without making an API call.
+func (pr *PipelineRef) ResolveGitReferenceToCommitSHA(ctx context.Context) (string, error) {
+	if pr.Resolver != "git" {
+		return "", fmt.Errorf("can only resolve git references, got resolver: %s", pr.Resolver)
+	}
+
+	url, revision, _, err := pr.GetGitResolverParams()
+	if err != nil {
+		return "", fmt.Errorf("failed to get git resolver params: %w", err)
+	}
+
+	return resolveRevisionToSHA(ctx, url, revision)
+}
+
+// CreatePipelineRefWithResolvedSHA creates a new PipelineRef with the revision resolved to a commit SHA.
+func (pr *PipelineRef) CreatePipelineRefWithResolvedSHA(ctx context.Context) (*PipelineRef, error) {
+	url, revision, _, err := pr.GetGitResolverParams()
+	if err != nil {
+		return nil, err
+	}
+
+	commitSHA, err := resolveRevisionToSHA(ctx, url, revision)
+	if err != nil {
+		return nil, err
+	}
+
+	newRef := &PipelineRef{
+		Resolver: pr.Resolver,
+		Params:   make([]Param, len(pr.Params)),
+	}
+
+	for i, param := range pr.Params {
+		if param.Name == "revision" {
+			newRef.Params[i] = Param{
+				Name:  "revision",
+				Value: commitSHA,
+			}
+		} else {
+			newRef.Params[i] = param
+		}
+	}
+
+	return newRef, nil
 }

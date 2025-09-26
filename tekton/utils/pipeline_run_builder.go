@@ -33,8 +33,16 @@ import (
 )
 
 type PipelineRunBuilder struct {
-	err         *multierror.Error
-	pipelineRun *tektonv1.PipelineRun
+	err           *multierror.Error
+	pipelineRun   *tektonv1.PipelineRun
+	gitRefManager *GitReferenceManager
+}
+
+// GitReferenceManager handles automatic rewriting of git references in pipeline specs
+type GitReferenceManager struct {
+	EnableAutoRewrite  bool
+	CentralGitRevision string
+	CentralGitURL      string
 }
 
 // NewPipelineRunBuilder initializes a new PipelineRunBuilder with the given name prefix and namespace.
@@ -48,11 +56,18 @@ func NewPipelineRunBuilder(namePrefix, namespace string) *PipelineRunBuilder {
 			},
 			Spec: tektonv1.PipelineRunSpec{},
 		},
+		gitRefManager: &GitReferenceManager{
+			EnableAutoRewrite: false,
+		},
 	}
 }
 
 // Build returns the constructed PipelineRun and any accumulated error.
 func (b *PipelineRunBuilder) Build() (*tektonv1.PipelineRun, error) {
+	if b.gitRefManager != nil && b.gitRefManager.EnableAutoRewrite {
+		b.processGitReferences()
+	}
+
 	return b.pipelineRun, b.err.ErrorOrNil()
 }
 

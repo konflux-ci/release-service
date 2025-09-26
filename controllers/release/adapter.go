@@ -880,6 +880,14 @@ func (a *adapter) createManagedCollectorsPipelineRun(releasePlanAdmission *v1alp
 	if err != nil {
 		revision = v1alpha1.DefaultReleaseCatalogRevision
 	}
+
+	resolvedRevision, err := a.resolveCollectorPipelineReference(releasePlanAdmission.Spec.Pipeline.PipelineRef, "managed collector")
+	if err != nil {
+		return nil, err
+	}
+	if resolvedRevision != "" {
+		revision = resolvedRevision
+	}
 	var pipelineRun *tektonv1.PipelineRun
 	pipelineRun, err = a.getCollectorsPipelineRunBuilder(metadata.ManagedCollectorsPipelineType, releasePlanAdmission.Namespace, url, revision).
 		WithParams(
@@ -929,6 +937,14 @@ func (a *adapter) createTenantCollectorsPipelineRun(releasePlan *v1alpha1.Releas
 		if revision == "" || err != nil {
 			revision = v1alpha1.DefaultReleaseCatalogRevision
 		}
+
+		resolvedRevision, err := a.resolveCollectorPipelineReference(releasePlanAdmission.Spec.Pipeline.PipelineRef, "tenant collector")
+		if err != nil {
+			return nil, err
+		}
+		if resolvedRevision != "" {
+			revision = resolvedRevision
+		}
 	}
 
 	var pipelineRun *tektonv1.PipelineRun
@@ -970,7 +986,12 @@ func (a *adapter) createTenantCollectorsPipelineRun(releasePlan *v1alpha1.Releas
 // will be extracted from the given ReleasePlan. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snapshot *applicationapiv1alpha1.Snapshot) (*tektonv1.PipelineRun, error) {
-	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.FinalPipelineType.String(), releasePlan.Namespace).
+	pipelineRef, resolvedPipelineSHA, err := a.resolvePipelineReference(releasePlan.Spec.FinalPipeline.PipelineRef, "final")
+	if err != nil {
+		return nil, err
+	}
+
+	pipelineRunBuilder := utils.NewPipelineRunBuilder(metadata.FinalPipelineType.String(), releasePlan.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
@@ -984,15 +1005,26 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 		WithObjectReferences(a.release, releasePlan, snapshot).
 		WithParams(releasePlan.Spec.FinalPipeline.GetTektonParams()...).
 		WithOwner(a.release).
-		WithPipelineRef(releasePlan.Spec.FinalPipeline.PipelineRef.ToTektonPipelineRef()).
+		WithPipelineRef(pipelineRef).
 		WithServiceAccount(releasePlan.Spec.FinalPipeline.ServiceAccountName).
 		WithTaskRunSpecs(releasePlan.Spec.FinalPipeline.TaskRunSpecs...).
 		WithTimeouts(&releasePlan.Spec.FinalPipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
 		WithWorkspaceFromVolumeTemplate(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
-		).
-		Build()
+		)
+
+	if resolvedPipelineSHA != "" {
+		pipelineRunBuilder.WithParams(tektonv1.Param{
+			Name: "pipelineGitRevision",
+			Value: tektonv1.ParamValue{
+				Type:      tektonv1.ParamTypeString,
+				StringVal: resolvedPipelineSHA,
+			},
+		})
+	}
+
+	pipelineRun, err := pipelineRunBuilder.Build()
 
 	if err != nil {
 		return nil, err
@@ -1011,7 +1043,12 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 // will be extracted from the given ReleasePlanAdmission. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
-	builder := utils.NewPipelineRunBuilder(metadata.ManagedPipelineType.String(), resources.ReleasePlanAdmission.Namespace).
+	pipelineRef, resolvedPipelineSHA, err := a.resolvePipelineReference(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef, "managed")
+	if err != nil {
+		return nil, err
+	}
+
+	pipelineRunBuilder := utils.NewPipelineRunBuilder(metadata.ManagedPipelineType.String(), resources.ReleasePlanAdmission.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
@@ -1028,26 +1065,39 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithOwner(a.release).
 		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_bundle"}).
 		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_git_revision"}).
-		WithPipelineRef(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
+		WithPipelineRef(pipelineRef).
 		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccountName).
 		WithTaskRunSpecs(resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs...).
 		WithTimeouts(&resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts)
 
+	if resolvedPipelineSHA != "" {
+		pipelineRunBuilder.WithParams(tektonv1.Param{
+			Name: "pipelineGitRevision",
+			Value: tektonv1.ParamValue{
+				Type:      tektonv1.ParamTypeString,
+				StringVal: resolvedPipelineSHA,
+			},
+		})
+
+		url, _ := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetUrl()
+		pipelineRunBuilder.WithGitReferenceRewriting(resolvedPipelineSHA, url)
+	}
+
 	url, revision, pathInRepo, err := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
 	if err == nil && a.releaseServiceConfig.IsPipelineOverridden(url, revision, pathInRepo) {
-		builder.WithEmptyDirVolume(
+		pipelineRunBuilder.WithEmptyDirVolume(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
 		)
 	} else {
-		builder.WithWorkspaceFromVolumeTemplate(
+		pipelineRunBuilder.WithWorkspaceFromVolumeTemplate(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
 		)
 	}
 
 	var pipelineRun *tektonv1.PipelineRun
-	pipelineRun, err = builder.Build()
+	pipelineRun, err = pipelineRunBuilder.Build()
 	if err != nil {
 		return nil, err
 	}
@@ -1065,7 +1115,12 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 // will be extracted from the given ReleasePlan. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, snapshot *applicationapiv1alpha1.Snapshot) (*tektonv1.PipelineRun, error) {
-	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.TenantPipelineType.String(), releasePlan.Namespace).
+	pipelineRef, resolvedPipelineSHA, err := a.resolvePipelineReference(releasePlan.Spec.TenantPipeline.PipelineRef, "tenant")
+	if err != nil {
+		return nil, err
+	}
+
+	pipelineRunBuilder := utils.NewPipelineRunBuilder(metadata.TenantPipelineType.String(), releasePlan.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
@@ -1079,15 +1134,26 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 		WithObjectReferences(a.release, releasePlan, snapshot).
 		WithParams(releasePlan.Spec.TenantPipeline.GetTektonParams()...).
 		WithOwner(a.release).
-		WithPipelineRef(releasePlan.Spec.TenantPipeline.PipelineRef.ToTektonPipelineRef()).
+		WithPipelineRef(pipelineRef).
 		WithServiceAccount(releasePlan.Spec.TenantPipeline.ServiceAccountName).
 		WithTaskRunSpecs(releasePlan.Spec.TenantPipeline.TaskRunSpecs...).
 		WithTimeouts(&releasePlan.Spec.TenantPipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
 		WithWorkspaceFromVolumeTemplate(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
-		).
-		Build()
+		)
+
+	if resolvedPipelineSHA != "" {
+		pipelineRunBuilder.WithParams(tektonv1.Param{
+			Name: "pipelineGitRevision",
+			Value: tektonv1.ParamValue{
+				Type:      tektonv1.ParamTypeString,
+				StringVal: resolvedPipelineSHA,
+			},
+		})
+	}
+
+	pipelineRun, err := pipelineRunBuilder.Build()
 
 	if err != nil {
 		return nil, err
@@ -1099,6 +1165,50 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 	}
 
 	return pipelineRun, nil
+}
+
+// resolvePipelineReference resolves a git pipeline reference to a commit SHA and returns
+// both the resolved PipelineRef and the SHA. Returns the original ref if not a git resolver.
+func (a *adapter) resolvePipelineReference(pipelineRef utils.PipelineRef, pipelineType string) (*tektonv1.PipelineRef, string, error) {
+	if pipelineRef.Resolver != "git" {
+		return pipelineRef.ToTektonPipelineRef(), "", nil
+	}
+
+	resolvedRef, err := pipelineRef.CreatePipelineRefWithResolvedSHA(a.ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to resolve %s pipeline git reference to commit SHA: %w", pipelineType, err)
+	}
+
+	tektonRef := resolvedRef.ToTektonPipelineRef()
+	resolvedSHA, _ := resolvedRef.GetRevision()
+
+	a.logger.Info("Resolved pipeline reference to commit SHA",
+		"pipelineType", pipelineType,
+		"sha", resolvedSHA)
+
+	return tektonRef, resolvedSHA, nil
+}
+
+// resolveCollectorPipelineReference resolves a git pipeline reference to just the commit SHA.
+// This is used for collector pipelines that only need the SHA string.
+// Returns empty string for non-git resolvers.
+// Any resolution failure will cause the release to be requeued.
+func (a *adapter) resolveCollectorPipelineReference(pipelineRef utils.PipelineRef, collectorType string) (string, error) {
+	if pipelineRef.Resolver != "git" {
+		// Return empty string for non-git resolvers
+		return "", nil
+	}
+
+	resolvedSHA, err := pipelineRef.ResolveGitReferenceToCommitSHA(a.ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve %s collector pipeline git reference to commit SHA: %w", collectorType, err)
+	}
+
+	a.logger.Info("Resolved collector pipeline reference to commit SHA",
+		"collectorType", collectorType,
+		"sha", resolvedSHA)
+
+	return resolvedSHA, nil
 }
 
 // createRoleBindingForCollectorSecrets creates a Role and RoleBinding that grants the specified

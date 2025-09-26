@@ -18,6 +18,8 @@ package utils
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/hashicorp/go-multierror"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 var _ = Describe("PipelineRun builder", func() {
@@ -74,6 +75,193 @@ var _ = Describe("PipelineRun builder", func() {
 			Expect(err).To(Not(BeNil()))
 			Expect(err.Error()).To(ContainSubstring("dummy error 1"))
 			Expect(err.Error()).To(ContainSubstring("dummy error 2"))
+		})
+	})
+
+	Describe("Git Reference Processing", func() {
+		var (
+			builder             *PipelineRunBuilder
+			basicPipelineSpec   *tektonv1.PipelineSpec
+			complexPipelineSpec *tektonv1.PipelineSpec
+			resolvedSHA         string
+			gitURL              string
+		)
+
+		BeforeEach(func() {
+			builder = NewPipelineRunBuilder("testPrefix", "testNamespace")
+			resolvedSHA = "abcdef1234567890abcdef1234567890abcdef12"
+			gitURL = "https://github.com/konflux-ci/release-service.git"
+
+			basicPipelineSpec = &tektonv1.PipelineSpec{
+				Tasks: []tektonv1.PipelineTask{
+					{
+						Name: "test-task",
+						TaskRef: &tektonv1.TaskRef{
+							ResolverRef: tektonv1.ResolverRef{
+								Resolver: "git",
+								Params: []tektonv1.Param{
+									{
+										Name: "url",
+										Value: tektonv1.ParamValue{
+											Type:      tektonv1.ParamTypeString,
+											StringVal: "https://github.com/konflux-ci/release-service-catalog.git",
+										},
+									},
+									{
+										Name: "revision",
+										Value: tektonv1.ParamValue{
+											Type:      tektonv1.ParamTypeString,
+											StringVal: "main",
+										},
+									},
+									{
+										Name: "pathInRepo",
+										Value: tektonv1.ParamValue{
+											Type:      tektonv1.ParamTypeString,
+											StringVal: "tasks/test-task/task.yaml",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			complexPipelineSpec = &tektonv1.PipelineSpec{
+				Tasks: []tektonv1.PipelineTask{
+					{
+						Name: "regular-task",
+						TaskRef: &tektonv1.TaskRef{
+							ResolverRef: tektonv1.ResolverRef{
+								Resolver: "git",
+								Params: []tektonv1.Param{
+									{
+										Name: "url",
+										Value: tektonv1.ParamValue{
+											Type:      tektonv1.ParamTypeString,
+											StringVal: "https://github.com/konflux-ci/release-service-catalog.git",
+										},
+									},
+									{
+										Name: "revision",
+										Value: tektonv1.ParamValue{
+											Type:      tektonv1.ParamTypeString,
+											StringVal: "main",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Finally: []tektonv1.PipelineTask{
+					{
+						Name: "finally-task",
+						TaskRef: &tektonv1.TaskRef{
+							ResolverRef: tektonv1.ResolverRef{
+								Resolver: "git",
+								Params: []tektonv1.Param{
+									{
+										Name: "url",
+										Value: tektonv1.ParamValue{
+											Type:      tektonv1.ParamTypeString,
+											StringVal: "https://github.com/konflux-ci/release-service-catalog.git",
+										},
+									},
+									{
+										Name: "revision",
+										Value: tektonv1.ParamValue{
+											Type:      tektonv1.ParamTypeString,
+											StringVal: "main",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		Context("when git reference rewriting is enabled", func() {
+			It("should process git references in pipeline tasks", func() {
+				builder.pipelineRun.Spec.PipelineSpec = basicPipelineSpec
+				builder.WithGitReferenceRewriting(resolvedSHA, gitURL)
+
+				pr, err := builder.Build()
+				Expect(pr).To(Not(BeNil()))
+				Expect(err).To(BeNil())
+
+				task := pr.Spec.PipelineSpec.Tasks[0]
+				var revision string
+				for _, param := range task.TaskRef.ResolverRef.Params {
+					if param.Name == "revision" {
+						revision = param.Value.StringVal
+						break
+					}
+				}
+				Expect(revision).To(Equal(resolvedSHA))
+			})
+
+			It("should process both regular tasks and finally tasks", func() {
+				builder.pipelineRun.Spec.PipelineSpec = complexPipelineSpec
+				builder.WithGitReferenceRewriting(resolvedSHA, gitURL)
+
+				pr, err := builder.Build()
+				Expect(pr).To(Not(BeNil()))
+				Expect(err).To(BeNil())
+
+				regularTask := pr.Spec.PipelineSpec.Tasks[0]
+				var regularRevision string
+				for _, param := range regularTask.TaskRef.ResolverRef.Params {
+					if param.Name == "revision" {
+						regularRevision = param.Value.StringVal
+						break
+					}
+				}
+				Expect(regularRevision).To(Equal(resolvedSHA))
+
+				finallyTask := pr.Spec.PipelineSpec.Finally[0]
+				var finallyRevision string
+				for _, param := range finallyTask.TaskRef.ResolverRef.Params {
+					if param.Name == "revision" {
+						finallyRevision = param.Value.StringVal
+						break
+					}
+				}
+				Expect(finallyRevision).To(Equal(resolvedSHA))
+			})
+
+			It("should handle nil pipeline spec gracefully", func() {
+				builder.WithGitReferenceRewriting(resolvedSHA, gitURL)
+
+				pr, err := builder.Build()
+				Expect(pr).To(Not(BeNil()))
+				Expect(err).To(BeNil())
+				Expect(pr.Spec.PipelineSpec).To(BeNil())
+			})
+		})
+
+		Context("when git reference rewriting is not enabled", func() {
+			It("should not process git references", func() {
+				originalRevision := "main"
+				builder.pipelineRun.Spec.PipelineSpec = basicPipelineSpec
+
+				pr, err := builder.Build()
+				Expect(pr).To(Not(BeNil()))
+				Expect(err).To(BeNil())
+
+				task := pr.Spec.PipelineSpec.Tasks[0]
+				var revision string
+				for _, param := range task.TaskRef.ResolverRef.Params {
+					if param.Name == "revision" {
+						revision = param.Value.StringVal
+						break
+					}
+				}
+				Expect(revision).To(Equal(originalRevision))
+			})
 		})
 	})
 
