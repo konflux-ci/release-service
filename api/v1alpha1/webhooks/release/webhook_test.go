@@ -123,6 +123,39 @@ var _ = Describe("Release validation webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("release name must be no more than 63 characters"))
 			Expect(warnings).To(BeEmpty())
 		})
+
+		It("should return an error when snapshot name is longer than 63 characters", func() {
+			release := &v1alpha1.Release{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-release",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleaseSpec{
+					Snapshot:    "this-is-a-very-long-snapshot-name-that-exceeds-sixty-three-chars",
+					ReleasePlan: "test-releaseplan",
+				},
+			}
+			warnings, err := webhook.ValidateCreate(context.TODO(), release)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("snapshot name must be no more than 63 characters"))
+			Expect(warnings).To(BeEmpty())
+		})
+
+		It("should not return an error when both release name and snapshot name are within 63 characters", func() {
+			release := &v1alpha1.Release{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-release",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleaseSpec{
+					Snapshot:    "test-snapshot",
+					ReleasePlan: "test-releaseplan",
+				},
+			}
+			warnings, err := webhook.ValidateCreate(context.TODO(), release)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(warnings).To(BeEmpty())
+		})
 	})
 
 	createResources = func() {
