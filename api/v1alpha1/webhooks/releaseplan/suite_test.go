@@ -59,7 +59,6 @@ var (
 	k8sClient client.Client
 	mgr       manager.Manager
 	testEnv   *envtest.Environment
-	webhook   *Webhook
 )
 
 func TestReleasePlanWebhook(t *testing.T) {

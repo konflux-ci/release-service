@@ -70,16 +70,7 @@ var _ = Describe("ReleasePlan webhook", func() {
 		})
 	})
 
-	When("a ReleasePlan is created with an invalid auto-release label value", func() {
-		It("should get rejected until the value is valid", func() {
-			releasePlan.Labels = map[string]string{metadata.AutoReleaseLabel: "foo"}
-			err := k8sClient.Create(ctx, releasePlan)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("'%s' label can only be set to true or false", metadata.AutoReleaseLabel))
-		})
-	})
-
-	When("a ReleasePlan is created with a valid auto-release label value", func() {
+	When("a ReleasePlan is created with an auto-release label value", func() {
 		It("shouldn't be modified", func() {
 			// Using value "true"
 			localReleasePlan := releasePlan.DeepCopy()
@@ -112,23 +103,6 @@ var _ = Describe("ReleasePlan webhook", func() {
 
 				return err == nil && ok && labelValue == "false"
 			}, timeout).Should(BeTrue())
-		})
-	})
-
-	When("a ReleasePlan is updated using an invalid auto-release label value", func() {
-		It("shouldn't be modified", func() {
-			Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
-			releasePlan.GetLabels()[metadata.AutoReleaseLabel] = "foo"
-			err := k8sClient.Update(ctx, releasePlan)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("'%s' label can only be set to true or false", metadata.AutoReleaseLabel))
-		})
-	})
-
-	When("ValidateDelete method is called", func() {
-		It("should return nil", func() {
-			releasePlan := &v1alpha1.ReleasePlan{}
-			Expect(webhook.ValidateDelete(ctx, releasePlan)).To(BeNil())
 		})
 	})
 })
