@@ -86,4 +86,94 @@ var _ = Describe("Utils", Ordered, func() {
 			Expect(hasPipelineSucceeded(pipelineRun)).To(BeTrue())
 		})
 	})
+
+	When("hasFinalizersChanged is called", func() {
+		It("should return false when both objects are nil", func() {
+			Expect(hasFinalizersChanged(nil, nil)).To(BeFalse())
+		})
+
+		It("should return false when the old object is nil", func() {
+			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hasFinalizersChanged(nil, pipelineRun)).To(BeFalse())
+		})
+
+		It("should return false when the new object is nil", func() {
+			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hasFinalizersChanged(pipelineRun, nil)).To(BeFalse())
+		})
+
+		It("should return false when the finalizers are identical", func() {
+			oldPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithFinalizer("finalizer1").
+				WithFinalizer("finalizer2").
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			newPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithFinalizer("finalizer1").
+				WithFinalizer("finalizer2").
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(hasFinalizersChanged(oldPipelineRun, newPipelineRun)).To(BeFalse())
+		})
+
+		It("should return true when finalizers are added to the new object", func() {
+			oldPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithFinalizer("finalizer1").
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			newPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithFinalizer("finalizer1").
+				WithFinalizer("finalizer2").
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(hasFinalizersChanged(oldPipelineRun, newPipelineRun)).To(BeTrue())
+		})
+
+		It("should return true when finalizers are removed from the new object", func() {
+			oldPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithFinalizer("finalizer1").
+				WithFinalizer("finalizer2").
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			newPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithFinalizer("finalizer1").
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(hasFinalizersChanged(oldPipelineRun, newPipelineRun)).To(BeTrue())
+		})
+
+		It("should return true when finalizers are reordered in the new object", func() {
+			oldPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithFinalizer("finalizer1").
+				WithFinalizer("finalizer2").
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			newPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithFinalizer("finalizer2").
+				WithFinalizer("finalizer1").
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(hasFinalizersChanged(oldPipelineRun, newPipelineRun)).To(BeTrue())
+		})
+
+		It("should return false when both objects have no finalizers", func() {
+			oldPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			newPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(hasFinalizersChanged(oldPipelineRun, newPipelineRun)).To(BeFalse())
+		})
+	})
 })
