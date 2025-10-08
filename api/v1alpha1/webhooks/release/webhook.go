@@ -80,9 +80,15 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	release := obj.(*v1alpha1.Release)
+
+	// Validate that resource names used as labels don't exceed Kubernetes label value limit (63 characters)
 	if len(release.Name) > 63 {
 		return nil, fmt.Errorf("release name must be no more than 63 characters, got %d characters", len(release.Name))
 	}
+	if len(release.Spec.Snapshot) > 63 {
+		return nil, fmt.Errorf("snapshot name must be no more than 63 characters, got %d characters", len(release.Spec.Snapshot))
+	}
+
 	return nil, nil
 }
 

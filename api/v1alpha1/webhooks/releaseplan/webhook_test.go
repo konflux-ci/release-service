@@ -105,4 +105,30 @@ var _ = Describe("ReleasePlan webhook", func() {
 			}, timeout).Should(BeTrue())
 		})
 	})
+
+	When("ValidateDelete method is called", func() {
+		It("should return nil", func() {
+			releasePlan := &v1alpha1.ReleasePlan{}
+			Expect(webhook.ValidateDelete(ctx, releasePlan)).To(BeNil())
+		})
+	})
+
+	When("a ReleasePlan is created with an application name longer than 63 characters", func() {
+		It("should be rejected", func() {
+			releasePlan.Spec.Application = "this-is-a-very-long-application-name-that-exceeds-sixty-three-chars"
+			err := k8sClient.Create(ctx, releasePlan)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("application name must be no more than 63 characters"))
+		})
+	})
+
+	When("a ReleasePlan is updated with an application name longer than 63 characters", func() {
+		It("should be rejected", func() {
+			Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
+			releasePlan.Spec.Application = "this-is-a-very-long-application-name-that-exceeds-sixty-three-chars"
+			err := k8sClient.Update(ctx, releasePlan)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("application name must be no more than 63 characters"))
+		})
+	})
 })
