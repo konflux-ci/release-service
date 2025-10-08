@@ -2825,6 +2825,66 @@ var _ = Describe("Release adapter", Ordered, func() {
 			err := adapter.cleanupProcessingResources(pipelineRun)
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		It("should handle PipelineRun deletion during cleanup gracefully", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "pipeline-run-to-be-deleted",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+
+			// Delete the PipelineRun before cleanup to simulate race condition
+			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+
+			err := adapter.cleanupProcessingResources(pipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should use metadata-only patch to avoid Tekton validation issues", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "metadata-only-patch-test",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer, "other-finalizer"},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+
+			err := adapter.cleanupProcessingResources(pipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+
+			checkPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(pipelineRun.Name, pipelineRun.Namespace, adapter.client, adapter.ctx, checkPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkPipelineRun.Finalizers).To(HaveLen(1))
+			Expect(checkPipelineRun.Finalizers[0]).To(Equal("other-finalizer"))
+
+			Expect(adapter.client.Delete(adapter.ctx, checkPipelineRun)).To(Succeed())
+		})
+
+		It("should successfully remove finalizers from completed PipelineRuns without validation errors", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "successful-finalizer-removal",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+
+			err := adapter.cleanupProcessingResources(pipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+
+			checkPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(pipelineRun.Name, pipelineRun.Namespace, adapter.client, adapter.ctx, checkPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkPipelineRun.Finalizers).To(HaveLen(0))
+
+			Expect(adapter.client.Delete(adapter.ctx, checkPipelineRun)).To(Succeed())
+		})
 	})
 
 	When("createManagedCollectorsPipelineRun is called", func() {
