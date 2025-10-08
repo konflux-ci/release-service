@@ -18,6 +18,7 @@ package release
 
 import (
 	"context"
+	"encoding/json"
 	stderrors "errors"
 	"fmt"
 	"os"
@@ -884,14 +885,38 @@ func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, 
 
 	if pipelineRun != nil {
 		if controllerutil.ContainsFinalizer(pipelineRun, metadata.ReleaseFinalizer) {
-			patch := client.MergeFrom(pipelineRun.DeepCopy())
-			removedFinalizer := controllerutil.RemoveFinalizer(pipelineRun, metadata.ReleaseFinalizer)
-			if !removedFinalizer {
-				return fmt.Errorf("finalizer not removed")
-			}
-			err := a.client.Patch(a.ctx, pipelineRun, patch)
+			freshPipelineRun := &tektonv1.PipelineRun{}
+			err := a.client.Get(a.ctx, client.ObjectKeyFromObject(pipelineRun), freshPipelineRun)
 			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil
+				}
 				return err
+			}
+
+			if controllerutil.ContainsFinalizer(freshPipelineRun, metadata.ReleaseFinalizer) {
+				newFinalizers := []string{}
+				for _, f := range freshPipelineRun.GetFinalizers() {
+					if f != metadata.ReleaseFinalizer {
+						newFinalizers = append(newFinalizers, f)
+					}
+				}
+
+				patchPayload := map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"finalizers": newFinalizers,
+					},
+				}
+				patchBytes, err := json.Marshal(patchPayload)
+				if err != nil {
+					return err
+				}
+
+				err = a.client.Patch(a.ctx, freshPipelineRun,
+					client.RawPatch(types.MergePatchType, patchBytes))
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
