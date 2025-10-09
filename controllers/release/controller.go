@@ -114,7 +114,7 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 				Kind:  "Release",
 				Group: "appstudio.redhat.com",
 			},
-		}, builder.WithPredicates(tekton.ReleasePipelineRunSucceededPredicate())).
+		}, builder.WithPredicates(tekton.ReleasePipelineRunLifecyclePredicate())).
 		Complete(c)
 }
 
