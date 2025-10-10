@@ -28,6 +28,7 @@ import (
 	ctrlWebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/go-logr/logr"
+	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
 	"github.com/konflux-ci/release-service/metadata"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -67,8 +68,9 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 }
 
 // handleRelease takes an incoming admission request and returns an admission response. Create requests
-// add an author label with the current user. Update requests are rejected if the author label is being
-// modified. All other requests are accepted without action.
+// add an author label using the current user. If the current user is not available, it falls back to the
+// referenced Snapshot's "pac.test.appstudio.openshift.io/sender" annotation. Update requests are rejected if the author
+// label is being modified. All other requests are accepted without action.
 func (w *Webhook) handleRelease(req admission.Request) admission.Response {
 	release := &v1alpha1.Release{}
 	err := json.Unmarshal(req.Object.Raw, release)
@@ -79,7 +81,23 @@ func (w *Webhook) handleRelease(req admission.Request) admission.Response {
 	switch req.AdmissionRequest.Operation {
 	case admissionv1.Create:
 		if release.GetLabels()[metadata.AutomatedLabel] != "true" {
-			w.setAuthorLabel(req.UserInfo.Username, release)
+			// Use current user as primary author
+			author := req.UserInfo.Username
+
+			// Fall back to PAC annotation if current user is empty or not available
+			if author == "" {
+				pacAuthor, err := w.getAuthorFromSnapshot(context.Background(), release)
+				if err != nil {
+					w.log.Info("failed to get author from current user and snapshot PAC annotation",
+						"error", err, "snapshot", release.Spec.Snapshot)
+					// Use a default if both fail
+					author = "unknown"
+				} else {
+					author = pacAuthor
+				}
+			}
+
+			w.setAuthorLabel(author, release)
 		}
 
 		return w.patchResponse(req.Object.Raw, release)
@@ -170,4 +188,27 @@ func (w *Webhook) sanitizeLabelValue(username string) string {
 	}
 
 	return author
+}
+
+// getAuthorFromSnapshot retrieves the Snapshot referenced by the Release and extracts the author
+// from the "pac.test.appstudio.openshift.io/sender" annotation. If the Snapshot cannot be fetched
+// or the annotation is not present, an error is returned.
+func (w *Webhook) getAuthorFromSnapshot(ctx context.Context, release *v1alpha1.Release) (string, error) {
+	// Fetch the Snapshot referenced by the Release
+	snapshot := &applicationapiv1alpha1.Snapshot{}
+	err := w.client.Get(ctx, client.ObjectKey{
+		Name:      release.Spec.Snapshot,
+		Namespace: release.Namespace,
+	}, snapshot)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch snapshot %s/%s: %w", release.Namespace, release.Spec.Snapshot, err)
+	}
+
+	// Extract the PAC sender annotation
+	sender, exists := snapshot.Annotations["pac.test.appstudio.openshift.io/sender"]
+	if !exists || sender == "" {
+		return "", fmt.Errorf("snapshot %s/%s does not have pac sender annotation", release.Namespace, release.Spec.Snapshot)
+	}
+
+	return sender, nil
 }
