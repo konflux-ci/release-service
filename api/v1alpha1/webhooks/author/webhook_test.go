@@ -338,7 +338,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					Expect(patch.Value).To(Equal("admin"))
 				})
 
-				It("should allow the change if author value is not modified", func() {
+				It("should refresh the author based on permissions even if value appears unchanged", func() {
 					previousReleasePlan.Labels[metadata.AuthorLabel] = "user"
 					releasePlan.Labels[metadata.AuthorLabel] = "user"
 					admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
@@ -349,10 +349,15 @@ var _ = Describe("Author webhook", Ordered, func() {
 					rsp := webhook.Handle(ctx, admissionRequest)
 					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 					Expect(rsp.AdmissionResponse.Patch).To(BeNil())
-					Expect(len(rsp.Patches)).To(Equal(0))
+					// RBAC query fails in test environment, so falls back to current user
+					Expect(len(rsp.Patches)).To(Equal(1))
+					patch := rsp.Patches[0]
+					Expect(patch.Operation).To(Equal("replace"))
+					Expect(patch.Path).To(ContainSubstring("author"))
+					Expect(patch.Value).To(Equal("admin"))
 				})
 
-				It("should allow changing the author to the current user", func() {
+				It("should accept user-provided author when it matches computed value", func() {
 					previousReleasePlan.Labels[metadata.AuthorLabel] = "user"
 					releasePlan.Labels[metadata.AuthorLabel] = "admin"
 					admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
@@ -363,7 +368,29 @@ var _ = Describe("Author webhook", Ordered, func() {
 					rsp := webhook.Handle(ctx, admissionRequest)
 					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 					Expect(rsp.AdmissionResponse.Patch).To(BeNil())
+					// RBAC query fails and falls back to current user ("admin")
+					// Since user provided "admin" and computed value is "admin", no patch needed
 					Expect(len(rsp.Patches)).To(Equal(0))
+				})
+
+				It("should override user-provided author when it differs from computed value", func() {
+					previousReleasePlan.Labels[metadata.AuthorLabel] = "user"
+					releasePlan.Labels[metadata.AuthorLabel] = "wronguser"
+					admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
+					Expect(err).NotTo(HaveOccurred())
+					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
+					Expect(err).NotTo(HaveOccurred())
+
+					rsp := webhook.Handle(ctx, admissionRequest)
+					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
+					Expect(rsp.AdmissionResponse.Patch).To(BeNil())
+					// RBAC query fails and falls back to current user ("admin")
+					// Since user provided "wronguser" but computed value is "admin", patch is needed
+					Expect(len(rsp.Patches)).To(Equal(1))
+					patch := rsp.Patches[0]
+					Expect(patch.Operation).To(Equal("replace"))
+					Expect(patch.Path).To(ContainSubstring("author"))
+					Expect(patch.Value).To(Equal("admin"))
 				})
 			})
 
