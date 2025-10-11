@@ -18,6 +18,8 @@ package utils
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/hashicorp/go-multierror"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 var _ = Describe("PipelineRun builder", func() {
@@ -370,20 +371,135 @@ var _ = Describe("PipelineRun builder", func() {
 				Params: []Param{
 					{
 						Name:  "url",
-						Value: "pipelineUrl",
+						Value: "https://github.com/octocat/Hello-World.git",
 					},
 					{
 						Name:  "revision",
-						Value: "pipelineRevision",
+						Value: "master",
 					},
 				},
 			}
 
 			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
 			Expect(builder.pipelineRun.Spec.Params[0].Name).To(Equal("taskGitUrl"))
-			Expect(builder.pipelineRun.Spec.Params[0].Value.StringVal).To(Equal("pipelineUrl"))
+			Expect(builder.pipelineRun.Spec.Params[0].Value.StringVal).To(Equal("https://github.com/octocat/Hello-World.git"))
 			Expect(builder.pipelineRun.Spec.Params[1].Name).To(Equal("taskGitRevision"))
-			Expect(builder.pipelineRun.Spec.Params[1].Value.StringVal).To(Equal("pipelineRevision"))
+			Expect(builder.pipelineRun.Spec.Params[1].Value.StringVal).NotTo(Equal("master"))
+			Expect(len(builder.pipelineRun.Spec.Params[1].Value.StringVal)).To(Equal(40))
+		})
+
+		It("works correctly when revision is already a SHA", func() {
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			originalSHA := "1234567890abcdef1234567890abcdef12345678"
+
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{
+						Name:  "url",
+						Value: "https://github.com/octocat/Hello-World.git",
+					},
+					{
+						Name:  "revision",
+						Value: originalSHA,
+					},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+
+			_, err := builder.Build()
+			Expect(err).To(BeNil())
+
+			Expect(builder.pipelineRun.Spec.Params[0].Name).To(Equal("taskGitUrl"))
+			Expect(builder.pipelineRun.Spec.Params[0].Value.StringVal).To(Equal("https://github.com/octocat/Hello-World.git"))
+			Expect(builder.pipelineRun.Spec.Params[1].Name).To(Equal("taskGitRevision"))
+			Expect(builder.pipelineRun.Spec.Params[1].Value.StringVal).To(Equal(originalSHA))
+
+			Expect(builder.pipelineRun.Spec.PipelineRef.ResolverRef.Params[1].Value.StringVal).To(Equal(originalSHA))
+		})
+
+		It("validates that resolved value is a valid SHA", func() {
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			originalSHA := "1234567890abcdef1234567890abcdef12345678"
+
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{
+						Name:  "url",
+						Value: "https://github.com/octocat/Hello-World.git",
+					},
+					{
+						Name:  "revision",
+						Value: originalSHA,
+					},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+
+			_, err := builder.Build()
+			Expect(err).To(BeNil())
+
+			Expect(builder.pipelineRun.Spec.Params[0].Name).To(Equal("taskGitUrl"))
+			Expect(builder.pipelineRun.Spec.Params[0].Value.StringVal).To(Equal("https://github.com/octocat/Hello-World.git"))
+			Expect(builder.pipelineRun.Spec.Params[1].Name).To(Equal("taskGitRevision"))
+			Expect(builder.pipelineRun.Spec.Params[1].Value.StringVal).To(Equal(originalSHA))
+
+			resolvedValue := builder.pipelineRun.Spec.Params[1].Value.StringVal
+			Expect(len(resolvedValue)).To(Equal(40), "SHA should be 40 characters long")
+			Expect(resolvedValue).To(MatchRegexp("^[a-f0-9]{40}$"), "SHA should match hex pattern")
+		})
+
+		It("fails fast when branch is not found", func() {
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			nonExistentBranch := "non-existent-branch-xyz"
+
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{
+						Name:  "url",
+						Value: "https://github.com/octocat/Hello-World.git",
+					},
+					{
+						Name:  "revision",
+						Value: nonExistentBranch,
+					},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+
+			_, err := builder.Build()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("git resolution failed"))
+			Expect(err.Error()).To(ContainSubstring("branch lookup failed"))
+		})
+
+		It("fails fast when repository URL is invalid", func() {
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{
+						Name:  "url",
+						Value: "",
+					},
+					{
+						Name:  "revision",
+						Value: "main",
+					},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+
+			_, err := builder.Build()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("git resolution failed"))
 		})
 	})
 
