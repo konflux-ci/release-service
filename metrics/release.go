@@ -23,6 +23,9 @@ import (
 )
 
 var (
+	hourlyBuckets = []float64{5, 10, 30, 60, 90, 180, 300, 450, 900, 1800, 3600}
+	dailyBuckets  = []float64{3600, 7200, 14400, 21600, 28800, 36000, 43200, 57600, 72000, 86400}
+
 	ReleaseConcurrentTotal = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "release_concurrent_total",
@@ -51,7 +54,7 @@ var (
 	releasePreProcessingDurationSecondsOpts = prometheus.HistogramOpts{
 		Name:    "release_pre_processing_duration_seconds",
 		Help:    "How long in seconds a Release takes to start processing",
-		Buckets: []float64{5, 10, 15, 30, 45, 60, 90, 120, 180, 240, 300},
+		Buckets: hourlyBuckets,
 	}
 
 	ReleaseValidationDurationSeconds = prometheus.NewHistogramVec(
@@ -65,7 +68,7 @@ var (
 	releaseValidationDurationSecondsOpts = prometheus.HistogramOpts{
 		Name:    "release_validation_duration_seconds",
 		Help:    "How long in seconds a Release takes to validate",
-		Buckets: []float64{5, 10, 15, 30, 45, 60, 90, 120, 180, 240, 300},
+		Buckets: hourlyBuckets,
 	}
 
 	ReleaseDurationSeconds = prometheus.NewHistogramVec(
@@ -86,7 +89,7 @@ var (
 	releaseDurationSecondsOpts = prometheus.HistogramOpts{
 		Name:    "release_duration_seconds",
 		Help:    "How long in seconds a Release takes to complete",
-		Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
+		Buckets: dailyBuckets,
 	}
 
 	ReleaseProcessingDurationSeconds = prometheus.NewHistogramVec(
@@ -101,7 +104,7 @@ var (
 	releaseProcessingDurationSecondsOpts = prometheus.HistogramOpts{
 		Name:    "release_processing_duration_seconds",
 		Help:    "How long in seconds a Release processing takes to complete",
-		Buckets: []float64{60, 150, 300, 450, 600, 750, 900, 1050, 1200, 1800, 3600},
+		Buckets: dailyBuckets,
 	}
 
 	ReleaseTotal = prometheus.NewCounterVec(
