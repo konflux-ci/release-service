@@ -6,7 +6,7 @@ require (
 	github.com/conforma/crds/api v0.1.4
 	github.com/go-logr/logr v1.4.3
 	github.com/konflux-ci/application-api v0.0.0-20250324201748-5a9670bf7679
-	github.com/konflux-ci/integration-service v0.0.0-20251008134320-3b8602cf4b50
+	github.com/konflux-ci/integration-service v0.0.0-20251013200253-08eb8bcb1ca3
 	github.com/konflux-ci/operator-toolkit v0.0.0-20240402130556-ef6dcbeca69d
 	github.com/onsi/ginkgo/v2 v2.26.0
 	github.com/onsi/gomega v1.38.2
@@ -16,7 +16,7 @@ require (
 	k8s.io/apimachinery v0.34.1
 	k8s.io/client-go v1.5.2
 	knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883
-	sigs.k8s.io/controller-runtime v0.22.2
+	sigs.k8s.io/controller-runtime v0.22.3
 )
 
 require (
@@ -76,7 +76,7 @@ require (
 	golang.org/x/exp v0.0.0-20251009144603-d2f985daa21b // indirect
 	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251002232023-7c0ddcbb5797 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20251014184007-4626949a642f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251007200510-49b9836ed3ff // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	k8s.io/apiserver v0.34.1 // indirect
