@@ -323,8 +323,8 @@ github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzh
 github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
 github.com/konflux-ci/application-api v0.0.0-20250324201748-5a9670bf7679 h1:mtLA7dQ9iIncxYoOLgty2B1l1cucnp/tsbxQaKn9Myw=
 github.com/konflux-ci/application-api v0.0.0-20250324201748-5a9670bf7679/go.mod h1:948Z+a1IbfRT0RtoHzWWSN9YEucSbMJTHaMhz7dVICc=
-github.com/konflux-ci/integration-service v0.0.0-20251013200253-08eb8bcb1ca3 h1:Tz2bDhnyqYwhxphDfuOkS9H/tIioa8IKYVM2jid5keU=
-github.com/konflux-ci/integration-service v0.0.0-20251013200253-08eb8bcb1ca3/go.mod h1:ETduSrPa/gijlrAaGpfa2LQjzpg3ObP39PthcIoDeEI=
+github.com/konflux-ci/integration-service v0.0.0-20251022002828-9bdaff580402 h1:dJj55QQY0jZOGCI007e7EKmsOzjd+uQP93MkBhxAM1E=
+github.com/konflux-ci/integration-service v0.0.0-20251022002828-9bdaff580402/go.mod h1:iskBWRHqxq1paNJVSng0hn2wiAgtwGCkz1rGteqD1BI=
 github.com/konflux-ci/operator-toolkit v0.0.0-20240402130556-ef6dcbeca69d h1:z7j3mglNoXvIrw5Vz/Ul+izoITRaqYURPIWrFoEyHgI=
 github.com/konflux-ci/operator-toolkit v0.0.0-20240402130556-ef6dcbeca69d/go.mod h1:AcChx7FjpYSIkDvQgaUKyauuF0PXm3ivB5MqZSC9Eis=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
