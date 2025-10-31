@@ -9,6 +9,8 @@ on:  # yamllint disable-line rule:truthy
     paths:
       - '**.go'
   workflow_dispatch:
+  merge_group:
+    types: [checks_requested]
 jobs:
   gosec:
     name: Check GO security
