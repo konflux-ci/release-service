@@ -1,6 +1,6 @@
-# HACBS Release service
+# Konflux Release service
 
-Release service is a Kubernetes operator to control the life cycle of HACBS-managed releases in the context of AppStudio.
+Release service is a Kubernetes operator to control the life cycle of Konflux-managed releases.
 
 ## Running, building and testing the operator
 
