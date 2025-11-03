@@ -445,8 +445,8 @@ github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/stvp/go-udp-testing v0.0.0-20201019212854-469649b16807/go.mod h1:7jxmlfBCDBXRzr0eAQJ48XC1hBu1np4CS5+cHEYfwpc=
-github.com/tektoncd/pipeline v1.5.0 h1:+WtqLoZqNasZD/gqSjzi/kCg7Oxi88lrw6qolyqsX6M=
-github.com/tektoncd/pipeline v1.5.0/go.mod h1:RW9tYptfWhbZ7A8dFBqV+4ZoN4KRo20GcXD60gpoKRs=
+github.com/tektoncd/pipeline v1.6.0 h1:A+D+jzOVl2QNl/yiNT7csVgBUy2wpz6K6+/D4q5lfss=
+github.com/tektoncd/pipeline v1.6.0/go.mod h1:5SNoYgRYPQopkv7ApVq5GO3JqPk2AjV+VMMjwBsbJOg=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
 github.com/tidwall/gjson v1.18.0/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
 github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=
