@@ -118,7 +118,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.sha }}
       - name: Install gitlint into container
         run: |
           python3 -m venv venv
@@ -127,4 +127,8 @@ jobs:
       - name: Run gitlint check
         run: |
           source venv/bin/activate
-          gitlint --commits origin/${{ github.event.pull_request.base.ref }}..HEAD
+          RAW_BASE_REF="${{ github.base_ref || github.event.merge_group.base_ref }}"
+          BASE_REF="${RAW_BASE_REF#refs/heads/}"
+          echo "Base ref: $BASE_REF"
+          git fetch origin "$BASE_REF"
+          gitlint --commits "origin/$BASE_REF"..HEAD
