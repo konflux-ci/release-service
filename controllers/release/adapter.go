@@ -127,6 +127,7 @@ func (a *adapter) EnsureFinalizersAreCalled() (controller.OperationResult, error
 			return controller.RequeueWithError(err)
 		}
 	}
+	func() {}()
 
 	// Requeue the release again so it gets deleted and other operations are not executed
 	return controller.Requeue()
