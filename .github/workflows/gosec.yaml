@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           fetch-depth: 1
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.sha }}
       - name: Run Gosec Security Scanner
         id: gosec
         uses: securego/gosec@8b0d0b8871e094af2373cf78efecd795a001aaeb # master
@@ -39,6 +39,7 @@ jobs:
           GOROOT: ""
         continue-on-error: true
       - name: Upload SARIF file
+        if: github.event_name != 'merge_group'
         uses: github/codeql-action/upload-sarif@0499de31b99561a6d14a36a5f662c2a54f91beee # v3
         with:
           sarif_file: results.sarif
