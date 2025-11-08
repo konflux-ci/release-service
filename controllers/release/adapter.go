@@ -715,51 +715,70 @@ func (a *adapter) EnsureFinalPipelineProcessingIsTracked() (controller.Operation
 	return controller.ContinueProcessing()
 }
 
-// EnsureCollectorsProcessingResourcesAreCleanedUp is an operation that will ensure that the RoleBindings and Roles created for the Collectors
+// EnsureCollectorsProcessingResourcesAreCleanedUp is an operation that will ensure that the RoleBindings, Roles, and PipelineRuns created for the Collectors
 // Processing step are cleaned up once processing is finished.
 func (a *adapter) EnsureCollectorsProcessingResourcesAreCleanedUp() (controller.OperationResult, error) {
 	if !a.release.HasTenantCollectorsPipelineProcessingFinished() || !a.release.HasManagedCollectorsPipelineProcessingFinished() {
 		return controller.ContinueProcessing()
 	}
 
-	// Cleaanup Tenant Collector RoleBinding resources.
+	var cleanupErrors []error
+
+	defer func() {
+		if len(cleanupErrors) > 0 {
+			a.logger.Error(fmt.Errorf("collector pipeline cleanup errors: %v", cleanupErrors),
+				"Some collector pipeline cleanups failed, but Release will continue")
+		}
+	}()
+
+	// Cleanup Tenant Collector PipelineRun and RoleBinding resources.
+	tenantCollectorsPipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.TenantCollectorsPipelineType)
+	if err != nil && !errors.IsNotFound(err) {
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to get tenant collectors pipeline: %w", err))
+	}
+
 	tenantCollectorsTenantRB, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.CollectorsProcessing.TenantCollectorsProcessing, "tenant")
 	if err != nil && !errors.IsNotFound(err) && !stderrors.Is(err, loader.ErrInvalidRoleBindingRef) {
-		return controller.RequeueOnErrorOrContinue(err)
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to get tenant collectors tenant rolebinding: %w", err))
 	}
 
 	tenantCollectorsSecretRB, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.CollectorsProcessing.TenantCollectorsProcessing, "secret")
 	if err != nil && !errors.IsNotFound(err) && !stderrors.Is(err, loader.ErrInvalidRoleBindingRef) {
-		return controller.RequeueOnErrorOrContinue(err)
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to get tenant collectors secret rolebinding: %w", err))
 	}
 
-	err = a.cleanupProcessingResources(nil, tenantCollectorsTenantRB, tenantCollectorsSecretRB)
+	err = a.cleanupPipelineResources(tenantCollectorsPipelineRun, tenantCollectorsTenantRB, tenantCollectorsSecretRB)
 	if err != nil {
-		return controller.RequeueOnErrorOrContinue(err)
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("tenant collectors cleanup failed: %w", err))
 	}
 
-	// Cleaanup Managed Collector RoleBinding resources.
+	// Cleanup Managed Collector PipelineRun and RoleBinding resources.
+	managedCollectorsPipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedCollectorsPipelineType)
+	if err != nil && !errors.IsNotFound(err) {
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to get managed collectors pipeline: %w", err))
+	}
+
 	managedCollectorsTenantRB, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "tenant")
 	if err != nil && !errors.IsNotFound(err) && !stderrors.Is(err, loader.ErrInvalidRoleBindingRef) {
-		return controller.RequeueOnErrorOrContinue(err)
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to get managed collectors tenant rolebinding: %w", err))
 	}
 
 	managedCollectorsManagedRB, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "managed")
 	if err != nil && !errors.IsNotFound(err) && !stderrors.Is(err, loader.ErrInvalidRoleBindingRef) {
-		return controller.RequeueOnErrorOrContinue(err)
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to get managed collectors managed rolebinding: %w", err))
 	}
 
 	managedCollectorsSecretRB, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "secret")
 	if err != nil && !errors.IsNotFound(err) && !stderrors.Is(err, loader.ErrInvalidRoleBindingRef) {
-		return controller.RequeueOnErrorOrContinue(err)
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to get managed collectors secret rolebinding: %w", err))
 	}
 
-	err = a.cleanupProcessingResources(nil, managedCollectorsTenantRB, managedCollectorsManagedRB, managedCollectorsSecretRB)
+	err = a.cleanupPipelineResources(managedCollectorsPipelineRun, managedCollectorsTenantRB, managedCollectorsManagedRB, managedCollectorsSecretRB)
 	if err != nil {
-		return controller.RequeueOnErrorOrContinue(err)
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("managed collectors cleanup failed: %w", err))
 	}
 
-	return controller.RequeueOnErrorOrContinue(nil)
+	return controller.ContinueProcessing()
 }
 
 // EnsureReleaseProcessingResourcesAreCleanedUp is an operation that will ensure that the resources created for the Release

@@ -2229,6 +2229,264 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(checkSecretRoleBinding).To(Equal(&rbac.RoleBinding{}))
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
+
+		It("should cleanup tenant collector PipelineRun finalizers when processing finishes", func() {
+			tenantCollectorsPipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "tenant-collectors-pr",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+					Labels: map[string]string{
+						metadata.PipelinesTypeLabel:    metadata.TenantCollectorsPipelineType.String(),
+						metadata.ReleaseNameLabel:      adapter.release.Name,
+						metadata.ReleaseNamespaceLabel: adapter.release.Namespace,
+					},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, tenantCollectorsPipelineRun)).To(Succeed())
+
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+			adapter.release.MarkTenantCollectorsPipelineProcessed()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+
+			res, err := adapter.EnsureCollectorsProcessingResourcesAreCleanedUp()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueRequest).To(BeFalse())
+			Expect(res.CancelRequest).To(BeFalse())
+
+			checkPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(tenantCollectorsPipelineRun.Name, tenantCollectorsPipelineRun.Namespace, adapter.client, adapter.ctx, checkPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkPipelineRun.Finalizers).To(HaveLen(0))
+
+			Expect(adapter.client.Delete(adapter.ctx, checkPipelineRun)).To(Succeed())
+		})
+
+		It("should cleanup managed collector PipelineRun finalizers when processing finishes", func() {
+			managedCollectorsPipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "managed-collectors-pr",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+					Labels: map[string]string{
+						metadata.PipelinesTypeLabel:    metadata.ManagedCollectorsPipelineType.String(),
+						metadata.ReleaseNameLabel:      adapter.release.Name,
+						metadata.ReleaseNamespaceLabel: adapter.release.Namespace,
+					},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, managedCollectorsPipelineRun)).To(Succeed())
+
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", managedCollectorsPipelineRun.Namespace, types.Separator, managedCollectorsPipelineRun.Name)
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkManagedCollectorsPipelineProcessing()
+			adapter.release.MarkManagedCollectorsPipelineProcessed()
+
+			res, err := adapter.EnsureCollectorsProcessingResourcesAreCleanedUp()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueRequest).To(BeFalse())
+			Expect(res.CancelRequest).To(BeFalse())
+
+			checkPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(managedCollectorsPipelineRun.Name, managedCollectorsPipelineRun.Namespace, adapter.client, adapter.ctx, checkPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkPipelineRun.Finalizers).To(HaveLen(0))
+
+			Expect(adapter.client.Delete(adapter.ctx, checkPipelineRun)).To(Succeed())
+		})
+
+		It("should cleanup both tenant and managed collector PipelineRuns together", func() {
+			tenantCollectorsPipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "tenant-collectors-pr-both",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+					Labels: map[string]string{
+						metadata.PipelinesTypeLabel:    metadata.TenantCollectorsPipelineType.String(),
+						metadata.ReleaseNameLabel:      adapter.release.Name,
+						metadata.ReleaseNamespaceLabel: adapter.release.Namespace,
+					},
+				},
+			}
+			managedCollectorsPipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "managed-collectors-pr-both",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+					Labels: map[string]string{
+						metadata.PipelinesTypeLabel:    metadata.ManagedCollectorsPipelineType.String(),
+						metadata.ReleaseNameLabel:      adapter.release.Name,
+						metadata.ReleaseNamespaceLabel: adapter.release.Namespace,
+					},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, tenantCollectorsPipelineRun)).To(Succeed())
+			Expect(adapter.client.Create(adapter.ctx, managedCollectorsPipelineRun)).To(Succeed())
+
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", managedCollectorsPipelineRun.Namespace, types.Separator, managedCollectorsPipelineRun.Name)
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+			adapter.release.MarkTenantCollectorsPipelineProcessed()
+			adapter.release.MarkManagedCollectorsPipelineProcessing()
+			adapter.release.MarkManagedCollectorsPipelineProcessed()
+
+			res, err := adapter.EnsureCollectorsProcessingResourcesAreCleanedUp()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueRequest).To(BeFalse())
+			Expect(res.CancelRequest).To(BeFalse())
+
+			checkTenantPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(tenantCollectorsPipelineRun.Name, tenantCollectorsPipelineRun.Namespace, adapter.client, adapter.ctx, checkTenantPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkTenantPipelineRun.Finalizers).To(HaveLen(0))
+
+			checkManagedPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(managedCollectorsPipelineRun.Name, managedCollectorsPipelineRun.Namespace, adapter.client, adapter.ctx, checkManagedPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkManagedPipelineRun.Finalizers).To(HaveLen(0))
+
+			Expect(adapter.client.Delete(adapter.ctx, checkTenantPipelineRun)).To(Succeed())
+			Expect(adapter.client.Delete(adapter.ctx, checkManagedPipelineRun)).To(Succeed())
+		})
+
+		It("should continue cleanup even if tenant collector PipelineRun is missing", func() {
+			managedCollectorsPipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "managed-collectors-pr-resilient",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+					Labels: map[string]string{
+						metadata.PipelinesTypeLabel:    metadata.ManagedCollectorsPipelineType.String(),
+						metadata.ReleaseNameLabel:      adapter.release.Name,
+						metadata.ReleaseNamespaceLabel: adapter.release.Namespace,
+					},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, managedCollectorsPipelineRun)).To(Succeed())
+
+			// Set reference to non-existent tenant collector
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-tenant-pr")
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", managedCollectorsPipelineRun.Namespace, types.Separator, managedCollectorsPipelineRun.Name)
+
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+			adapter.release.MarkTenantCollectorsPipelineProcessed()
+			adapter.release.MarkManagedCollectorsPipelineProcessing()
+			adapter.release.MarkManagedCollectorsPipelineProcessed()
+
+			res, err := adapter.EnsureCollectorsProcessingResourcesAreCleanedUp()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueRequest).To(BeFalse())
+			Expect(res.CancelRequest).To(BeFalse())
+
+			// Managed collector should still be cleaned up despite tenant failure
+			checkManagedPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(managedCollectorsPipelineRun.Name, managedCollectorsPipelineRun.Namespace, adapter.client, adapter.ctx, checkManagedPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkManagedPipelineRun.Finalizers).To(HaveLen(0))
+
+			Expect(adapter.client.Delete(adapter.ctx, checkManagedPipelineRun)).To(Succeed())
+		})
+
+		It("should continue cleanup even if managed collector PipelineRun is missing", func() {
+			tenantCollectorsPipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "tenant-collectors-pr-resilient",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+					Labels: map[string]string{
+						metadata.PipelinesTypeLabel:    metadata.TenantCollectorsPipelineType.String(),
+						metadata.ReleaseNameLabel:      adapter.release.Name,
+						metadata.ReleaseNamespaceLabel: adapter.release.Namespace,
+					},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, tenantCollectorsPipelineRun)).To(Succeed())
+
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
+			// Set reference to non-existent managed collector
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-managed-pr")
+
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+			adapter.release.MarkTenantCollectorsPipelineProcessed()
+			adapter.release.MarkManagedCollectorsPipelineProcessing()
+			adapter.release.MarkManagedCollectorsPipelineProcessed()
+
+			res, err := adapter.EnsureCollectorsProcessingResourcesAreCleanedUp()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueRequest).To(BeFalse())
+			Expect(res.CancelRequest).To(BeFalse())
+
+			// Tenant collector should still be cleaned up despite managed failure
+			checkTenantPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(tenantCollectorsPipelineRun.Name, tenantCollectorsPipelineRun.Namespace, adapter.client, adapter.ctx, checkTenantPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkTenantPipelineRun.Finalizers).To(HaveLen(0))
+
+			Expect(adapter.client.Delete(adapter.ctx, checkTenantPipelineRun)).To(Succeed())
+		})
+
+		It("should handle cleanup when both collectors are missing without errors", func() {
+			// Set references to non-existent PipelineRuns
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-tenant-pr")
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-managed-pr")
+
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+			adapter.release.MarkTenantCollectorsPipelineProcessed()
+			adapter.release.MarkManagedCollectorsPipelineProcessing()
+			adapter.release.MarkManagedCollectorsPipelineProcessed()
+
+			res, err := adapter.EnsureCollectorsProcessingResourcesAreCleanedUp()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueRequest).To(BeFalse())
+			Expect(res.CancelRequest).To(BeFalse())
+		})
+
+		It("should cleanup collectors when RoleBindings are missing", func() {
+			tenantCollectorsPipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "tenant-collectors-pr-no-rb",
+					Namespace:  "default",
+					Finalizers: []string{metadata.ReleaseFinalizer},
+					Labels: map[string]string{
+						metadata.PipelinesTypeLabel:    metadata.TenantCollectorsPipelineType.String(),
+						metadata.ReleaseNameLabel:      adapter.release.Name,
+						metadata.ReleaseNamespaceLabel: adapter.release.Namespace,
+					},
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, tenantCollectorsPipelineRun)).To(Succeed())
+
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
+				fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
+			// Don't set RoleBinding references - they're missing
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+			adapter.release.MarkTenantCollectorsPipelineProcessed()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+
+			res, err := adapter.EnsureCollectorsProcessingResourcesAreCleanedUp()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueRequest).To(BeFalse())
+			Expect(res.CancelRequest).To(BeFalse())
+
+			// PipelineRun should still be cleaned up even without RoleBindings
+			checkPipelineRun := &tektonv1.PipelineRun{}
+			err = toolkit.GetObject(tenantCollectorsPipelineRun.Name, tenantCollectorsPipelineRun.Namespace, adapter.client, adapter.ctx, checkPipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checkPipelineRun.Finalizers).To(HaveLen(0))
+
+			Expect(adapter.client.Delete(adapter.ctx, checkPipelineRun)).To(Succeed())
+		})
 	})
 
 	When("EnsureReleaseProcessingResourcesAreCleanedUp is called", func() {
