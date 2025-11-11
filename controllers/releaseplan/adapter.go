@@ -76,10 +76,14 @@ func (a *adapter) EnsureOwnerReferenceIsSet() (controller.OperationResult, error
 		return controller.RequeueWithError(err)
 	}
 
+	func() {}()
+
 	err = a.client.Patch(a.ctx, a.releasePlan, patch)
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
 	}
+
+	func() {}()
 
 	return controller.ContinueProcessing()
 }
