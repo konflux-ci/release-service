@@ -233,6 +233,14 @@ func (l *loader) GetPreviousRelease(ctx context.Context, cli client.Client, rele
 			possiblePreviousRelease.CreationTimestamp.After(release.CreationTimestamp.Time) {
 			continue
 		}
+		// Ignore a release that failed previously
+		if possiblePreviousRelease.IsFailed() {
+			continue
+		}
+		// Ignore a release that has the same snapshot as the current release
+		if possiblePreviousRelease.Spec.Snapshot == release.Spec.Snapshot {
+			continue
+		}
 		if previousRelease == nil || possiblePreviousRelease.CreationTimestamp.After(previousRelease.CreationTimestamp.Time) {
 			previousRelease = &releases.Items[i]
 		}
