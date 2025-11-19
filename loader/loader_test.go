@@ -349,6 +349,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			newerRelease = release.DeepCopy()
 			newerRelease.Name = "newer-release"
 			newerRelease.ResourceVersion = ""
+			newerRelease.Spec.Snapshot = "new-snapshot"
 			Expect(k8sClient.Create(ctx, newerRelease)).To(Succeed())
 
 			// Wait until the new release is cached
@@ -369,6 +370,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			newerRelease = release.DeepCopy()
 			newerRelease.Name = "newer-release"
 			newerRelease.ResourceVersion = ""
+			newerRelease.Spec.Snapshot = "new-snapshot"
 			Expect(k8sClient.Create(ctx, newerRelease)).To(Succeed())
 
 			// Wait until the new release is cached
@@ -381,6 +383,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			mostRecentRelease = release.DeepCopy()
 			mostRecentRelease.Name = "most-recent-release"
 			mostRecentRelease.ResourceVersion = ""
+			mostRecentRelease.Spec.Snapshot = "most-recent-snapshot"
 			Expect(k8sClient.Create(ctx, mostRecentRelease)).To(Succeed())
 
 			// Wait until the new release is cached
@@ -392,6 +395,82 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(returnedObject).ToNot(BeNil())
 			Expect(returnedObject.Name).To(Equal(newerRelease.Name))
+		})
+
+		It("returns the previous release with a different snapshot than the current release", func() {
+			// We need two new releases with the same snapshot
+			time.Sleep(1 * time.Second)
+
+			newerRelease = release.DeepCopy()
+			newerRelease.Name = "newer-release"
+			newerRelease.ResourceVersion = ""
+			newerRelease.Spec.Snapshot = "new-snapshot"
+			Expect(k8sClient.Create(ctx, newerRelease)).To(Succeed())
+
+			// Wait until the new release is cached
+			Eventually(func() error {
+				return k8sClient.Get(ctx, client.ObjectKey{Name: newerRelease.Name, Namespace: newerRelease.Namespace}, newerRelease)
+			}).Should(Succeed())
+
+			time.Sleep(1 * time.Second)
+
+			mostRecentRelease = release.DeepCopy()
+			mostRecentRelease.Name = "newer-release-retry"
+			mostRecentRelease.ResourceVersion = ""
+			mostRecentRelease.Spec.Snapshot = "new-snapshot"
+			Expect(k8sClient.Create(ctx, mostRecentRelease)).To(Succeed())
+
+			// Wait until the new release is cached
+			Eventually(func() error {
+				return k8sClient.Get(ctx, client.ObjectKey{Name: mostRecentRelease.Name, Namespace: mostRecentRelease.Namespace}, mostRecentRelease)
+			}).Should(Succeed())
+
+			time.Sleep(1 * time.Second)
+
+			returnedObject, err := loader.GetPreviousRelease(ctx, k8sClient, mostRecentRelease)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(returnedObject).ToNot(BeNil())
+			Expect(returnedObject.Name).To(Equal(release.Name))
+			Expect(returnedObject.Spec.Snapshot).To(Not(Equal(mostRecentRelease.Spec.Snapshot)))
+		})
+
+		It("returns the previous release that was successful before the current release", func() {
+			// We need two new releases one that failed and one that was successful
+			time.Sleep(1 * time.Second)
+
+			newerRelease = release.DeepCopy()
+			newerRelease.Name = "newer-release"
+			newerRelease.ResourceVersion = ""
+			newerRelease.Spec.Snapshot = "new-snapshot"
+			Expect(k8sClient.Create(ctx, newerRelease)).To(Succeed())
+
+			// Wait until the new release is cached
+			Eventually(func() error {
+				return k8sClient.Get(ctx, client.ObjectKey{Name: newerRelease.Name, Namespace: newerRelease.Namespace}, newerRelease)
+			}).Should(Succeed())
+
+			// Mark as release failed
+			newerRelease.MarkReleasing("")
+			newerRelease.MarkReleaseFailed("")
+			Expect(k8sClient.Status().Update(ctx, newerRelease)).To(Succeed())
+
+			mostRecentRelease = release.DeepCopy()
+			mostRecentRelease.Name = "most-recent-release"
+			mostRecentRelease.ResourceVersion = ""
+			mostRecentRelease.Spec.Snapshot = "most-recent-snapshot"
+			Expect(k8sClient.Create(ctx, mostRecentRelease)).To(Succeed())
+
+			// Wait until the new release is cached
+			Eventually(func() error {
+				return k8sClient.Get(ctx, client.ObjectKey{Name: mostRecentRelease.Name, Namespace: mostRecentRelease.Namespace}, mostRecentRelease)
+			}).Should(Succeed())
+
+			time.Sleep(1 * time.Second)
+
+			returnedObject, err := loader.GetPreviousRelease(ctx, k8sClient, mostRecentRelease)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(returnedObject).ToNot(BeNil())
+			Expect(returnedObject.Name).To(Equal(release.Name))
 		})
 	})
 
