@@ -24,7 +24,7 @@ import (
 
 var (
 	hourlyBuckets = []float64{5, 10, 30, 60, 90, 180, 300, 450, 900, 1800, 3600}
-	dailyBuckets  = []float64{3600, 7200, 14400, 21600, 28800, 36000, 43200, 57600, 72000, 86400}
+	dailyBuckets  = []float64{60, 300, 600, 1800, 3600, 7200, 14400, 21600, 28800, 36000, 43200, 57600, 72000, 86400}
 
 	ReleaseConcurrentTotal = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
