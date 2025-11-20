@@ -203,6 +203,31 @@ spec:
           value: kfg-$(context.pipelineRun.name)
         - name: test-environment
           value: "upstream"
+    - name: collect-and-upload-coverage
+      runAfter:
+        - konflux-e2e-tests
+      params:
+        - name: instrumented-images
+          value: "$(tasks.test-metadata.results.container-repo):$(tasks.test-metadata.results.container-tag)"
+        - name: cluster-access-secret-name
+          value: kfg-$(context.pipelineRun.name)
+        - name: test-name
+          value: e2e-tests
+        - name: oci-container
+          value: "$(params.oci-container-repo):$(context.pipelineRun.name)"
+        - name: codecov-flags
+          value: e2e-tests
+        - name: credentials-secret-name
+          value: "coverport-secrets"
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/psturc/tekton-integration-catalog.git
+          - name: revision
+            value: KFLUXDP-591
+          - name: pathInRepo
+            value: tasks/coverport-coverage/0.1/coverport-coverage.yaml
   finally:
     - name: store-pipeline-status
       when:
