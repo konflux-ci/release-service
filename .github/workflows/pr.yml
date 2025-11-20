@@ -96,6 +96,8 @@ jobs:
         run: make test
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5
+        with:
+          flags: unit-tests
       - name: Ensure make build succeeds
         run: make build
       - name: Ensure make bundle succeeds
