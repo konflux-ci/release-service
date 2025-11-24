@@ -38,10 +38,6 @@ spec:
     value:
     - linux/x86_64
     - linux/arm64
-  - name: hermetic
-    value: "true"
-  - name: prefetch-input
-    value: '{"type": "gomod", "path": "."}'
   pipelineSpec:
     finally:
     - name: show-sbom
@@ -231,6 +227,7 @@ spec:
       - name: BUILD_ARGS
         value:
         - $(params.build-args[*])
+        - ENABLE_COVERAGE=true
       - name: BUILD_ARGS_FILE
         value: $(params.build-args-file)
       - name: SOURCE_ARTIFACT
