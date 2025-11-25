@@ -46,6 +46,11 @@ LABEL io.k8s.display-name="release-service"
 LABEL summary="Konflux Release Service"
 LABEL com.redhat.component="release-service"
 LABEL io.openshift.tags="konflux"
+LABEL vendor="Red Hat, Inc."
+LABEL distribution-scope="public"
+LABEL release="1"
+LABEL url="github.com/konflux-ci/release-service"
+LABEL version="1"
 
 USER 65532:65532
 
