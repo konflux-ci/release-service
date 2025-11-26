@@ -7,7 +7,7 @@ require (
 	github.com/go-git/go-git/v5 v5.16.3
 	github.com/go-logr/logr v1.4.3
 	github.com/konflux-ci/application-api v0.0.0-20250324201748-5a9670bf7679
-	github.com/konflux-ci/integration-service v0.0.0-20251119130439-c251673a57db
+	github.com/konflux-ci/integration-service v0.0.0-20251126085956-2849e1dfa336
 	github.com/konflux-ci/operator-toolkit v0.0.0-20251118152634-b4f41f073069
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
