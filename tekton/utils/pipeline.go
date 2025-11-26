@@ -18,6 +18,7 @@ package utils
 
 import (
 	"fmt"
+
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 )
 
@@ -38,6 +39,11 @@ type PipelineRef struct {
 
 	// Params is a slice of parameters for a given resolver
 	Params []Param `json:"params"`
+
+	// OciStorage specifies the OCI repository where the Trusted Artifacts are stored.
+	// If not set, the default value from the Pipeline definition will be used.
+	// +optional
+	OciStorage string `json:"ociStorage,omitempty"`
 }
 
 // Pipeline contains a reference to a Pipeline and the name of the service account to use while executing it.
@@ -61,12 +67,12 @@ type Pipeline struct {
 }
 
 // ParameterizedPipeline is an extension of the Pipeline struct, adding an array of parameters that will be passed to
-// the Pipeline.
+// the Pipeline. Used by ReleasePlan's TenantPipeline and FinalPipeline.
 // +kubebuilder:object:generate=true
 type ParameterizedPipeline struct {
 	Pipeline `json:",inline"`
 
-	// Params is a slice of parameters for a given resolver
+	// Params is a slice of parameters to be passed to the Pipeline
 	// +optional
 	Params []Param `json:"params,omitempty"`
 }
@@ -139,7 +145,32 @@ func (pr *PipelineRef) ToTektonPipelineRef() *tektonv1.PipelineRef {
 	return tektonPipelineRef
 }
 
-// GetTektonParams returns the ParameterizedPipeline []Param as []tektonv1.Param.
+// GetTektonParams returns the PipelineRef's configured parameters as []tektonv1.Param.
+// Currently this only includes ociStorage if specified.
+func (pr *PipelineRef) GetTektonParams() []tektonv1.Param {
+	params := []tektonv1.Param{}
+
+	if pr.OciStorage != "" {
+		params = append(params, tektonv1.Param{
+			Name: "ociStorage",
+			Value: tektonv1.ParamValue{
+				Type:      tektonv1.ParamTypeString,
+				StringVal: pr.OciStorage,
+			},
+		})
+	}
+
+	return params
+}
+
+// GetTektonParams returns the Pipeline's configured parameters (e.g., ociStorage) as []tektonv1.Param.
+// This is used by ReleasePlanAdmission's managed pipeline.
+func (p *Pipeline) GetTektonParams() []tektonv1.Param {
+	return p.PipelineRef.GetTektonParams()
+}
+
+// GetTektonParams returns the ParameterizedPipeline's Params as []tektonv1.Param.
+// This is used by ReleasePlan's TenantPipeline and FinalPipeline.
 func (prp *ParameterizedPipeline) GetTektonParams() []tektonv1.Param {
 	params := []tektonv1.Param{}
 
