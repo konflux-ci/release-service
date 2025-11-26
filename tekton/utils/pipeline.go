@@ -18,6 +18,7 @@ package utils
 
 import (
 	"fmt"
+
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 )
 
@@ -46,6 +47,10 @@ type Pipeline struct {
 	// PipelineRef is the reference to the Pipeline
 	PipelineRef PipelineRef `json:"pipelineRef"`
 
+	// Params is a slice of parameters to be passed to the Pipeline
+	// +optional
+	Params []Param `json:"params,omitempty"`
+
 	// ServiceAccountName is the ServiceAccount to use during the execution of the Pipeline
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
@@ -60,15 +65,11 @@ type Pipeline struct {
 	Timeouts tektonv1.TimeoutFields `json:"timeouts,omitempty"`
 }
 
-// ParameterizedPipeline is an extension of the Pipeline struct, adding an array of parameters that will be passed to
-// the Pipeline.
+// ParameterizedPipeline is an extension of the Pipeline struct. It embeds Pipeline which includes
+// the Params field, so parameters can be passed to the Pipeline.
 // +kubebuilder:object:generate=true
 type ParameterizedPipeline struct {
 	Pipeline `json:",inline"`
-
-	// Params is a slice of parameters for a given resolver
-	// +optional
-	Params []Param `json:"params,omitempty"`
 }
 
 // GetGitResolverParams returns the common parameters found in a Git resolver. That is url, revision and pathInRepo.
@@ -139,11 +140,11 @@ func (pr *PipelineRef) ToTektonPipelineRef() *tektonv1.PipelineRef {
 	return tektonPipelineRef
 }
 
-// GetTektonParams returns the ParameterizedPipeline []Param as []tektonv1.Param.
-func (prp *ParameterizedPipeline) GetTektonParams() []tektonv1.Param {
+// GetTektonParams returns the Pipeline []Param as []tektonv1.Param.
+func (p *Pipeline) GetTektonParams() []tektonv1.Param {
 	params := []tektonv1.Param{}
 
-	for _, param := range prp.Params {
+	for _, param := range p.Params {
 		params = append(params, tektonv1.Param{
 			Name: param.Name,
 			Value: tektonv1.ParamValue{
@@ -154,6 +155,12 @@ func (prp *ParameterizedPipeline) GetTektonParams() []tektonv1.Param {
 	}
 
 	return params
+}
+
+// GetTektonParams returns the ParameterizedPipeline []Param as []tektonv1.Param.
+// It delegates to the embedded Pipeline's GetTektonParams method.
+func (prp *ParameterizedPipeline) GetTektonParams() []tektonv1.Param {
+	return prp.Pipeline.GetTektonParams()
 }
 
 // IsClusterScoped returns whether the PipelineRef uses a cluster resolver or not.

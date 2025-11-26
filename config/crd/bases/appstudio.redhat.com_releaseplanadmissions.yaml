@@ -134,6 +134,24 @@ spec:
                 description: Pipeline contains all the information about the managed
                   Pipeline
                 properties:
+                  params:
+                    description: Params is a slice of parameters to be passed to the
+                      Pipeline
+                    items:
+                      description: Param defines the parameters for a given resolver
+                        in PipelineRef
+                      properties:
+                        name:
+                          description: Name is the name of the parameter
+                          type: string
+                        value:
+                          description: Value is the value of the parameter
+                          type: string
+                      required:
+                      - name
+                      - value
+                      type: object
+                    type: array
                   pipelineRef:
                     description: PipelineRef is the reference to the Pipeline
                     properties:
