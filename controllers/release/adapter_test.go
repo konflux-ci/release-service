@@ -3576,6 +3576,37 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(revision)))))
 		})
 
+		It("passes ociStorage param from ReleasePlanAdmission to PipelineRun", func() {
+			// Add ociStorage to the ReleasePlanAdmission
+			resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.OciStorage = "quay.io/my-org/my-storage"
+
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify that the ociStorage param is passed to the PipelineRun
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(And(
+				HaveField("Name", "ociStorage"),
+				HaveField("Value.StringVal", "quay.io/my-org/my-storage"),
+			)))
+		})
+
+		It("does not pass ociStorage param when not set in ReleasePlanAdmission", func() {
+			// Ensure ociStorage is not set
+			resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.OciStorage = ""
+
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify that ociStorage param is not added
+			for _, param := range pipelineRun.Spec.Params {
+				Expect(param.Name).NotTo(Equal("ociStorage"))
+			}
+		})
+
 		It("contains a parameter with the json representation of the EnterpriseContractPolicy", func() {
 			var err error
 			pipelineRun, err = adapter.createManagedPipelineRun(resources)
@@ -5056,8 +5087,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 										},
 									},
 								},
-
-								Params: []tektonutils.Param{},
 							},
 						},
 					},
@@ -5133,8 +5162,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 										},
 									},
 								},
-
-								Params: []tektonutils.Param{},
 							},
 						},
 					},

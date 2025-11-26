@@ -18,6 +18,7 @@ package utils
 
 import (
 	"fmt"
+
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 )
 
@@ -38,6 +39,13 @@ type PipelineRef struct {
 
 	// Params is a slice of parameters for a given resolver
 	Params []Param `json:"params"`
+
+	// OciStorage specifies the OCI repository where the Trusted Artifacts are stored.
+	// This value is passed to the Pipeline as the "ociStorage" parameter.
+	// If not set, the default value from the Pipeline definition will be used.
+	// This field is intended for use in ReleasePlanAdmissions.
+	// +optional
+	OciStorage string `json:"ociStorage,omitempty"`
 }
 
 // Pipeline contains a reference to a Pipeline and the name of the service account to use while executing it.
@@ -61,12 +69,12 @@ type Pipeline struct {
 }
 
 // ParameterizedPipeline is an extension of the Pipeline struct, adding an array of parameters that will be passed to
-// the Pipeline.
+// the Pipeline. Used by ReleasePlan's TenantPipeline and FinalPipeline.
 // +kubebuilder:object:generate=true
 type ParameterizedPipeline struct {
 	Pipeline `json:",inline"`
 
-	// Params is a slice of parameters for a given resolver
+	// Params is a slice of parameters to be passed to the Pipeline
 	// +optional
 	Params []Param `json:"params,omitempty"`
 }
@@ -139,7 +147,31 @@ func (pr *PipelineRef) ToTektonPipelineRef() *tektonv1.PipelineRef {
 	return tektonPipelineRef
 }
 
-// GetTektonParams returns the ParameterizedPipeline []Param as []tektonv1.Param.
+// GetOciStorageParam returns the ociStorage parameter as a Tekton param slice.
+// Returns an empty slice if OciStorage is not set.
+func (pr *PipelineRef) GetOciStorageParam() []tektonv1.Param {
+	if pr.OciStorage != "" {
+		return []tektonv1.Param{
+			{
+				Name: "ociStorage",
+				Value: tektonv1.ParamValue{
+					Type:      tektonv1.ParamTypeString,
+					StringVal: pr.OciStorage,
+				},
+			},
+		}
+	}
+	return []tektonv1.Param{}
+}
+
+// GetOciStorageParam returns the ociStorage parameter from the Pipeline's PipelineRef.
+// Used by the release adapter to pass the ociStorage parameter to the managed PipelineRun.
+func (p *Pipeline) GetOciStorageParam() []tektonv1.Param {
+	return p.PipelineRef.GetOciStorageParam()
+}
+
+// GetTektonParams returns the ParameterizedPipeline's Params as []tektonv1.Param.
+// This is used by ReleasePlan's TenantPipeline and FinalPipeline.
 func (prp *ParameterizedPipeline) GetTektonParams() []tektonv1.Param {
 	params := []tektonv1.Param{}
 
