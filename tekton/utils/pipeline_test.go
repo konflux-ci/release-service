@@ -137,12 +137,71 @@ var _ = Describe("Pipeline", func() {
 		})
 	})
 
-	When("GetTektonParams method is called", func() {
-		It("should return a tekton Param list", func() {
-			parameterizedPipeline := ParameterizedPipeline{}
-			parameterizedPipeline.Params = []Param{
-				{Name: "parameter1", Value: "value1"},
-				{Name: "parameter2", Value: "value2"},
+	When("GetOciStorageParam method is called", func() {
+		It("should return ociStorage param when set on PipelineRef", func() {
+			pipelineRef := PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{Name: "url", Value: "my-git-url"},
+				},
+				OciStorage: "quay.io/my-org/storage",
+			}
+
+			params := pipelineRef.GetOciStorageParam()
+			Expect(params).To(HaveLen(1))
+			Expect(reflect.TypeOf(params[0])).To(Equal(reflect.TypeOf(tektonv1.Param{})))
+			Expect(params[0].Name).To(Equal("ociStorage"))
+			Expect(params[0].Value.StringVal).To(Equal("quay.io/my-org/storage"))
+		})
+
+		It("should return ociStorage param for Pipeline via PipelineRef", func() {
+			pipeline := Pipeline{
+				PipelineRef: PipelineRef{
+					Resolver: "git",
+					Params: []Param{
+						{Name: "url", Value: "my-git-url"},
+					},
+					OciStorage: "quay.io/my-org/storage",
+				},
+			}
+
+			params := pipeline.GetOciStorageParam()
+			Expect(params).To(HaveLen(1))
+			Expect(reflect.TypeOf(params[0])).To(Equal(reflect.TypeOf(tektonv1.Param{})))
+			Expect(params[0].Name).To(Equal("ociStorage"))
+			Expect(params[0].Value.StringVal).To(Equal("quay.io/my-org/storage"))
+		})
+
+		It("should return an empty list when PipelineRef has no ociStorage", func() {
+			pipeline := Pipeline{
+				PipelineRef: PipelineRef{
+					Resolver: "git",
+					Params: []Param{
+						{Name: "url", Value: "my-git-url"},
+					},
+				},
+			}
+			params := pipeline.GetOciStorageParam()
+			Expect(params).To(BeEmpty())
+		})
+	})
+
+	When("GetTektonParams method is called on ParameterizedPipeline", func() {
+		It("should return a tekton Param list for ParameterizedPipeline using its own Params field", func() {
+			// ParameterizedPipeline uses its own Params field (for TenantPipeline/FinalPipeline)
+			parameterizedPipeline := ParameterizedPipeline{
+				Pipeline: Pipeline{
+					PipelineRef: PipelineRef{
+						Resolver: "git",
+						Params: []Param{
+							{Name: "url", Value: "my-git-url"},
+						},
+					},
+				},
+				Params: []Param{
+					{Name: "parameter1", Value: "value1"},
+					{Name: "parameter2", Value: "value2"},
+				},
 			}
 
 			params := parameterizedPipeline.GetTektonParams()
@@ -153,6 +212,21 @@ var _ = Describe("Pipeline", func() {
 			Expect(reflect.TypeOf(params[1])).To(Equal(reflect.TypeOf(tektonv1.Param{})))
 			Expect(params[1].Name).To(Equal("parameter2"))
 			Expect(params[1].Value.StringVal).To(Equal("value2"))
+		})
+
+		It("should return an empty list when ParameterizedPipeline has no params", func() {
+			parameterizedPipeline := ParameterizedPipeline{
+				Pipeline: Pipeline{
+					PipelineRef: PipelineRef{
+						Resolver: "git",
+						Params: []Param{
+							{Name: "url", Value: "my-git-url"},
+						},
+					},
+				},
+			}
+			params := parameterizedPipeline.GetTektonParams()
+			Expect(params).To(BeEmpty())
 		})
 	})
 

@@ -123,7 +123,8 @@ spec:
                   final Pipeline
                 properties:
                   params:
-                    description: Params is a slice of parameters for a given resolver
+                    description: Params is a slice of parameters to be passed to the
+                      Pipeline
                     items:
                       description: Param defines the parameters for a given resolver
                         in PipelineRef
@@ -142,6 +143,13 @@ spec:
                   pipelineRef:
                     description: PipelineRef is the reference to the Pipeline
                     properties:
+                      ociStorage:
+                        description: |-
+                          OciStorage specifies the OCI repository where the Trusted Artifacts are stored.
+                          This value is passed to the Pipeline as the "ociStorage" parameter.
+                          If not set, the default value from the Pipeline definition will be used.
+                          This field is intended for use in ReleasePlanAdmissions.
+                        type: string
                       params:
                         description: Params is a slice of parameters for a given resolver
                         items:
@@ -997,7 +1005,8 @@ spec:
                   tenant Pipeline
                 properties:
                   params:
-                    description: Params is a slice of parameters for a given resolver
+                    description: Params is a slice of parameters to be passed to the
+                      Pipeline
                     items:
                       description: Param defines the parameters for a given resolver
                         in PipelineRef
@@ -1016,6 +1025,13 @@ spec:
                   pipelineRef:
                     description: PipelineRef is the reference to the Pipeline
                     properties:
+                      ociStorage:
+                        description: |-
+                          OciStorage specifies the OCI repository where the Trusted Artifacts are stored.
+                          This value is passed to the Pipeline as the "ociStorage" parameter.
+                          If not set, the default value from the Pipeline definition will be used.
+                          This field is intended for use in ReleasePlanAdmissions.
+                        type: string
                       params:
                         description: Params is a slice of parameters for a given resolver
                         items:
