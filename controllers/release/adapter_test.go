@@ -3646,6 +3646,45 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(revision)))))
 		})
 
+		It("passes pipeline params from ReleasePlanAdmission to PipelineRun", func() {
+			// Add pipeline params to the ReleasePlanAdmission
+			resources.ReleasePlanAdmission.Spec.Pipeline.Params = []tektonutils.Param{
+				{Name: "ociStorage", Value: "quay.io/my-org/my-storage"},
+				{Name: "customParam", Value: "customValue"},
+			}
+
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify that the params are passed to the PipelineRun
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(And(
+				HaveField("Name", "ociStorage"),
+				HaveField("Value.StringVal", "quay.io/my-org/my-storage"),
+			)))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(And(
+				HaveField("Name", "customParam"),
+				HaveField("Value.StringVal", "customValue"),
+			)))
+		})
+
+		It("does not pass pipeline params when none are set in ReleasePlanAdmission", func() {
+			// Ensure no params are set
+			resources.ReleasePlanAdmission.Spec.Pipeline.Params = nil
+
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify that no custom params are added (only the default params from the builder)
+			for _, param := range pipelineRun.Spec.Params {
+				Expect(param.Name).NotTo(Equal("ociStorage"))
+				Expect(param.Name).NotTo(Equal("customParam"))
+			}
+		})
+
 		It("contains a parameter with the json representation of the EnterpriseContractPolicy", func() {
 			var err error
 			pipelineRun, err = adapter.createManagedPipelineRun(resources)

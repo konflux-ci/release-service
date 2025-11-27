@@ -123,7 +123,8 @@ spec:
                   final Pipeline
                 properties:
                   params:
-                    description: Params is a slice of parameters for a given resolver
+                    description: Params is a slice of parameters to be passed to the
+                      Pipeline
                     items:
                       description: Param defines the parameters for a given resolver
                         in PipelineRef
@@ -997,7 +998,8 @@ spec:
                   tenant Pipeline
                 properties:
                   params:
-                    description: Params is a slice of parameters for a given resolver
+                    description: Params is a slice of parameters to be passed to the
+                      Pipeline
                     items:
                       description: Param defines the parameters for a given resolver
                         in PipelineRef

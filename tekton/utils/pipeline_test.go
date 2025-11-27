@@ -138,7 +138,30 @@ var _ = Describe("Pipeline", func() {
 	})
 
 	When("GetTektonParams method is called", func() {
-		It("should return a tekton Param list", func() {
+		It("should return a tekton Param list for Pipeline", func() {
+			pipeline := Pipeline{}
+			pipeline.Params = []Param{
+				{Name: "ociStorage", Value: "quay.io/my-org/storage"},
+				{Name: "customParam", Value: "customValue"},
+			}
+
+			params := pipeline.GetTektonParams()
+			Expect(reflect.TypeOf(params[0])).To(Equal(reflect.TypeOf(tektonv1.Param{})))
+			Expect(params[0].Name).To(Equal("ociStorage"))
+			Expect(params[0].Value.StringVal).To(Equal("quay.io/my-org/storage"))
+
+			Expect(reflect.TypeOf(params[1])).To(Equal(reflect.TypeOf(tektonv1.Param{})))
+			Expect(params[1].Name).To(Equal("customParam"))
+			Expect(params[1].Value.StringVal).To(Equal("customValue"))
+		})
+
+		It("should return an empty list when Pipeline has no params", func() {
+			pipeline := Pipeline{}
+			params := pipeline.GetTektonParams()
+			Expect(params).To(BeEmpty())
+		})
+
+		It("should return a tekton Param list for ParameterizedPipeline", func() {
 			parameterizedPipeline := ParameterizedPipeline{}
 			parameterizedPipeline.Params = []Param{
 				{Name: "parameter1", Value: "value1"},
