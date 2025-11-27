@@ -3,7 +3,6 @@ FROM registry.access.redhat.com/ubi9/go-toolset:9.7-1764620329 as builder
 
 # Build arguments
 ARG ENABLE_COVERAGE=false
-ARG COVERAGE_SERVER_URL=https://raw.githubusercontent.com/konflux-ci/coverport/v0.0.1/instrumentation/go/coverage_server.go
 
 USER 1001
 
@@ -17,17 +16,13 @@ RUN go mod download
 # Copy the go source
 COPY --chown=1001:0 . .
 
-# Build
-# Conditionally download coverage server (only for test builds)
+# Build with or without coverage instrumentation
 RUN if [ "$ENABLE_COVERAGE" = "true" ]; then \
-        echo "Downloading coverage server from: $COVERAGE_SERVER_URL"; \
-        wget -q "$COVERAGE_SERVER_URL" -O coverage_server.go; \
-        echo "Coverage server downloaded"; \
         echo "Building with coverage instrumentation..."; \
-        CGO_ENABLED=0 go build -cover -covermode=atomic -o manager main.go coverage_server.go; \
+        CGO_ENABLED=0 go build -cover -covermode=atomic -tags=coverage -o manager .; \
     else \
         echo "Building production binary..."; \
-        CGO_ENABLED=0 go build -a -o manager main.go; \
+        CGO_ENABLED=0 go build -a -o manager .; \
     fi
 
 ARG ENABLE_WEBHOOKS=true
