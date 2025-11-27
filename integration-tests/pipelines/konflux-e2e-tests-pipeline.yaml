@@ -216,7 +216,7 @@ spec:
         - name: codecov-flags
           value: e2e-tests
         - name: credentials-secret-name
-          value: "coverport-secrets"
+          value: "release-service-coverport-secrets"
       taskRef:
         resolver: git
         params:
