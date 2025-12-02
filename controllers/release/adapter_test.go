@@ -446,7 +446,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
-			parameterizedPipeline.Params = []tektonutils.Param{
+			parameterizedPipeline.Pipeline.Params = []tektonutils.Param{
 				{Name: "parameter1", Value: "value1"},
 				{Name: "parameter2", Value: "value2"},
 			}
@@ -1591,7 +1591,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
-			parameterizedPipeline.Params = []tektonutils.Param{
+			parameterizedPipeline.Pipeline.Params = []tektonutils.Param{
 				{Name: "parameter1", Value: "value1"},
 				{Name: "parameter2", Value: "value2"},
 			}
@@ -2540,7 +2540,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
-			parameterizedPipeline.Params = []tektonutils.Param{
+			parameterizedPipeline.Pipeline.Params = []tektonutils.Param{
 				{Name: "parameter1", Value: "value1"},
 				{Name: "parameter2", Value: "value2"},
 			}
@@ -3335,7 +3335,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
-			parameterizedPipeline.Params = []tektonutils.Param{
+			parameterizedPipeline.Pipeline.Params = []tektonutils.Param{
 				{Name: "parameter1", Value: "value1"},
 				{Name: "parameter2", Value: "value2"},
 			}
@@ -3847,7 +3847,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
-			parameterizedPipeline.Params = []tektonutils.Param{
+			parameterizedPipeline.Pipeline.Params = []tektonutils.Param{
 				{Name: "parameter1", Value: "value1"},
 				{Name: "parameter2", Value: "value2"},
 			}
@@ -4114,7 +4114,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
-			parameterizedPipeline.Params = []tektonutils.Param{
+			parameterizedPipeline.Pipeline.Params = []tektonutils.Param{
 				{Name: "parameter1", Value: "value1"},
 				{Name: "parameter2", Value: "value2"},
 			}
@@ -5169,9 +5169,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 											{Name: "kind", Value: "pipeline"},
 										},
 									},
+									Params: []tektonutils.Param{},
 								},
-
-								Params: []tektonutils.Param{},
 							},
 						},
 					},
@@ -5246,9 +5245,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 											{Name: "kind", Value: "pipeline"},
 										},
 									},
+									Params: []tektonutils.Param{},
 								},
-
-								Params: []tektonutils.Param{},
 							},
 						},
 					},
@@ -5307,7 +5305,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 				},
 			}
-			parameterizedPipeline.Params = []tektonutils.Param{
+			parameterizedPipeline.Pipeline.Params = []tektonutils.Param{
 				{Name: "parameter1", Value: "value1"},
 				{Name: "parameter2", Value: "value2"},
 			}

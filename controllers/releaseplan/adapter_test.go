@@ -179,7 +179,7 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 				{Name: "pathInRepo", Value: "my-path"},
 			},
 		}
-		parameterizedPipeline.Params = []tektonutils.Param{
+		parameterizedPipeline.Pipeline.Params = []tektonutils.Param{
 			{Name: "parameter1", Value: "value1"},
 			{Name: "parameter2", Value: "value2"},
 		}
