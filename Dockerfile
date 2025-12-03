@@ -1,5 +1,9 @@
 # Build the manager binary
-FROM registry.access.redhat.com/ubi9/go-toolset:9.7-1763633888 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:9.7-1764620329 as builder
+
+# Build arguments
+ARG ENABLE_COVERAGE=false
+ARG COVERAGE_SERVER_URL=https://raw.githubusercontent.com/konflux-ci/coverport/v0.0.1/instrumentation/go/coverage_server.go
 
 USER 1001
 
@@ -14,7 +18,17 @@ RUN go mod download
 COPY --chown=1001:0 . .
 
 # Build
-RUN CGO_ENABLED=0 go build -a -o manager main.go
+# Conditionally download coverage server (only for test builds)
+RUN if [ "$ENABLE_COVERAGE" = "true" ]; then \
+        echo "Downloading coverage server from: $COVERAGE_SERVER_URL"; \
+        wget -q "$COVERAGE_SERVER_URL" -O coverage_server.go; \
+        echo "Coverage server downloaded"; \
+        echo "Building with coverage instrumentation..."; \
+        CGO_ENABLED=0 go build -cover -covermode=atomic -o manager main.go coverage_server.go; \
+    else \
+        echo "Building production binary..."; \
+        CGO_ENABLED=0 go build -a -o manager main.go; \
+    fi
 
 ARG ENABLE_WEBHOOKS=true
 ENV ENABLE_WEBHOOKS=${ENABLE_WEBHOOKS}
@@ -32,6 +46,11 @@ LABEL io.k8s.display-name="release-service"
 LABEL summary="Konflux Release Service"
 LABEL com.redhat.component="release-service"
 LABEL io.openshift.tags="konflux"
+LABEL vendor="Red Hat, Inc."
+LABEL distribution-scope="public"
+LABEL release="1"
+LABEL url="github.com/konflux-ci/release-service"
+LABEL version="1"
 
 USER 65532:65532
 
