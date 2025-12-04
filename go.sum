@@ -327,8 +327,8 @@ github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzh
 github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
 github.com/konflux-ci/application-api v0.0.0-20251126155256-d24742e8b026 h1:Y6oKDSxmDY7JiNsrPm0ZRUcW+9cv20B71DuitI3sl28=
 github.com/konflux-ci/application-api v0.0.0-20251126155256-d24742e8b026/go.mod h1:948Z+a1IbfRT0RtoHzWWSN9YEucSbMJTHaMhz7dVICc=
-github.com/konflux-ci/integration-service v0.0.0-20251203094019-fca805f5ce21 h1:S0SkMmcDN/khvQec4NhbrkdhZFQX1FgmTI79a+EyDm8=
-github.com/konflux-ci/integration-service v0.0.0-20251203094019-fca805f5ce21/go.mod h1:MRDNwnypLEMgWQar0tCtuM8yzESXF7/VaQvKP1hMKC0=
+github.com/konflux-ci/integration-service v0.0.0-20251204105339-af1dee95d513 h1:kT4heto/+0U1cnPb81eWb/7QRzJ/FQDLxO2XnyozN8Q=
+github.com/konflux-ci/integration-service v0.0.0-20251204105339-af1dee95d513/go.mod h1:MRDNwnypLEMgWQar0tCtuM8yzESXF7/VaQvKP1hMKC0=
 github.com/konflux-ci/operator-toolkit v0.0.0-20251118152634-b4f41f073069 h1:nT8V7Bva2LclJhWahIQYSNiYRHcmB22H6v4DD/FD7QU=
 github.com/konflux-ci/operator-toolkit v0.0.0-20251118152634-b4f41f073069/go.mod h1:pSxVvl3jAjQQG352j9gsxOegTQeY+1SGbVyEXj/PRDQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
