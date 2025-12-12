@@ -490,7 +490,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
 		})
-
 	})
 
 	When("EnsureManagedCollectorsPipelineIsProcessed is called", func() {
@@ -1872,7 +1871,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
-
 	})
 
 	Context("When EnsureApplicationMetadataIsSet is called", func() {
@@ -1886,32 +1884,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter = createReleaseAndAdapter()
 		})
 
-		It("should do nothing if the Release already has an owner reference", func() {
-			adapter.release.OwnerReferences = []metav1.OwnerReference{
-				{Kind: "Application", Name: "foo"},
-			}
-
-			Expect(adapter.release.OwnerReferences).To(HaveLen(1))
-			result, err := adapter.EnsureApplicationMetadataIsSet()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.OwnerReferences).To(HaveLen(1))
-		})
-
-		It("should fail if the ReleasePlan does not exist", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePlanContextKey,
-					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
-				},
-			})
-
-			result, err := adapter.EnsureApplicationMetadataIsSet()
-			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).To(HaveOccurred())
-			Expect(adapter.release.OwnerReferences).To(HaveLen(0))
-		})
-
 		It("should fail if the Snapshot does not exist", func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
@@ -1923,40 +1895,15 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result, err := adapter.EnsureApplicationMetadataIsSet()
 			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).To(HaveOccurred())
-			Expect(adapter.release.OwnerReferences).To(HaveLen(0))
 		})
 
-		It("should fail if the Application does not exist", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ApplicationContextKey,
-					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
-				},
-			})
-
-			result, err := adapter.EnsureApplicationMetadataIsSet()
-			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.IsValid()).To(BeFalse())
-			Expect(adapter.release.OwnerReferences).To(HaveLen(0))
-		})
-
-		It("should set the owner reference", func() {
+		It("should not set owner references", func() {
 			Expect(adapter.release.OwnerReferences).To(HaveLen(0))
 			result, err := adapter.EnsureApplicationMetadataIsSet()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
-			boolTrue := true
-			expectedOwnerReference := metav1.OwnerReference{
-				Kind:               "Application",
-				APIVersion:         "appstudio.redhat.com/v1alpha1",
-				UID:                application.UID,
-				Name:               application.Name,
-				Controller:         &boolTrue,
-				BlockOwnerDeletion: &boolTrue,
-			}
-			Expect(adapter.release.ObjectMeta.OwnerReferences).To(ContainElement(expectedOwnerReference))
+			Expect(adapter.release.ObjectMeta.OwnerReferences).To(HaveLen(0))
 		})
 
 		It("should add the annotations and labels that have the proper prefix from the snapshot", func() {
@@ -2118,10 +2065,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.client.Create(adapter.ctx, secretRole)).To(Succeed())
 			Expect(adapter.client.Create(adapter.ctx, secretRoleBinding)).To(Succeed())
 
-			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.TenantRoleBinding =
-				fmt.Sprintf("%s%c%s", tenantRoleBinding.Namespace, types.Separator, tenantRoleBinding.Name)
-			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.SecretRoleBinding =
-				fmt.Sprintf("%s%c%s", secretRoleBinding.Namespace, types.Separator, secretRoleBinding.Name)
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.TenantRoleBinding = fmt.Sprintf("%s%c%s", tenantRoleBinding.Namespace, types.Separator, tenantRoleBinding.Name)
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.SecretRoleBinding = fmt.Sprintf("%s%c%s", secretRoleBinding.Namespace, types.Separator, secretRoleBinding.Name)
 
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 			adapter.release.MarkTenantCollectorsPipelineProcessed()
@@ -2193,12 +2138,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.client.Create(adapter.ctx, secretRole)).To(Succeed())
 			Expect(adapter.client.Create(adapter.ctx, secretRoleBinding)).To(Succeed())
 
-			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding =
-				fmt.Sprintf("%s%c%s", tenantRoleBinding.Namespace, types.Separator, tenantRoleBinding.Name)
-			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.ManagedRoleBinding =
-				fmt.Sprintf("%s%c%s", managedRoleBinding.Namespace, types.Separator, managedRoleBinding.Name)
-			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.SecretRoleBinding =
-				fmt.Sprintf("%s%c%s", secretRoleBinding.Namespace, types.Separator, secretRoleBinding.Name)
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding = fmt.Sprintf("%s%c%s", tenantRoleBinding.Namespace, types.Separator, tenantRoleBinding.Name)
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.ManagedRoleBinding = fmt.Sprintf("%s%c%s", managedRoleBinding.Namespace, types.Separator, managedRoleBinding.Name)
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.SecretRoleBinding = fmt.Sprintf("%s%c%s", secretRoleBinding.Namespace, types.Separator, secretRoleBinding.Name)
 
 			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
 			adapter.release.MarkManagedCollectorsPipelineProcessing()
@@ -2245,8 +2187,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			}
 			Expect(adapter.client.Create(adapter.ctx, tenantCollectorsPipelineRun)).To(Succeed())
 
-			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 			adapter.release.MarkTenantCollectorsPipelineProcessed()
 			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
@@ -2279,8 +2220,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			}
 			Expect(adapter.client.Create(adapter.ctx, managedCollectorsPipelineRun)).To(Succeed())
 
-			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", managedCollectorsPipelineRun.Namespace, types.Separator, managedCollectorsPipelineRun.Name)
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", managedCollectorsPipelineRun.Namespace, types.Separator, managedCollectorsPipelineRun.Name)
 			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
 			adapter.release.MarkManagedCollectorsPipelineProcessing()
 			adapter.release.MarkManagedCollectorsPipelineProcessed()
@@ -2326,10 +2266,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.client.Create(adapter.ctx, tenantCollectorsPipelineRun)).To(Succeed())
 			Expect(adapter.client.Create(adapter.ctx, managedCollectorsPipelineRun)).To(Succeed())
 
-			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
-			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", managedCollectorsPipelineRun.Namespace, types.Separator, managedCollectorsPipelineRun.Name)
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", managedCollectorsPipelineRun.Namespace, types.Separator, managedCollectorsPipelineRun.Name)
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 			adapter.release.MarkTenantCollectorsPipelineProcessed()
 			adapter.release.MarkManagedCollectorsPipelineProcessing()
@@ -2370,10 +2308,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.client.Create(adapter.ctx, managedCollectorsPipelineRun)).To(Succeed())
 
 			// Set reference to non-existent tenant collector
-			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-tenant-pr")
-			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", managedCollectorsPipelineRun.Namespace, types.Separator, managedCollectorsPipelineRun.Name)
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-tenant-pr")
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", managedCollectorsPipelineRun.Namespace, types.Separator, managedCollectorsPipelineRun.Name)
 
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 			adapter.release.MarkTenantCollectorsPipelineProcessed()
@@ -2409,11 +2345,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			}
 			Expect(adapter.client.Create(adapter.ctx, tenantCollectorsPipelineRun)).To(Succeed())
 
-			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
 			// Set reference to non-existent managed collector
-			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-managed-pr")
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-managed-pr")
 
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 			adapter.release.MarkTenantCollectorsPipelineProcessed()
@@ -2436,10 +2370,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		It("should handle cleanup when both collectors are missing without errors", func() {
 			// Set references to non-existent PipelineRuns
-			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-tenant-pr")
-			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-managed-pr")
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-tenant-pr")
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", "default", types.Separator, "non-existent-managed-pr")
 
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 			adapter.release.MarkTenantCollectorsPipelineProcessed()
@@ -2467,8 +2399,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			}
 			Expect(adapter.client.Create(adapter.ctx, tenantCollectorsPipelineRun)).To(Succeed())
 
-			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun =
-				fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun = fmt.Sprintf("%s%c%s", tenantCollectorsPipelineRun.Namespace, types.Separator, tenantCollectorsPipelineRun.Name)
 			// Don't set RoleBinding references - they're missing
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 			adapter.release.MarkTenantCollectorsPipelineProcessed()
@@ -2780,7 +2711,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("loader error"))
 		})
-
 	})
 
 	When("cleanupPipelineResources is called", func() {
@@ -3780,7 +3710,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
 			})
 		})
-
 	})
 
 	When("createFinalPipelineRun is called", func() {
@@ -3967,7 +3896,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("contains the proper taskRunSpecs", func() {
 			Expect(pipelineRun.Spec.TaskRunSpecs).To(Equal(newReleasePlan.Spec.FinalPipeline.TaskRunSpecs))
 		})
-
 	})
 
 	When("createRoleBindingForCollectorSecrets is called", func() {
@@ -3996,7 +3924,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(roleBinding.RoleRef.Name).To(ContainSubstring("role-for-foo"))
 			Expect(k8sClient.Delete(ctx, roleBinding)).Should(Succeed())
 		})
-
 	})
 
 	When("createRoleBindingForClusterRole is called", func() {
@@ -4527,7 +4454,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.registerFinalProcessingData(pipelineRun)).To(Succeed())
 			Expect(adapter.release.Status.FinalProcessing.PipelineRun).To(Equal(fmt.Sprintf("%s%c%s",
 				pipelineRun.Namespace, types.Separator, pipelineRun.Name)))
-
 		})
 	})
 
@@ -4739,7 +4665,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.HasFinalPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsFinalPipelineProcessedSuccessfully()).To(BeFalse())
 		})
-
 	})
 
 	When("validateApplication is called", func() {
@@ -5801,5 +5726,4 @@ var _ = Describe("Release adapter", Ordered, func() {
 		Expect(k8sClient.Delete(ctx, releaseServiceConfig)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshot)).To(Succeed())
 	}
-
 })

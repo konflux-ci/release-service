@@ -64,7 +64,6 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	return controller.ReconcileHandler([]controller.Operation{
 		adapter.EnsureMatchingInformationIsSet,
-		adapter.EnsureOwnerReferenceIsSet,
 	})
 }
 
