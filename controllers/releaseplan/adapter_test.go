@@ -18,7 +18,6 @@ package releaseplan
 
 import (
 	"reflect"
-	"time"
 
 	toolkit "github.com/konflux-ci/operator-toolkit/loader"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
@@ -57,58 +56,6 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 	Context("When newAdapter is called", func() {
 		It("creates and return a new adapter", func() {
 			Expect(reflect.TypeOf(newAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
-		})
-	})
-
-	Context("When EnsureOwnerReferenceIsSet is called", func() {
-		var adapter *adapter
-
-		AfterEach(func() {
-			_ = adapter.client.Delete(ctx, adapter.releasePlan)
-		})
-
-		BeforeEach(func() {
-			adapter = createReleasePlanAndAdapter()
-		})
-
-		It("should not fail if the Application does not exist", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ApplicationContextKey,
-					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
-				},
-			})
-
-			result, err := adapter.EnsureOwnerReferenceIsSet()
-			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(result.RequeueDelay).To(Equal(time.Minute))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.releasePlan.OwnerReferences).To(HaveLen(0))
-		})
-
-		It("should set the owner reference", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ApplicationContextKey,
-					Resource:   application,
-				},
-			})
-
-			Expect(adapter.releasePlan.OwnerReferences).To(HaveLen(0))
-			result, err := adapter.EnsureOwnerReferenceIsSet()
-			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
-			Expect(err).NotTo(HaveOccurred())
-
-			boolTrue := true
-			expectedOwnerReference := metav1.OwnerReference{
-				Kind:               "Application",
-				APIVersion:         "appstudio.redhat.com/v1alpha1",
-				UID:                application.UID,
-				Name:               application.Name,
-				Controller:         &boolTrue,
-				BlockOwnerDeletion: &boolTrue,
-			}
-			Expect(adapter.releasePlan.ObjectMeta.OwnerReferences).To(ContainElement(expectedOwnerReference))
 		})
 	})
 
@@ -244,5 +191,4 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 		Expect(k8sClient.Delete(ctx, application)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlanAdmission)).To(Succeed())
 	}
-
 })

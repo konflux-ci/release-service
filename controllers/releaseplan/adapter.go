@@ -19,16 +19,13 @@ package releaseplan
 import (
 	"context"
 	"reflect"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/konflux-ci/operator-toolkit/controller"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/loader"
 	"github.com/konflux-ci/release-service/syncer"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -52,36 +49,6 @@ func newAdapter(ctx context.Context, client client.Client, releasePlan *v1alpha1
 		releasePlan: releasePlan,
 		syncer:      syncer.NewSyncerWithContext(client, logger, ctx),
 	}
-}
-
-// EnsureOwnerReferenceIsSet is an operation that will ensure that the owner reference is set.
-// If the Application who owns the ReleasePlan is not found, the error will be ignored and the
-// ReleasePlan will be reconciled again after a minute.
-func (a *adapter) EnsureOwnerReferenceIsSet() (controller.OperationResult, error) {
-	if len(a.releasePlan.OwnerReferences) > 0 {
-		return controller.ContinueProcessing()
-	}
-
-	application, err := a.loader.GetApplication(a.ctx, a.client, a.releasePlan)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return controller.RequeueAfter(time.Minute, nil)
-		}
-		return controller.RequeueWithError(err)
-	}
-
-	patch := client.MergeFrom(a.releasePlan.DeepCopy())
-	err = ctrl.SetControllerReference(application, a.releasePlan, a.client.Scheme())
-	if err != nil {
-		return controller.RequeueWithError(err)
-	}
-
-	err = a.client.Patch(a.ctx, a.releasePlan, patch)
-	if err != nil && !errors.IsNotFound(err) {
-		return controller.RequeueWithError(err)
-	}
-
-	return controller.ContinueProcessing()
 }
 
 // EnsureMatchingInformationIsSet is an operation that will ensure that the ReleasePlan has updated matching
