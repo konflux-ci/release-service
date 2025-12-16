@@ -41,7 +41,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -563,19 +562,9 @@ func (a *adapter) EnsureFinalPipelineIsProcessed() (controller.OperationResult, 
 	return controller.ContinueProcessing()
 }
 
-// EnsureApplicationMetadataIsSet is an operation that will ensure that the owner reference is set
-// to be the application the Release was created for and that all annotations and labels from the
+// EnsureApplicationMetadataIsSet is an operation that will ensure that all annotations and labels from the
 // Snapshot pertaining to Pipelines as Code or the RhtapDomain prefix are copied to the Release.
 func (a *adapter) EnsureApplicationMetadataIsSet() (controller.OperationResult, error) {
-	if len(a.release.OwnerReferences) > 0 {
-		return controller.ContinueProcessing()
-	}
-
-	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
-	if err != nil {
-		return controller.RequeueWithError(err)
-	}
-
 	snapshot, err := a.loader.GetSnapshot(a.ctx, a.client, a.release)
 	if err != nil {
 		return controller.RequeueWithError(err)
@@ -583,24 +572,27 @@ func (a *adapter) EnsureApplicationMetadataIsSet() (controller.OperationResult, 
 
 	patch := client.MergeFrom(a.release.DeepCopy())
 
-	application, err := a.loader.GetApplication(a.ctx, a.client, releasePlan)
-	if err != nil {
-		a.release.MarkReleaseFailed("This Release is for a nonexistent Application")
-		return controller.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
-	}
-
-	err = ctrl.SetControllerReference(application, a.release, a.client.Scheme())
+	// Propagate PaC annotations and labels
+	err = toolkitmetadata.CopyAnnotationsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.PipelinesAsCodePrefix)
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}
 
-	// Propagate PaC annotations and labels
-	_ = toolkitmetadata.CopyAnnotationsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.PipelinesAsCodePrefix)
-	_ = toolkitmetadata.CopyLabelsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.PipelinesAsCodePrefix)
+	err = toolkitmetadata.CopyLabelsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.PipelinesAsCodePrefix)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
 
 	// Propagate annotations and labels prefixed with the RhtapDomain prefix
-	_ = toolkitmetadata.CopyAnnotationsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.RhtapDomain)
-	_ = toolkitmetadata.CopyLabelsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.RhtapDomain)
+	err = toolkitmetadata.CopyAnnotationsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.RhtapDomain)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
+
+	err = toolkitmetadata.CopyLabelsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.RhtapDomain)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
 
 	err = a.client.Patch(a.ctx, a.release, patch)
 	if err != nil && !errors.IsNotFound(err) {
@@ -1026,7 +1018,6 @@ func (a *adapter) createManagedCollectorsPipelineRun(releasePlanAdmission *v1alp
 		).
 		WithServiceAccount(releasePlanAdmission.Spec.Collectors.ServiceAccountName).
 		Build()
-
 	if err != nil {
 		return nil, err
 	}
@@ -1077,7 +1068,6 @@ func (a *adapter) createTenantCollectorsPipelineRun(releasePlan *v1alpha1.Releas
 		).
 		WithServiceAccount(releasePlan.Spec.Collectors.ServiceAccountName).
 		Build()
-
 	if err != nil {
 		return nil, err
 	}
@@ -1118,7 +1108,6 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
 		).
 		Build()
-
 	if err != nil {
 		return nil, err
 	}
@@ -1213,7 +1202,6 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
 		).
 		Build()
-
 	if err != nil {
 		return nil, err
 	}
