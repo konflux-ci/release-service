@@ -22,6 +22,7 @@ import (
 	"reflect"
 
 	"github.com/konflux-ci/release-service/loader"
+	"github.com/konflux-ci/release-service/metadata"
 
 	"github.com/go-logr/logr"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
@@ -42,6 +43,15 @@ type Webhook struct {
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
 func (w *Webhook) Default(ctx context.Context, obj runtime.Object) error {
 	release := obj.(*v1alpha1.Release)
+
+	// Initialize labels map if nil
+	if release.Labels == nil {
+		release.Labels = make(map[string]string)
+	}
+
+	// Set snapshot and releasePlan labels from spec fields
+	release.Labels[metadata.SnapshotLabel] = release.Spec.Snapshot
+	release.Labels[metadata.ReleasePlanLabel] = release.Spec.ReleasePlan
 
 	if release.Spec.GracePeriodDays != 0 {
 		return nil
@@ -88,6 +98,9 @@ func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warni
 	if len(release.Spec.Snapshot) > 63 {
 		return nil, fmt.Errorf("snapshot name must be no more than 63 characters, got %d characters", len(release.Spec.Snapshot))
 	}
+	if len(release.Spec.ReleasePlan) > 63 {
+		return nil, fmt.Errorf("releasePlan name must be no more than 63 characters, got %d characters", len(release.Spec.ReleasePlan))
+	}
 
 	return nil, nil
 }
@@ -99,6 +112,16 @@ func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Obj
 
 	if !reflect.DeepEqual(newRelease.Spec, oldRelease.Spec) {
 		return nil, fmt.Errorf("release resources spec cannot be updated")
+	}
+
+	// Validate snapshot label immutability
+	if oldRelease.Labels[metadata.SnapshotLabel] != newRelease.Labels[metadata.SnapshotLabel] {
+		return nil, fmt.Errorf("release snapshot label cannot be updated")
+	}
+
+	// Validate releasePlan label immutability
+	if oldRelease.Labels[metadata.ReleasePlanLabel] != newRelease.Labels[metadata.ReleasePlanLabel] {
+		return nil, fmt.Errorf("release releasePlan label cannot be updated")
 	}
 
 	return nil, nil

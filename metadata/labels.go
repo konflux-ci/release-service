@@ -93,6 +93,12 @@ var (
 
 	// ReleasePlanAdmissionLabel is the ReleasePlan label for the name of the ReleasePlanAdmission to use
 	ReleasePlanAdmissionLabel = fmt.Sprintf("release.%s/releasePlanAdmission", RhtapDomain)
+
+	// SnapshotLabel is the label used to specify the snapshot associated with the Release
+	SnapshotLabel = fmt.Sprintf("release.%s/snapshot", RhtapDomain)
+
+	// ReleasePlanLabel is the label used to specify the releasePlan associated with the Release
+	ReleasePlanLabel = fmt.Sprintf("release.%s/releasePlan", RhtapDomain)
 )
 
 // Labels to be used within Release PipelineRuns
