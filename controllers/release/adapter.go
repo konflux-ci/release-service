@@ -716,13 +716,6 @@ func (a *adapter) EnsureCollectorsProcessingResourcesAreCleanedUp() (controller.
 
 	var cleanupErrors []error
 
-	defer func() {
-		if len(cleanupErrors) > 0 {
-			a.logger.Error(fmt.Errorf("collector pipeline cleanup errors: %v", cleanupErrors),
-				"Some collector pipeline cleanups failed, but Release will continue")
-		}
-	}()
-
 	// Cleanup Tenant Collector PipelineRun and RoleBinding resources.
 	tenantCollectorsPipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.TenantCollectorsPipelineType)
 	if err != nil && !errors.IsNotFound(err) {
@@ -770,6 +763,10 @@ func (a *adapter) EnsureCollectorsProcessingResourcesAreCleanedUp() (controller.
 		cleanupErrors = append(cleanupErrors, fmt.Errorf("managed collectors cleanup failed: %w", err))
 	}
 
+	if len(cleanupErrors) > 0 {
+		return controller.RequeueWithError(fmt.Errorf("cleanup failed: %v", cleanupErrors))
+	}
+
 	return controller.ContinueProcessing()
 }
 
@@ -778,13 +775,6 @@ func (a *adapter) EnsureCollectorsProcessingResourcesAreCleanedUp() (controller.
 // the finalizers should be removed from the pipelineRuns even if the Release is not marked for deletion for quota reasons.
 func (a *adapter) EnsureReleaseProcessingResourcesAreCleanedUp() (controller.OperationResult, error) {
 	var cleanupErrors []error
-
-	defer func() {
-		if len(cleanupErrors) > 0 {
-			a.logger.Error(fmt.Errorf("pipeline cleanup errors: %v", cleanupErrors),
-				"Some pipeline cleanups failed, but Release will continue")
-		}
-	}()
 
 	if !a.release.HasTenantPipelineProcessingFinished() {
 		return controller.ContinueProcessing()
@@ -808,6 +798,10 @@ func (a *adapter) EnsureReleaseProcessingResourcesAreCleanedUp() (controller.Ope
 
 	if err := a.cleanupPipeline(metadata.FinalPipelineType); err != nil {
 		cleanupErrors = append(cleanupErrors, fmt.Errorf("final pipeline cleanup failed: %w", err))
+	}
+
+	if len(cleanupErrors) > 0 {
+		return controller.RequeueWithError(fmt.Errorf("cleanup failed: %v", cleanupErrors))
 	}
 
 	return controller.ContinueProcessing()
@@ -1653,20 +1647,12 @@ func (a *adapter) registerFinalProcessingStatus(pipelineRun *tektonv1.PipelineRu
 func (a *adapter) validateApplication() *controller.ValidationResult {
 	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			a.release.MarkValidationFailed(err.Error())
-			return &controller.ValidationResult{Valid: false}
-		}
-		return &controller.ValidationResult{Err: err}
+		return a.validationError(err)
 	}
 
 	snapshot, err := a.loader.GetSnapshot(a.ctx, a.client, a.release)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			a.release.MarkValidationFailed(err.Error())
-			return &controller.ValidationResult{Valid: false}
-		}
-		return &controller.ValidationResult{Err: err}
+		return a.validationError(err)
 	}
 
 	if releasePlan.Spec.Application != snapshot.Spec.Application {
@@ -1696,11 +1682,7 @@ func (a *adapter) validateAuthor() *controller.ValidationResult {
 
 	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			a.release.MarkValidationFailed(err.Error())
-			return &controller.ValidationResult{Valid: false}
-		}
-		return &controller.ValidationResult{Err: err}
+		return a.validationError(err)
 	}
 
 	var author string
@@ -1728,22 +1710,13 @@ func (a *adapter) validateAuthor() *controller.ValidationResult {
 func (a *adapter) validateProcessingResources() *controller.ValidationResult {
 	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			a.release.MarkValidationFailed(err.Error())
-			return &controller.ValidationResult{Valid: false}
-		}
-		return &controller.ValidationResult{Err: err}
+		return a.validationError(err)
 	}
 
 	if releasePlan.Spec.TenantPipeline == nil {
-		resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
+		_, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
 		if err != nil {
-			if resources == nil || resources.ReleasePlan == nil || resources.ReleasePlanAdmission == nil || errors.IsNotFound(err) {
-				a.release.MarkValidationFailed(err.Error())
-				return &controller.ValidationResult{Valid: false}
-			}
-
-			return &controller.ValidationResult{Err: err}
+			return a.validationError(err)
 		}
 	}
 	return &controller.ValidationResult{Valid: true}
@@ -1795,12 +1768,7 @@ func (a *adapter) validatePipelineSource() *controller.ValidationResult {
 func (a *adapter) validatePipelineDefined() *controller.ValidationResult {
 	releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			a.release.MarkValidationFailed(err.Error())
-			return &controller.ValidationResult{Valid: false}
-		}
-
-		return &controller.ValidationResult{Err: err}
+		return a.validationError(err)
 	}
 
 	if releasePlan.Spec.Target == "" {
@@ -1817,13 +1785,7 @@ func (a *adapter) validatePipelineDefined() *controller.ValidationResult {
 		}
 		releasePlanAdmission, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
 		if err != nil {
-			if errors.IsNotFound(err) || strings.Contains(err.Error(), "with auto-release label set to false") ||
-				strings.Contains(err.Error(), "Origin of the releasePlanAdmission") {
-				a.release.MarkValidationFailed(err.Error())
-				return &controller.ValidationResult{Valid: false}
-			}
-
-			return &controller.ValidationResult{Err: err}
+			return a.validationError(err)
 		}
 		if releasePlanAdmission.Spec.Pipeline == nil {
 			errString := "releasePlan and releasePlanAdmission both have no pipeline. Each Release should define a tenant pipeline, managed pipeline, or both"
@@ -1838,9 +1800,11 @@ func (a *adapter) validatePipelineDefined() *controller.ValidationResult {
 // validationError checks the error type, marks the release as failed when the error for known errors, and returns the
 // ValidationResult for the error found.
 func (a *adapter) validationError(err error) *controller.ValidationResult {
-	if errors.IsNotFound(err) {
-		a.release.MarkValidationFailed(err.Error())
-		return &controller.ValidationResult{Valid: false}
+	// Retriable errors should trigger requeue, not validation failure
+	if loader.IsRetriable(err) {
+		return &controller.ValidationResult{Err: err}
 	}
-	return &controller.ValidationResult{Err: err}
+	// All other errors (NotFound, config errors, etc.) are permanent validation failures
+	a.release.MarkValidationFailed(err.Error())
+	return &controller.ValidationResult{Valid: false}
 }

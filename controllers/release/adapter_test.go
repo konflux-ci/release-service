@@ -4986,6 +4986,23 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			result := adapter.validateProcessingResources()
 			Expect(result.Valid).To(BeFalse())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+		})
+
+		It("should return valid with error if a retriable error occurs", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Err:        errors.NewTimeoutError("API timeout", 5),
+					Resource: &loader.ProcessingResources{
+						ReleasePlanAdmission: releasePlanAdmission,
+						ReleasePlan:          releasePlan,
+					},
+				},
+			})
+
+			result := adapter.validateProcessingResources()
+			Expect(result.Valid).To(BeFalse())
 			Expect(result.Err).To(HaveOccurred())
 			Expect(adapter.release.IsValid()).To(BeFalse())
 		})
@@ -5036,7 +5053,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanContextKey,
-					Err:        fmt.Errorf("internal error"),
+					Err:        errors.NewInternalError(fmt.Errorf("internal error")),
 					Resource:   releasePlan,
 				},
 			})
@@ -5051,7 +5068,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleasePlanAdmissionContextKey,
-					Err:        fmt.Errorf("internal error"),
+					Err:        errors.NewInternalError(fmt.Errorf("internal error")),
 					Resource:   releasePlanAdmission,
 				},
 			})
