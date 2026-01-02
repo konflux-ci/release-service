@@ -1,6 +1,6 @@
 module github.com/konflux-ci/release-service
 
-go 1.24.9
+go 1.25.0
 
 require (
 	github.com/conforma/crds/api v0.1.7
@@ -15,7 +15,7 @@ require (
 	github.com/operator-framework/operator-lib v0.19.0
 	github.com/tektoncd/pipeline v1.7.0
 	k8s.io/api v0.34.3
-	k8s.io/apimachinery v0.34.3
+	k8s.io/apimachinery v0.35.0
 	k8s.io/client-go v11.0.0+incompatible
 	knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883
 	sigs.k8s.io/controller-runtime v0.22.4
