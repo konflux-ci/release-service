@@ -764,7 +764,13 @@ func (a *adapter) EnsureCollectorsProcessingResourcesAreCleanedUp() (controller.
 	}
 
 	if len(cleanupErrors) > 0 {
-		return controller.RequeueWithError(fmt.Errorf("cleanup failed: %v", cleanupErrors))
+		for _, cleanupErr := range cleanupErrors {
+			if loader.IsRetriable(cleanupErr) {
+				return controller.RequeueWithError(fmt.Errorf("cleanup failed: %v", cleanupErrors))
+			}
+		}
+		a.logger.Error(fmt.Errorf("cleanup errors: %v", cleanupErrors),
+			"Non-retriable collector cleanup errors occurred, continuing")
 	}
 
 	return controller.ContinueProcessing()
@@ -801,7 +807,13 @@ func (a *adapter) EnsureReleaseProcessingResourcesAreCleanedUp() (controller.Ope
 	}
 
 	if len(cleanupErrors) > 0 {
-		return controller.RequeueWithError(fmt.Errorf("cleanup failed: %v", cleanupErrors))
+		for _, cleanupErr := range cleanupErrors {
+			if loader.IsRetriable(cleanupErr) {
+				return controller.RequeueWithError(fmt.Errorf("cleanup failed: %v", cleanupErrors))
+			}
+		}
+		a.logger.Error(fmt.Errorf("cleanup errors: %v", cleanupErrors),
+			"Non-retriable pipeline cleanup errors occurred, continuing")
 	}
 
 	return controller.ContinueProcessing()

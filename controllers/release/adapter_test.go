@@ -2418,6 +2418,44 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			Expect(adapter.client.Delete(adapter.ctx, checkPipelineRun)).To(Succeed())
 		})
+
+		It("should collect non-retriable errors and continue processing", func() {
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+			adapter.release.MarkTenantCollectorsPipelineProcessed()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+
+			adapter.loader = loader.NewMockLoader()
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource:   nil,
+					Err:        fmt.Errorf("loader error"),
+				},
+			})
+
+			result, err := adapter.EnsureCollectorsProcessingResourcesAreCleanedUp()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should requeue when retriable errors occur during cleanup", func() {
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+			adapter.release.MarkTenantCollectorsPipelineProcessed()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+
+			adapter.loader = loader.NewMockLoader()
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource:   nil,
+					Err:        errors.NewConflict(schema.GroupResource{Group: "test", Resource: "test"}, "test", fmt.Errorf("conflict")),
+				},
+			})
+
+			result, err := adapter.EnsureCollectorsProcessingResourcesAreCleanedUp()
+			Expect(result.RequeueRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	When("EnsureReleaseProcessingResourcesAreCleanedUp is called", func() {
@@ -2616,10 +2654,11 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(updated.Finalizers).NotTo(ContainElement(metadata.ReleaseFinalizer))
 		})
 
-		It("should collect errors but continue processing", func() {
+		It("should collect non-retriable errors and continue processing", func() {
+			adapter.release.MarkTenantPipelineProcessing()
 			adapter.release.MarkTenantPipelineProcessed()
-			adapter.release.MarkManagedPipelineProcessed()
-			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+			adapter.release.MarkManagedPipelineProcessingSkipped()
+			adapter.release.MarkFinalPipelineProcessingSkipped()
 
 			adapter.loader = loader.NewMockLoader()
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
@@ -2633,6 +2672,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should requeue when retriable errors occur during cleanup", func() {
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.MarkTenantPipelineProcessed()
+			adapter.release.MarkManagedPipelineProcessingSkipped()
+			adapter.release.MarkFinalPipelineProcessingSkipped()
+
+			adapter.loader = loader.NewMockLoader()
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource:   nil,
+					Err:        errors.NewConflict(schema.GroupResource{Group: "test", Resource: "test"}, "test", fmt.Errorf("conflict")),
+				},
+			})
+
+			result, err := adapter.EnsureReleaseProcessingResourcesAreCleanedUp()
+			Expect(result.RequeueRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("should optimize by early returning based on pipeline execution order", func() {
