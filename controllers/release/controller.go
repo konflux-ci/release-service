@@ -79,6 +79,8 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return controller.ReconcileHandler([]controller.Operation{
 		adapter.EnsureFinalizersAreCalled,
 		adapter.EnsureConfigIsLoaded, // This operation sets the config in the adapter to be used in other operations.
+		adapter.EnsureCollectorsProcessingResourcesAreCleanedUp,
+		adapter.EnsureReleaseProcessingResourcesAreCleanedUp,
 		adapter.EnsureReleaseIsRunning,
 		adapter.EnsureReleaseIsValid,
 		adapter.EnsureApplicationMetadataIsSet,
@@ -88,14 +90,12 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		adapter.EnsureTenantCollectorsPipelineIsTracked,
 		adapter.EnsureManagedCollectorsPipelineIsProcessed,
 		adapter.EnsureManagedCollectorsPipelineIsTracked,
-		adapter.EnsureCollectorsProcessingResourcesAreCleanedUp,
 		adapter.EnsureTenantPipelineIsProcessed,
 		adapter.EnsureTenantPipelineProcessingIsTracked,
 		adapter.EnsureManagedPipelineIsProcessed,
 		adapter.EnsureManagedPipelineProcessingIsTracked,
 		adapter.EnsureFinalPipelineIsProcessed,
 		adapter.EnsureFinalPipelineProcessingIsTracked,
-		adapter.EnsureReleaseProcessingResourcesAreCleanedUp,
 		adapter.EnsureReleaseIsCompleted,
 	})
 }
