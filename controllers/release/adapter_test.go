@@ -3314,6 +3314,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			adapter.releaseServiceConfig = releaseServiceConfig
 
 			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
@@ -3817,6 +3818,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			adapter.releaseServiceConfig = releaseServiceConfig
 
 			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
@@ -4083,6 +4085,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			adapter.releaseServiceConfig = releaseServiceConfig
 			parameterizedPipeline = &tektonutils.ParameterizedPipeline{}
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
 				Resolver: "git",
