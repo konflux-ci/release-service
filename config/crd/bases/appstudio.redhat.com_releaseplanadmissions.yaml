@@ -165,6 +165,12 @@ spec:
                         description: Resolver is the name of a Tekton resolver to
                           be used (e.g. git)
                         type: string
+                      useEmptyDir:
+                        description: |-
+                          UseEmptyDir specifies whether to use an empty dir volume for the workspace.
+                          When true, the PipelineRun will use an empty dir volume. Otherwise, it will
+                          use a volume claim template by default.
+                        type: boolean
                     required:
                     - params
                     - resolver

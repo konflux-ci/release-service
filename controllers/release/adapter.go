@@ -1091,7 +1091,7 @@ func (a *adapter) createTenantCollectorsPipelineRun(releasePlan *v1alpha1.Releas
 // will be extracted from the given ReleasePlan. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snapshot *applicationapiv1alpha1.Snapshot) (*tektonv1.PipelineRun, error) {
-	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.FinalPipelineType.String(), releasePlan.Namespace).
+	builder := utils.NewPipelineRunBuilder(metadata.FinalPipelineType.String(), releasePlan.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
@@ -1108,12 +1108,22 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 		WithPipelineRef(releasePlan.Spec.FinalPipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(releasePlan.Spec.FinalPipeline.ServiceAccountName).
 		WithTaskRunSpecs(releasePlan.Spec.FinalPipeline.TaskRunSpecs...).
-		WithTimeouts(&releasePlan.Spec.FinalPipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
-		WithWorkspaceFromVolumeTemplate(
+		WithTimeouts(&releasePlan.Spec.FinalPipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts)
+
+	if releasePlan.Spec.FinalPipeline.PipelineRef.UseEmptyDir {
+		builder = builder.WithEmptyDirVolume(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
-		).
-		Build()
+		)
+	} else {
+		builder = builder.WithWorkspaceFromVolumeTemplate(
+			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
+			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
+		)
+	}
+
+	var pipelineRun *tektonv1.PipelineRun
+	pipelineRun, err := builder.Build()
 	if err != nil {
 		return nil, err
 	}
@@ -1186,7 +1196,7 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 // will be extracted from the given ReleasePlan. The Release's Snapshot will also be passed to the release
 // PipelineRun.
 func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, snapshot *applicationapiv1alpha1.Snapshot) (*tektonv1.PipelineRun, error) {
-	pipelineRun, err := utils.NewPipelineRunBuilder(metadata.TenantPipelineType.String(), releasePlan.Namespace).
+	builder := utils.NewPipelineRunBuilder(metadata.TenantPipelineType.String(), releasePlan.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
@@ -1203,12 +1213,22 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 		WithPipelineRef(releasePlan.Spec.TenantPipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(releasePlan.Spec.TenantPipeline.ServiceAccountName).
 		WithTaskRunSpecs(releasePlan.Spec.TenantPipeline.TaskRunSpecs...).
-		WithTimeouts(&releasePlan.Spec.TenantPipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
-		WithWorkspaceFromVolumeTemplate(
+		WithTimeouts(&releasePlan.Spec.TenantPipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts)
+
+	if releasePlan.Spec.TenantPipeline.PipelineRef.UseEmptyDir {
+		builder = builder.WithEmptyDirVolume(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
-		).
-		Build()
+		)
+	} else {
+		builder = builder.WithWorkspaceFromVolumeTemplate(
+			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
+			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
+		)
+	}
+
+	var pipelineRun *tektonv1.PipelineRun
+	pipelineRun, err := builder.Build()
 	if err != nil {
 		return nil, err
 	}
