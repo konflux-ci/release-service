@@ -46,6 +46,12 @@ type PipelineRef struct {
 	// This field is intended for use in ReleasePlanAdmissions.
 	// +optional
 	OciStorage string `json:"ociStorage,omitempty"`
+
+	// UseEmptyDir specifies whether to use an empty dir volume for the workspace.
+	// When true, the PipelineRun will use an empty dir volume. Otherwise, it will
+	// use a volume claim template by default.
+	// +optional
+	UseEmptyDir bool `json:"useEmptyDir,omitempty"`
 }
 
 // Pipeline contains a reference to a Pipeline and the name of the service account to use while executing it.

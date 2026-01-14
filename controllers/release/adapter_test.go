@@ -3456,6 +3456,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("contains the proper timeout value", func() {
 			Expect(pipelineRun.Spec.Timeouts.Pipeline).To(Equal(newReleasePlan.Spec.TenantPipeline.Timeouts.Pipeline))
 		})
+
+		It("contains a workspace using VolumeClaimTemplate by default", func() {
+			Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
+			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).NotTo(BeNil())
+			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).To(BeNil())
+		})
+
+		It("contains a workspace using EmptyDir when UseEmptyDir is true", func() {
+			newReleasePlan.Spec.TenantPipeline.PipelineRef.UseEmptyDir = true
+
+			var err error
+			emptyDirPipelineRun, err := adapter.createTenantPipelineRun(newReleasePlan, snapshot)
+			Expect(emptyDirPipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(emptyDirPipelineRun.Spec.Workspaces).To(HaveLen(1))
+			Expect(emptyDirPipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
+			Expect(emptyDirPipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
+			Expect(k8sClient.Delete(ctx, emptyDirPipelineRun)).To(Succeed())
+		})
 	})
 
 	When("createManagedPipelineRun is called", func() {
@@ -3925,6 +3945,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNamespaceLabel]).To(Equal(testNamespace))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseSnapshotLabel]).To(Equal(adapter.release.Spec.Snapshot))
+		})
+
+		It("contains a workspace using VolumeClaimTemplate by default", func() {
+			Expect(pipelineRun.Spec.Workspaces).To(HaveLen(1))
+			Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).NotTo(BeNil())
+			Expect(pipelineRun.Spec.Workspaces[0].EmptyDir).To(BeNil())
+		})
+
+		It("contains a workspace using EmptyDir when UseEmptyDir is true", func() {
+			newReleasePlan.Spec.FinalPipeline.PipelineRef.UseEmptyDir = true
+
+			var err error
+			emptyDirPipelineRun, err := adapter.createFinalPipelineRun(newReleasePlan, snapshot)
+			Expect(emptyDirPipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(emptyDirPipelineRun.Spec.Workspaces).To(HaveLen(1))
+			Expect(emptyDirPipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
+			Expect(emptyDirPipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
+			Expect(k8sClient.Delete(ctx, emptyDirPipelineRun)).To(Succeed())
 		})
 
 		Context("with git resolver setup", func() {
