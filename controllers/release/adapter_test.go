@@ -47,6 +47,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -5683,6 +5686,215 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			_ = adapter.validatePipelineDefined()
 			Expect(adapter.release.Status.Target).To(Equal("foo"))
+		})
+	})
+
+	When("getFailedTaskRunLogs is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("should return empty string when pipelineRun is nil", func() {
+			result, err := adapter.getFailedTaskRunLogs(nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should return empty string when no TaskRuns exist", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pipeline-run",
+					Namespace: "default",
+				},
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{
+								TypeMeta:         runtime.TypeMeta{Kind: "TaskRun"},
+								Name:             "test-task-run",
+								PipelineTaskName: "test-task",
+							},
+						},
+					},
+				},
+			}
+			result, err := adapter.getFailedTaskRunLogs(pipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should return empty string when TaskRun succeeded", func() {
+			taskRun := &tektonv1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-task-run-success",
+					Namespace: "default",
+					Labels: map[string]string{
+						"tekton.dev/pipelineRun": "test-pipeline-run-success",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, taskRun)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, taskRun) }()
+
+			taskRun.Status = tektonv1.TaskRunStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   apis.ConditionSucceeded,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Status().Update(ctx, taskRun)).To(Succeed())
+
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pipeline-run-success",
+					Namespace: "default",
+				},
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{
+								TypeMeta:         runtime.TypeMeta{Kind: "TaskRun"},
+								Name:             "test-task-run-success",
+								PipelineTaskName: "test-task",
+							},
+						},
+					},
+				},
+			}
+			result, err := adapter.getFailedTaskRunLogs(pipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should return failure message when TaskRun failed", func() {
+			taskRun := &tektonv1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-task-run-failed",
+					Namespace: "default",
+					Labels: map[string]string{
+						"tekton.dev/pipelineRun": "test-pipeline-run-failed",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, taskRun)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, taskRun) }()
+
+			taskRun.Status = tektonv1.TaskRunStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:    apis.ConditionSucceeded,
+							Status:  corev1.ConditionFalse,
+							Message: "task execution failed",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Status().Update(ctx, taskRun)).To(Succeed())
+
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pipeline-run-failed",
+					Namespace: "default",
+				},
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{
+								TypeMeta:         runtime.TypeMeta{Kind: "TaskRun"},
+								Name:             "test-task-run-failed",
+								PipelineTaskName: "test-task",
+							},
+						},
+					},
+				},
+			}
+			result, err := adapter.getFailedTaskRunLogs(pipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal("task test-task failed: task execution failed"))
+		})
+
+		It("should truncate long messages", func() {
+			longMessage := strings.Repeat("x", maxConditionMessageLength+1000)
+			taskRun := &tektonv1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-task-run-long",
+					Namespace: "default",
+					Labels: map[string]string{
+						"tekton.dev/pipelineRun": "test-pipeline-run-long",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, taskRun)).To(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, taskRun) }()
+
+			taskRun.Status = tektonv1.TaskRunStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:    apis.ConditionSucceeded,
+							Status:  corev1.ConditionFalse,
+							Message: longMessage,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Status().Update(ctx, taskRun)).To(Succeed())
+
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pipeline-run-long",
+					Namespace: "default",
+				},
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{
+								TypeMeta:         runtime.TypeMeta{Kind: "TaskRun"},
+								Name:             "test-task-run-long",
+								PipelineTaskName: "test-task",
+							},
+						},
+					},
+				},
+			}
+			result, err := adapter.getFailedTaskRunLogs(pipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(result)).To(BeNumerically("<=", maxConditionMessageLength))
+			Expect(result).To(ContainSubstring("...(truncated)"))
+		})
+
+		It("should skip non-TaskRun child references", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pipeline-run-custom",
+					Namespace: "default",
+				},
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{
+								TypeMeta:         runtime.TypeMeta{Kind: "CustomRun"},
+								Name:             "some-custom-run",
+								PipelineTaskName: "custom-task",
+							},
+						},
+					},
+				},
+			}
+			result, err := adapter.getFailedTaskRunLogs(pipelineRun)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
 		})
 	})
 
