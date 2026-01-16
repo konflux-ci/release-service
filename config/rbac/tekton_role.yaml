@@ -4,6 +4,12 @@ kind: ClusterRole
 metadata:
   name: tekton-role
 rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods/log
+    verbs:
+      - get
   - verbs:
       - create
       - delete
@@ -17,6 +23,7 @@ rules:
       - tekton.dev
     resources:
       - pipelineruns
+      - taskruns
   - apiGroups:
       - triggers.tekton.dev
     resources:

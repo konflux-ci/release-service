@@ -17,12 +17,12 @@ limitations under the License.
 package utils
 
 import (
+	"reflect"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-
-	"reflect"
 )
 
 var _ = Describe("Pipeline", func() {
@@ -240,5 +240,4 @@ var _ = Describe("Pipeline", func() {
 			Expect(bundleRef.IsClusterScoped()).To(BeFalse())
 		})
 	})
-
 })

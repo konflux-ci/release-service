@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -36,11 +37,15 @@ import (
 	"github.com/konflux-ci/release-service/syncer"
 	"github.com/konflux-ci/release-service/tekton/utils"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -1583,7 +1588,14 @@ func (a *adapter) registerTenantCollectorsProcessingStatus(pipelineRun *tektonv1
 	if condition.IsTrue() {
 		a.release.MarkTenantCollectorsPipelineProcessed()
 	} else {
-		a.release.MarkTenantCollectorsPipelineProcessingFailed(condition.Message)
+		message, err := a.getFailedTaskRunLogs(pipelineRun)
+		if err != nil {
+			a.logger.Error(err, "failed to get TaskRun logs for tenant collectors pipeline")
+		}
+		if message == "" {
+			message = condition.Message
+		}
+		a.release.MarkTenantCollectorsPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on tenant collectors pipelineRun")
 	}
 
@@ -1604,7 +1616,14 @@ func (a *adapter) registerTenantProcessingStatus(pipelineRun *tektonv1.PipelineR
 	if condition.IsTrue() {
 		a.release.MarkTenantPipelineProcessed()
 	} else {
-		a.release.MarkTenantPipelineProcessingFailed(condition.Message)
+		message, err := a.getFailedTaskRunLogs(pipelineRun)
+		if err != nil {
+			a.logger.Error(err, "failed to get TaskRun logs for tenant pipeline")
+		}
+		if message == "" {
+			message = condition.Message
+		}
+		a.release.MarkTenantPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on tenant pipelineRun")
 	}
 
@@ -1625,7 +1644,14 @@ func (a *adapter) registerManagedCollectorsProcessingStatus(pipelineRun *tektonv
 	if condition.IsTrue() {
 		a.release.MarkManagedCollectorsPipelineProcessed()
 	} else {
-		a.release.MarkManagedCollectorsPipelineProcessingFailed(condition.Message)
+		message, err := a.getFailedTaskRunLogs(pipelineRun)
+		if err != nil {
+			a.logger.Error(err, "failed to get TaskRun logs for managed collectors pipeline")
+		}
+		if message == "" {
+			message = condition.Message
+		}
+		a.release.MarkManagedCollectorsPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on managed collectors pipelineRun")
 	}
 
@@ -1646,7 +1672,14 @@ func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.Pipeline
 	if condition.IsTrue() {
 		a.release.MarkManagedPipelineProcessed()
 	} else {
-		a.release.MarkManagedPipelineProcessingFailed(condition.Message)
+		message, err := a.getFailedTaskRunLogs(pipelineRun)
+		if err != nil {
+			a.logger.Error(err, "failed to get TaskRun logs for managed pipeline")
+		}
+		if message == "" {
+			message = condition.Message
+		}
+		a.release.MarkManagedPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on managed pipelineRun")
 	}
 
@@ -1667,7 +1700,14 @@ func (a *adapter) registerFinalProcessingStatus(pipelineRun *tektonv1.PipelineRu
 	if condition.IsTrue() {
 		a.release.MarkFinalPipelineProcessed()
 	} else {
-		a.release.MarkFinalPipelineProcessingFailed(condition.Message)
+		message, err := a.getFailedTaskRunLogs(pipelineRun)
+		if err != nil {
+			a.logger.Error(err, "failed to get TaskRun logs for final pipeline")
+		}
+		if message == "" {
+			message = condition.Message
+		}
+		a.release.MarkFinalPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on final pipelineRun")
 	}
 
@@ -1839,4 +1879,100 @@ func (a *adapter) validationError(err error) *controller.ValidationResult {
 	// All other errors (NotFound, config errors, etc.) are permanent validation failures
 	a.release.MarkValidationFailed(err.Error())
 	return &controller.ValidationResult{Valid: false}
+}
+
+// maxConditionMessageLength is the maximum length for a Kubernetes condition message.
+// This limit is enforced by the API server validation (MaxLength=32768).
+const maxConditionMessageLength = 31000
+
+// getFailedTaskRunLogs returns the logs from the first failed TaskRun in the PipelineRun.
+// If no failed TaskRun is found, it returns an empty string and nil error.
+// If logs cannot be retrieved, an error is returned along with the condition message as fallback.
+func (a *adapter) getFailedTaskRunLogs(pipelineRun *tektonv1.PipelineRun) (string, error) {
+	if pipelineRun == nil {
+		return "", nil
+	}
+
+	taskRunList := &tektonv1.TaskRunList{}
+	err := a.client.List(a.ctx, taskRunList,
+		client.InNamespace(pipelineRun.Namespace),
+		client.MatchingLabels{
+			"tekton.dev/pipelineRun": pipelineRun.Name,
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to list TaskRuns: %w", err)
+	}
+
+	// Build a map for quick lookup by name
+	taskRunMap := make(map[string]*tektonv1.TaskRun, len(taskRunList.Items))
+	for i := range taskRunList.Items {
+		taskRunMap[taskRunList.Items[i].Name] = &taskRunList.Items[i]
+	}
+
+	// Iterate in the same order as ChildReferences to maintain consistent behavior
+	for _, childRef := range pipelineRun.Status.ChildReferences {
+		if childRef.Kind != "TaskRun" {
+			continue
+		}
+
+		taskRun, exists := taskRunMap[childRef.Name]
+		if !exists {
+			continue
+		}
+
+		condition := taskRun.Status.GetCondition(apis.ConditionSucceeded)
+		if condition != nil && condition.IsFalse() {
+			prefix := fmt.Sprintf("task %s failed: ", childRef.PipelineTaskName)
+			maxLen := maxConditionMessageLength - len(prefix)
+			truncationMarker := "...(truncated)\n"
+
+			message, err := a.getTaskRunLogs(taskRun)
+			if message == "" {
+				message = condition.Message
+			}
+
+			if len(message) > maxLen {
+				startIdx := len(message) - maxLen + len(truncationMarker)
+				if startIdx < 0 {
+					startIdx = 0
+				} else if startIdx >= len(message) {
+					startIdx = len(message)
+				}
+				message = truncationMarker + message[startIdx:]
+			}
+			return prefix + message, err
+		}
+	}
+
+	return "", nil
+}
+
+// getTaskRunLogs fetches the logs from the pod associated with the TaskRun.
+func (a *adapter) getTaskRunLogs(taskRun *tektonv1.TaskRun) (string, error) {
+	if taskRun.Status.PodName == "" {
+		return "", nil
+	}
+
+	config := ctrl.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
+	req := clientset.CoreV1().Pods(taskRun.Namespace).GetLogs(taskRun.Status.PodName, &corev1.PodLogOptions{
+		TailLines: ptr.To(int64(500)),
+	})
+	stream, err := req.Stream(a.ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to stream pod logs: %w", err)
+	}
+	defer stream.Close()
+
+	logs, err := io.ReadAll(stream)
+	if err != nil {
+		return "", fmt.Errorf("failed to read pod logs: %w", err)
+	}
+
+	return string(logs), nil
 }
