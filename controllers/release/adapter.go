@@ -1583,7 +1583,11 @@ func (a *adapter) registerTenantCollectorsProcessingStatus(pipelineRun *tektonv1
 	if condition.IsTrue() {
 		a.release.MarkTenantCollectorsPipelineProcessed()
 	} else {
-		a.release.MarkTenantCollectorsPipelineProcessingFailed(condition.Message)
+		message := utils.GetFailedTaskRunLogs(a.ctx, a.client, pipelineRun)
+		if message == "" {
+			message = condition.Message
+		}
+		a.release.MarkTenantCollectorsPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on tenant collectors pipelineRun")
 	}
 
@@ -1604,7 +1608,11 @@ func (a *adapter) registerTenantProcessingStatus(pipelineRun *tektonv1.PipelineR
 	if condition.IsTrue() {
 		a.release.MarkTenantPipelineProcessed()
 	} else {
-		a.release.MarkTenantPipelineProcessingFailed(condition.Message)
+		message := utils.GetFailedTaskRunLogs(a.ctx, a.client, pipelineRun)
+		if message == "" {
+			message = condition.Message
+		}
+		a.release.MarkTenantPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on tenant pipelineRun")
 	}
 
@@ -1625,7 +1633,11 @@ func (a *adapter) registerManagedCollectorsProcessingStatus(pipelineRun *tektonv
 	if condition.IsTrue() {
 		a.release.MarkManagedCollectorsPipelineProcessed()
 	} else {
-		a.release.MarkManagedCollectorsPipelineProcessingFailed(condition.Message)
+		message := utils.GetFailedTaskRunLogs(a.ctx, a.client, pipelineRun)
+		if message == "" {
+			message = condition.Message
+		}
+		a.release.MarkManagedCollectorsPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on managed collectors pipelineRun")
 	}
 
@@ -1646,7 +1658,11 @@ func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.Pipeline
 	if condition.IsTrue() {
 		a.release.MarkManagedPipelineProcessed()
 	} else {
-		a.release.MarkManagedPipelineProcessingFailed(condition.Message)
+		message := utils.GetFailedTaskRunLogs(a.ctx, a.client, pipelineRun)
+		if message == "" {
+			message = condition.Message
+		}
+		a.release.MarkManagedPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on managed pipelineRun")
 	}
 
@@ -1667,7 +1683,11 @@ func (a *adapter) registerFinalProcessingStatus(pipelineRun *tektonv1.PipelineRu
 	if condition.IsTrue() {
 		a.release.MarkFinalPipelineProcessed()
 	} else {
-		a.release.MarkFinalPipelineProcessingFailed(condition.Message)
+		message := utils.GetFailedTaskRunLogs(a.ctx, a.client, pipelineRun)
+		if message == "" {
+			message = condition.Message
+		}
+		a.release.MarkFinalPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on final pipelineRun")
 	}
 

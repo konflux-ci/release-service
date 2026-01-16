@@ -17,9 +17,16 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"fmt"
+	"io"
 
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+	"knative.dev/pkg/apis"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Param defines the parameters for a given resolver in PipelineRef
@@ -197,4 +204,92 @@ func (prp *ParameterizedPipeline) GetTektonParams() []tektonv1.Param {
 // IsClusterScoped returns whether the PipelineRef uses a cluster resolver or not.
 func (pr *PipelineRef) IsClusterScoped() bool {
 	return pr.Resolver == "cluster"
+}
+
+// maxConditionMessageLength is the maximum length for a Kubernetes condition message.
+// This limit is enforced by the API server validation (MaxLength=32768).
+const maxConditionMessageLength = 31000
+
+// GetFailedTaskRunLogs returns the logs from the first failed TaskRun in the PipelineRun.
+// If no failed TaskRun is found or logs cannot be retrieved, it returns an empty string.
+func GetFailedTaskRunLogs(ctx context.Context, cli client.Client, pipelineRun *tektonv1.PipelineRun) string {
+	if pipelineRun == nil {
+		return ""
+	}
+
+	// Fetch all TaskRuns for this PipelineRun in a single API call
+	taskRunList := &tektonv1.TaskRunList{}
+	err := cli.List(ctx, taskRunList,
+		client.InNamespace(pipelineRun.Namespace),
+		client.MatchingLabels{
+			"tekton.dev/pipelineRun": pipelineRun.Name,
+		},
+	)
+	if err != nil {
+		return ""
+	}
+
+	// Build a map for quick lookup by name
+	taskRunMap := make(map[string]*tektonv1.TaskRun, len(taskRunList.Items))
+	for i := range taskRunList.Items {
+		taskRunMap[taskRunList.Items[i].Name] = &taskRunList.Items[i]
+	}
+
+	// Iterate in the same order as ChildReferences to maintain consistent behavior
+	for _, childRef := range pipelineRun.Status.ChildReferences {
+		if childRef.Kind != "TaskRun" {
+			continue
+		}
+
+		taskRun, exists := taskRunMap[childRef.Name]
+		if !exists {
+			continue
+		}
+
+		condition := taskRun.Status.GetCondition(apis.ConditionSucceeded)
+		if condition != nil && condition.IsFalse() {
+			prefix := fmt.Sprintf("task %s failed: ", childRef.PipelineTaskName)
+			maxLen := maxConditionMessageLength - len(prefix)
+			truncationMarker := "...(truncated)\n"
+
+			message := getTaskRunLogs(ctx, taskRun)
+			if message == "" {
+				message = condition.Message
+			}
+
+			if len(message) > maxLen {
+				message = truncationMarker + message[len(message)-maxLen+len(truncationMarker):]
+			}
+			return prefix + message
+		}
+	}
+
+	return ""
+}
+
+// getTaskRunLogs fetches the logs from the pod associated with the TaskRun.
+func getTaskRunLogs(ctx context.Context, taskRun *tektonv1.TaskRun) string {
+	if taskRun.Status.PodName == "" {
+		return ""
+	}
+
+	config := ctrl.GetConfigOrDie()
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return ""
+	}
+
+	req := clientset.CoreV1().Pods(taskRun.Namespace).GetLogs(taskRun.Status.PodName, &corev1.PodLogOptions{})
+	stream, err := req.Stream(ctx)
+	if err != nil {
+		return ""
+	}
+	defer stream.Close()
+
+	logs, err := io.ReadAll(stream)
+	if err != nil {
+		return ""
+	}
+
+	return string(logs)
 }

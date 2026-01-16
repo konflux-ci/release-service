@@ -17,12 +17,20 @@ limitations under the License.
 package utils
 
 import (
+	"context"
+	"reflect"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-
-	"reflect"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var _ = Describe("Pipeline", func() {
@@ -238,6 +246,202 @@ var _ = Describe("Pipeline", func() {
 		It("should return false for non-cluster pipelines", func() {
 			Expect(gitRef.IsClusterScoped()).To(BeFalse())
 			Expect(bundleRef.IsClusterScoped()).To(BeFalse())
+		})
+	})
+
+	When("GetFailedTaskRunLogs is called", func() {
+		var (
+			ctx    context.Context
+			scheme *runtime.Scheme
+		)
+
+		BeforeEach(func() {
+			ctx = context.Background()
+			scheme = runtime.NewScheme()
+			Expect(tektonv1.AddToScheme(scheme)).To(Succeed())
+			Expect(corev1.AddToScheme(scheme)).To(Succeed())
+		})
+
+		It("should return empty string when pipelineRun is nil", func() {
+			cli := fake.NewClientBuilder().WithScheme(scheme).Build()
+			result := GetFailedTaskRunLogs(ctx, cli, nil)
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should return empty string when no TaskRuns exist", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pipeline-run",
+					Namespace: "default",
+				},
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{
+								TypeMeta:         runtime.TypeMeta{Kind: "TaskRun"},
+								Name:             "test-task-run",
+								PipelineTaskName: "test-task",
+							},
+						},
+					},
+				},
+			}
+			cli := fake.NewClientBuilder().WithScheme(scheme).Build()
+			result := GetFailedTaskRunLogs(ctx, cli, pipelineRun)
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should return empty string when TaskRun succeeded", func() {
+			taskRun := &tektonv1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-task-run",
+					Namespace: "default",
+					Labels: map[string]string{
+						"tekton.dev/pipelineRun": "test-pipeline-run",
+					},
+				},
+				Status: tektonv1.TaskRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			}
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pipeline-run",
+					Namespace: "default",
+				},
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{
+								TypeMeta:         runtime.TypeMeta{Kind: "TaskRun"},
+								Name:             "test-task-run",
+								PipelineTaskName: "test-task",
+							},
+						},
+					},
+				},
+			}
+			cli := fake.NewClientBuilder().WithScheme(scheme).WithObjects(taskRun).Build()
+			result := GetFailedTaskRunLogs(ctx, cli, pipelineRun)
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should return failure message when TaskRun failed", func() {
+			taskRun := &tektonv1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-task-run",
+					Namespace: "default",
+					Labels: map[string]string{
+						"tekton.dev/pipelineRun": "test-pipeline-run",
+					},
+				},
+				Status: tektonv1.TaskRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							{
+								Type:    apis.ConditionSucceeded,
+								Status:  corev1.ConditionFalse,
+								Message: "task execution failed",
+							},
+						},
+					},
+				},
+			}
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pipeline-run",
+					Namespace: "default",
+				},
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{
+								TypeMeta:         runtime.TypeMeta{Kind: "TaskRun"},
+								Name:             "test-task-run",
+								PipelineTaskName: "test-task",
+							},
+						},
+					},
+				},
+			}
+			cli := fake.NewClientBuilder().WithScheme(scheme).WithObjects(taskRun).Build()
+			result := GetFailedTaskRunLogs(ctx, cli, pipelineRun)
+			Expect(result).To(Equal("task test-task failed: task execution failed"))
+		})
+
+		It("should truncate long messages", func() {
+			longMessage := strings.Repeat("x", maxConditionMessageLength+1000)
+			taskRun := &tektonv1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-task-run",
+					Namespace: "default",
+					Labels: map[string]string{
+						"tekton.dev/pipelineRun": "test-pipeline-run",
+					},
+				},
+				Status: tektonv1.TaskRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							{
+								Type:    apis.ConditionSucceeded,
+								Status:  corev1.ConditionFalse,
+								Message: longMessage,
+							},
+						},
+					},
+				},
+			}
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pipeline-run",
+					Namespace: "default",
+				},
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{
+								TypeMeta:         runtime.TypeMeta{Kind: "TaskRun"},
+								Name:             "test-task-run",
+								PipelineTaskName: "test-task",
+							},
+						},
+					},
+				},
+			}
+			cli := fake.NewClientBuilder().WithScheme(scheme).WithObjects(taskRun).Build()
+			result := GetFailedTaskRunLogs(ctx, cli, pipelineRun)
+			Expect(len(result)).To(BeNumerically("<=", maxConditionMessageLength))
+			Expect(result).To(ContainSubstring("...(truncated)"))
+		})
+
+		It("should skip non-TaskRun child references", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pipeline-run",
+					Namespace: "default",
+				},
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{
+								TypeMeta:         runtime.TypeMeta{Kind: "CustomRun"},
+								Name:             "some-custom-run",
+								PipelineTaskName: "custom-task",
+							},
+						},
+					},
+				},
+			}
+			cli := fake.NewClientBuilder().WithScheme(scheme).Build()
+			result := GetFailedTaskRunLogs(ctx, cli, pipelineRun)
+			Expect(result).To(BeEmpty())
 		})
 	})
 
