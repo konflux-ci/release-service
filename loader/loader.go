@@ -2,26 +2,26 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"k8s.io/utils/strings/slices"
-
-	toolkit "github.com/konflux-ci/operator-toolkit/loader"
-
 	ecapiv1alpha1 "github.com/conforma/crds/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
-	"github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/metadata"
+	toolkit "github.com/konflux-ci/operator-toolkit/loader"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/metadata"
 )
 
 // ErrInvalidRoleBindingRef is returned when PipelineInfo.RoleBindings does no parse as “namespace/name”.
@@ -109,7 +109,6 @@ func (l *loader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.
 	}
 
 	return nil, nil
-
 }
 
 // GetMatchingReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.
@@ -172,7 +171,6 @@ func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client
 // are in the namespace specified by the ReleasePlanAdmission's origin. optionally filter by the ReleasePlanAdmission
 // label (falling back to all). If the List operation fails, an error will be returned.
 func (l *loader) GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error) {
-
 	if releasePlanAdmission.Spec.Origin == "" {
 		return nil, fmt.Errorf("releasePlanAdmission has no origin, so no ReleasePlans can be found")
 	}
@@ -247,7 +245,7 @@ func (l *loader) GetPreviousRelease(ctx context.Context, cli client.Client, rele
 	}
 
 	if previousRelease == nil {
-		return nil, errors.NewNotFound(
+		return nil, apierrors.NewNotFound(
 			schema.GroupResource{
 				Group:    v1alpha1.GroupVersion.Group,
 				Resource: release.GetObjectKind().GroupVersionKind().Kind,
@@ -381,4 +379,29 @@ func (l *loader) GetProcessingResources(ctx context.Context, cli client.Client, 
 	}
 
 	return resources, nil
+}
+
+// IsRetriable returns true if the error is transient, such as a
+// network hiccup, concurrency conflict, or server-side throttling,
+// indicating that the operation should be retried.
+func IsRetriable(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if apierrors.IsConflict(err) ||
+		apierrors.IsServerTimeout(err) ||
+		apierrors.IsServiceUnavailable(err) ||
+		apierrors.IsTimeout(err) ||
+		apierrors.IsTooManyRequests(err) ||
+		apierrors.IsInternalError(err) {
+		return true
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return netErr.Timeout()
+	}
+
+	return false
 }
