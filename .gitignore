@@ -15,3 +15,7 @@ atlassian-ide-plugin.xml
 # Operator-sdk
 bin/*
 cover.out
+
+# Test reports
+*-report.xml
+*.junit.xml
