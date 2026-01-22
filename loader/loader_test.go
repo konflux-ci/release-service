@@ -236,6 +236,102 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 			Expect(k8sClient.Delete(ctx, newReleasePlanAdmission)).To(Succeed())
 		})
+
+		It("returns a release plan admission when RP uses componentGroup and RPA uses componentGroups", func() {
+			cgReleasePlan := &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cg-release-plan",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanSpec{
+					ComponentGroup: "my-component-group",
+					Target:         "default",
+				},
+			}
+			Expect(k8sClient.Create(ctx, cgReleasePlan)).To(Succeed())
+
+			cgReleasePlanAdmission := &v1alpha1.ReleasePlanAdmission{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cg-release-plan-admission",
+					Namespace: "default",
+					Labels: map[string]string{
+						metadata.BlockReleasesLabel: "false",
+					},
+				},
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					ComponentGroups: []string{"my-component-group"},
+					Origin:          "default",
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "testbundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
+						},
+					},
+					Policy: enterpriseContractPolicy.Name,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cgReleasePlanAdmission)).To(Succeed())
+
+			Eventually(func() bool {
+				returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, cgReleasePlan)
+				return err == nil && returnedObject != nil && returnedObject.Name == cgReleasePlanAdmission.Name
+			}).Should(BeTrue())
+
+			Expect(k8sClient.Delete(ctx, cgReleasePlan)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cgReleasePlanAdmission)).To(Succeed())
+		})
+
+		It("returns a release plan admission when RP uses application and RPA uses componentGroups (backward compatible)", func() {
+			appReleasePlan := &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "app-to-cg-release-plan",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanSpec{
+					Application: "cross-match-app",
+					Target:      "default",
+				},
+			}
+			Expect(k8sClient.Create(ctx, appReleasePlan)).To(Succeed())
+
+			cgReleasePlanAdmission := &v1alpha1.ReleasePlanAdmission{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cg-for-app-rpa",
+					Namespace: "default",
+					Labels: map[string]string{
+						metadata.BlockReleasesLabel: "false",
+					},
+				},
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					ComponentGroups: []string{"cross-match-app"},
+					Origin:          "default",
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "testbundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
+						},
+					},
+					Policy: enterpriseContractPolicy.Name,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cgReleasePlanAdmission)).To(Succeed())
+
+			Eventually(func() bool {
+				returnedObject, err := loader.GetMatchingReleasePlanAdmission(ctx, k8sClient, appReleasePlan)
+				return err == nil && returnedObject != nil && returnedObject.Name == cgReleasePlanAdmission.Name
+			}).Should(BeTrue())
+
+			Expect(k8sClient.Delete(ctx, appReleasePlan)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cgReleasePlanAdmission)).To(Succeed())
+		})
 	})
 
 	When("calling GetMatchingReleasePlans", func() {
@@ -315,6 +411,62 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("releasePlanAdmission has no origin, so no ReleasePlans can be found"))
 			Expect(returnedObject).To(BeNil())
+		})
+
+		It("returns ReleasePlans when RPA uses componentGroups and RP uses componentGroup", func() {
+			cgReleasePlan := &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cg-rp-for-matching",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanSpec{
+					ComponentGroup: "test-component-group",
+					Target:         "default",
+				},
+			}
+			Expect(k8sClient.Create(ctx, cgReleasePlan)).To(Succeed())
+
+			cgReleasePlanAdmission := &v1alpha1.ReleasePlanAdmission{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cg-rpa-for-matching",
+					Namespace: "default",
+					Labels: map[string]string{
+						metadata.BlockReleasesLabel: "false",
+					},
+				},
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					ComponentGroups: []string{"test-component-group"},
+					Origin:          "default",
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "testbundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
+						},
+					},
+					Policy: enterpriseContractPolicy.Name,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cgReleasePlanAdmission)).To(Succeed())
+
+			Eventually(func() bool {
+				returnedObject, err := loader.GetMatchingReleasePlans(ctx, k8sClient, cgReleasePlanAdmission)
+				if err != nil || returnedObject == nil {
+					return false
+				}
+				for _, rp := range returnedObject.Items {
+					if rp.Name == cgReleasePlan.Name {
+						return true
+					}
+				}
+				return false
+			}).Should(BeTrue())
+
+			Expect(k8sClient.Delete(ctx, cgReleasePlan)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cgReleasePlanAdmission)).To(Succeed())
 		})
 	})
 

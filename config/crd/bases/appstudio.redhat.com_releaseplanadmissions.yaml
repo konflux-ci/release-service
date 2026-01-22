@@ -50,10 +50,12 @@ spec:
             description: ReleasePlanAdmissionSpec defines the desired state of ReleasePlanAdmission.
             properties:
               applications:
-                description: Applications is a list of references to applications
-                  to be released in the managed namespace
+                description: |-
+                  Applications is a list of references to applications to be released in the managed namespace.
+                  Either applications or componentGroups must be specified, but not both.
                 items:
                   type: string
+                minItems: 1
                 type: array
               collectors:
                 description: Collectors contains all the information of the collectors
@@ -115,6 +117,14 @@ spec:
                 required:
                 - items
                 type: object
+              componentGroups:
+                description: |-
+                  ComponentGroups is a list of references to component groups to be released in the managed namespace.
+                  Either applications or componentGroups must be specified, but not both.
+                items:
+                  type: string
+                minItems: 1
+                type: array
               data:
                 description: Data is an unstructured key used for providing data for
                   the managed Release Pipeline
@@ -996,10 +1006,12 @@ spec:
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
             required:
-            - applications
             - origin
             - policy
             type: object
+            x-kubernetes-validations:
+            - message: exactly one of applications or componentGroups must be specified
+              rule: has(self.applications) != has(self.componentGroups)
           status:
             description: ReleasePlanAdmissionStatus defines the observed state of
               ReleasePlanAdmission.
