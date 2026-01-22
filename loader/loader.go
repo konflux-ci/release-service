@@ -17,7 +17,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/konflux-ci/release-service/api/v1alpha1"
@@ -146,21 +145,21 @@ func (l *loader) GetMatchingReleasePlanAdmission(ctx context.Context, cli client
 	var foundReleasePlanAdmission *v1alpha1.ReleasePlanAdmission
 
 	for i, releasePlanAdmission := range releasePlanAdmissions.Items {
-		if !slices.Contains(releasePlanAdmission.Spec.Applications, releasePlan.Spec.Application) {
+		if !releasePlanAdmission.MatchesReleasePlan(releasePlan) {
 			continue
 		}
 
 		if foundReleasePlanAdmission != nil {
-			return nil, fmt.Errorf("multiple ReleasePlanAdmissions found in namespace (%+s) with the origin (%+s) for application '%s'",
-				releasePlan.Spec.Target, releasePlan.Namespace, releasePlan.Spec.Application)
+			return nil, fmt.Errorf("multiple ReleasePlanAdmissions found in namespace (%+s) with the origin (%+s) for '%s'",
+				releasePlan.Spec.Target, releasePlan.Namespace, releasePlan.GetGroupName())
 		}
 
 		foundReleasePlanAdmission = &releasePlanAdmissions.Items[i]
 	}
 
 	if foundReleasePlanAdmission == nil {
-		return nil, fmt.Errorf("no ReleasePlanAdmission found in namespace (%+s) with the origin (%+s) for application '%s'",
-			releasePlan.Spec.Target, releasePlan.Namespace, releasePlan.Spec.Application)
+		return nil, fmt.Errorf("no ReleasePlanAdmission found in namespace (%+s) with the origin (%+s) for '%s'",
+			releasePlan.Spec.Target, releasePlan.Namespace, releasePlan.GetGroupName())
 	}
 
 	return foundReleasePlanAdmission, nil
@@ -195,15 +194,15 @@ func (l *loader) GetMatchingReleasePlans(ctx context.Context, cli client.Client,
 	}
 
 	for i := len(releasePlans.Items) - 1; i >= 0; i-- {
-		if !slices.Contains(releasePlanAdmission.Spec.Applications, releasePlans.Items[i].Spec.Application) {
-			// Remove ReleasePlans that do not have matching applications from the list
+		if !releasePlanAdmission.MatchesReleasePlan(&releasePlans.Items[i]) {
+			// Remove ReleasePlans that do not have matching applications or componentGroups from the list
 			releasePlans.Items = append(releasePlans.Items[:i], releasePlans.Items[i+1:]...)
 			continue
 		}
 
 		labelValue, found := releasePlans.Items[i].GetLabels()[metadata.ReleasePlanAdmissionLabel]
 		if found && labelValue != releasePlanAdmission.Name {
-			// Remove ReleasePlans whose label doesn’t match the ReleasePlanAdmission name
+			// Remove ReleasePlans whose label doesn't match the ReleasePlanAdmission name
 			releasePlans.Items = append(releasePlans.Items[:i], releasePlans.Items[i+1:]...)
 		}
 	}

@@ -69,30 +69,38 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
-	releasePlanAdmission := obj.(*v1alpha1.ReleasePlanAdmission)
-
-	// Validate that application names don't exceed Kubernetes label value limit (63 characters)
-	for _, app := range releasePlanAdmission.Spec.Applications {
-		if len(app) > 63 {
-			return nil, fmt.Errorf("application name '%s' must be no more than 63 characters, got %d characters", app, len(app))
-		}
+	rpa := obj.(*v1alpha1.ReleasePlanAdmission)
+	if err := w.validateSpec(rpa); err != nil {
+		return nil, err
 	}
-
 	return w.validateBlockReleasesLabel(obj)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
-	releasePlanAdmission := newObj.(*v1alpha1.ReleasePlanAdmission)
+	rpa := newObj.(*v1alpha1.ReleasePlanAdmission)
+	if err := w.validateSpec(rpa); err != nil {
+		return nil, err
+	}
+	return w.validateBlockReleasesLabel(newObj)
+}
 
-	// Validate that application names don't exceed Kubernetes label value limit (63 characters)
-	for _, app := range releasePlanAdmission.Spec.Applications {
+// validateSpec validates the length of application and componentGroup names.
+// Mutual exclusivity is handled by CRD CEL rules.
+func (w *Webhook) validateSpec(rpa *v1alpha1.ReleasePlanAdmission) error {
+	for _, app := range rpa.Spec.Applications {
 		if len(app) > 63 {
-			return nil, fmt.Errorf("application name '%s' must be no more than 63 characters, got %d characters", app, len(app))
+			return fmt.Errorf("application name '%s' must be no more than 63 characters, got %d characters", app, len(app))
 		}
 	}
 
-	return w.validateBlockReleasesLabel(newObj)
+	for _, cg := range rpa.Spec.ComponentGroups {
+		if len(cg) > 63 {
+			return fmt.Errorf("componentGroup name '%s' must be no more than 63 characters, got %d characters", cg, len(cg))
+		}
+	}
+
+	return nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.

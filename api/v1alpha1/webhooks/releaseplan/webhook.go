@@ -18,7 +18,6 @@ package releaseplan
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
@@ -66,26 +65,14 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
+// Validation is handled by CRD schema (maxLength, pattern) and CEL rules (mutual exclusivity).
 func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
-	releasePlan := obj.(*v1alpha1.ReleasePlan)
-
-	// Validate that the Application field doesn't exceed Kubernetes label value limit (63 characters)
-	if len(releasePlan.Spec.Application) > 63 {
-		return nil, fmt.Errorf("application name must be no more than 63 characters, got %d characters", len(releasePlan.Spec.Application))
-	}
-
 	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
+// Validation is handled by CRD schema (maxLength, pattern) and CEL rules (mutual exclusivity).
 func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
-	releasePlan := newObj.(*v1alpha1.ReleasePlan)
-
-	// Validate that the Application field doesn't exceed Kubernetes label value limit (63 characters)
-	if len(releasePlan.Spec.Application) > 63 {
-		return nil, fmt.Errorf("application name must be no more than 63 characters, got %d characters", len(releasePlan.Spec.Application))
-	}
-
 	return nil, nil
 }
 
