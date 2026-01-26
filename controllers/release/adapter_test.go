@@ -4633,6 +4633,18 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.HasManagedCollectorsPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
 		})
+
+		It("sets the Release as failed if the PipelineRun is deleted while still running", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			pipelineRun.Status.MarkRunning("Test", "Running")
+			now := metav1.Now()
+			pipelineRun.DeletionTimestamp = &now
+			adapter.release.MarkManagedCollectorsPipelineProcessing()
+
+			Expect(adapter.registerManagedCollectorsProcessingStatus(pipelineRun)).To(Succeed())
+			Expect(adapter.release.HasManagedCollectorsPipelineProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
+		})
 	})
 
 	When("registerTenantCollectorsProcessingStatus is called", func() {
@@ -4669,6 +4681,18 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("sets the Release as Tenant Collectors Processing failed if the PipelineRun didn't succeed", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkFailed("", "")
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+
+			Expect(adapter.registerTenantCollectorsProcessingStatus(pipelineRun)).To(Succeed())
+			Expect(adapter.release.HasTenantCollectorsPipelineProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.IsTenantCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
+		})
+
+		It("sets the Release as failed if the PipelineRun is deleted while still running", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			pipelineRun.Status.MarkRunning("Test", "Running")
+			now := metav1.Now()
+			pipelineRun.DeletionTimestamp = &now
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 
 			Expect(adapter.registerTenantCollectorsProcessingStatus(pipelineRun)).To(Succeed())
@@ -4717,6 +4741,18 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsTenantPipelineProcessedSuccessfully()).To(BeFalse())
 		})
+
+		It("sets the Release as failed if the PipelineRun is deleted while still running", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			pipelineRun.Status.MarkRunning("Test", "Running")
+			now := metav1.Now()
+			pipelineRun.DeletionTimestamp = &now
+			adapter.release.MarkTenantPipelineProcessing()
+
+			Expect(adapter.registerTenantProcessingStatus(pipelineRun)).To(Succeed())
+			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.IsTenantPipelineProcessedSuccessfully()).To(BeFalse())
+		})
 	})
 
 	When("registerManagedProcessingStatus is called", func() {
@@ -4759,6 +4795,18 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsManagedPipelineProcessedSuccessfully()).To(BeFalse())
 		})
+
+		It("sets the Release as failed if the PipelineRun is deleted while still running", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			pipelineRun.Status.MarkRunning("Test", "Running")
+			now := metav1.Now()
+			pipelineRun.DeletionTimestamp = &now
+			adapter.release.MarkManagedPipelineProcessing()
+
+			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.IsManagedPipelineProcessedSuccessfully()).To(BeFalse())
+		})
 	})
 
 	When("registerFinalProcessingStatus is called", func() {
@@ -4795,6 +4843,18 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("sets the Release as Final Processing failed if the PipelineRun didn't succeed", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkFailed("", "")
+			adapter.release.MarkFinalPipelineProcessing()
+
+			Expect(adapter.registerFinalProcessingStatus(pipelineRun)).To(Succeed())
+			Expect(adapter.release.HasFinalPipelineProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.IsFinalPipelineProcessedSuccessfully()).To(BeFalse())
+		})
+
+		It("sets the Release as failed if the PipelineRun is deleted while still running", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			pipelineRun.Status.MarkRunning("Test", "Running")
+			now := metav1.Now()
+			pipelineRun.DeletionTimestamp = &now
 			adapter.release.MarkFinalPipelineProcessing()
 
 			Expect(adapter.registerFinalProcessingStatus(pipelineRun)).To(Succeed())

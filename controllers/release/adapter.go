@@ -35,6 +35,7 @@ import (
 	"github.com/konflux-ci/release-service/loader"
 	"github.com/konflux-ci/release-service/metadata"
 	"github.com/konflux-ci/release-service/syncer"
+	"github.com/konflux-ci/release-service/tekton"
 	"github.com/konflux-ci/release-service/tekton/utils"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1578,7 +1579,7 @@ func (a *adapter) registerManagedProcessingData(releasePipelineRun *tektonv1.Pip
 // associated tenant collectors Release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
 func (a *adapter) registerTenantCollectorsProcessingStatus(pipelineRun *tektonv1.PipelineRun) error {
-	if pipelineRun == nil || !pipelineRun.IsDone() {
+	if pipelineRun == nil || !tekton.IsPipelineRunDone(pipelineRun) {
 		return nil
 	}
 
@@ -1588,12 +1589,18 @@ func (a *adapter) registerTenantCollectorsProcessingStatus(pipelineRun *tektonv1
 	if condition.IsTrue() {
 		a.release.MarkTenantCollectorsPipelineProcessed()
 	} else {
-		message, err := a.getFailedTaskRunLogs(pipelineRun)
-		if err != nil {
-			a.logger.Error(err, "failed to get TaskRun logs for tenant collectors pipeline")
-		}
-		if message == "" {
-			message = condition.Message
+		var message string
+		if pipelineRun.GetDeletionTimestamp() != nil && condition.IsUnknown() {
+			message = "PipelineRun was deleted while still running"
+		} else {
+			var err error
+			message, err = a.getFailedTaskRunLogs(pipelineRun)
+			if err != nil {
+				a.logger.Error(err, "failed to get TaskRun logs for tenant collectors pipeline")
+			}
+			if message == "" {
+				message = condition.Message
+			}
 		}
 		a.release.MarkTenantCollectorsPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on tenant collectors pipelineRun")
@@ -1606,7 +1613,7 @@ func (a *adapter) registerTenantCollectorsProcessingStatus(pipelineRun *tektonv1
 // associated tenant Release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
 func (a *adapter) registerTenantProcessingStatus(pipelineRun *tektonv1.PipelineRun) error {
-	if pipelineRun == nil || !pipelineRun.IsDone() {
+	if pipelineRun == nil || !tekton.IsPipelineRunDone(pipelineRun) {
 		return nil
 	}
 
@@ -1616,12 +1623,18 @@ func (a *adapter) registerTenantProcessingStatus(pipelineRun *tektonv1.PipelineR
 	if condition.IsTrue() {
 		a.release.MarkTenantPipelineProcessed()
 	} else {
-		message, err := a.getFailedTaskRunLogs(pipelineRun)
-		if err != nil {
-			a.logger.Error(err, "failed to get TaskRun logs for tenant pipeline")
-		}
-		if message == "" {
-			message = condition.Message
+		var message string
+		if pipelineRun.GetDeletionTimestamp() != nil && condition.IsUnknown() {
+			message = "PipelineRun was deleted while still running"
+		} else {
+			var err error
+			message, err = a.getFailedTaskRunLogs(pipelineRun)
+			if err != nil {
+				a.logger.Error(err, "failed to get TaskRun logs for tenant pipeline")
+			}
+			if message == "" {
+				message = condition.Message
+			}
 		}
 		a.release.MarkTenantPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on tenant pipelineRun")
@@ -1634,7 +1647,7 @@ func (a *adapter) registerTenantProcessingStatus(pipelineRun *tektonv1.PipelineR
 // associated managed collectors Release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
 func (a *adapter) registerManagedCollectorsProcessingStatus(pipelineRun *tektonv1.PipelineRun) error {
-	if pipelineRun == nil || !pipelineRun.IsDone() {
+	if pipelineRun == nil || !tekton.IsPipelineRunDone(pipelineRun) {
 		return nil
 	}
 
@@ -1644,12 +1657,18 @@ func (a *adapter) registerManagedCollectorsProcessingStatus(pipelineRun *tektonv
 	if condition.IsTrue() {
 		a.release.MarkManagedCollectorsPipelineProcessed()
 	} else {
-		message, err := a.getFailedTaskRunLogs(pipelineRun)
-		if err != nil {
-			a.logger.Error(err, "failed to get TaskRun logs for managed collectors pipeline")
-		}
-		if message == "" {
-			message = condition.Message
+		var message string
+		if pipelineRun.GetDeletionTimestamp() != nil && condition.IsUnknown() {
+			message = "PipelineRun was deleted while still running"
+		} else {
+			var err error
+			message, err = a.getFailedTaskRunLogs(pipelineRun)
+			if err != nil {
+				a.logger.Error(err, "failed to get TaskRun logs for managed collectors pipeline")
+			}
+			if message == "" {
+				message = condition.Message
+			}
 		}
 		a.release.MarkManagedCollectorsPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on managed collectors pipelineRun")
@@ -1662,7 +1681,7 @@ func (a *adapter) registerManagedCollectorsProcessingStatus(pipelineRun *tektonv
 // associated managed Release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
 func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.PipelineRun) error {
-	if pipelineRun == nil || !pipelineRun.IsDone() {
+	if pipelineRun == nil || !tekton.IsPipelineRunDone(pipelineRun) {
 		return nil
 	}
 
@@ -1672,12 +1691,18 @@ func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.Pipeline
 	if condition.IsTrue() {
 		a.release.MarkManagedPipelineProcessed()
 	} else {
-		message, err := a.getFailedTaskRunLogs(pipelineRun)
-		if err != nil {
-			a.logger.Error(err, "failed to get TaskRun logs for managed pipeline")
-		}
-		if message == "" {
-			message = condition.Message
+		var message string
+		if pipelineRun.GetDeletionTimestamp() != nil && condition.IsUnknown() {
+			message = "PipelineRun was deleted while still running"
+		} else {
+			var err error
+			message, err = a.getFailedTaskRunLogs(pipelineRun)
+			if err != nil {
+				a.logger.Error(err, "failed to get TaskRun logs for managed pipeline")
+			}
+			if message == "" {
+				message = condition.Message
+			}
 		}
 		a.release.MarkManagedPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on managed pipelineRun")
@@ -1690,7 +1715,7 @@ func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.Pipeline
 // associated final Release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
 func (a *adapter) registerFinalProcessingStatus(pipelineRun *tektonv1.PipelineRun) error {
-	if pipelineRun == nil || !pipelineRun.IsDone() {
+	if pipelineRun == nil || !tekton.IsPipelineRunDone(pipelineRun) {
 		return nil
 	}
 
@@ -1700,12 +1725,18 @@ func (a *adapter) registerFinalProcessingStatus(pipelineRun *tektonv1.PipelineRu
 	if condition.IsTrue() {
 		a.release.MarkFinalPipelineProcessed()
 	} else {
-		message, err := a.getFailedTaskRunLogs(pipelineRun)
-		if err != nil {
-			a.logger.Error(err, "failed to get TaskRun logs for final pipeline")
-		}
-		if message == "" {
-			message = condition.Message
+		var message string
+		if pipelineRun.GetDeletionTimestamp() != nil && condition.IsUnknown() {
+			message = "PipelineRun was deleted while still running"
+		} else {
+			var err error
+			message, err = a.getFailedTaskRunLogs(pipelineRun)
+			if err != nil {
+				a.logger.Error(err, "failed to get TaskRun logs for final pipeline")
+			}
+			if message == "" {
+				message = condition.Message
+			}
 		}
 		a.release.MarkFinalPipelineProcessingFailed(message)
 		a.release.MarkReleaseFailed("Release processing failed on final pipelineRun")
