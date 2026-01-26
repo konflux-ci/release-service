@@ -24,7 +24,8 @@ import (
 )
 
 // ReleasePipelineRunLifecyclePredicate is a predicate to select Release PipelineRuns during
-// key lifecycle events: successful completion, deletion with finalizers, or finalizer changes.
+// key lifecycle events: successful completion, deletion with finalizers, finalizer changes,
+// or when marked for deletion (to handle PipelineRuns deleted while still running).
 func ReleasePipelineRunLifecyclePredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(createEvent event.CreateEvent) bool {
@@ -39,7 +40,9 @@ func ReleasePipelineRunLifecyclePredicate() predicate.Predicate {
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return isReleasePipelineRun(e.ObjectNew) &&
-				(hasPipelineSucceeded(e.ObjectNew) || hasFinalizersChanged(e.ObjectOld, e.ObjectNew))
+				(hasPipelineSucceeded(e.ObjectNew) ||
+					hasFinalizersChanged(e.ObjectOld, e.ObjectNew) ||
+					hasDeletionTimestampChanged(e.ObjectOld, e.ObjectNew))
 		},
 	}
 }
