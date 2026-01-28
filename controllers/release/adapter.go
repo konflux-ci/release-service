@@ -1113,7 +1113,7 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 		WithPipelineRef(releasePlan.Spec.FinalPipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(releasePlan.Spec.FinalPipeline.ServiceAccountName).
 		WithTaskRunSpecs(releasePlan.Spec.FinalPipeline.TaskRunSpecs...).
-		WithTimeouts(&releasePlan.Spec.FinalPipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts)
+		WithTimeouts(utils.AdjustTimeouts(&releasePlan.Spec.FinalPipeline.Timeouts, *a.logger), &a.releaseServiceConfig.Spec.DefaultTimeouts)
 
 	if releasePlan.Spec.FinalPipeline.PipelineRef.UseEmptyDir {
 		builder = builder.WithEmptyDirVolume(
@@ -1166,7 +1166,7 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithPipelineRef(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccountName).
 		WithTaskRunSpecs(resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs...).
-		WithTimeouts(&resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts).
+		WithTimeouts(utils.AdjustTimeouts(&resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts, *a.logger), &a.releaseServiceConfig.Spec.DefaultTimeouts).
 		WithParams(resources.ReleasePlanAdmission.Spec.Pipeline.GetOciStorageParam()...)
 
 	url, revision, pathInRepo, err := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
@@ -1218,7 +1218,7 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 		WithPipelineRef(releasePlan.Spec.TenantPipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(releasePlan.Spec.TenantPipeline.ServiceAccountName).
 		WithTaskRunSpecs(releasePlan.Spec.TenantPipeline.TaskRunSpecs...).
-		WithTimeouts(&releasePlan.Spec.TenantPipeline.Timeouts, &a.releaseServiceConfig.Spec.DefaultTimeouts)
+		WithTimeouts(utils.AdjustTimeouts(&releasePlan.Spec.TenantPipeline.Timeouts, *a.logger), &a.releaseServiceConfig.Spec.DefaultTimeouts)
 
 	if releasePlan.Spec.TenantPipeline.PipelineRef.UseEmptyDir {
 		builder = builder.WithEmptyDirVolume(
