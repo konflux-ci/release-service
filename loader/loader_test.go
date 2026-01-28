@@ -58,7 +58,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		loader = NewLoader()
 	})
 
-	When("calling GetActiveReleasePlanAdmission", func() {
+	When("calling GetActiveReleasePlanAdmission test", func() {
 		It("returns an active release plan admission", func() {
 			returnedObject, err := loader.GetActiveReleasePlanAdmission(ctx, k8sClient, releasePlan)
 			Expect(err).NotTo(HaveOccurred())
