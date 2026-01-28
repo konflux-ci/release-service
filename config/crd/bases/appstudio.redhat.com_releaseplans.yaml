@@ -20,6 +20,9 @@ spec:
     - jsonPath: .spec.application
       name: Application
       type: string
+    - jsonPath: .spec.componentGroup
+      name: ComponentGroup
+      type: string
     - jsonPath: .spec.target
       name: Target
       type: string
@@ -49,8 +52,10 @@ spec:
             description: ReleasePlanSpec defines the desired state of ReleasePlan.
             properties:
               application:
-                description: Application is a reference to the application to be released
-                  in the managed namespace
+                description: |-
+                  Application is a reference to the application to be released in the managed namespace.
+                  Either application or componentGroup must be specified, but not both.
+                maxLength: 63
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                 type: string
               collectors:
@@ -113,6 +118,13 @@ spec:
                 required:
                 - items
                 type: object
+              componentGroup:
+                description: |-
+                  ComponentGroup is a reference to the component group to be released in the managed namespace.
+                  Either application or componentGroup must be specified, but not both.
+                maxLength: 63
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
               data:
                 description: Data is an unstructured key used for providing data for
                   the managed Release Pipeline
@@ -1886,9 +1898,10 @@ spec:
                 required:
                 - pipelineRef
                 type: object
-            required:
-            - application
             type: object
+            x-kubernetes-validations:
+            - message: exactly one of application or componentGroup must be specified
+              rule: has(self.application) != has(self.componentGroup)
           status:
             description: ReleasePlanStatus defines the observed state of ReleasePlan.
             properties:

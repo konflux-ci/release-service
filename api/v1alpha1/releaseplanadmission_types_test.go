@@ -126,4 +126,90 @@ var _ = Describe("ReleasePlanAdmission type", func() {
 			}))
 		})
 	})
+
+	When("MatchesReleasePlan method is called", func() {
+		It("should return true when RP Application is in RPA Applications", func() {
+			releasePlan := &ReleasePlan{
+				Spec: ReleasePlanSpec{
+					Application: "my-app",
+				},
+			}
+			releasePlanAdmission := &ReleasePlanAdmission{
+				Spec: ReleasePlanAdmissionSpec{
+					Applications: []string{"my-app", "other-app"},
+				},
+			}
+			Expect(releasePlanAdmission.MatchesReleasePlan(releasePlan)).To(BeTrue())
+		})
+
+		It("should return true when RP ComponentGroup is in RPA ComponentGroups", func() {
+			releasePlan := &ReleasePlan{
+				Spec: ReleasePlanSpec{
+					ComponentGroup: "my-group",
+				},
+			}
+			releasePlanAdmission := &ReleasePlanAdmission{
+				Spec: ReleasePlanAdmissionSpec{
+					ComponentGroups: []string{"my-group", "other-group"},
+				},
+			}
+			Expect(releasePlanAdmission.MatchesReleasePlan(releasePlan)).To(BeTrue())
+		})
+
+		It("should return true when RP Application is in RPA ComponentGroups (backward compatible)", func() {
+			releasePlan := &ReleasePlan{
+				Spec: ReleasePlanSpec{
+					Application: "my-app",
+				},
+			}
+			releasePlanAdmission := &ReleasePlanAdmission{
+				Spec: ReleasePlanAdmissionSpec{
+					ComponentGroups: []string{"my-app"},
+				},
+			}
+			Expect(releasePlanAdmission.MatchesReleasePlan(releasePlan)).To(BeTrue())
+		})
+
+		It("should return true when RP ComponentGroup is in RPA Applications (backward compatible)", func() {
+			releasePlan := &ReleasePlan{
+				Spec: ReleasePlanSpec{
+					ComponentGroup: "my-group",
+				},
+			}
+			releasePlanAdmission := &ReleasePlanAdmission{
+				Spec: ReleasePlanAdmissionSpec{
+					Applications: []string{"my-group"},
+				},
+			}
+			Expect(releasePlanAdmission.MatchesReleasePlan(releasePlan)).To(BeTrue())
+		})
+
+		It("should return false when RP Application is not in any RPA list", func() {
+			releasePlan := &ReleasePlan{
+				Spec: ReleasePlanSpec{
+					Application: "my-app",
+				},
+			}
+			releasePlanAdmission := &ReleasePlanAdmission{
+				Spec: ReleasePlanAdmissionSpec{
+					Applications: []string{"other-app"},
+				},
+			}
+			Expect(releasePlanAdmission.MatchesReleasePlan(releasePlan)).To(BeFalse())
+		})
+
+		It("should return false when RP ComponentGroup is not in any RPA list", func() {
+			releasePlan := &ReleasePlan{
+				Spec: ReleasePlanSpec{
+					ComponentGroup: "my-group",
+				},
+			}
+			releasePlanAdmission := &ReleasePlanAdmission{
+				Spec: ReleasePlanAdmissionSpec{
+					ComponentGroups: []string{"other-group"},
+				},
+			}
+			Expect(releasePlanAdmission.MatchesReleasePlan(releasePlan)).To(BeFalse())
+		})
+	})
 })

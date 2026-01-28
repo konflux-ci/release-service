@@ -118,7 +118,8 @@ var _ = Describe("ReleasePlan webhook", func() {
 			releasePlan.Spec.Application = "this-is-a-very-long-application-name-that-exceeds-sixty-three-chars"
 			err := k8sClient.Create(ctx, releasePlan)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("application name must be no more than 63 characters"))
+			Expect(err.Error()).To(ContainSubstring("spec.application"))
+			Expect(err.Error()).To(ContainSubstring("Too long"))
 		})
 	})
 
@@ -128,7 +129,47 @@ var _ = Describe("ReleasePlan webhook", func() {
 			releasePlan.Spec.Application = "this-is-a-very-long-application-name-that-exceeds-sixty-three-chars"
 			err := k8sClient.Update(ctx, releasePlan)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("application name must be no more than 63 characters"))
+			Expect(err.Error()).To(ContainSubstring("spec.application"))
+			Expect(err.Error()).To(ContainSubstring("Too long"))
+		})
+	})
+
+	When("a ReleasePlan is created with a componentGroup name longer than 63 characters", func() {
+		It("should be rejected", func() {
+			releasePlan.Spec.Application = ""
+			releasePlan.Spec.ComponentGroup = "this-is-a-very-long-component-group-name-that-exceeds-sixty-three-chars"
+			err := k8sClient.Create(ctx, releasePlan)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("spec.componentGroup"))
+			Expect(err.Error()).To(ContainSubstring("Too long"))
+		})
+	})
+
+	When("a ReleasePlan is created with both application and componentGroup", func() {
+		It("should be rejected", func() {
+			releasePlan.Spec.Application = "app"
+			releasePlan.Spec.ComponentGroup = "group"
+			err := k8sClient.Create(ctx, releasePlan)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exactly one of application or componentGroup must be specified"))
+		})
+	})
+
+	When("a ReleasePlan is created with neither application nor componentGroup", func() {
+		It("should be rejected", func() {
+			releasePlan.Spec.Application = ""
+			releasePlan.Spec.ComponentGroup = ""
+			err := k8sClient.Create(ctx, releasePlan)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exactly one of application or componentGroup must be specified"))
+		})
+	})
+
+	When("a ReleasePlan is created with only componentGroup", func() {
+		It("should succeed", func() {
+			releasePlan.Spec.Application = ""
+			releasePlan.Spec.ComponentGroup = "my-component-group"
+			Expect(k8sClient.Create(ctx, releasePlan)).Should(Succeed())
 		})
 	})
 })
