@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
@@ -173,6 +174,50 @@ var _ = Describe("Predicates", Ordered, func() {
 				WithFinalizer("some.other/finalizer").
 				Build()
 			Expect(err).NotTo(HaveOccurred())
+
+			contextEvent := event.UpdateEvent{
+				ObjectOld: oldPipelineRun,
+				ObjectNew: newPipelineRun,
+			}
+
+			Expect(ReleasePipelineRunLifecyclePredicate().Update(contextEvent)).To(BeFalse())
+		})
+
+		It("should trigger when deletionTimestamp is set on a release PipelineRun", func() {
+			oldPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.ManagedPipelineType.String()}).
+				WithFinalizer(metadata.ReleaseFinalizer).
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+			oldPipelineRun.Status.MarkRunning("Test", "Running")
+
+			newPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				WithLabels(map[string]string{metadata.PipelinesTypeLabel: metadata.ManagedPipelineType.String()}).
+				WithFinalizer(metadata.ReleaseFinalizer).
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+			newPipelineRun.Status.MarkRunning("Test", "Running")
+			now := metav1.Now()
+			newPipelineRun.DeletionTimestamp = &now
+
+			contextEvent := event.UpdateEvent{
+				ObjectOld: oldPipelineRun,
+				ObjectNew: newPipelineRun,
+			}
+
+			Expect(ReleasePipelineRunLifecyclePredicate().Update(contextEvent)).To(BeTrue())
+		})
+
+		It("should not trigger when deletionTimestamp is set on non-release PipelineRuns", func() {
+			oldPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			newPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").
+				Build()
+			Expect(err).NotTo(HaveOccurred())
+			now := metav1.Now()
+			newPipelineRun.DeletionTimestamp = &now
 
 			contextEvent := event.UpdateEvent{
 				ObjectOld: oldPipelineRun,
