@@ -100,6 +100,26 @@ var _ = Describe("ReleasePlan type", func() {
 		})
 	})
 
+	When("GetGroupName method is called", func() {
+		It("should return Application when set", func() {
+			releasePlan := &ReleasePlan{
+				Spec: ReleasePlanSpec{
+					Application: "my-app",
+				},
+			}
+			Expect(releasePlan.GetGroupName()).To(Equal("my-app"))
+		})
+
+		It("should return ComponentGroup when Application is empty", func() {
+			releasePlan := &ReleasePlan{
+				Spec: ReleasePlanSpec{
+					ComponentGroup: "my-group",
+				},
+			}
+			Expect(releasePlan.GetGroupName()).To(Equal("my-group"))
+		})
+	})
+
 	When("setMatchedStatus method is called", func() {
 		var releasePlan *ReleasePlan
 		var releasePlanAdmission *ReleasePlanAdmission

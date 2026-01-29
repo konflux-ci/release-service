@@ -74,20 +74,19 @@ func hasBehaviorLabelChanged(objectOld, objectNew client.Object) bool {
 }
 
 // haveApplicationsChanged returns true if passed objects are of the same kind and the
-// Spec.Application(s) values between them is different.
+// Spec.Application/ComponentGroup or Spec.Applications/ComponentGroups values between them is different.
 func haveApplicationsChanged(objectOld, objectNew client.Object) bool {
 	if releasePlanOld, ok := objectOld.(*v1alpha1.ReleasePlan); ok {
 		if releasePlanNew, ok := objectNew.(*v1alpha1.ReleasePlan); ok {
-			return releasePlanOld.Spec.Application != releasePlanNew.Spec.Application
+			return releasePlanOld.Spec.Application != releasePlanNew.Spec.Application ||
+				releasePlanOld.Spec.ComponentGroup != releasePlanNew.Spec.ComponentGroup
 		}
 	}
 
 	if releasePlanAdmissionOld, ok := objectOld.(*v1alpha1.ReleasePlanAdmission); ok {
 		if releasePlanAdmissionNew, ok := objectNew.(*v1alpha1.ReleasePlanAdmission); ok {
-			return !reflect.DeepEqual(
-				releasePlanAdmissionOld.Spec.Applications,
-				releasePlanAdmissionNew.Spec.Applications,
-			)
+			return !reflect.DeepEqual(releasePlanAdmissionOld.Spec.Applications, releasePlanAdmissionNew.Spec.Applications) ||
+				!reflect.DeepEqual(releasePlanAdmissionOld.Spec.ComponentGroups, releasePlanAdmissionNew.Spec.ComponentGroups)
 		}
 	}
 
