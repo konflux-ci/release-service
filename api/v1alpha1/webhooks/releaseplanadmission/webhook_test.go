@@ -169,4 +169,45 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("must be no more than 63 characters"))
 		})
 	})
+
+	When("a ReleasePlanAdmission is created with a componentGroup name longer than 63 characters", func() {
+		It("should be rejected", func() {
+			releasePlanAdmission.Spec.Applications = nil
+			releasePlanAdmission.Spec.ComponentGroups = []string{
+				"this-is-a-very-long-component-group-name-that-exceeds-sixty-three-chars",
+			}
+			err := k8sClient.Create(ctx, releasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("componentGroup name"))
+			Expect(err.Error()).To(ContainSubstring("must be no more than 63 characters"))
+		})
+	})
+
+	When("a ReleasePlanAdmission is created with both applications and componentGroups", func() {
+		It("should be rejected", func() {
+			releasePlanAdmission.Spec.Applications = []string{"app"}
+			releasePlanAdmission.Spec.ComponentGroups = []string{"group"}
+			err := k8sClient.Create(ctx, releasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exactly one of applications or componentGroups must be specified"))
+		})
+	})
+
+	When("a ReleasePlanAdmission is created with neither applications nor componentGroups", func() {
+		It("should be rejected", func() {
+			releasePlanAdmission.Spec.Applications = nil
+			releasePlanAdmission.Spec.ComponentGroups = nil
+			err := k8sClient.Create(ctx, releasePlanAdmission)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exactly one of applications or componentGroups must be specified"))
+		})
+	})
+
+	When("a ReleasePlanAdmission is created with only componentGroups", func() {
+		It("should succeed", func() {
+			releasePlanAdmission.Spec.Applications = nil
+			releasePlanAdmission.Spec.ComponentGroups = []string{"my-component-group"}
+			Expect(k8sClient.Create(ctx, releasePlanAdmission)).Should(Succeed())
+		})
+	})
 })
