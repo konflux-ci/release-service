@@ -21,6 +21,7 @@ import (
 	"github.com/konflux-ci/release-service/tekton/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Utils", Ordered, func() {
@@ -84,6 +85,78 @@ var _ = Describe("Utils", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			pipelineRun.Status.MarkSucceeded("", "")
 			Expect(hasPipelineSucceeded(pipelineRun)).To(BeTrue())
+		})
+	})
+
+	When("hasDeletionTimestampChanged is called", func() {
+		It("should return false when both objects are nil", func() {
+			Expect(hasDeletionTimestampChanged(nil, nil)).To(BeFalse())
+		})
+
+		It("should return false when the old object is nil", func() {
+			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hasDeletionTimestampChanged(nil, pipelineRun)).To(BeFalse())
+		})
+
+		It("should return false when the new object is nil", func() {
+			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hasDeletionTimestampChanged(pipelineRun, nil)).To(BeFalse())
+		})
+
+		It("should return false when both objects have no deletionTimestamp", func() {
+			oldPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			newPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hasDeletionTimestampChanged(oldPipelineRun, newPipelineRun)).To(BeFalse())
+		})
+
+		It("should return true when deletionTimestamp is added to new object", func() {
+			oldPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			newPipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			now := metav1.Now()
+			newPipelineRun.DeletionTimestamp = &now
+			Expect(hasDeletionTimestampChanged(oldPipelineRun, newPipelineRun)).To(BeTrue())
+		})
+	})
+
+	When("IsPipelineRunDone is called", func() {
+		It("should return false when PipelineRun is nil", func() {
+			Expect(IsPipelineRunDone(nil)).To(BeFalse())
+		})
+
+		It("should return false when PipelineRun is still running", func() {
+			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			pipelineRun.Status.MarkRunning("Test", "Running")
+			Expect(IsPipelineRunDone(pipelineRun)).To(BeFalse())
+		})
+
+		It("should return true when PipelineRun has succeeded", func() {
+			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			pipelineRun.Status.MarkSucceeded("Test", "Succeeded")
+			Expect(IsPipelineRunDone(pipelineRun)).To(BeTrue())
+		})
+
+		It("should return true when PipelineRun has failed", func() {
+			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			pipelineRun.Status.MarkFailed("Test", "Failed")
+			Expect(IsPipelineRunDone(pipelineRun)).To(BeTrue())
+		})
+
+		It("should return true when PipelineRun has deletionTimestamp even if status is Unknown", func() {
+			pipelineRun, err := utils.NewPipelineRunBuilder("pipeline-run", "default").Build()
+			Expect(err).NotTo(HaveOccurred())
+			pipelineRun.Status.MarkRunning("Test", "Running")
+			now := metav1.Now()
+			pipelineRun.DeletionTimestamp = &now
+			Expect(IsPipelineRunDone(pipelineRun)).To(BeTrue())
 		})
 	})
 
