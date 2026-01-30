@@ -134,3 +134,10 @@ jobs:
           echo "Base ref: $BASE_REF"
           git fetch origin "$BASE_REF"
           gitlint --commits "origin/$BASE_REF"..HEAD
+  check-renovate-config-file:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: konflux-ci/renovate-config-validator-action@main
+        with:
+          config_file: renovate.json
