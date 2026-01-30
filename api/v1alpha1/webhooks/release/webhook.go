@@ -27,7 +27,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -41,9 +40,7 @@ type Webhook struct {
 }
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
-func (w *Webhook) Default(ctx context.Context, obj runtime.Object) error {
-	release := obj.(*v1alpha1.Release)
-
+func (w *Webhook) Default(ctx context.Context, release *v1alpha1.Release) error {
 	// Initialize labels map if nil
 	if release.Labels == nil {
 		release.Labels = make(map[string]string)
@@ -80,17 +77,14 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 	w.loader = loader.NewLoader()
 	w.log = log.WithName("release")
 
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.Release{}).
+	return ctrl.NewWebhookManagedBy(mgr, &v1alpha1.Release{}).
 		WithDefaulter(w).
 		WithValidator(w).
 		Complete()
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
-	release := obj.(*v1alpha1.Release)
-
+func (w *Webhook) ValidateCreate(ctx context.Context, release *v1alpha1.Release) (warnings admission.Warnings, err error) {
 	// Validate that resource names used as labels don't exceed Kubernetes label value limit (63 characters)
 	if len(release.Name) > 63 {
 		return nil, fmt.Errorf("release name must be no more than 63 characters, got %d characters", len(release.Name))
@@ -106,10 +100,7 @@ func (w *Webhook) ValidateCreate(ctx context.Context, obj runtime.Object) (warni
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
-	oldRelease := oldObj.(*v1alpha1.Release)
-	newRelease := newObj.(*v1alpha1.Release)
-
+func (w *Webhook) ValidateUpdate(ctx context.Context, oldRelease, newRelease *v1alpha1.Release) (warnings admission.Warnings, err error) {
 	if !reflect.DeepEqual(newRelease.Spec, oldRelease.Spec) {
 		return nil, fmt.Errorf("release resources spec cannot be updated")
 	}
@@ -128,6 +119,6 @@ func (w *Webhook) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Obj
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (w *Webhook) ValidateDelete(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
+func (w *Webhook) ValidateDelete(ctx context.Context, release *v1alpha1.Release) (warnings admission.Warnings, err error) {
 	return nil, nil
 }
