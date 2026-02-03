@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode"
 
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -168,6 +169,11 @@ func (w *Webhook) sanitizeLabelValue(username string) string {
 	if len(author) > metadata.MaxLabelLength {
 		author = string(author)[0:metadata.MaxLabelLength]
 	}
+
+	// Ensure author ends with an alphanumeric character
+	author = strings.TrimRightFunc(author, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
 
 	return author
 }
