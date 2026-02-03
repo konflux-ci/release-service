@@ -143,6 +143,15 @@ var _ = Describe("Author webhook", Ordered, func() {
 				Expect(patch.Path).To(ContainSubstring("author"))
 				Expect(patch.Value).To(Equal("admin"))
 			})
+
+			It("should return error when Release object cannot be decoded", func() {
+				admissionRequest.Object.Raw = []byte("invalid json")
+
+				rsp := webhook.Handle(ctx, admissionRequest)
+				Expect(rsp.AdmissionResponse.Allowed).To(BeFalse())
+				Expect(rsp.AdmissionResponse.Result.Code).To(Equal(int32(http.StatusBadRequest)))
+				Expect(rsp.AdmissionResponse.Result.Message).To(ContainSubstring("error decoding object"))
+			})
 		})
 
 		When("a Release is updated", func() {
@@ -531,5 +540,31 @@ var _ = Describe("Author webhook", Ordered, func() {
 			str := webhook.sanitizeLabelValue("user@konflux-ci.dev")
 			Expect(str).To(Equal("user.konflux-ci.dev"))
 		})
+
+		It("should remove trailing non-alphanumeric characters", func() {
+			str := webhook.sanitizeLabelValue("username-")
+			Expect(str).To(Equal("username"))
+		})
+
+		It("should remove multiple trailing non-alphanumeric characters", func() {
+			str := webhook.sanitizeLabelValue("username._!-")
+			Expect(str).To(Equal("username"))
+		})
+
+		It("should convert all colons to underscores", func() {
+			str := webhook.sanitizeLabelValue("system:serviceaccount:namespace:user")
+			Expect(str).To(Equal("system_serviceaccount_namespace_user"))
+		})
+
+		It("should handle both : and @ characters", func() {
+			str := webhook.sanitizeLabelValue("system:user@domain.com")
+			Expect(str).To(Equal("system_user.domain.com"))
+		})
+
+		It("should strip trailing characters after truncation to 63 chars", func() {
+			str := webhook.sanitizeLabelValue("abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz_123456789_X")
+			Expect(str).To(Equal("abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz_123456789"))
+		})
+
 	})
 })
