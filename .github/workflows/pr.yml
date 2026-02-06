@@ -98,6 +98,7 @@ jobs:
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
         with:
           flags: unit-tests
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Ensure make build succeeds
         run: make build
       - name: Ensure make bundle succeeds
