@@ -144,6 +144,13 @@ spec:
                 description: Pipeline contains all the information about the managed
                   Pipeline
                 properties:
+                  maxRetries:
+                    description: |-
+                      MaxRetries sets the retry limit for the pipeline overriding the value in
+                      ReleaseServiceConfig when specified. When unset the ReleaseServiceConfig
+                      value is used and 0 disables retries for the pipeline.
+                    minimum: 0
+                    type: integer
                   pipelineRef:
                     description: PipelineRef is the reference to the Pipeline
                     properties:

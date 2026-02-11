@@ -72,6 +72,13 @@ type Pipeline struct {
 	// +optional
 	TaskRunSpecs []tektonv1.PipelineTaskRunSpec `json:"taskRunSpecs,omitempty"`
 
+	// MaxRetries sets the retry limit for the pipeline overriding the value in
+	// ReleaseServiceConfig when specified. When unset the ReleaseServiceConfig
+	// value is used and 0 disables retries for the pipeline.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	MaxRetries *int `json:"maxRetries,omitempty"`
+
 	// Timeouts defines the different Timeouts to use in the PipelineRun execution
 	// +optional
 	Timeouts tektonv1.TimeoutFields `json:"timeouts,omitempty"`
