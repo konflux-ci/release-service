@@ -134,6 +134,13 @@ spec:
                 description: FinalPipeline contains all the information about the
                   final Pipeline
                 properties:
+                  maxRetries:
+                    description: |-
+                      MaxRetries sets the retry limit for the pipeline overriding the value in
+                      ReleaseServiceConfig when specified. When unset the ReleaseServiceConfig
+                      value is used and 0 disables retries for the pipeline.
+                    minimum: 0
+                    type: integer
                   params:
                     description: Params is a slice of parameters to be passed to the
                       Pipeline
@@ -1035,6 +1042,13 @@ spec:
                 description: TenantPipeline contains all the information about the
                   tenant Pipeline
                 properties:
+                  maxRetries:
+                    description: |-
+                      MaxRetries sets the retry limit for the pipeline overriding the value in
+                      ReleaseServiceConfig when specified. When unset the ReleaseServiceConfig
+                      value is used and 0 disables retries for the pipeline.
+                    minimum: 0
+                    type: integer
                   params:
                     description: Params is a slice of parameters to be passed to the
                       Pipeline
