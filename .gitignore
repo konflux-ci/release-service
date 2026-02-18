@@ -16,5 +16,8 @@ atlassian-ide-plugin.xml
 bin/*
 cover.out
 
+# Test reports
+*-report.xml
+*.junit.xml
 # asdf
 .tool-versions

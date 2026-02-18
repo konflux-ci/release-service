@@ -115,8 +115,35 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
+test: manifests generate fmt vet envtest ## Run unit tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
+
+##@ E2E Tests
+
+# Use go run to ensure ginkgo version matches go.mod
+GINKGO = go run github.com/onsi/ginkgo/v2/ginkgo
+E2E_TIMEOUT ?= 60m
+
+# Build ginkgo flags based on options
+E2E_FLAGS = -v --timeout=$(E2E_TIMEOUT) --junit-report=e2e-report.xml
+ifdef LABEL
+	E2E_FLAGS += --label-filter="$(LABEL)"
+endif
+ifdef FOCUS
+	E2E_FLAGS += --focus="$(FOCUS)"
+endif
+ifdef SKIP
+	E2E_FLAGS += --skip="$(SKIP)"
+endif
+
+.PHONY: test-e2e
+test-e2e: ## Run e2e tests. Use LABEL=x, FOCUS=x, SKIP=x, E2E_TIMEOUT=x for options.
+	cd e2e-tests && $(GINKGO) $(E2E_FLAGS) ./cmd/...
+	@mv e2e-tests/e2e-report.xml e2e-report.xml 2>/dev/null || true
+
+.PHONY: test-e2e-list
+test-e2e-list: ## List all e2e tests (dry run).
+	cd e2e-tests && $(GINKGO) -v --dry-run ./cmd/...
 
 ##@ Build
 
