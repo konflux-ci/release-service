@@ -257,4 +257,5 @@ func setUpWebhooks(mgr ctrl.Manager) {
 		setupLog.Error(err, "unable to setup webhooks")
 		os.Exit(1)
 	}
+
 }
