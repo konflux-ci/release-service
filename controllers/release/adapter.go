@@ -180,6 +180,11 @@ func (a *adapter) EnsureReleaseIsCompleted() (controller.OperationResult, error)
 // it is marked as releasing. If the Release has finished, no other operation after this one will be executed.
 func (a *adapter) EnsureReleaseIsRunning() (controller.OperationResult, error) {
 	if a.release.HasReleaseFinished() {
+		if !a.release.AreAllProcessingPhasesFinished() {
+			a.logger.Info("EnsureReleaseIsRunning: release finished but not all phases finished, continuing so we can complete properly",
+				"Release", fmt.Sprintf("%s/%s", a.release.Namespace, a.release.Name))
+			return controller.ContinueProcessing()
+		}
 		return controller.StopProcessing()
 	}
 
@@ -644,6 +649,12 @@ func (a *adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
 	// IsReleasing will be false if MarkReleaseFailed was called
 	if a.release.IsReleasing() {
 		a.release.MarkValidated()
+		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+	}
+
+	if !a.release.AreAllProcessingPhasesFinished() {
+		a.logger.Info("EnsureReleaseIsValid: release finished but not all phases finished, continuing so we can complete properly",
+			"Release", fmt.Sprintf("%s/%s", a.release.Namespace, a.release.Name))
 		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 	}
 

@@ -312,12 +312,31 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter = createReleaseAndAdapter()
 		})
 
-		It("should stop processing if the release has finished", func() {
+		It("should stop processing if the release has finished and all phases are complete", func() {
 			adapter.release.MarkReleasing("")
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			adapter.release.MarkManagedPipelineProcessingSkipped()
+			adapter.release.MarkFinalPipelineProcessingSkipped()
 			adapter.release.MarkReleased()
 
 			result, err := adapter.EnsureReleaseIsRunning()
 			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should continue if the release has finished but not all phases are complete", func() {
+			adapter.release.MarkReleasing("")
+			// No final pipeline processing
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			adapter.release.MarkManagedPipelineProcessingSkipped()
+			adapter.release.MarkReleased()
+
+			result, err := adapter.EnsureReleaseIsRunning()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -1669,8 +1688,34 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			}
 
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			adapter.release.MarkManagedPipelineProcessingSkipped()
+			adapter.release.MarkFinalPipelineProcessingSkipped()
+
 			result, err := adapter.EnsureReleaseIsValid()
 			Expect(!result.RequeueRequest && result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+		})
+
+		It("should not stop reconciling if not all phases are complete, but still mark release as invalid", func() {
+			adapter.validations = []controller.ValidationFunction{
+				func() *controller.ValidationResult {
+					return &controller.ValidationResult{Valid: false}
+				},
+			}
+
+			// No managed pipeline processing
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			adapter.release.MarkFinalPipelineProcessingSkipped()
+
+			result, err := adapter.EnsureReleaseIsValid()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsValid()).To(BeFalse())
 			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())

@@ -202,6 +202,62 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("AreAllProcessingPhasesFinished method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when no processing phase conditions are set", func() {
+			Expect(release.AreAllProcessingPhasesFinished()).To(BeFalse())
+		})
+
+		It("should return false when only some processing phases have finished", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.AreAllProcessingPhasesFinished()).To(BeFalse())
+		})
+
+		It("should return false when one phase is still progressing", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+			Expect(release.AreAllProcessingPhasesFinished()).To(BeFalse())
+		})
+
+		It("should return true when all processing phases have finished with success", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.AreAllProcessingPhasesFinished()).To(BeTrue())
+		})
+
+		It("should return true when all processing phases have finished with mixed success and failure", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.AreAllProcessingPhasesFinished()).To(BeTrue())
+		})
+
+		It("should return true when all processing phases have finished with at least one skipped", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionFalse, SkippedReason)
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, FailedReason)
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.AreAllProcessingPhasesFinished()).To(BeTrue())
+		})
+	})
+
 	When("IsAttributed method is called", func() {
 		var release *Release
 
