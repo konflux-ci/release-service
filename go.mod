@@ -15,7 +15,7 @@ require (
 	github.com/operator-framework/operator-lib v0.19.0
 	github.com/tektoncd/pipeline v1.9.1
 	k8s.io/api v0.35.1
-	k8s.io/apimachinery v0.35.1
+	k8s.io/apimachinery v0.35.2
 	k8s.io/client-go v11.0.0+incompatible
 	knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883
 	sigs.k8s.io/controller-runtime v0.23.1
