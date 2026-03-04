@@ -96,7 +96,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/apiserver v0.35.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
@@ -132,7 +131,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/procfs v0.20.0 // indirect
-	github.com/prometheus/statsd_exporter v0.28.0 // indirect
+	github.com/prometheus/statsd_exporter v0.29.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
