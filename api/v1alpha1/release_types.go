@@ -81,8 +81,13 @@ type ReleaseStatus struct {
 	FinalProcessing PipelineInfo `json:"finalProcessing,omitempty"`
 
 	// ManagedProcessing contains information about the release managed processing
+	// Deprecated: kept for backward compatibility, use ManagedPipelineAttempts instead
 	// +optional
 	ManagedProcessing PipelineInfo `json:"managedProcessing,omitempty"`
+
+	// ManagedPipelineAttempts contains information about each attempt of the release managed pipeline processing
+	// +optional
+	ManagedPipelineAttempts []ManagedPipelineAttempt `json:"managedPipelineAttempts,omitempty"`
 
 	// TenantProcessing contains information about the release tenant processing
 	// +optional
