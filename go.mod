@@ -4,7 +4,7 @@ go 1.25.6
 
 require (
 	github.com/conforma/crds/api v0.1.7
-	github.com/go-git/go-git/v5 v5.16.5
+	github.com/go-git/go-git/v5 v5.17.0
 	github.com/go-logr/logr v1.4.3
 	github.com/konflux-ci/application-api v0.0.0-20260213151620-9ac61f5d7ca0
 	github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260226124752-74868db64906
