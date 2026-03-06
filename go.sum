@@ -324,8 +324,8 @@ github.com/klauspost/compress v1.18.4 h1:RPhnKRAQ4Fh8zU2FY/6ZFDwTVTxgJ/EMydqSTzE
 github.com/klauspost/compress v1.18.4/go.mod h1:R0h/fSBs8DE4ENlcrlib3PsXS61voFxhIs2DeRhCvJ4=
 github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=
 github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
-github.com/konflux-ci/application-api v0.0.0-20260213151620-9ac61f5d7ca0 h1:txe2MpWDtNi3EJpIk7JCjC2QKUOMJnJfLEjJGusc0ds=
-github.com/konflux-ci/application-api v0.0.0-20260213151620-9ac61f5d7ca0/go.mod h1:948Z+a1IbfRT0RtoHzWWSN9YEucSbMJTHaMhz7dVICc=
+github.com/konflux-ci/application-api v0.0.0-20260306100631-b48ae8e50276 h1:WiF7OxQxe5c6z4IMij50PXIhIrRgn6/kv5nwwfz7JBc=
+github.com/konflux-ci/application-api v0.0.0-20260306100631-b48ae8e50276/go.mod h1:948Z+a1IbfRT0RtoHzWWSN9YEucSbMJTHaMhz7dVICc=
 github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260226124752-74868db64906 h1:L4n/muAnkcC1IVjl6OUOY4eOzTRd+Gi30+aJjZo0Pc4=
 github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260226124752-74868db64906/go.mod h1:WVMHU9A2464s/vjH1xOTm4LJDD4xP+VlEiU+KM0gkSU=
 github.com/konflux-ci/integration-service v0.0.0-20260116151929-fade912467b4 h1:2pkX9Nw9AdBRmSk+TeHpIelNIKXe6pjIUBs2reNqCgM=
