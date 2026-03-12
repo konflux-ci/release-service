@@ -380,6 +380,21 @@ func (l *loader) GetProcessingResources(ctx context.Context, cli client.Client, 
 	return resources, nil
 }
 
+// IsRetryableCreationError returns true if the error is transient and the creation should be
+// retried. Returns false for known permanent failures (e.g. admission webhook denial, invalid
+// resource spec, insufficient RBAC) that will not resolve on retry.
+func IsRetryableCreationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return !apierrors.IsBadRequest(err) &&
+		!apierrors.IsInvalid(err) &&
+		!apierrors.IsForbidden(err) &&
+		!apierrors.IsUnauthorized(err) &&
+		!apierrors.IsMethodNotSupported(err) &&
+		!apierrors.IsRequestEntityTooLargeError(err)
+}
+
 // IsRetriable returns true if the error is transient, such as a
 // network hiccup, concurrency conflict, or server-side throttling,
 // indicating that the operation should be retried.
