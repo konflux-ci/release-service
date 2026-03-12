@@ -800,6 +800,26 @@ func (r *Release) getPhaseReason(conditionType conditions.ConditionType) string 
 	return reason
 }
 
+// HasPipelinePhaseFailed returns true if any pipeline processing phase (tenant collectors, managed
+// collectors, tenant, managed, or final) is in the Failed state. Skipped phases are not considered
+// failures. This is used by EnsureReleaseIsCompleted to decide whether to MarkReleased or
+// MarkReleaseFailed when all phases have finished.
+func (r *Release) HasPipelinePhaseFailed() bool {
+	for _, condType := range []conditions.ConditionType{
+		tenantCollectorsProcessedConditionType,
+		managedCollectorsProcessedConditionType,
+		tenantProcessedConditionType,
+		managedProcessedConditionType,
+		finalProcessedConditionType,
+	} {
+		cond := meta.FindStatusCondition(r.Status.Conditions, condType.String())
+		if cond != nil && cond.Status == metav1.ConditionFalse && cond.Reason == FailedReason.String() {
+			return true
+		}
+	}
+	return false
+}
+
 // hasPhaseFinished checks whether a Release phase (e.g. deployment or processing) has finished.
 func (r *Release) hasPhaseFinished(conditionType conditions.ConditionType) bool {
 	condition := meta.FindStatusCondition(r.Status.Conditions, conditionType.String())

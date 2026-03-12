@@ -258,6 +258,59 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("HasPipelinePhaseFailed method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return false when no conditions are set", func() {
+			Expect(release.HasPipelinePhaseFailed()).To(BeFalse())
+		})
+
+		It("should return false when all phases succeeded", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			Expect(release.HasPipelinePhaseFailed()).To(BeFalse())
+		})
+
+		It("should return false when all phases are skipped", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			Expect(release.HasPipelinePhaseFailed()).To(BeFalse())
+		})
+
+		It("should return true when one phase has failed", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionTrue, SucceededReason)
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			Expect(release.HasPipelinePhaseFailed()).To(BeTrue())
+		})
+
+		It("should return true when multiple phases have failed", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			conditions.SetCondition(&release.Status.Conditions, managedCollectorsProcessedConditionType, metav1.ConditionFalse, FailedReason)
+			conditions.SetCondition(&release.Status.Conditions, tenantProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			conditions.SetCondition(&release.Status.Conditions, managedProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			conditions.SetCondition(&release.Status.Conditions, finalProcessedConditionType, metav1.ConditionTrue, SkippedReason)
+			Expect(release.HasPipelinePhaseFailed()).To(BeTrue())
+		})
+
+		It("should return false when a phase is ConditionFalse but with SkippedReason (not FailedReason)", func() {
+			conditions.SetCondition(&release.Status.Conditions, tenantCollectorsProcessedConditionType, metav1.ConditionFalse, SkippedReason)
+			Expect(release.HasPipelinePhaseFailed()).To(BeFalse())
+		})
+	})
+
 	When("IsAttributed method is called", func() {
 		var release *Release
 

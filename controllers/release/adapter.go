@@ -161,18 +161,22 @@ func (a *adapter) EnsureFinalizerIsAdded() (controller.OperationResult, error) {
 // EnsureReleaseIsCompleted is an operation that will ensure that a Release is completed (marked as released) when
 // all required phases (e.g. deployment or processing) have been completed.
 func (a *adapter) EnsureReleaseIsCompleted() (controller.OperationResult, error) {
-	// Do nothing if the release status has been already added
 	if a.release.HasReleaseFinished() {
 		return controller.ContinueProcessing()
 	}
 
-	// The final pipeline processing has to complete for a Release to be completed
-	if !a.release.IsFinalPipelineProcessedSuccessfully() {
+	// Wait until every pipeline phase has reached a terminal state (Succeeded, Failed, or Skipped)
+	// before closing the Release. This prevents premature completion while pipelines are still running.
+	if !a.release.AreAllProcessingPhasesFinished() {
 		return controller.ContinueProcessing()
 	}
 
 	patch := client.MergeFrom(a.release.DeepCopy())
-	a.release.MarkReleased()
+	if a.release.HasPipelinePhaseFailed() {
+		a.release.MarkReleaseFailed("Release failed: one or more pipeline phases did not complete successfully")
+	} else {
+		a.release.MarkReleased()
+	}
 	return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 }
 
@@ -256,28 +260,73 @@ func (a *adapter) EnsureManagedCollectorsPipelineIsProcessed() (controller.Opera
 				if tenantRoleBinding == nil {
 					tenantRoleBinding, err = a.createRoleBindingForClusterRole("release-pipeline-resource-role", releasePlanAdmission.Spec.Origin, releasePlanAdmission.Spec.Collectors.ServiceAccountName, releasePlanAdmission.Namespace)
 					if err != nil {
-						return controller.RequeueWithError(err)
+						return a.handlePipelineCreationError(err,
+							a.release.MarkManagedCollectorsPipelineProcessing,
+							a.release.MarkManagedCollectorsPipelineProcessingFailed,
+							"Release processing failed on managed collectors RoleBinding creation")
 					}
 				}
 
 				if managedRoleBinding == nil {
 					managedRoleBinding, err = a.createRoleBindingForClusterRole("release-pipeline-resource-role", releasePlanAdmission.Namespace, releasePlanAdmission.Spec.Collectors.ServiceAccountName, releasePlanAdmission.Namespace)
 					if err != nil {
-						return controller.RequeueWithError(err)
+						capturedTenant := tenantRoleBinding
+						return a.handlePipelineCreationError(err,
+							a.release.MarkManagedCollectorsPipelineProcessing,
+							a.release.MarkManagedCollectorsPipelineProcessingFailed,
+							"Release processing failed on managed collectors RoleBinding creation",
+							func() {
+								if capturedTenant != nil {
+									a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding =
+										fmt.Sprintf("%s%c%s", capturedTenant.Namespace, types.Separator, capturedTenant.Name)
+								}
+							})
 					}
 				}
 
 				if secretRoleBinding == nil && releasePlanAdmission.Spec.Collectors.Secrets != nil {
 					secretRoleBinding, err = a.createRoleBindingForCollectorSecrets("managed-collectors", releasePlanAdmission.Namespace, releasePlanAdmission.Spec.Collectors.ServiceAccountName, releasePlanAdmission.Spec.Collectors.Secrets)
 					if err != nil {
-						return controller.RequeueWithError(err)
+						capturedTenant, capturedManaged := tenantRoleBinding, managedRoleBinding
+						return a.handlePipelineCreationError(err,
+							a.release.MarkManagedCollectorsPipelineProcessing,
+							a.release.MarkManagedCollectorsPipelineProcessingFailed,
+							"Release processing failed on managed collectors RoleBinding creation",
+							func() {
+								if capturedTenant != nil {
+									a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding =
+										fmt.Sprintf("%s%c%s", capturedTenant.Namespace, types.Separator, capturedTenant.Name)
+								}
+								if capturedManaged != nil {
+									a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.ManagedRoleBinding =
+										fmt.Sprintf("%s%c%s", capturedManaged.Namespace, types.Separator, capturedManaged.Name)
+								}
+							})
 					}
 				}
 			}
 
 			pipelineRun, err = a.createManagedCollectorsPipelineRun(releasePlanAdmission)
 			if err != nil {
-				return controller.RequeueWithError(err)
+				capturedTenant, capturedManaged, capturedSecret := tenantRoleBinding, managedRoleBinding, secretRoleBinding
+				return a.handlePipelineCreationError(err,
+					a.release.MarkManagedCollectorsPipelineProcessing,
+					a.release.MarkManagedCollectorsPipelineProcessingFailed,
+					"Release processing failed on managed collectors pipelineRun creation",
+					func() {
+						if capturedTenant != nil {
+							a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding =
+								fmt.Sprintf("%s%c%s", capturedTenant.Namespace, types.Separator, capturedTenant.Name)
+						}
+						if capturedManaged != nil {
+							a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.ManagedRoleBinding =
+								fmt.Sprintf("%s%c%s", capturedManaged.Namespace, types.Separator, capturedManaged.Name)
+						}
+						if capturedSecret != nil {
+							a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.SecretRoleBinding =
+								fmt.Sprintf("%s%c%s", capturedSecret.Namespace, types.Separator, capturedSecret.Name)
+						}
+					})
 			}
 
 			a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun", metadata.ManagedCollectorsPipelineType),
@@ -357,21 +406,48 @@ func (a *adapter) EnsureTenantCollectorsPipelineIsProcessed() (controller.Operat
 				if tenantRoleBinding == nil {
 					tenantRoleBinding, err = a.createRoleBindingForClusterRole("release-pipeline-resource-role", releasePlan.Namespace, releasePlan.Spec.Collectors.ServiceAccountName, releasePlan.Namespace)
 					if err != nil {
-						return controller.RequeueWithError(err)
+						return a.handlePipelineCreationError(err,
+							a.release.MarkTenantCollectorsPipelineProcessing,
+							a.release.MarkTenantCollectorsPipelineProcessingFailed,
+							"Release processing failed on tenant collectors RoleBinding creation")
 					}
 				}
 
 				if secretRoleBinding == nil && releasePlan.Spec.Collectors.Secrets != nil {
 					secretRoleBinding, err = a.createRoleBindingForCollectorSecrets("tenant-collectors", releasePlan.Namespace, releasePlan.Spec.Collectors.ServiceAccountName, releasePlan.Spec.Collectors.Secrets)
 					if err != nil {
-						return controller.RequeueWithError(err)
+						capturedTenant := tenantRoleBinding
+						return a.handlePipelineCreationError(err,
+							a.release.MarkTenantCollectorsPipelineProcessing,
+							a.release.MarkTenantCollectorsPipelineProcessingFailed,
+							"Release processing failed on tenant collectors RoleBinding creation",
+							func() {
+								if capturedTenant != nil {
+									a.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.TenantRoleBinding =
+										fmt.Sprintf("%s%c%s", capturedTenant.Namespace, types.Separator, capturedTenant.Name)
+								}
+							})
 					}
 				}
 			}
 
 			pipelineRun, err = a.createTenantCollectorsPipelineRun(releasePlan, releasePlanAdmission)
 			if err != nil {
-				return controller.RequeueWithError(err)
+				capturedTenant, capturedSecret := tenantRoleBinding, secretRoleBinding
+				return a.handlePipelineCreationError(err,
+					a.release.MarkTenantCollectorsPipelineProcessing,
+					a.release.MarkTenantCollectorsPipelineProcessingFailed,
+					"Release processing failed on tenant collectors pipelineRun creation",
+					func() {
+						if capturedTenant != nil {
+							a.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.TenantRoleBinding =
+								fmt.Sprintf("%s%c%s", capturedTenant.Namespace, types.Separator, capturedTenant.Name)
+						}
+						if capturedSecret != nil {
+							a.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.SecretRoleBinding =
+								fmt.Sprintf("%s%c%s", capturedSecret.Namespace, types.Separator, capturedSecret.Name)
+						}
+					})
 			}
 
 			a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun", metadata.TenantCollectorsPipelineType),
@@ -445,7 +521,10 @@ func (a *adapter) EnsureTenantPipelineIsProcessed() (controller.OperationResult,
 
 			pipelineRun, err = a.createTenantPipelineRun(releasePlan, snapshot)
 			if err != nil {
-				return controller.RequeueWithError(err)
+				return a.handlePipelineCreationError(err,
+					a.release.MarkTenantPipelineProcessing,
+					a.release.MarkTenantPipelineProcessingFailed,
+					"Release processing failed on tenant pipelineRun creation")
 			}
 
 			a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun", metadata.TenantPipelineType),
@@ -508,13 +587,26 @@ func (a *adapter) EnsureManagedPipelineIsProcessed() (controller.OperationResult
 				// This string should probably be a constant somewhere
 				tenantRoleBinding, err = a.createRoleBindingForClusterRole("release-pipeline-resource-role", resources.ReleasePlanAdmission.Spec.Origin, resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccountName, resources.ReleasePlanAdmission.Namespace)
 				if err != nil {
-					return controller.RequeueWithError(err)
+					return a.handlePipelineCreationError(err,
+						a.release.MarkManagedPipelineProcessing,
+						a.release.MarkManagedPipelineProcessingFailed,
+						"Release processing failed on managed pipeline RoleBinding creation")
 				}
 			}
 
 			pipelineRun, err = a.createManagedPipelineRun(resources)
 			if err != nil {
-				return controller.RequeueWithError(err)
+				capturedTenant := tenantRoleBinding
+				return a.handlePipelineCreationError(err,
+					a.release.MarkManagedPipelineProcessing,
+					a.release.MarkManagedPipelineProcessingFailed,
+					"Release processing failed on managed pipelineRun creation",
+					func() {
+						if capturedTenant != nil {
+							a.release.Status.ManagedProcessing.RoleBindings.TenantRoleBinding =
+								fmt.Sprintf("%s%c%s", capturedTenant.Namespace, types.Separator, capturedTenant.Name)
+						}
+					})
 			}
 
 			a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun", metadata.ManagedPipelineType),
@@ -560,7 +652,10 @@ func (a *adapter) EnsureFinalPipelineIsProcessed() (controller.OperationResult, 
 
 			pipelineRun, err = a.createFinalPipelineRun(releasePlan, snapshot)
 			if err != nil {
-				return controller.RequeueWithError(err)
+				return a.handlePipelineCreationError(err,
+					a.release.MarkFinalPipelineProcessing,
+					a.release.MarkFinalPipelineProcessingFailed,
+					"Release processing failed on final pipelineRun creation")
 			}
 
 			a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun", metadata.FinalPipelineType),
@@ -1921,6 +2016,57 @@ func (a *adapter) validationError(err error) *controller.ValidationResult {
 	// All other errors (NotFound, config errors, etc.) are permanent validation failures
 	a.release.MarkValidationFailed(err.Error())
 	return &controller.ValidationResult{Valid: false}
+}
+
+// handlePipelineCreationError handles errors returned when creating a PipelineRun or RoleBinding.
+// For retriable (transient) errors such as network timeouts or conflicts, it returns a requeue
+// request so the operation will be retried. For permanent errors (e.g., admission webhook
+// denials), it marks the pipeline and release as failed and continues reconciliation so that
+// downstream Ensure* operations can mark their own phases as skipped via their IsFailed()
+// guards. Without continuing, no future reconcile is triggered (no PipelineRun was created,
+// and GenerationChangedPredicate ignores status-only patches), leaving downstream pipeline
+// conditions permanently unset.
+//
+// The optional saveRefs callbacks are called after the "before" snapshot is taken but before
+// the mark functions, so their changes are included in the same atomic status patch. This is
+// used to persist RoleBinding refs created before the failure so that
+// EnsureCollectorsProcessingResourcesAreCleanedUp can find and delete them.
+func (a *adapter) handlePipelineCreationError(err error, markProcessing func(), markPipelineFailed func(string), releaseFailedMsg string, saveRefs ...func()) (controller.OperationResult, error) {
+	if isRetryableCreationError(err) {
+		return controller.RequeueWithError(err)
+	}
+	patch := client.MergeFrom(a.release.DeepCopy())
+	for _, f := range saveRefs {
+		f()
+	}
+	markProcessing()
+	markPipelineFailed(truncateConditionMessage(err.Error()))
+	a.release.MarkReleaseFailed(releaseFailedMsg)
+	return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+}
+
+// isRetryableCreationError returns true if the error is transient and the creation should be
+// retried. Returns false for known permanent failures (e.g. admission webhook denial, invalid
+// resource spec, insufficient RBAC) that will not resolve on retry.
+func isRetryableCreationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return !errors.IsBadRequest(err) &&
+		!errors.IsInvalid(err) &&
+		!errors.IsForbidden(err) &&
+		!errors.IsUnauthorized(err) &&
+		!errors.IsMethodNotSupported(err) &&
+		!errors.IsRequestEntityTooLargeError(err)
+}
+
+// truncateConditionMessage trims a condition message to maxConditionMessageLength to stay
+// within Kubernetes API server validation limits.
+func truncateConditionMessage(msg string) string {
+	if len(msg) <= maxConditionMessageLength {
+		return msg
+	}
+	return msg[:maxConditionMessageLength]
 }
 
 // maxConditionMessageLength is the maximum length for a Kubernetes condition message.
