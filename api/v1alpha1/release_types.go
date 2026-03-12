@@ -543,6 +543,41 @@ func (r *Release) MarkManagedCollectorsPipelineProcessing() {
 	)
 }
 
+// MarkManagedPipelineProcessing marks the Release Managed Pipeline as processing.
+// This is used when the PipelineRun creation itself fails before any attempt can be registered.
+func (r *Release) MarkManagedPipelineProcessing() {
+	if r.HasManagedPipelineProcessingFinished() {
+		return
+	}
+
+	if !r.IsManagedPipelineProcessing() {
+		// Deprecated: populate ManagedProcessing for backward compatibility
+		r.Status.ManagedProcessing.StartTime = &metav1.Time{Time: time.Now()}
+	}
+
+	conditions.SetCondition(&r.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, ProgressingReason)
+}
+
+// MarkManagedPipelineProcessingFailed marks the Release Managed Pipeline processing as failed.
+// This is used when the PipelineRun creation itself fails before any attempt can be registered.
+func (r *Release) MarkManagedPipelineProcessingFailed(message string) {
+	if !r.IsManagedPipelineProcessing() || r.HasManagedPipelineProcessingFinished() {
+		return
+	}
+
+	// Deprecated: populate ManagedProcessing for backward compatibility
+	r.Status.ManagedProcessing.CompletionTime = &metav1.Time{Time: time.Now()}
+	conditions.SetConditionWithMessage(&r.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, FailedReason, message)
+
+	go metrics.RegisterCompletedReleasePipelineProcessing(
+		r.Status.ManagedProcessing.StartTime,
+		r.Status.ManagedProcessing.CompletionTime,
+		FailedReason.String(),
+		r.Status.Target,
+		metadata.ManagedPipelineType.String(),
+	)
+}
+
 // MarkCurrentManagedPipelineAttemptProcessing marks the current managed pipeline attempt as processing.
 func (r *Release) MarkCurrentManagedPipelineAttemptProcessing() {
 	// only block after success or skip, failed attempts can be retried
@@ -886,6 +921,26 @@ func (r *Release) getPhaseReason(conditionType conditions.ConditionType) string 
 	}
 
 	return reason
+}
+
+// HasPipelinePhaseFailed returns true if any pipeline processing phase (tenant collectors, managed
+// collectors, tenant, managed, or final) is in the Failed state. Skipped phases are not considered
+// failures. This is used by EnsureReleaseIsCompleted to decide whether to MarkReleased or
+// MarkReleaseFailed when all phases have finished.
+func (r *Release) HasPipelinePhaseFailed() bool {
+	for _, conditionType := range []conditions.ConditionType{
+		tenantCollectorsProcessedConditionType,
+		managedCollectorsProcessedConditionType,
+		tenantProcessedConditionType,
+		managedProcessedConditionType,
+		finalProcessedConditionType,
+	} {
+		condition := meta.FindStatusCondition(r.Status.Conditions, conditionType.String())
+		if condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == FailedReason.String() {
+			return true
+		}
+	}
+	return false
 }
 
 // hasPhaseFinished checks whether a Release phase (e.g. deployment or processing) has finished.

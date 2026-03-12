@@ -1044,3 +1044,38 @@ func (f *fakeKAClient) Get(ctx context.Context, cli client.Client, gvr schema.Gr
 	namespace, name string, obj client.Object) error {
 	return f.getFunc(ctx, cli, gvr, namespace, name, obj)
 }
+
+var _ = Describe("Loader helpers", func() {
+	Describe("IsRetryableCreationError", func() {
+		It("should return false for nil error", func() {
+			Expect(IsRetryableCreationError(nil)).To(BeFalse())
+		})
+
+		DescribeTable("should return false for permanent creation errors",
+			func(err error) {
+				Expect(IsRetryableCreationError(err)).To(BeFalse())
+			},
+			Entry("bad request", errors.NewBadRequest("malformed object")),
+			Entry("invalid", errors.NewInvalid(schema.GroupKind{}, "pipelinerun", nil)),
+			Entry("forbidden (admission webhook denial)", errors.NewForbidden(schema.GroupResource{}, "pipelinerun", fmt.Errorf("admission webhook denied the request"))),
+			Entry("unauthorized", errors.NewUnauthorized("not authorized")),
+			Entry("method not supported", errors.NewMethodNotSupported(schema.GroupResource{}, "patch")),
+			Entry("request entity too large", errors.NewRequestEntityTooLargeError("payload too large")),
+		)
+
+		DescribeTable("should return true for transient / retriable errors",
+			func(err error) {
+				Expect(IsRetryableCreationError(err)).To(BeTrue())
+			},
+			Entry("conflict", errors.NewConflict(schema.GroupResource{}, "pipelinerun", fmt.Errorf("conflict"))),
+			Entry("server timeout", errors.NewServerTimeout(schema.GroupResource{}, "create", 1)),
+			Entry("service unavailable", errors.NewServiceUnavailable("service unavailable")),
+			Entry("too many requests", errors.NewTooManyRequests("throttled", 1)),
+			Entry("internal server error", errors.NewInternalError(fmt.Errorf("internal"))),
+		)
+
+		It("should return true for an unknown non-API error", func() {
+			Expect(IsRetryableCreationError(fmt.Errorf("some unexpected error"))).To(BeTrue())
+		})
+	})
+})
