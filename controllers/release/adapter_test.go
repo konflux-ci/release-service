@@ -17,6 +17,7 @@ limitations under the License.
 package release
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -51,7 +52,42 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// createErrorClient wraps a client.Client and returns a configurable error on Create calls.
+// Used in tests to simulate PipelineRun creation failures (e.g. admission webhook denials).
+// createErrorClient wraps a client.Client and returns a configurable error on every Create call.
+// Used to simulate PipelineRun or RoleBinding creation failures (e.g. admission webhook denials).
+type createErrorClient struct {
+	ctrlclient.Client
+	createErr error
+}
+
+func (c *createErrorClient) Create(ctx context.Context, obj ctrlclient.Object, opts ...ctrlclient.CreateOption) error {
+	if c.createErr != nil {
+		return c.createErr
+	}
+	return c.Client.Create(ctx, obj, opts...)
+}
+
+// createAfterNErrorClient wraps a client.Client and allows exactly successCount Create calls to
+// succeed before returning createErr on all subsequent calls. Used to simulate failures at
+// specific points in a sequence of creates (e.g. the 2nd or 3rd RoleBinding creation).
+type createAfterNErrorClient struct {
+	ctrlclient.Client
+	successCount int
+	createErr    error
+	creates      int
+}
+
+func (c *createAfterNErrorClient) Create(ctx context.Context, obj ctrlclient.Object, opts ...ctrlclient.CreateOption) error {
+	c.creates++
+	if c.creates > c.successCount {
+		return c.createErr
+	}
+	return c.Client.Create(ctx, obj, opts...)
+}
 
 var _ = Describe("Release adapter", Ordered, func() {
 	var (
@@ -262,12 +298,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should not change the release status if it's set already", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePlanContextKey,
-					Resource:   releasePlan,
-				},
-			})
 			adapter.release.MarkFinalPipelineProcessing()
 			adapter.release.MarkFinalPipelineProcessed()
 			adapter.release.MarkReleaseFailed("")
@@ -278,26 +308,55 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.IsReleased()).To(BeFalse())
 		})
 
-		It("should do nothing if the final processing has not completed", func() {
+		It("should do nothing if not all pipeline phases have completed", func() {
+			// Only the final pipeline phase is set; others are still pending.
+			adapter.release.MarkFinalPipelineProcessing()
+			adapter.release.MarkFinalPipelineProcessed()
 			result, err := adapter.EnsureReleaseIsCompleted()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.HasReleaseFinished()).To(BeFalse())
 		})
 
-		It("should complete the release if all the required phases have completed", func() {
-			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
-				{
-					ContextKey: loader.ReleasePlanContextKey,
-					Resource:   releasePlan,
-				},
-			})
+		It("should mark the release as released when all phases completed successfully", func() {
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			adapter.release.MarkManagedPipelineProcessingSkipped()
 			adapter.release.MarkFinalPipelineProcessing()
 			adapter.release.MarkFinalPipelineProcessed()
 			result, err := adapter.EnsureReleaseIsCompleted()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+			Expect(adapter.release.IsReleased()).To(BeTrue())
+		})
+
+		It("should mark the release as released when all phases are skipped (no pipelines configured)", func() {
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			adapter.release.MarkManagedPipelineProcessingSkipped()
+			adapter.release.MarkFinalPipelineProcessingSkipped()
+			result, err := adapter.EnsureReleaseIsCompleted()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsReleased()).To(BeTrue())
+		})
+
+		It("should mark the release as failed when all phases finished but a pipeline phase failed", func() {
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			// Simulate a managed pipeline execution failure (set by tracking operation)
+			adapter.release.MarkManagedPipelineProcessing()
+			adapter.release.MarkManagedPipelineProcessingFailed("pipeline run failed")
+			adapter.release.MarkFinalPipelineProcessingSkipped()
+			result, err := adapter.EnsureReleaseIsCompleted()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
 		})
 	})
 
@@ -511,6 +570,52 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("should mark final pipeline and release as failed and stop if PipelineRun creation returns a non-retriable error", func() {
+			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
+			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
+				Resolver: "git",
+				Params: []tektonutils.Param{
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+				},
+			}
+			localReleasePlan := &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "release-plan",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanSpec{
+					Application:   application.Name,
+					FinalPipeline: &parameterizedPipeline,
+				},
+			}
+			localReleasePlan.Kind = "ReleasePlan"
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   localReleasePlan,
+				},
+				{
+					ContextKey: loader.SnapshotContextKey,
+					Resource:   snapshot,
+				},
+			})
+			adapter.release.MarkReleasing("")
+			adapter.release.MarkManagedPipelineProcessingSkipped()
+			adapter.client = &createErrorClient{
+				Client:    k8sClient,
+				createErr: errors.NewForbidden(schema.GroupResource{}, "pipelinerun", fmt.Errorf("admission webhook denied the request")),
+			}
+
+			result, err := adapter.EnsureFinalPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasFinalPipelineProcessingFinished()).To(BeTrue())
 		})
 	})
 
@@ -846,6 +951,137 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("should mark managed collectors pipeline and release as failed and stop if PipelineRun creation returns a non-retriable error", func() {
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Spec.Collectors = &v1alpha1.Collectors{
+				Items: []v1alpha1.CollectorItem{
+					{
+						Name:   "foo",
+						Type:   "bar",
+						Params: []v1alpha1.Param{},
+					},
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   newReleasePlanAdmission,
+				},
+			})
+			adapter.client = &createErrorClient{
+				Client:    k8sClient,
+				createErr: errors.NewForbidden(schema.GroupResource{}, "pipelinerun", fmt.Errorf("admission webhook denied the request")),
+			}
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+
+			result, err := adapter.EnsureManagedCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasManagedCollectorsPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("should mark managed collectors pipeline as failed if the first RoleBinding creation returns a non-retriable error", func() {
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Spec.Collectors = &v1alpha1.Collectors{
+				ServiceAccountName: "collector-sa",
+				Items:              []v1alpha1.CollectorItem{{Name: "foo", Type: "bar", Params: []v1alpha1.Param{}}},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   newReleasePlanAdmission,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+			})
+			adapter.client = &createErrorClient{
+				Client:    k8sClient,
+				createErr: errors.NewForbidden(schema.GroupResource{}, "rolebinding", fmt.Errorf("insufficient permissions")),
+			}
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+
+			result, err := adapter.EnsureManagedCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasManagedCollectorsPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("should save the first RoleBinding ref in Release status when the second RoleBinding creation fails", func() {
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Spec.Collectors = &v1alpha1.Collectors{
+				ServiceAccountName: "collector-sa",
+				Items:              []v1alpha1.CollectorItem{{Name: "foo", Type: "bar", Params: []v1alpha1.Param{}}},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   newReleasePlanAdmission,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+			})
+			// Allow first create (tenantRoleBinding) to succeed; fail the second (managedRoleBinding).
+			adapter.client = &createAfterNErrorClient{
+				Client:       k8sClient,
+				successCount: 1,
+				createErr:    errors.NewForbidden(schema.GroupResource{}, "rolebinding", fmt.Errorf("insufficient permissions")),
+			}
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+
+			result, err := adapter.EnsureManagedCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			// The first (tenant) RoleBinding ref must be persisted for cleanup.
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding).NotTo(BeEmpty())
+		})
+
+		It("should save both RoleBinding refs in Release status when the third RoleBinding creation fails", func() {
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Spec.Collectors = &v1alpha1.Collectors{
+				ServiceAccountName: "collector-sa",
+				Secrets:            []string{"my-secret"},
+				Items:              []v1alpha1.CollectorItem{{Name: "foo", Type: "bar", Params: []v1alpha1.Param{}}},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   newReleasePlanAdmission,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+			})
+			// Allow first two creates (tenantRoleBinding, managedRoleBinding via createRoleBindingForClusterRole) to succeed.
+			// createRoleBindingForCollectorSecrets is then called and fails on its first internal create (the Role),
+			// simulating a permanent failure before the secretRoleBinding is created.
+			adapter.client = &createAfterNErrorClient{
+				Client:       k8sClient,
+				successCount: 2,
+				createErr:    errors.NewForbidden(schema.GroupResource{}, "rolebinding", fmt.Errorf("insufficient permissions")),
+			}
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+
+			result, err := adapter.EnsureManagedCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			// Both preceding RoleBinding refs must be persisted for cleanup.
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.TenantRoleBinding).NotTo(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.RoleBindings.ManagedRoleBinding).NotTo(BeEmpty())
 		})
 	})
 
@@ -1190,6 +1426,95 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
 		})
+
+		It("should mark managed pipeline and release as failed and stop if PipelineRun creation returns a non-retriable error", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlan:                 releasePlan,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						Snapshot:                    snapshot,
+					},
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   roleBinding,
+				},
+			})
+			adapter.client = &createErrorClient{
+				Client:    k8sClient,
+				createErr: errors.NewForbidden(schema.GroupResource{}, "pipelinerun", fmt.Errorf("admission webhook denied the request")),
+			}
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("should mark managed pipeline as failed if RoleBinding creation returns a non-retriable error", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlan:                 releasePlan,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						Snapshot:                    snapshot,
+					},
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+			})
+			adapter.client = &createErrorClient{
+				Client:    k8sClient,
+				createErr: errors.NewForbidden(schema.GroupResource{}, "rolebinding", fmt.Errorf("insufficient permissions")),
+			}
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("should requeue if PipelineRun creation returns a retriable error", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlan:                 releasePlan,
+						ReleasePlanAdmission:        releasePlanAdmission,
+						Snapshot:                    snapshot,
+					},
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   roleBinding,
+				},
+			})
+			adapter.client = &createErrorClient{
+				Client:    k8sClient,
+				createErr: errors.NewServiceUnavailable("service unavailable"),
+			}
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeFalse())
+		})
 	})
 
 	When("EnsureTenantCollectorsPipelineIsProcessed is called", func() {
@@ -1485,6 +1810,154 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
 		})
+
+		It("should mark tenant collectors pipeline and release as failed and stop if PipelineRun creation returns a non-retriable error", func() {
+			newReleasePlan := releasePlan.DeepCopy()
+			newReleasePlan.Spec.Collectors = &v1alpha1.Collectors{
+				Items: []v1alpha1.CollectorItem{
+					{
+						Name:   "foo",
+						Type:   "bar",
+						Params: []v1alpha1.Param{},
+					},
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+			})
+			adapter.release.MarkReleasing("")
+			adapter.client = &createErrorClient{
+				Client:    k8sClient,
+				createErr: errors.NewForbidden(schema.GroupResource{}, "pipelinerun", fmt.Errorf("admission webhook denied the request")),
+			}
+
+			result, err := adapter.EnsureTenantCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasTenantCollectorsPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("should mark tenant collectors pipeline as failed if the first RoleBinding creation returns a non-retriable error", func() {
+			newReleasePlan := releasePlan.DeepCopy()
+			newReleasePlan.Spec.Collectors = &v1alpha1.Collectors{
+				ServiceAccountName: "collector-sa",
+				Items:              []v1alpha1.CollectorItem{{Name: "foo", Type: "bar", Params: []v1alpha1.Param{}}},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+			})
+			adapter.release.MarkReleasing("")
+			adapter.client = &createErrorClient{
+				Client:    k8sClient,
+				createErr: errors.NewForbidden(schema.GroupResource{}, "rolebinding", fmt.Errorf("insufficient permissions")),
+			}
+
+			result, err := adapter.EnsureTenantCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasTenantCollectorsPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("should save the first RoleBinding ref in Release status when the second RoleBinding creation fails", func() {
+			newReleasePlan := releasePlan.DeepCopy()
+			newReleasePlan.Spec.Collectors = &v1alpha1.Collectors{
+				ServiceAccountName: "collector-sa",
+				Secrets:            []string{"my-secret"},
+				Items:              []v1alpha1.CollectorItem{{Name: "foo", Type: "bar", Params: []v1alpha1.Param{}}},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+			})
+			adapter.release.MarkReleasing("")
+			// Allow first create (tenantRoleBinding) to succeed; fail the second (secretRoleBinding).
+			adapter.client = &createAfterNErrorClient{
+				Client:       k8sClient,
+				successCount: 1,
+				createErr:    errors.NewForbidden(schema.GroupResource{}, "rolebinding", fmt.Errorf("insufficient permissions")),
+			}
+
+			result, err := adapter.EnsureTenantCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			// The first (tenant) RoleBinding ref must be persisted for cleanup.
+			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.TenantRoleBinding).NotTo(BeEmpty())
+		})
+
+		It("should save both RoleBinding refs in Release status when PipelineRun creation fails after both are created", func() {
+			newReleasePlan := releasePlan.DeepCopy()
+			newReleasePlan.Spec.Collectors = &v1alpha1.Collectors{
+				ServiceAccountName: "collector-sa",
+				Secrets:            []string{"my-secret"},
+				Items:              []v1alpha1.CollectorItem{{Name: "foo", Type: "bar", Params: []v1alpha1.Param{}}},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   releasePlanAdmission,
+				},
+				{
+					ContextKey: loader.RoleBindingContextKey,
+					Resource:   nil,
+				},
+			})
+			adapter.release.MarkReleasing("")
+			// Allow first three creates to succeed: tenantRoleBinding (1 create via createRoleBindingForClusterRole)
+			// and the secret binding (2 creates: Role + RoleBinding via createRoleBindingForCollectorSecrets).
+			// The fourth create (PipelineRun) then fails.
+			adapter.client = &createAfterNErrorClient{
+				Client:       k8sClient,
+				successCount: 3,
+				createErr:    errors.NewForbidden(schema.GroupResource{}, "pipelinerun", fmt.Errorf("admission webhook denied the request")),
+			}
+
+			result, err := adapter.EnsureTenantCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			// Both RoleBinding refs must be persisted for cleanup.
+			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.TenantRoleBinding).NotTo(BeEmpty())
+			Expect(adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.RoleBindings.SecretRoleBinding).NotTo(BeEmpty())
+		})
 	})
 
 	When("EnsureTenantPipelineIsProcessed is called", func() {
@@ -1655,6 +2128,51 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.client.Delete(adapter.ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("should mark tenant pipeline and release as failed and stop if PipelineRun creation returns a non-retriable error", func() {
+			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
+			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
+				Resolver: "git",
+				Params: []tektonutils.Param{
+					{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+					{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+				},
+			}
+			localReleasePlan := &v1alpha1.ReleasePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "release-plan",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleasePlanSpec{
+					Application:    application.Name,
+					TenantPipeline: &parameterizedPipeline,
+				},
+			}
+			localReleasePlan.Kind = "ReleasePlan"
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   localReleasePlan,
+				},
+				{
+					ContextKey: loader.SnapshotContextKey,
+					Resource:   snapshot,
+				},
+			})
+			adapter.client = &createErrorClient{
+				Client:    k8sClient,
+				createErr: errors.NewForbidden(schema.GroupResource{}, "pipelinerun", fmt.Errorf("admission webhook denied the request")),
+			}
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
 		})
 	})
 
@@ -6189,4 +6707,58 @@ var _ = Describe("Release adapter", Ordered, func() {
 		Expect(k8sClient.Delete(ctx, releaseServiceConfig)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, snapshot)).To(Succeed())
 	}
+})
+
+var _ = Describe("Release adapter helpers", func() {
+	Describe("isNonRetriableCreationError", func() {
+		It("should return false for nil error", func() {
+			Expect(isNonRetriableCreationError(nil)).To(BeFalse())
+		})
+
+		DescribeTable("should return true for permanent creation errors",
+			func(err error) {
+				Expect(isNonRetriableCreationError(err)).To(BeTrue())
+			},
+			Entry("bad request", errors.NewBadRequest("malformed object")),
+			Entry("invalid", errors.NewInvalid(schema.GroupKind{}, "pipelinerun", nil)),
+			Entry("forbidden (admission webhook denial)", errors.NewForbidden(schema.GroupResource{}, "pipelinerun", fmt.Errorf("admission webhook denied the request"))),
+			Entry("unauthorized", errors.NewUnauthorized("not authorized")),
+			Entry("method not supported", errors.NewMethodNotSupported(schema.GroupResource{}, "patch")),
+			Entry("request entity too large", errors.NewRequestEntityTooLargeError("payload too large")),
+		)
+
+		DescribeTable("should return false for transient / retriable errors",
+			func(err error) {
+				Expect(isNonRetriableCreationError(err)).To(BeFalse())
+			},
+			Entry("conflict", errors.NewConflict(schema.GroupResource{}, "pipelinerun", fmt.Errorf("conflict"))),
+			Entry("server timeout", errors.NewServerTimeout(schema.GroupResource{}, "create", 1)),
+			Entry("service unavailable", errors.NewServiceUnavailable("service unavailable")),
+			Entry("too many requests", errors.NewTooManyRequests("throttled", 1)),
+			Entry("internal server error", errors.NewInternalError(fmt.Errorf("internal"))),
+		)
+
+		It("should return false for an unknown non-API error", func() {
+			Expect(isNonRetriableCreationError(fmt.Errorf("some unexpected error"))).To(BeFalse())
+		})
+	})
+
+	Describe("truncateConditionMessage", func() {
+		It("should return the message unchanged when it is within the limit", func() {
+			short := "short message"
+			Expect(truncateConditionMessage(short)).To(Equal(short))
+		})
+
+		It("should return the message unchanged when it is exactly the limit", func() {
+			exact := strings.Repeat("x", maxConditionMessageLength)
+			Expect(truncateConditionMessage(exact)).To(Equal(exact))
+		})
+
+		It("should truncate to maxConditionMessageLength when the message exceeds the limit", func() {
+			long := strings.Repeat("a", maxConditionMessageLength+500)
+			result := truncateConditionMessage(long)
+			Expect(len(result)).To(Equal(maxConditionMessageLength))
+			Expect(result).To(Equal(long[:maxConditionMessageLength]))
+		})
+	})
 })
