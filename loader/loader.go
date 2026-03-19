@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/kubearchive"
 	"github.com/konflux-ci/release-service/metadata"
 )
 
@@ -44,10 +45,14 @@ type ObjectLoader interface {
 	GetProcessingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*ProcessingResources, error)
 }
 
-type loader struct{}
+type loader struct {
+	kaClient *kubearchive.Client
+}
 
 func NewLoader() ObjectLoader {
-	return &loader{}
+	return &loader{
+		kaClient: kubearchive.NewClient(),
+	}
 }
 
 // GetActiveReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.
@@ -330,11 +335,25 @@ func (l *loader) GetReleaseServiceConfig(ctx context.Context, cli client.Client,
 	return releaseServiceConfig, toolkit.GetObject(name, namespace, cli, ctx, releaseServiceConfig)
 }
 
-// GetSnapshot returns the Snapshot referenced by the given Release. If the Snapshot is not found or the Get
-// operation fails, an error is returned.
+// GetSnapshot returns the Snapshot referenced by the given Release. If the Snapshot is not found
+// in the cluster, it falls back to KubeArchive to retrieve the archived resource. If both
+// lookups fail, the original cluster error is returned.
 func (l *loader) GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error) {
 	snapshot := &applicationapiv1alpha1.Snapshot{}
-	return snapshot, toolkit.GetObject(release.Spec.Snapshot, release.Namespace, cli, ctx, snapshot)
+	err := toolkit.GetObject(release.Spec.Snapshot, release.Namespace, cli, ctx, snapshot)
+	if err != nil && apierrors.IsNotFound(err) {
+		kaErr := l.kaClient.Get(ctx, cli,
+			schema.GroupVersionResource{
+				Group:    "appstudio.redhat.com",
+				Version:  "v1alpha1",
+				Resource: "snapshots",
+			},
+			release.Namespace, release.Spec.Snapshot, snapshot)
+		if kaErr == nil {
+			return snapshot, nil
+		}
+	}
+	return snapshot, err
 }
 
 // ProcessingResources contains the required resources to process the Release.
