@@ -1,6 +1,6 @@
 module github.com/konflux-ci/release-service
 
-go 1.25.6
+go 1.25.7
 
 require (
 	github.com/conforma/crds/api v0.1.8
@@ -121,7 +121,7 @@ require (
 	github.com/go-openapi/swag v0.25.5 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/go-containerregistry v0.21.2 // indirect
+	github.com/google/go-containerregistry v0.21.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1
