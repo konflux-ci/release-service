@@ -9,7 +9,7 @@ require (
 	github.com/konflux-ci/application-api v0.0.0-20260311124621-11066ce65102
 	github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260312170734-5a5addaecad9
 	github.com/konflux-ci/integration-service v0.0.0-20260116151929-fade912467b4
-	github.com/konflux-ci/operator-toolkit v0.0.0-20251118152634-b4f41f073069
+	github.com/konflux-ci/operator-toolkit v0.0.0-20260312101100-d4e398191a68
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/operator-framework/operator-lib v0.19.0
