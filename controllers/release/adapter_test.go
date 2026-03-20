@@ -3262,6 +3262,164 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 	})
 
+	When("createManagedCollectorsPipelineRun is called with previousRelease override", func() {
+		var (
+			adapter         *adapter
+			pipelineRun     *tektonv1.PipelineRun
+			previousRelease *v1alpha1.Release
+		)
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+			_ = k8sClient.Delete(ctx, previousRelease)
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("uses the previousRelease override from the Release spec", func() {
+			previousRelease = &v1alpha1.Release{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "previous-release",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleaseSpec{
+					Snapshot:    snapshot.Name,
+					ReleasePlan: releasePlan.Name,
+				},
+			}
+			Expect(k8sClient.Create(ctx, previousRelease)).To(Succeed())
+			previousRelease.MarkReleasing("")
+			previousRelease.MarkReleased()
+			Expect(k8sClient.Status().Update(ctx, previousRelease)).To(Succeed())
+
+			release := &v1alpha1.Release{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "release-",
+					Namespace:    "default",
+				},
+				Spec: v1alpha1.ReleaseSpec{
+					Snapshot:    snapshot.Name,
+					ReleasePlan: releasePlan.Name,
+					CollectorDataOverrides: &v1alpha1.CollectorDataOverrides{
+						PreviousRelease: "previous-release",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			release.Kind = "Release"
+
+			adapter = newAdapter(ctx, k8sClient, release, loader.NewMockLoader(), &ctrl.Log)
+
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Spec.Collectors = &v1alpha1.Collectors{
+				Items: []v1alpha1.CollectorItem{
+					{
+						Name:   "foo",
+						Type:   "bar",
+						Params: []v1alpha1.Param{},
+					},
+				},
+			}
+
+			var err error
+			pipelineRun, err = adapter.createManagedCollectorsPipelineRun(newReleasePlanAdmission)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "previousRelease")))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", release.Namespace, types.Separator, "previous-release"))))
+		})
+
+		It("returns an error when the previousRelease is not found", func() {
+			release := &v1alpha1.Release{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "release-",
+					Namespace:    "default",
+				},
+				Spec: v1alpha1.ReleaseSpec{
+					Snapshot:    snapshot.Name,
+					ReleasePlan: releasePlan.Name,
+					CollectorDataOverrides: &v1alpha1.CollectorDataOverrides{
+						PreviousRelease: "non-existent-release",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			release.Kind = "Release"
+
+			adapter = newAdapter(ctx, k8sClient, release, loader.NewMockLoader(), &ctrl.Log)
+
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Spec.Collectors = &v1alpha1.Collectors{
+				Items: []v1alpha1.CollectorItem{
+					{
+						Name:   "foo",
+						Type:   "bar",
+						Params: []v1alpha1.Param{},
+					},
+				},
+			}
+
+			pipelineRun, err := adapter.createManagedCollectorsPipelineRun(newReleasePlanAdmission)
+			Expect(pipelineRun).To(BeNil())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to get previousRelease"))
+		})
+
+		It("returns an error when the previousRelease has failed", func() {
+			failedRelease := &v1alpha1.Release{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "failed-previous-release",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleaseSpec{
+					Snapshot:    snapshot.Name,
+					ReleasePlan: releasePlan.Name,
+				},
+			}
+			Expect(k8sClient.Create(ctx, failedRelease)).To(Succeed())
+			failedRelease.MarkReleasing("")
+			failedRelease.MarkReleaseFailed("some failure")
+			Expect(k8sClient.Status().Update(ctx, failedRelease)).To(Succeed())
+
+			release := &v1alpha1.Release{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "release-",
+					Namespace:    "default",
+				},
+				Spec: v1alpha1.ReleaseSpec{
+					Snapshot:    snapshot.Name,
+					ReleasePlan: releasePlan.Name,
+					CollectorDataOverrides: &v1alpha1.CollectorDataOverrides{
+						PreviousRelease: "failed-previous-release",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			release.Kind = "Release"
+
+			adapter = newAdapter(ctx, k8sClient, release, loader.NewMockLoader(), &ctrl.Log)
+
+			newReleasePlanAdmission := releasePlanAdmission.DeepCopy()
+			newReleasePlanAdmission.Spec.Collectors = &v1alpha1.Collectors{
+				Items: []v1alpha1.CollectorItem{
+					{
+						Name:   "foo",
+						Type:   "bar",
+						Params: []v1alpha1.Param{},
+					},
+				},
+			}
+
+			pipelineRun, err := adapter.createManagedCollectorsPipelineRun(newReleasePlanAdmission)
+			Expect(pipelineRun).To(BeNil())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("has failed and cannot be used"))
+
+			_ = k8sClient.Delete(ctx, failedRelease)
+		})
+	})
+
 	When("createTenantCollectorsPipelineRun is called", func() {
 		var (
 			adapter     *adapter
@@ -3344,6 +3502,75 @@ var _ = Describe("Release adapter", Ordered, func() {
 				}
 			}
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+		})
+	})
+
+	When("createTenantCollectorsPipelineRun is called with previousRelease override", func() {
+		var (
+			adapter         *adapter
+			pipelineRun     *tektonv1.PipelineRun
+			previousRelease *v1alpha1.Release
+		)
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+			_ = k8sClient.Delete(ctx, previousRelease)
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("uses the previousRelease override from the Release spec", func() {
+			previousRelease = &v1alpha1.Release{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tenant-previous-release",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ReleaseSpec{
+					Snapshot:    snapshot.Name,
+					ReleasePlan: releasePlan.Name,
+				},
+			}
+			Expect(k8sClient.Create(ctx, previousRelease)).To(Succeed())
+			previousRelease.MarkReleasing("")
+			previousRelease.MarkReleased()
+			Expect(k8sClient.Status().Update(ctx, previousRelease)).To(Succeed())
+
+			release := &v1alpha1.Release{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "release-",
+					Namespace:    "default",
+				},
+				Spec: v1alpha1.ReleaseSpec{
+					Snapshot:    snapshot.Name,
+					ReleasePlan: releasePlan.Name,
+					CollectorDataOverrides: &v1alpha1.CollectorDataOverrides{
+						PreviousRelease: "tenant-previous-release",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			release.Kind = "Release"
+
+			adapter = newAdapter(ctx, k8sClient, release, loader.NewMockLoader(), &ctrl.Log)
+
+			newReleasePlan := releasePlan.DeepCopy()
+			newReleasePlan.Spec.Collectors = &v1alpha1.Collectors{
+				Items: []v1alpha1.CollectorItem{
+					{
+						Name:   "foo",
+						Type:   "bar",
+						Params: []v1alpha1.Param{},
+					},
+				},
+			}
+
+			var err error
+			pipelineRun, err = adapter.createTenantCollectorsPipelineRun(newReleasePlan, releasePlanAdmission)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Name", "previousRelease")))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal",
+				fmt.Sprintf("%s%c%s", release.Namespace, types.Separator, "tenant-previous-release"))))
 		})
 	})
 

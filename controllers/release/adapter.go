@@ -959,12 +959,27 @@ func (a *adapter) cleanupProcessingResources(pipelineRun *tektonv1.PipelineRun, 
 }
 
 // getCollectorsPipelineRunBuilder generates a builder to use while creating a collectors PipelineRun.
-func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType metadata.PipelineType, namespace, url string, revision string) *utils.PipelineRunBuilder {
-	previousRelease, err := a.loader.GetPreviousRelease(a.ctx, a.client, a.release)
+func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType metadata.PipelineType, namespace, url string, revision string) (*utils.PipelineRunBuilder, error) {
 	previousReleaseNamespaceName := ""
-	if err == nil && previousRelease != nil {
+	if a.release.Spec.CollectorDataOverrides != nil && a.release.Spec.CollectorDataOverrides.PreviousRelease != "" {
+		previousRelease, err := a.loader.GetRelease(a.ctx, a.client,
+			a.release.Spec.CollectorDataOverrides.PreviousRelease, a.release.Namespace)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get previousRelease %s: %w",
+				a.release.Spec.CollectorDataOverrides.PreviousRelease, err)
+		}
+		if previousRelease.IsFailed() {
+			return nil, fmt.Errorf("previousRelease %s has failed and cannot be used",
+				a.release.Spec.CollectorDataOverrides.PreviousRelease)
+		}
 		previousReleaseNamespaceName = fmt.Sprintf("%s%c%s",
 			previousRelease.Namespace, types.Separator, previousRelease.Name)
+	} else {
+		previousRelease, err := a.loader.GetPreviousRelease(a.ctx, a.client, a.release)
+		if err == nil && previousRelease != nil {
+			previousReleaseNamespaceName = fmt.Sprintf("%s%c%s",
+				previousRelease.Namespace, types.Separator, previousRelease.Name)
+		}
 	}
 
 	return utils.NewPipelineRunBuilder(pipelineType.String(), namespace).
@@ -1007,7 +1022,7 @@ func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType metadata.Pipeline
 		WithWorkspaceFromVolumeTemplate(
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_NAME"),
 			os.Getenv("DEFAULT_RELEASE_WORKSPACE_SIZE"),
-		)
+		), nil
 }
 
 // createManagedCollectorsPipelineRun creates a PipelineRun to run the collectors Pipeline for collectors in the ReleasePlanAdmission.
@@ -1021,24 +1036,27 @@ func (a *adapter) createManagedCollectorsPipelineRun(releasePlanAdmission *v1alp
 		revision = v1alpha1.DefaultReleaseCatalogRevision
 	}
 	var pipelineRun *tektonv1.PipelineRun
-	pipelineRun, err = a.getCollectorsPipelineRunBuilder(metadata.ManagedCollectorsPipelineType, releasePlanAdmission.Namespace, url, revision).
-		WithParams(
-			tektonv1.Param{
-				Name: "collectorsResourceType",
-				Value: tektonv1.ParamValue{
-					Type:      tektonv1.ParamTypeString,
-					StringVal: "releaseplanadmission",
-				},
+	builder, err := a.getCollectorsPipelineRunBuilder(metadata.ManagedCollectorsPipelineType, releasePlanAdmission.Namespace, url, revision)
+	if err != nil {
+		return nil, err
+	}
+	pipelineRun, err = builder.WithParams(
+		tektonv1.Param{
+			Name: "collectorsResourceType",
+			Value: tektonv1.ParamValue{
+				Type:      tektonv1.ParamTypeString,
+				StringVal: "releaseplanadmission",
 			},
-			tektonv1.Param{
-				Name: "collectorsResource",
-				Value: tektonv1.ParamValue{
-					Type: tektonv1.ParamTypeString,
-					StringVal: fmt.Sprintf("%s%c%s",
-						releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Name),
-				},
+		},
+		tektonv1.Param{
+			Name: "collectorsResource",
+			Value: tektonv1.ParamValue{
+				Type: tektonv1.ParamTypeString,
+				StringVal: fmt.Sprintf("%s%c%s",
+					releasePlanAdmission.Namespace, types.Separator, releasePlanAdmission.Name),
 			},
-		).
+		},
+	).
 		WithServiceAccount(releasePlanAdmission.Spec.Collectors.ServiceAccountName).
 		Build()
 	if err != nil {
@@ -1071,24 +1089,27 @@ func (a *adapter) createTenantCollectorsPipelineRun(releasePlan *v1alpha1.Releas
 	}
 
 	var pipelineRun *tektonv1.PipelineRun
-	pipelineRun, err = a.getCollectorsPipelineRunBuilder(metadata.TenantCollectorsPipelineType, releasePlan.Namespace, url, revision).
-		WithParams(
-			tektonv1.Param{
-				Name: "collectorsResourceType",
-				Value: tektonv1.ParamValue{
-					Type:      tektonv1.ParamTypeString,
-					StringVal: "releaseplan",
-				},
+	builder, err := a.getCollectorsPipelineRunBuilder(metadata.TenantCollectorsPipelineType, releasePlan.Namespace, url, revision)
+	if err != nil {
+		return nil, err
+	}
+	pipelineRun, err = builder.WithParams(
+		tektonv1.Param{
+			Name: "collectorsResourceType",
+			Value: tektonv1.ParamValue{
+				Type:      tektonv1.ParamTypeString,
+				StringVal: "releaseplan",
 			},
-			tektonv1.Param{
-				Name: "collectorsResource",
-				Value: tektonv1.ParamValue{
-					Type: tektonv1.ParamTypeString,
-					StringVal: fmt.Sprintf("%s%c%s",
-						releasePlan.Namespace, types.Separator, releasePlan.Name),
-				},
+		},
+		tektonv1.Param{
+			Name: "collectorsResource",
+			Value: tektonv1.ParamValue{
+				Type: tektonv1.ParamTypeString,
+				StringVal: fmt.Sprintf("%s%c%s",
+					releasePlan.Namespace, types.Separator, releasePlan.Name),
 			},
-		).
+		},
+	).
 		WithServiceAccount(releasePlan.Spec.Collectors.ServiceAccountName).
 		Build()
 	if err != nil {
