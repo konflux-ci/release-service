@@ -21,6 +21,7 @@ syncer/                # Cross-namespace Snapshot syncing
 tekton/                # PipelineRun builders, status helpers, watch predicates
 metadata/              # Label/annotation/finalizer constants and utilities
 metrics/               # Prometheus gauges, histograms, counters for release lifecycle
+tracing/               # OpenTelemetry distributed tracing for PipelineRuns
 config/                # Kustomize manifests (CRDs, RBAC, webhooks, samples)
 main.go                # Entry point — registers controllers and webhooks
 ```

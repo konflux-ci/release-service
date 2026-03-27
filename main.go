@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"github.com/konflux-ci/operator-toolkit/webhook"
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks"
 	"github.com/konflux-ci/release-service/metadata"
+	"github.com/konflux-ci/release-service/tracing"
 
 	"go.uber.org/zap/zapcore"
 
@@ -108,6 +110,18 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	tracerProvider := tracing.New()
+	tracing.SetupLabelNames()
+	// OTel pushes spans through an exporter; without this Shutdown call, in-flight spans are lost on exit.
+	// Prometheus metrics are scraped externally and need no equivalent flush.
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
+			setupLog.Error(err, "failed to shutdown tracer provider")
+		}
+	}()
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
