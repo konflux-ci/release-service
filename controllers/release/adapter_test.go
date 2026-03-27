@@ -37,6 +37,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/operator-framework/operator-lib/handler"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -3837,6 +3839,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 			}
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
 		})
+
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			newRPA := releasePlanAdmission.DeepCopy()
+			newRPA.Spec.Collectors = &v1alpha1.Collectors{
+				Items: []v1alpha1.CollectorItem{{Name: "foo", Type: "bar", Params: []v1alpha1.Param{}}},
+			}
+			tracedPipelineRun, err := adapter.createManagedCollectorsPipelineRun(newRPA)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			Expect(pipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
+		})
 	})
 
 	When("createTenantCollectorsPipelineRun is called", func() {
@@ -3921,6 +3943,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 				}
 			}
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+		})
+
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			newRP := releasePlan.DeepCopy()
+			newRP.Spec.Collectors = &v1alpha1.Collectors{
+				Items: []v1alpha1.CollectorItem{{Name: "foo", Type: "bar", Params: []v1alpha1.Param{}}},
+			}
+			tracedPipelineRun, err := adapter.createTenantCollectorsPipelineRun(newRP, releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			Expect(pipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
 		})
 	})
 
@@ -4101,6 +4143,22 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(emptyDirPipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
 			Expect(emptyDirPipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
 			Expect(k8sClient.Delete(ctx, emptyDirPipelineRun)).To(Succeed())
+		})
+
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			tracedPipelineRun, err := adapter.createTenantPipelineRun(newReleasePlan, snapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			Expect(pipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
 		})
 	})
 
@@ -4446,6 +4504,25 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
 			})
 		})
+
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			tracedPipelineRun, err := adapter.createManagedPipelineRun(resources)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			plainPipelineRun, err := adapter.createManagedPipelineRun(resources)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plainPipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
+			Expect(k8sClient.Delete(ctx, plainPipelineRun)).To(Succeed())
+		})
 	})
 
 	When("createFinalPipelineRun is called", func() {
@@ -4565,6 +4642,22 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("has owner annotations", func() {
 			Expect(pipelineRun.GetAnnotations()[handler.NamespacedNameAnnotation]).To(ContainSubstring(adapter.release.Name))
 			Expect(pipelineRun.GetAnnotations()[handler.TypeAnnotation]).To(ContainSubstring("Release"))
+		})
+
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			tracedPipelineRun, err := adapter.createFinalPipelineRun(newReleasePlan, snapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			Expect(pipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
 		})
 
 		It("has release labels", func() {
@@ -6580,6 +6673,78 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result, err := adapter.getFailedTaskRunLogs(pipelineRun)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeEmpty())
+		})
+	})
+
+	When("emitTimingSpans is called", func() {
+		var (
+			adapter     *adapter
+			pipelineRun *tektonv1.PipelineRun
+		)
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+			pipelineRun = &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "release-pr-",
+					Namespace:    "default",
+					Labels: map[string]string{
+						metadata.PipelinesTypeLabel: metadata.FinalPipelineType.String(),
+					},
+				},
+				Spec: tektonv1.PipelineRunSpec{
+					PipelineRef: &tektonv1.PipelineRef{Name: "release"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, pipelineRun)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("does nothing when the PipelineRun is nil", func() {
+			adapter.emitTimingSpans(nil)
+		})
+
+		It("does nothing when the PipelineRun already has the timingEmitted annotation", func() {
+			pipelineRun.Annotations = map[string]string{metadata.TimingEmittedAnnotation: "true"}
+			adapter.emitTimingSpans(pipelineRun)
+			Expect(pipelineRun.Annotations[metadata.TimingEmittedAnnotation]).To(Equal("true"))
+		})
+
+		It("does not annotate the PipelineRun when the global tracer provider is the noop", func() {
+			adapter.emitTimingSpans(pipelineRun)
+			Expect(pipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.TimingEmittedAnnotation))
+		})
+
+		It("emits spans and annotates the PipelineRun with timingEmitted when the run has completed", func() {
+			prev := otel.GetTracerProvider()
+			tp := sdktrace.NewTracerProvider()
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
+
+			start := time.Now().Add(-time.Minute)
+			end := time.Now()
+			pipelineRun.Status = tektonv1.PipelineRunStatus{
+				PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+					StartTime:      &metav1.Time{Time: start},
+					CompletionTime: &metav1.Time{Time: end},
+				},
+			}
+			Expect(k8sClient.Status().Update(ctx, pipelineRun)).To(Succeed())
+
+			adapter.emitTimingSpans(pipelineRun)
+
+			Eventually(func(g Gomega) {
+				updated := &tektonv1.PipelineRun{}
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: pipelineRun.Name, Namespace: pipelineRun.Namespace}, updated)).To(Succeed())
+				g.Expect(updated.GetAnnotations()).To(HaveKeyWithValue(metadata.TimingEmittedAnnotation, "true"))
+			}).Should(Succeed())
 		})
 	})
 
