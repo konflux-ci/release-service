@@ -60,6 +60,12 @@ const (
 const (
 	// PipelinesAsCodePrefix contains the prefix applied to labels and annotations copied from Pipelines as Code resources.
 	PipelinesAsCodePrefix = "pac.test.appstudio.openshift.io"
+
+	// SpanContextAnnotation is the annotation key for propagating span context for distributed tracing.
+	SpanContextAnnotation = "tekton.dev/pipelinerunSpanContext"
+
+	// TimingEmittedAnnotation is the annotation key for marking that timing spans have been emitted.
+	TimingEmittedAnnotation = "tekton.dev/timingEmitted"
 )
 
 // Prefixes to be used by Release Pipelines labels

@@ -4000,6 +4000,22 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(pipelineRun.GetAnnotations()[handler.TypeAnnotation]).To(ContainSubstring("Release"))
 		})
 
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			tracedPipelineRun, err := adapter.createFinalPipelineRun(newReleasePlan, snapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			Expect(pipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
+		})
+
 		It("has release labels", func() {
 			Expect(pipelineRun.GetLabels()[metadata.PipelinesTypeLabel]).To(Equal(metadata.FinalPipelineType.String()))
 			Expect(pipelineRun.GetLabels()[metadata.ReleaseNameLabel]).To(Equal(adapter.release.Name))
