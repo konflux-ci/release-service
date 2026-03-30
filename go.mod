@@ -13,11 +13,11 @@ require (
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/operator-framework/operator-lib v0.19.0
-	github.com/tektoncd/pipeline v1.10.2
+	github.com/tektoncd/pipeline v1.11.0
 	k8s.io/api v0.35.3
 	k8s.io/apimachinery v0.35.3
 	k8s.io/client-go v11.0.0+incompatible
-	knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a
+	knative.dev/pkg v0.0.0-20260318013857-98d5a706d4fd
 	sigs.k8s.io/controller-runtime v0.23.3
 )
 
