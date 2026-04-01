@@ -921,7 +921,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	When("MarkManagedPipelineProcessed method is called", func() {
+	When("MarkCurrentManagedPipelineAttemptProcessed mirrors to ManagedProcessing", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -929,30 +929,33 @@ var _ = Describe("Release type", func() {
 		})
 
 		It("should do nothing if the Release managed pipeline processing has not started", func() {
-			release.MarkManagedPipelineProcessed()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
 			Expect(release.Status.ManagedProcessing.CompletionTime).To(BeNil())
 		})
 
 		It("should do nothing if the Release managed pipeline processing finished", func() {
-			release.MarkManagedPipelineProcessing()
-			release.MarkManagedPipelineProcessed()
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
 			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeFalse())
 			release.Status.ManagedProcessing.CompletionTime = &metav1.Time{}
-			release.MarkManagedPipelineProcessed()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
 			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeTrue())
 		})
 
 		It("should register the completion time", func() {
-			release.MarkManagedPipelineProcessing()
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
 			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeTrue())
-			release.MarkManagedPipelineProcessed()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
 			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeFalse())
 		})
 
 		It("should register the condition", func() {
 			Expect(release.Status.Conditions).To(HaveLen(0))
-			release.MarkManagedPipelineProcessing()
-			release.MarkManagedPipelineProcessed()
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
 
 			condition := meta.FindStatusCondition(release.Status.Conditions, managedProcessedConditionType.String())
 			Expect(condition).NotTo(BeNil())
@@ -1134,7 +1137,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	When("MarkManagedPipelineProcessing method is called", func() {
+	When("MarkCurrentManagedPipelineAttemptProcessing mirrors to ManagedProcessing", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -1142,31 +1145,36 @@ var _ = Describe("Release type", func() {
 		})
 
 		It("should do nothing if the Release managed pipeline processing finished", func() {
-			release.MarkManagedPipelineProcessing()
-			release.MarkManagedPipelineProcessed()
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
 			Expect(release.IsManagedPipelineProcessing()).To(BeFalse())
-			release.MarkManagedPipelineProcessing()
+			release.Status.ManagedPipelineAttempts = append(release.Status.ManagedPipelineAttempts, ManagedPipelineAttempt{PipelineRun: "default/pr2"})
+			release.MarkCurrentManagedPipelineAttemptProcessing()
 			Expect(release.IsManagedPipelineProcessing()).To(BeFalse())
 		})
 
 		It("should register the start time if the managed pipeline is not processing", func() {
 			Expect(release.Status.ManagedProcessing.StartTime).To(BeNil())
-			release.MarkManagedPipelineProcessing()
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
 			Expect(release.Status.ManagedProcessing.StartTime).NotTo(BeNil())
 		})
 
 		It("should not register the start time if the managed pipeline is processing already", func() {
 			Expect(release.Status.ManagedProcessing.StartTime).To(BeNil())
-			release.MarkManagedPipelineProcessing()
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
 			release.Status.ManagedProcessing.StartTime = &metav1.Time{}
 			Expect(release.Status.ManagedProcessing.StartTime.IsZero()).To(BeTrue())
-			release.MarkManagedPipelineProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessing()
 			Expect(release.Status.ManagedProcessing.StartTime.IsZero()).To(BeTrue())
 		})
 
 		It("should register the condition", func() {
 			Expect(release.Status.Conditions).To(HaveLen(0))
-			release.MarkManagedPipelineProcessing()
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
 
 			condition := meta.FindStatusCondition(release.Status.Conditions, managedProcessedConditionType.String())
 			Expect(condition).NotTo(BeNil())
@@ -1350,7 +1358,7 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
-	When("MarkManagedPipelineProcessingFailed method is called", func() {
+	When("MarkCurrentManagedPipelineAttemptFailed mirrors to ManagedProcessing", func() {
 		var release *Release
 
 		BeforeEach(func() {
@@ -1358,30 +1366,35 @@ var _ = Describe("Release type", func() {
 		})
 
 		It("should do nothing if the Release managed pipeline processing has not started", func() {
-			release.MarkManagedPipelineProcessingFailed("")
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptFailed("", AttemptFailureErrorReason, "", "", 0)
 			Expect(release.Status.ManagedProcessing.CompletionTime).To(BeNil())
 		})
 
 		It("should do nothing if the Release managed pipeline processing finished", func() {
-			release.MarkManagedPipelineProcessing()
-			release.MarkManagedPipelineProcessed()
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
 			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeFalse())
 			release.Status.ManagedProcessing.CompletionTime = &metav1.Time{}
-			release.MarkManagedPipelineProcessingFailed("")
+			release.Status.ManagedPipelineAttempts = append(release.Status.ManagedPipelineAttempts, ManagedPipelineAttempt{PipelineRun: "default/pr2"})
+			release.MarkCurrentManagedPipelineAttemptFailed("", AttemptFailureErrorReason, "", "", 0)
 			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeTrue())
 		})
 
 		It("should register the completion time", func() {
-			release.MarkManagedPipelineProcessing()
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
 			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeTrue())
-			release.MarkManagedPipelineProcessingFailed("")
+			release.MarkCurrentManagedPipelineAttemptFailed("", AttemptFailureErrorReason, "", "", 0)
 			Expect(release.Status.ManagedProcessing.CompletionTime.IsZero()).To(BeFalse())
 		})
 
 		It("should register the condition", func() {
 			Expect(release.Status.Conditions).To(HaveLen(0))
-			release.MarkManagedPipelineProcessing()
-			release.MarkManagedPipelineProcessingFailed("foo")
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptFailed("foo", AttemptFailureErrorReason, "", "", 0)
 
 			condition := meta.FindStatusCondition(release.Status.Conditions, managedProcessedConditionType.String())
 			Expect(condition).NotTo(BeNil())
@@ -1555,8 +1568,9 @@ var _ = Describe("Release type", func() {
 		})
 
 		It("should do nothing if the Release managed pipeline processing finished already", func() {
-			release.MarkManagedPipelineProcessing()
-			release.MarkManagedPipelineProcessingFailed("error")
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptFailed("error", AttemptFailureErrorReason, "", "", 0)
 			release.MarkManagedPipelineProcessingSkipped()
 
 			condition := meta.FindStatusCondition(release.Status.Conditions, managedProcessedConditionType.String())
@@ -1968,6 +1982,156 @@ var _ = Describe("Release type", func() {
 
 			release.SetExpirationTime(expireDays)
 			Expect(release.Status.ExpirationTime).To(Equal(expectedExpirationTime))
+		})
+	})
+
+	When("GetCurrentManagedPipelineAttempt is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return nil when no attempts exist", func() {
+			Expect(release.GetCurrentManagedPipelineAttempt()).To(BeNil())
+		})
+
+		It("should return the last attempt", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{
+				{PipelineRun: "default/first"},
+				{PipelineRun: "default/second"},
+			}
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt).NotTo(BeNil())
+			Expect(attempt.PipelineRun).To(Equal("default/second"))
+		})
+	})
+
+	When("MarkCurrentManagedPipelineAttemptProcessing is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing when no attempts exist", func() {
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			Expect(release.Status.ManagedPipelineAttempts).To(BeEmpty())
+		})
+
+		It("should set status and start time on the current attempt", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{
+				{PipelineRun: "default/run-1"},
+			}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptProgressingReason))
+			Expect(attempt.StartTime).NotTo(BeNil())
+		})
+
+		It("should not modify a finished attempt", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/run-1"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptSucceededReason))
+		})
+	})
+
+	When("MarkCurrentManagedPipelineAttemptProcessed is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing when not processing", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{
+				{PipelineRun: "default/run-1"},
+			}
+			release.MarkCurrentManagedPipelineAttemptProcessed()
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(BeEmpty())
+		})
+
+		It("should mark the current attempt as succeeded", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/run-1"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptSucceededReason))
+			Expect(attempt.CompletionTime).NotTo(BeNil())
+		})
+
+		It("should not modify a finished attempt", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/run-1"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptFailed("err", AttemptFailureErrorReason, "", "", 0)
+			release.MarkCurrentManagedPipelineAttemptProcessed()
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptFailedReason))
+		})
+	})
+
+	When("MarkCurrentManagedPipelineAttemptFailed is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing when not processing", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{
+				{PipelineRun: "default/run-1"},
+			}
+			release.MarkCurrentManagedPipelineAttemptFailed("test failed", AttemptFailureErrorReason, "test", "run-tests", 0)
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(BeEmpty())
+		})
+
+		It("should mark the current attempt as failed with Error reason", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/run-1"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptFailed("push-artifacts failed", AttemptFailureErrorReason, "publish-data", "push-artifacts", 1)
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptFailedReason))
+			Expect(attempt.CompletionTime).NotTo(BeNil())
+			Expect(attempt.FailureReason).To(Equal(AttemptFailureErrorReason))
+			Expect(attempt.LastTask).To(Equal("publish-data"))
+			Expect(attempt.LastStep).To(Equal("push-artifacts"))
+		})
+
+		It("should mark the current attempt as failed with Timeout reason", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/run-1"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptFailed("timed out", AttemptFailureTimeoutReason, "publish-data", "", 1)
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptFailedReason))
+			Expect(attempt.FailureReason).To(Equal(AttemptFailureTimeoutReason))
+			Expect(attempt.LastTask).To(Equal("publish-data"))
+			Expect(attempt.SuccessfulTasks).To(Equal(1))
+		})
+
+		It("should mark the current attempt as failed with OOMKill reason", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/run-1"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptFailed("OOM killed", AttemptFailureOOMKillReason, "update-status", "update-cr-status", 2)
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptFailedReason))
+			Expect(attempt.FailureReason).To(Equal(AttemptFailureOOMKillReason))
+			Expect(attempt.LastTask).To(Equal("update-status"))
+			Expect(attempt.LastStep).To(Equal("update-cr-status"))
+			Expect(attempt.SuccessfulTasks).To(Equal(2))
+		})
+
+		It("should not modify a finished attempt", func() {
+			release.Status.ManagedPipelineAttempts = []ManagedPipelineAttempt{{PipelineRun: "default/run-1"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
+			release.MarkCurrentManagedPipelineAttemptFailed("error", AttemptFailureErrorReason, "task", "step", 0)
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptSucceededReason))
 		})
 	})
 })
