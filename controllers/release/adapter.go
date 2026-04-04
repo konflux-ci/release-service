@@ -1574,14 +1574,26 @@ func (a *adapter) registerManagedProcessingData(releasePipelineRun *tektonv1.Pip
 
 	patch := client.MergeFrom(a.release.DeepCopy())
 
-	a.release.Status.ManagedProcessing.PipelineRun = fmt.Sprintf("%s%c%s",
+	pipelineRunName := fmt.Sprintf("%s%c%s",
 		releasePipelineRun.Namespace, types.Separator, releasePipelineRun.Name)
+
+	var tenantRoleBindingName string
 	if tenantRoleBinding != nil {
-		a.release.Status.ManagedProcessing.RoleBindings.TenantRoleBinding = fmt.Sprintf("%s%c%s",
+		tenantRoleBindingName = fmt.Sprintf("%s%c%s",
 			tenantRoleBinding.Namespace, types.Separator, tenantRoleBinding.Name)
 	}
 
-	a.release.MarkManagedPipelineProcessing()
+	// Deprecated: populate ManagedProcessing for backward compatibility
+	a.release.Status.ManagedProcessing.PipelineRun = pipelineRunName
+	a.release.Status.ManagedProcessing.RoleBindings.TenantRoleBinding = tenantRoleBindingName
+
+	a.release.Status.ManagedPipelineAttempts = append(a.release.Status.ManagedPipelineAttempts, v1alpha1.ManagedPipelineAttempt{
+		PipelineRun: pipelineRunName,
+		RoleBindings: v1alpha1.RoleBindingType{
+			TenantRoleBinding: tenantRoleBindingName,
+		},
+	})
+	a.release.MarkCurrentManagedPipelineAttemptProcessing()
 
 	return a.client.Status().Patch(a.ctx, a.release, patch)
 }
@@ -1700,14 +1712,19 @@ func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.Pipeline
 
 	condition := pipelineRun.Status.GetCondition(apis.ConditionSucceeded)
 	if condition.IsTrue() {
-		a.release.MarkManagedPipelineProcessed()
+		a.release.MarkCurrentManagedPipelineAttemptProcessed()
 	} else {
+		taskRuns, listErr := a.listTaskRunsForPipelineRun(pipelineRun)
+		if listErr != nil {
+			a.logger.Error(listErr, "failed to list TaskRuns for managed pipeline")
+		}
+
 		var message string
 		if pipelineRun.GetDeletionTimestamp() != nil && condition.IsUnknown() {
 			message = "PipelineRun was deleted while still running"
 		} else {
 			var err error
-			message, err = a.getFailedTaskRunLogs(pipelineRun)
+			message, err = a.getFailedTaskRunLogsFromList(pipelineRun, taskRuns)
 			if err != nil {
 				a.logger.Error(err, "failed to get TaskRun logs for managed pipeline")
 			}
@@ -1715,7 +1732,20 @@ func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.Pipeline
 				message = condition.Message
 			}
 		}
-		a.release.MarkManagedPipelineProcessingFailed(message)
+
+		failureInfo := tekton.GetPipelineRunFailureInfo(pipelineRun, taskRuns)
+
+		var failureReason string
+		switch {
+		case failureInfo.IsOOMKill:
+			failureReason = v1alpha1.AttemptFailureOOMKillReason
+		case failureInfo.IsTimeout:
+			failureReason = v1alpha1.AttemptFailureTimeoutReason
+		default:
+			failureReason = v1alpha1.AttemptFailureErrorReason
+		}
+
+		a.release.MarkCurrentManagedPipelineAttemptFailed(message, failureReason, failureInfo.TaskName, failureInfo.StepName, failureInfo.SuccessfulTasks)
 		a.release.MarkReleaseFailed("Release processing failed on managed pipelineRun")
 	}
 
@@ -1927,12 +1957,10 @@ func (a *adapter) validationError(err error) *controller.ValidationResult {
 // This limit is enforced by the API server validation (MaxLength=32768).
 const maxConditionMessageLength = 31000
 
-// getFailedTaskRunLogs returns the logs from the first failed TaskRun in the PipelineRun.
-// If no failed TaskRun is found, it returns an empty string and nil error.
-// If logs cannot be retrieved, an error is returned along with the condition message as fallback.
-func (a *adapter) getFailedTaskRunLogs(pipelineRun *tektonv1.PipelineRun) (string, error) {
+// listTaskRunsForPipelineRun returns the TaskRuns associated with the given PipelineRun.
+func (a *adapter) listTaskRunsForPipelineRun(pipelineRun *tektonv1.PipelineRun) ([]tektonv1.TaskRun, error) {
 	if pipelineRun == nil {
-		return "", nil
+		return []tektonv1.TaskRun{}, nil
 	}
 
 	taskRunList := &tektonv1.TaskRunList{}
@@ -1943,13 +1971,35 @@ func (a *adapter) getFailedTaskRunLogs(pipelineRun *tektonv1.PipelineRun) (strin
 		},
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to list TaskRuns: %w", err)
+		return nil, fmt.Errorf("failed to list TaskRuns: %w", err)
 	}
 
-	// Build a map for quick lookup by name
-	taskRunMap := make(map[string]*tektonv1.TaskRun, len(taskRunList.Items))
-	for i := range taskRunList.Items {
-		taskRunMap[taskRunList.Items[i].Name] = &taskRunList.Items[i]
+	return taskRunList.Items, nil
+}
+
+// getFailedTaskRunLogs returns the logs from the first failed TaskRun in the PipelineRun.
+// If no failed TaskRun is found, it returns an empty string and nil error.
+// If logs cannot be retrieved, an error is returned along with the condition message as fallback.
+func (a *adapter) getFailedTaskRunLogs(pipelineRun *tektonv1.PipelineRun) (string, error) {
+	taskRuns, err := a.listTaskRunsForPipelineRun(pipelineRun)
+	if err != nil {
+		return "", err
+	}
+
+	return a.getFailedTaskRunLogsFromList(pipelineRun, taskRuns)
+}
+
+// getFailedTaskRunLogsFromList returns the logs from the first failed TaskRun in the PipelineRun
+// using a pre-fetched list of TaskRuns.
+func (a *adapter) getFailedTaskRunLogsFromList(pipelineRun *tektonv1.PipelineRun, taskRuns []tektonv1.TaskRun) (string, error) {
+	if pipelineRun == nil {
+		return "", nil
+	}
+
+	// Build a map for look up by name
+	taskRunMap := make(map[string]*tektonv1.TaskRun, len(taskRuns))
+	for i := range taskRuns {
+		taskRunMap[taskRuns[i].Name] = &taskRuns[i]
 	}
 
 	// Iterate in the same order as ChildReferences to maintain consistent behavior

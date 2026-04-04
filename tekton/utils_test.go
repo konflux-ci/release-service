@@ -21,7 +21,11 @@ import (
 	"github.com/konflux-ci/release-service/tekton/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var _ = Describe("Utils", Ordered, func() {
@@ -247,6 +251,211 @@ var _ = Describe("Utils", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(hasFinalizersChanged(oldPipelineRun, newPipelineRun)).To(BeFalse())
+		})
+	})
+
+	When("GetPipelineRunFailureInfo is called", func() {
+		It("should return empty info when PipelineRun is nil", func() {
+			info := GetPipelineRunFailureInfo(nil, nil)
+			Expect(info).NotTo(BeNil())
+			Expect(info.TaskName).To(BeEmpty())
+			Expect(info.IsOOMKill).To(BeFalse())
+			Expect(info.IsTimeout).To(BeFalse())
+		})
+
+		It("should return empty info when taskRuns is nil", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			pipelineRun.Status.MarkFailed("Failed", "something broke")
+			info := GetPipelineRunFailureInfo(pipelineRun, nil)
+			Expect(info).NotTo(BeNil())
+			Expect(info.TaskName).To(BeEmpty())
+			Expect(info.IsOOMKill).To(BeFalse())
+		})
+
+		It("should detect OOMKill from step termination reason", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{Name: "task-run-1", PipelineTaskName: "update-status"},
+						},
+					},
+				},
+			}
+			pipelineRun.Status.MarkFailed("Failed", "update-status failed")
+
+			taskRuns := []tektonv1.TaskRun{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "task-run-1"},
+					Status: tektonv1.TaskRunStatus{
+						Status: duckv1.Status{
+							Conditions: duckv1.Conditions{
+								{Type: apis.ConditionSucceeded, Status: corev1.ConditionFalse, Reason: "Failed"},
+							},
+						},
+						TaskRunStatusFields: tektonv1.TaskRunStatusFields{
+							Steps: []tektonv1.StepState{
+								{
+									Name: "update-cr-status",
+									ContainerState: corev1.ContainerState{
+										Terminated: &corev1.ContainerStateTerminated{
+											ExitCode: 137,
+											Reason:   "OOMKilled",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			info := GetPipelineRunFailureInfo(pipelineRun, taskRuns)
+			Expect(info.IsOOMKill).To(BeTrue())
+			Expect(info.IsTimeout).To(BeFalse())
+			Expect(info.TaskName).To(Equal("update-status"))
+			Expect(info.StepName).To(Equal("update-cr-status"))
+		})
+
+		It("should detect pipeline-level timeout", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{Name: "task-run-1", PipelineTaskName: "collect-data"},
+							{Name: "task-run-2", PipelineTaskName: "publish-data"},
+						},
+					},
+				},
+			}
+			pipelineRun.Status.MarkFailed(tektonv1.PipelineRunReasonTimedOut.String(), "timed out")
+
+			taskRuns := []tektonv1.TaskRun{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "task-run-1"},
+					Status: tektonv1.TaskRunStatus{
+						Status: duckv1.Status{
+							Conditions: duckv1.Conditions{
+								{Type: apis.ConditionSucceeded, Status: corev1.ConditionTrue},
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "task-run-2"},
+					Status: tektonv1.TaskRunStatus{
+						Status: duckv1.Status{
+							Conditions: duckv1.Conditions{
+								{Type: apis.ConditionSucceeded, Status: corev1.ConditionFalse, Reason: "Failed"},
+							},
+						},
+					},
+				},
+			}
+
+			info := GetPipelineRunFailureInfo(pipelineRun, taskRuns)
+			Expect(info.IsTimeout).To(BeTrue())
+			Expect(info.IsOOMKill).To(BeFalse())
+			Expect(info.TaskName).To(Equal("publish-data"))
+			Expect(info.SuccessfulTasks).To(Equal(1))
+		})
+
+		It("should detect task-level timeout", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{Name: "task-run-1", PipelineTaskName: "publish-data"},
+						},
+					},
+				},
+			}
+			pipelineRun.Status.MarkFailed("Failed", "task timed out")
+
+			taskRuns := []tektonv1.TaskRun{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "task-run-1"},
+					Status: tektonv1.TaskRunStatus{
+						Status: duckv1.Status{
+							Conditions: duckv1.Conditions{
+								{Type: apis.ConditionSucceeded, Status: corev1.ConditionFalse, Reason: string(tektonv1.TaskRunReasonTimedOut)},
+							},
+						},
+					},
+				},
+			}
+
+			info := GetPipelineRunFailureInfo(pipelineRun, taskRuns)
+			Expect(info.IsTimeout).To(BeTrue())
+			Expect(info.TaskName).To(Equal("publish-data"))
+		})
+
+		It("should detect generic error and count successful tasks", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				Status: tektonv1.PipelineRunStatus{
+					PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+						ChildReferences: []tektonv1.ChildStatusReference{
+							{Name: "task-run-1", PipelineTaskName: "collect-data"},
+							{Name: "task-run-2", PipelineTaskName: "publish-data"},
+							{Name: "task-run-3", PipelineTaskName: "update-status"},
+						},
+					},
+				},
+			}
+			pipelineRun.Status.MarkFailed("Failed", "deploy failed")
+
+			taskRuns := []tektonv1.TaskRun{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "task-run-1"},
+					Status: tektonv1.TaskRunStatus{
+						Status: duckv1.Status{
+							Conditions: duckv1.Conditions{
+								{Type: apis.ConditionSucceeded, Status: corev1.ConditionTrue},
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "task-run-2"},
+					Status: tektonv1.TaskRunStatus{
+						Status: duckv1.Status{
+							Conditions: duckv1.Conditions{
+								{Type: apis.ConditionSucceeded, Status: corev1.ConditionTrue},
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "task-run-3"},
+					Status: tektonv1.TaskRunStatus{
+						Status: duckv1.Status{
+							Conditions: duckv1.Conditions{
+								{Type: apis.ConditionSucceeded, Status: corev1.ConditionFalse, Reason: "Failed"},
+							},
+						},
+						TaskRunStatusFields: tektonv1.TaskRunStatusFields{
+							Steps: []tektonv1.StepState{
+								{
+									Name: "update-cr-status",
+									ContainerState: corev1.ContainerState{
+										Terminated: &corev1.ContainerStateTerminated{
+											ExitCode: 1,
+											Reason:   "Error",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			info := GetPipelineRunFailureInfo(pipelineRun, taskRuns)
+			Expect(info.IsOOMKill).To(BeFalse())
+			Expect(info.IsTimeout).To(BeFalse())
+			Expect(info.TaskName).To(Equal("update-status"))
+			Expect(info.StepName).To(Equal("update-cr-status"))
+			Expect(info.SuccessfulTasks).To(Equal(2))
 		})
 	})
 })

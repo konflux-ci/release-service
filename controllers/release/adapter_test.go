@@ -380,7 +380,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should do nothing if the Release managed pipeline processing has not yet completed", func() {
-			adapter.release.MarkManagedPipelineProcessing()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
 
 			result, err := adapter.EnsureFinalPipelineIsProcessed()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
@@ -863,8 +864,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should do nothing if the Release managed pipeline is already complete", func() {
-			adapter.release.MarkManagedPipelineProcessing()
-			adapter.release.MarkManagedPipelineProcessed()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessed()
 			adapter.release.MarkTenantPipelineProcessingSkipped()
 
 			result, err := adapter.EnsureManagedPipelineIsProcessed()
@@ -983,7 +985,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Resource:   roleBinding,
 				},
 			})
-			adapter.release.MarkManagedPipelineProcessing()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
 			adapter.release.MarkTenantPipelineProcessingSkipped()
 
 			result, err := adapter.EnsureManagedPipelineIsProcessed()
@@ -1820,8 +1823,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should continue if the Release managed pipeline processing has finished", func() {
-			adapter.release.MarkManagedPipelineProcessing()
-			adapter.release.MarkManagedPipelineProcessed()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessed()
 
 			result, err := adapter.EnsureManagedPipelineProcessingIsTracked()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
@@ -1829,7 +1833,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should track the status if the PipelineRun exists", func() {
-			adapter.release.MarkManagedPipelineProcessing()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{
+				{PipelineRun: "default/pipeline-run", Status: v1alpha1.AttemptProgressingReason},
+			}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
 
 			pipelineRun := &tektonv1.PipelineRun{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1855,7 +1862,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should continue if the PipelineRun doesn't exist", func() {
-			adapter.release.MarkManagedPipelineProcessing()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
 
 			result, err := adapter.EnsureManagedPipelineProcessingIsTracked()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
@@ -2596,8 +2604,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.release.MarkTenantPipelineProcessed()
 			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
 
-			adapter.release.MarkManagedPipelineProcessing()
-			adapter.release.MarkManagedPipelineProcessed()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessed()
 			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
 
 			adapter.release.MarkFinalPipelineProcessing()
@@ -2633,8 +2642,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			adapter.release.MarkTenantPipelineProcessing()
 			adapter.release.MarkTenantPipelineProcessed()
-			adapter.release.MarkManagedPipelineProcessing()
-			adapter.release.MarkManagedPipelineProcessed()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessed()
 			adapter.release.MarkFinalPipelineProcessing()
 			adapter.release.MarkFinalPipelineProcessed()
 
@@ -4825,7 +4835,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("sets the Release as Managed Processed if the PipelineRun succeeded", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkSucceeded("", "")
-			adapter.release.MarkManagedPipelineProcessing()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
 
 			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.IsManagedPipelineProcessedSuccessfully()).To(BeTrue())
@@ -4834,7 +4845,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("sets the Release as Managed Processing failed if the PipelineRun didn't succeed", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkFailed("", "")
-			adapter.release.MarkManagedPipelineProcessing()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
 
 			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
@@ -4846,7 +4858,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 			pipelineRun.Status.MarkRunning("Test", "Running")
 			now := metav1.Now()
 			pipelineRun.DeletionTimestamp = &now
-			adapter.release.MarkManagedPipelineProcessing()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.ManagedPipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
 
 			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
