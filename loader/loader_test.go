@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"context"
 	stderrors "errors"
 	"fmt"
 	"os"
@@ -21,6 +22,7 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -749,6 +751,54 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Snapshot{}))
 			Expect(returnedObject.Name).To(Equal(snapshot.Name))
 		})
+
+		It("does not call KubeArchive when the snapshot exists in the cluster", func() {
+			called := false
+			kaLoader := newLoader(&fakeKAClient{
+				getFunc: func(_ context.Context, _ client.Client, _ schema.GroupVersionResource, _, _ string, _ client.Object) error {
+					called = true
+					return fmt.Errorf("should not be called")
+				},
+			})
+			returnedObject, err := kaLoader.GetSnapshot(ctx, k8sClient, release)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject.Name).To(Equal(snapshot.Name))
+			Expect(called).To(BeFalse())
+		})
+
+		It("falls back to KubeArchive when the snapshot is not found in the cluster", func() {
+			missingRelease := release.DeepCopy()
+			missingRelease.Spec.Snapshot = "archived-snapshot"
+
+			kaLoader := newLoader(&fakeKAClient{
+				getFunc: func(_ context.Context, _ client.Client, _ schema.GroupVersionResource, _, _ string, obj client.Object) error {
+					snap := obj.(*applicationapiv1alpha1.Snapshot)
+					snap.Name = "archived-snapshot"
+					snap.Namespace = "default"
+					snap.Spec.Application = "recovered-app"
+					return nil
+				},
+			})
+			returnedObject, err := kaLoader.GetSnapshot(ctx, k8sClient, missingRelease)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject.Name).To(Equal("archived-snapshot"))
+			Expect(returnedObject.Spec.Application).To(Equal("recovered-app"))
+		})
+
+		It("returns the cluster error when KubeArchive also fails", func() {
+			missingRelease := release.DeepCopy()
+			missingRelease.Spec.Snapshot = "gone-snapshot"
+
+			kaLoader := newLoader(&fakeKAClient{
+				getFunc: func(_ context.Context, _ client.Client, _ schema.GroupVersionResource, _, _ string, _ client.Object) error {
+					return fmt.Errorf("kubearchive unavailable")
+				},
+			})
+			_, err := kaLoader.GetSnapshot(ctx, k8sClient, missingRelease)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err.Error()).NotTo(ContainSubstring("kubearchive unavailable"))
+		})
 	})
 
 	// Composite functions
@@ -984,3 +1034,13 @@ var _ = Describe("Release Adapter", Ordered, func() {
 	}
 
 })
+
+type fakeKAClient struct {
+	getFunc func(ctx context.Context, cli client.Client, gvr schema.GroupVersionResource,
+		namespace, name string, obj client.Object) error
+}
+
+func (f *fakeKAClient) Get(ctx context.Context, cli client.Client, gvr schema.GroupVersionResource,
+	namespace, name string, obj client.Object) error {
+	return f.getFunc(ctx, cli, gvr, namespace, name, obj)
+}
