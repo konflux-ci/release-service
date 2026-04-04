@@ -3699,9 +3699,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			bundle := enterpriseContractConfigMap.Data["verify_ec_task_bundle"]
-			revision := enterpriseContractConfigMap.Data["verify_ec_task_git_revision"]
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(bundle)))))
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(revision)))))
 		})
 
 		It("passes ociStorage param from ReleasePlanAdmission to PipelineRun", func() {
@@ -6050,8 +6048,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Namespace: "default",
 			},
 			Data: map[string]string{
-				"verify_ec_task_bundle":       "test-bundle",
-				"verify_ec_task_git_revision": "main",
+				"verify_ec_task_bundle": "test-bundle",
 			},
 		}
 		Expect(k8sClient.Create(ctx, enterpriseContractConfigMap)).Should(Succeed())
