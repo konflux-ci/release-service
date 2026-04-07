@@ -32,12 +32,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	sigsctrl "sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
 // Controller reconciles a ReleasePlanAdmission object
 type Controller struct {
-	client client.Client
-	log    logr.Logger
+	client                  client.Client
+	log                     logr.Logger
+	MaxConcurrentReconciles int
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=releaseplans,verbs=get;list;watch
@@ -71,6 +73,7 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 	c.client = mgr.GetClient()
 
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(sigsctrl.Options{MaxConcurrentReconciles: c.MaxConcurrentReconciles}).
 		For(&v1alpha1.ReleasePlanAdmission{}, builder.WithPredicates(predicates.MatchPredicate())).
 		Watches(&v1alpha1.ReleasePlan{}, &handlers.EnqueueRequestForMatchedResource[client.Object]{},
 			builder.WithPredicates(predicates.MatchPredicate())).

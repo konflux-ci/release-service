@@ -55,8 +55,9 @@ var _ = Describe("ReleasePlanAdmission Controller", Ordered, func() {
 	When("Register is called", func() {
 		It("should setup the controller successfully", func() {
 			controller := &Controller{
-				client: k8sClient,
-				log:    ctrl.Log,
+				client:                  k8sClient,
+				log:                     ctrl.Log,
+				MaxConcurrentReconciles: 10,
 			}
 
 			mgr, _ := ctrl.NewManager(cfg, ctrl.Options{

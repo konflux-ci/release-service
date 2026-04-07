@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"strconv"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -155,7 +156,7 @@ func main() {
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
 				// we want to cache PipelineRuns only created by this operator.
-				&tektonv1.PipelineRun{}: cache.ByObject{
+				&tektonv1.PipelineRun{}: {
 					Label: labels.SelectorFromSet(labels.Set{metadata.ServiceNameLabel: metadata.ServiceName}),
 				},
 				// also cache other watched objects, but no filter is required.
@@ -210,7 +211,19 @@ func main() {
 		}
 	}
 
-	setUpControllers(mgr)
+	// Set max concurrent reconciles for the controllers
+	// default is 1 if MAX_CONCURRENT_RECONCILES is undefined
+	maxConcurrentReconciles := 1
+	if val := os.Getenv("MAX_CONCURRENT_RECONCILES"); val != "" {
+		n, err := strconv.Atoi(val)
+		if err != nil || n < 1 {
+			setupLog.Error(err, "invalid MAX_CONCURRENT_RECONCILES value, using default", "value", val, "default", maxConcurrentReconciles)
+		} else {
+			maxConcurrentReconciles = n
+		}
+	}
+
+	setUpControllers(mgr, maxConcurrentReconciles)
 	setUpWebhooks(mgr)
 
 	err = os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "enterprise-contract-service/ec-defaults")
@@ -238,8 +251,8 @@ func main() {
 }
 
 // setUpControllers sets up controllers.
-func setUpControllers(mgr ctrl.Manager) {
-	err := controller.SetupControllers(mgr, nil, controllers.EnabledControllers...)
+func setUpControllers(mgr ctrl.Manager, maxConcurrentReconciles int) {
+	err := controller.SetupControllers(mgr, nil, controllers.EnabledControllers(maxConcurrentReconciles)...)
 	if err != nil {
 		setupLog.Error(err, "unable to setup controllers")
 		os.Exit(1)

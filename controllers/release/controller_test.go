@@ -31,7 +31,6 @@ import (
 )
 
 var _ = Describe("Release Controller", Ordered, func() {
-
 	// For the Reconcile function test we don't want to make a successful call as it will call every single operation
 	// defined there. We don't have any control over the operations being executed, and we want to keep a clean env for
 	// the adapter tests.
@@ -73,11 +72,11 @@ var _ = Describe("Release Controller", Ordered, func() {
 	})
 
 	When("Register is called", func() {
-
 		It("should setup the controller successfully", func() {
 			controller := &Controller{
-				client: k8sClient,
-				log:    ctrl.Log,
+				client:                  k8sClient,
+				log:                     ctrl.Log,
+				MaxConcurrentReconciles: 10,
 			}
 
 			mgr, _ := ctrl.NewManager(cfg, ctrl.Options{
@@ -90,5 +89,4 @@ var _ = Describe("Release Controller", Ordered, func() {
 			Expect(controller.Register(mgr, &ctrl.Log, nil)).To(Succeed())
 		})
 	})
-
 })

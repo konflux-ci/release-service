@@ -23,9 +23,11 @@ import (
 	"github.com/konflux-ci/release-service/controllers/releaseplanadmission"
 )
 
-// EnabledControllers is a slice containing references to all the controllers that have to be registered
-var EnabledControllers = []controller.Controller{
-	&release.Controller{},
-	&releaseplan.Controller{},
-	&releaseplanadmission.Controller{},
+// EnabledControllers returns a slice containing references to all the controllers that have to be registered
+func EnabledControllers(maxConcurrentReconciles int) []controller.Controller {
+	return []controller.Controller{
+		&release.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
+		&releaseplan.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
+		&releaseplanadmission.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
+	}
 }

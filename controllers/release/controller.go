@@ -35,13 +35,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	sigsctrl "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // Controller reconciles a Release object
 type Controller struct {
-	client client.Client
-	log    logr.Logger
+	client                  client.Client
+	log                     logr.Logger
+	MaxConcurrentReconciles int
 }
 
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=releases,verbs=get;list;watch;create;update;patch;delete
@@ -109,6 +111,7 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Release{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}, predicates.IgnoreBackups{})).
+		WithOptions(sigsctrl.Options{MaxConcurrentReconciles: c.MaxConcurrentReconciles}).
 		Watches(&tektonv1.PipelineRun{}, &libhandler.EnqueueRequestForAnnotation[client.Object]{
 			Type: schema.GroupKind{
 				Kind:  "Release",
