@@ -16,6 +16,7 @@ var (
 	LabelReleasePlanAdm   = ginkgo.Label("release-service", "release_plan_and_admission")
 	LabelNegative         = ginkgo.Label("release-service", "release-neg", "negMissingReleasePlan")
 	LabelNegBlockReleases = ginkgo.Label("release-service", "release-neg", "negBlockReleases")
+	LabelFinal            = ginkgo.Label("release-service", "final")
 )
 
 // ManagednamespaceSecret contains the secrets required for the managed namespace.

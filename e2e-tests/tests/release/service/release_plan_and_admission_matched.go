@@ -37,7 +37,7 @@ var _ = ginkgo.Describe("ReleasePlan and ReleasePlanAdmission match", releasecom
 		_, err = fw.AsKubeAdmin.CommonController.CreateTestNamespace(managedNamespace)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create managed namespace %s", managedNamespace)
 
-		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(constants.SourceReleasePlanName, devNamespace, constants.ApplicationNameDefault, managedNamespace, "true", nil, nil, nil)
+		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(constants.SourceReleasePlanName, devNamespace, constants.ApplicationNameDefault, managedNamespace, "true", nil, nil, nil, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlan %s", constants.SourceReleasePlanName)
 	})
 
@@ -120,7 +120,7 @@ var _ = ginkgo.Describe("ReleasePlan and ReleasePlanAdmission match", releasecom
 		})
 
 		ginkgo.It("Creates a manual release ReleasePlan CR in devNamespace", func() {
-			_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(constants.SecondReleasePlanName, devNamespace, constants.ApplicationNameDefault, managedNamespace, "false", nil, nil, nil)
+			_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(constants.SecondReleasePlanName, devNamespace, constants.ApplicationNameDefault, managedNamespace, "false", nil, nil, nil, nil)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create second ReleasePlan %s", constants.SecondReleasePlanName)
 		})
 

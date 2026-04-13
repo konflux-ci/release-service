@@ -92,7 +92,7 @@ var _ = ginkgo.Describe("Release service happy path", releasecommon.LabelHappyPa
 		_, err = fw.AsKubeAdmin.KonfluxApiController.CreateApplication(constants.ApplicationNameDefault, devNamespace)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create Application %s: %v", constants.ApplicationNameDefault, err)
 
-		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(constants.SourceReleasePlanName, devNamespace, constants.ApplicationNameDefault, managedNamespace, "", nil, nil, nil)
+		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(constants.SourceReleasePlanName, devNamespace, constants.ApplicationNameDefault, managedNamespace, "", nil, nil, nil, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlan %s: %v", constants.SourceReleasePlanName, err)
 
 		data, err := json.Marshal(map[string]interface{}{

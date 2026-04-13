@@ -54,7 +54,7 @@ var _ = ginkgo.Describe("Release CR fails when block-releases true in ReleasePla
 		err = fw.AsKubeAdmin.CommonController.KubeRest().Create(context.Background(), snapshot)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create Snapshot %s", snapshotName)
 
-		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(constants.SourceReleasePlanName, devNamespace, constants.ApplicationNameDefault, managedNamespace, "", nil, nil, nil)
+		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(constants.SourceReleasePlanName, devNamespace, constants.ApplicationNameDefault, managedNamespace, "", nil, nil, nil, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlan %s", constants.SourceReleasePlanName)
 
 		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlanAdmission(destinationReleasePlanAdmissionName, managedNamespace, "", devNamespace, constants.ReleaseStrategyPolicy, constants.ReleasePipelineServiceAccountDefault, []string{constants.ApplicationName}, true, &tektonutils.PipelineRef{

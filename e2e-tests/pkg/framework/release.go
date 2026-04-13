@@ -58,10 +58,19 @@ func (r *ReleaseController) GetRelease(name, namespace string) (*releaseApi.Rele
 	return r.loader.GetRelease(context.Background(), r.kubeClient, name, namespace)
 }
 
-// GetFirstReleaseInNamespace gets the first Release in a namespace.
-func (r *ReleaseController) GetFirstReleaseInNamespace(namespace string) (*releaseApi.Release, error) {
+// GetReleasesInNamespace gets the list of Releases in a namespace.
+func (r *ReleaseController) GetReleasesInNamespace(namespace string) (*releaseApi.ReleaseList, error) {
 	releaseList := &releaseApi.ReleaseList{}
 	err := r.kubeClient.List(context.Background(), releaseList, client.InNamespace(namespace))
+	if err != nil {
+		return nil, err
+	}
+	return releaseList, nil
+}
+
+// GetFirstReleaseInNamespace gets the first Release in a namespace.
+func (r *ReleaseController) GetFirstReleaseInNamespace(namespace string) (*releaseApi.Release, error) {
+	releaseList, err := r.GetReleasesInNamespace(namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +112,7 @@ func (r *ReleaseController) CreateReleasePipelineRoleBindingForServiceAccount(na
 // =============================================================================
 
 // CreateReleasePlan creates a ReleasePlan.
-func (r *ReleaseController) CreateReleasePlan(name, namespace, application, targetNamespace, autoRelease string, data *runtime.RawExtension, pipeline *tektonutils.ParameterizedPipeline, serviceAccount *string) (*releaseApi.ReleasePlan, error) {
+func (r *ReleaseController) CreateReleasePlan(name, namespace, application, targetNamespace, autoRelease string, data *runtime.RawExtension, tenantPipeline, finalpipeline *tektonutils.ParameterizedPipeline, serviceAccount *string) (*releaseApi.ReleasePlan, error) {
 	// Set auto-release label - default to "true" if empty (matching original behavior)
 	autoReleaseValue := autoRelease
 	if autoReleaseValue == "" {
@@ -123,7 +132,8 @@ func (r *ReleaseController) CreateReleasePlan(name, namespace, application, targ
 			Application:    application,
 			Target:         targetNamespace,
 			Data:           data,
-			TenantPipeline: pipeline,
+			TenantPipeline: tenantPipeline,
+			FinalPipeline:  finalpipeline,
 		},
 	}
 

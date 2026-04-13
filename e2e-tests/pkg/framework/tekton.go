@@ -120,10 +120,19 @@ func (t *TektonController) CreateEnterpriseContractPolicy(name, namespace string
 // PipelineRun Operations (using metadata from main project)
 // =============================================================================
 
-// GetPipelineRunInNamespace gets a PipelineRun for a release using labels from metadata package.
-func (t *TektonController) GetPipelineRunInNamespace(namespace, releaseName, releaseNamespace string) (*tektonv1.PipelineRun, error) {
+// GetAllPipelineRunsInNamespace gets a PipelineRun for a release using labels from metadata package.
+func (t *TektonController) GetAllPipelineRunsInNamespace(namespace string) (*tektonv1.PipelineRunList, error) {
 	pipelineRuns := &tektonv1.PipelineRunList{}
 	err := t.kubeClient.List(context.Background(), pipelineRuns, client.InNamespace(namespace))
+	if err != nil {
+		return nil, err
+	}
+	return pipelineRuns, err
+}
+
+// GetPipelineRunInNamespace gets a PipelineRun for a release using labels from metadata package.
+func (t *TektonController) GetPipelineRunInNamespace(namespace, releaseName, releaseNamespace string) (*tektonv1.PipelineRun, error) {
+	pipelineRuns, err := t.GetAllPipelineRunsInNamespace(namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -165,6 +174,16 @@ func (t *TektonController) WaitForReleasePipelineToBeFinished(release *releaseAp
 		}
 		return false, nil
 	})
+}
+
+// HasPipelineRunSucceeded checks the plr conditions to see if the pipelineRun succeeded
+func HasPipelineRunSucceeded(pr *tektonv1.PipelineRun) bool {
+	return pr.GetStatusCondition().GetCondition(apis.ConditionSucceeded).IsTrue()
+}
+
+// HasPipelineRunFailed checks the plr conditions to see if the pipelineRun failed
+func HasPipelineRunFailed(pr *tektonv1.PipelineRun) bool {
+	return pr.IsDone() && pr.GetStatusCondition().GetCondition(apis.ConditionSucceeded).IsFalse()
 }
 
 // =============================================================================

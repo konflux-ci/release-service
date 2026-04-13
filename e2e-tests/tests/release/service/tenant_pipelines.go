@@ -87,7 +87,7 @@ var _ = ginkgo.Describe("Release service tenant pipeline", releasecommon.LabelTe
 
 		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(constants.SourceReleasePlanName, devNamespace, constants.ApplicationNameDefault, "", "", &runtime.RawExtension{
 			Raw: data,
-		}, tenantPipeline, nil)
+		}, tenantPipeline, nil, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlan %s: %v", constants.SourceReleasePlanName, err)
 
 		_, err = fw.AsKubeAdmin.TektonController.CreatePVCInAccessMode(constants.ReleasePvcName, devNamespace, corev1.ReadWriteOnce)
