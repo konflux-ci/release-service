@@ -17,12 +17,15 @@ limitations under the License.
 package tekton
 
 import (
+	"time"
+
 	"github.com/konflux-ci/release-service/metadata"
 	"github.com/konflux-ci/release-service/tekton/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -461,6 +464,338 @@ var _ = Describe("Utils", Ordered, func() {
 			Expect(info.TaskName).To(Equal("update-status"))
 			Expect(info.StepName).To(Equal("update-cr-status"))
 			Expect(info.SuccessfulTasks).To(Equal(2))
+		})
+	})
+
+	When("GetStepComputeResources is called", func() {
+		It("should return nil when both PipelineRun and TaskRun are nil", func() {
+			Expect(GetStepComputeResources(nil, nil, "push-snapshot", "push-snapshot")).To(BeNil())
+		})
+
+		It("should return step resources from TaskRun task spec", func() {
+			expectedResources := &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				},
+			}
+			taskRun := &tektonv1.TaskRun{
+				Spec: tektonv1.TaskRunSpec{
+					TaskSpec: &tektonv1.TaskSpec{
+						Steps: []tektonv1.Step{
+							{
+								Name:             "update-cr-status",
+								ComputeResources: *expectedResources,
+							},
+						},
+					},
+				},
+			}
+
+			Expect(GetStepComputeResources(nil, taskRun, "update-status", "update-cr-status")).To(Equal(expectedResources))
+		})
+
+		It("should return nil when step is not found in TaskRun task spec", func() {
+			taskRun := &tektonv1.TaskRun{
+				Spec: tektonv1.TaskRunSpec{
+					TaskSpec: &tektonv1.TaskSpec{
+						Steps: []tektonv1.Step{
+							{Name: "collect-data"},
+						},
+					},
+				},
+			}
+
+			Expect(GetStepComputeResources(nil, taskRun, "push-snapshot", "push-snapshot")).To(BeNil())
+		})
+
+		It("should return PipelineRun step override over TaskRun task spec", func() {
+			stepResources := corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("512Mi"),
+				},
+			}
+			pipelineRun := &tektonv1.PipelineRun{
+				Spec: tektonv1.PipelineRunSpec{
+					TaskRunSpecs: []tektonv1.PipelineTaskRunSpec{
+						{
+							PipelineTaskName: "push-snapshot",
+							StepSpecs: []tektonv1.TaskRunStepSpec{
+								{
+									Name:             "push-snapshot",
+									ComputeResources: stepResources,
+								},
+							},
+						},
+					},
+				},
+			}
+			taskRun := &tektonv1.TaskRun{
+				Spec: tektonv1.TaskRunSpec{
+					TaskSpec: &tektonv1.TaskSpec{
+						Steps: []tektonv1.Step{
+							{
+								Name: "push-snapshot",
+								ComputeResources: corev1.ResourceRequirements{
+									Limits: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("64Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			Expect(GetStepComputeResources(pipelineRun, taskRun, "push-snapshot", "push-snapshot")).To(Equal(&stepResources))
+		})
+
+		It("should return PipelineRun task level resources over TaskRun task spec", func() {
+			taskResources := &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("256Mi"),
+				},
+			}
+			pipelineRun := &tektonv1.PipelineRun{
+				Spec: tektonv1.PipelineRunSpec{
+					TaskRunSpecs: []tektonv1.PipelineTaskRunSpec{
+						{
+							PipelineTaskName: "collect-data",
+							ComputeResources: taskResources,
+						},
+					},
+				},
+			}
+			taskRun := &tektonv1.TaskRun{
+				Spec: tektonv1.TaskRunSpec{
+					TaskSpec: &tektonv1.TaskSpec{
+						Steps: []tektonv1.Step{
+							{
+								Name: "collect-data",
+								ComputeResources: corev1.ResourceRequirements{
+									Limits: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("64Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			Expect(GetStepComputeResources(pipelineRun, taskRun, "collect-data", "collect-data")).To(Equal(taskResources))
+		})
+
+		It("should fall back to TaskRun task spec when PipelineRun has no overrides", func() {
+			expectedResources := &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				},
+			}
+			pipelineRun := &tektonv1.PipelineRun{}
+			taskRun := &tektonv1.TaskRun{
+				Spec: tektonv1.TaskRunSpec{
+					TaskSpec: &tektonv1.TaskSpec{
+						Steps: []tektonv1.Step{
+							{
+								Name:             "push-snapshot",
+								ComputeResources: *expectedResources,
+							},
+						},
+					},
+				},
+			}
+
+			Expect(GetStepComputeResources(pipelineRun, taskRun, "push-snapshot", "push-snapshot")).To(Equal(expectedResources))
+		})
+
+		It("should fall back to TaskRun task spec when PipelineRun task has no resources", func() {
+			expectedResources := &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				},
+			}
+			pipelineRun := &tektonv1.PipelineRun{
+				Spec: tektonv1.PipelineRunSpec{
+					TaskRunSpecs: []tektonv1.PipelineTaskRunSpec{
+						{PipelineTaskName: "publish-data"},
+					},
+				},
+			}
+			taskRun := &tektonv1.TaskRun{
+				Spec: tektonv1.TaskRunSpec{
+					TaskSpec: &tektonv1.TaskSpec{
+						Steps: []tektonv1.Step{
+							{
+								Name:             "publish-data",
+								ComputeResources: *expectedResources,
+							},
+						},
+					},
+				},
+			}
+
+			Expect(GetStepComputeResources(pipelineRun, taskRun, "publish-data", "publish-data")).To(Equal(expectedResources))
+		})
+
+		It("should fall back to TaskRun task spec when step not in StepSpecs override", func() {
+			expectedResources := &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				},
+			}
+			pipelineRun := &tektonv1.PipelineRun{
+				Spec: tektonv1.PipelineRunSpec{
+					TaskRunSpecs: []tektonv1.PipelineTaskRunSpec{
+						{
+							PipelineTaskName: "update-status",
+							StepSpecs: []tektonv1.TaskRunStepSpec{
+								{
+									Name: "run-script",
+									ComputeResources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											corev1.ResourceMemory: resource.MustParse("512Mi"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			taskRun := &tektonv1.TaskRun{
+				Spec: tektonv1.TaskRunSpec{
+					TaskSpec: &tektonv1.TaskSpec{
+						Steps: []tektonv1.Step{
+							{
+								Name:             "update-cr-status",
+								ComputeResources: *expectedResources,
+							},
+						},
+					},
+				},
+			}
+
+			Expect(GetStepComputeResources(pipelineRun, taskRun, "update-status", "update-cr-status")).To(Equal(expectedResources))
+		})
+	})
+
+	When("GetPipelineRunTimeouts is called", func() {
+		It("should return nil when PipelineRun is nil", func() {
+			Expect(GetPipelineRunTimeouts(nil)).To(BeNil())
+		})
+
+		It("should return nil when no timeouts are set", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			Expect(GetPipelineRunTimeouts(pipelineRun)).To(BeNil())
+		})
+
+		It("should return all timeout fields", func() {
+			timeouts := &tektonv1.TimeoutFields{
+				Pipeline: &metav1.Duration{Duration: 2 * time.Hour},
+				Tasks:    &metav1.Duration{Duration: 90 * time.Minute},
+				Finally:  &metav1.Duration{Duration: 30 * time.Minute},
+			}
+			pipelineRun := &tektonv1.PipelineRun{
+				Spec: tektonv1.PipelineRunSpec{
+					Timeouts: timeouts,
+				},
+			}
+
+			Expect(GetPipelineRunTimeouts(pipelineRun)).To(Equal(timeouts))
+		})
+
+		It("should return timeouts even when pipeline is only set", func() {
+			timeouts := &tektonv1.TimeoutFields{
+				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
+			}
+			pipelineRun := &tektonv1.PipelineRun{
+				Spec: tektonv1.PipelineRunSpec{
+					Timeouts: timeouts,
+				},
+			}
+
+			result := GetPipelineRunTimeouts(pipelineRun)
+			Expect(result).To(Equal(timeouts))
+			Expect(result.Tasks).To(BeNil())
+			Expect(result.Finally).To(BeNil())
+		})
+	})
+
+	When("GetTaskRunTimeout is called", func() {
+		It("should return nil when both PipelineRun and TaskRun are nil", func() {
+			Expect(GetTaskRunTimeout(nil, nil, "update-cr-status")).To(BeNil())
+		})
+
+		It("should return TaskRun spec timeout", func() {
+			taskRunTimeout := &metav1.Duration{Duration: 2 * time.Minute}
+			taskRun := &tektonv1.TaskRun{
+				Spec: tektonv1.TaskRunSpec{
+					Timeout: taskRunTimeout,
+				},
+			}
+
+			Expect(GetTaskRunTimeout(nil, taskRun, "update-cr-status")).To(Equal(taskRunTimeout))
+		})
+
+		It("should return PipelineRun per-task override over TaskRun spec timeout", func() {
+			overrideTimeout := &metav1.Duration{Duration: 5 * time.Minute}
+			pipelineRun := &tektonv1.PipelineRun{
+				Spec: tektonv1.PipelineRunSpec{
+					TaskRunSpecs: []tektonv1.PipelineTaskRunSpec{
+						{
+							PipelineTaskName: "update-cr-status",
+							Timeout:          overrideTimeout,
+						},
+					},
+				},
+			}
+			taskRun := &tektonv1.TaskRun{
+				Spec: tektonv1.TaskRunSpec{
+					Timeout: &metav1.Duration{Duration: 2 * time.Minute},
+				},
+			}
+
+			Expect(GetTaskRunTimeout(pipelineRun, taskRun, "update-cr-status")).To(Equal(overrideTimeout))
+		})
+
+		It("should fall back to TaskRun spec timeout when PipelineRun has no override", func() {
+			taskRunTimeout := &metav1.Duration{Duration: 2 * time.Minute}
+			pipelineRun := &tektonv1.PipelineRun{}
+			taskRun := &tektonv1.TaskRun{
+				Spec: tektonv1.TaskRunSpec{
+					Timeout: taskRunTimeout,
+				},
+			}
+
+			Expect(GetTaskRunTimeout(pipelineRun, taskRun, "publish-data")).To(Equal(taskRunTimeout))
+		})
+
+		It("should fall back to global tasks timeout when no per-task or TaskRun timeout exists", func() {
+			tasksTimeout := &metav1.Duration{Duration: 90 * time.Minute}
+			pipelineRun := &tektonv1.PipelineRun{
+				Spec: tektonv1.PipelineRunSpec{
+					Timeouts: &tektonv1.TimeoutFields{
+						Tasks: tasksTimeout,
+					},
+				},
+			}
+
+			Expect(GetTaskRunTimeout(pipelineRun, nil, "update-cr-status")).To(Equal(tasksTimeout))
+		})
+
+		It("should return nil when no task level timeouts exist", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				Spec: tektonv1.PipelineRunSpec{
+					Timeouts: &tektonv1.TimeoutFields{
+						Pipeline: &metav1.Duration{Duration: 2 * time.Hour},
+					},
+				},
+			}
+
+			Expect(GetTaskRunTimeout(pipelineRun, nil, "update-cr-status")).To(BeNil())
 		})
 	})
 })
