@@ -156,4 +156,4 @@ require (
 )
 
 // This is to work around errors like package k8s.io/client-go/X provided by k8s.io/client-go at latest version v0.34.0 but not at required version v1.5.2
-replace k8s.io/client-go => k8s.io/client-go v0.35.3
+replace k8s.io/client-go => k8s.io/client-go v0.35.4
