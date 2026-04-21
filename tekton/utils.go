@@ -21,6 +21,8 @@ import (
 
 	"github.com/konflux-ci/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -175,4 +177,80 @@ func getFailedTaskRun(pipelineRun *tektonv1.PipelineRun, taskRuns []tektonv1.Tas
 	}
 
 	return "", nil, successfulTasks
+}
+
+// GetStepComputeResources returns the compute resources for a step by checking
+// PipelineRun overrides StepSpecs or ComputeResources first, then falling back
+// to the TaskRun task spec. Returns nil if none are configured.
+func GetStepComputeResources(pipelineRun *tektonv1.PipelineRun, taskRun *tektonv1.TaskRun, taskName, stepName string) *corev1.ResourceRequirements {
+	if pipelineRun != nil {
+		for _, taskRunSpec := range pipelineRun.Spec.TaskRunSpecs {
+			// Find the TaskRunSpec override matching the failed task.
+			if taskRunSpec.PipelineTaskName != taskName {
+				continue
+			}
+
+			// Check per step overrides. StepSpecs only override a single step resources.
+			for _, stepSpec := range taskRunSpec.StepSpecs {
+				if stepSpec.Name == stepName {
+					resources := stepSpec.ComputeResources
+					return &resources
+				}
+			}
+
+			// Check task level override. ComputeResources applies to all steps in the task.
+			if taskRunSpec.ComputeResources != nil {
+				return taskRunSpec.ComputeResources
+			}
+		}
+	}
+
+	// No PipelineRun override found. Fall back to the step definition in the TaskRun task spec.
+	if taskRun != nil && taskRun.Spec.TaskSpec != nil {
+		for _, step := range taskRun.Spec.TaskSpec.Steps {
+			if step.Name == stepName {
+				resources := step.ComputeResources
+				return &resources
+			}
+		}
+	}
+
+	return nil
+}
+
+// GetPipelineRunTimeouts returns the timeout fields for a PipelineRun.
+// Returns nil if the PipelineRun or its timeouts are not defined.
+func GetPipelineRunTimeouts(pipelineRun *tektonv1.PipelineRun) *tektonv1.TimeoutFields {
+	if pipelineRun == nil || pipelineRun.Spec.Timeouts == nil {
+		return nil
+	}
+
+	return pipelineRun.Spec.Timeouts
+}
+
+// GetTaskRunTimeout returns the timeout for a task by checking PipelineRun
+// per task overrides first, then the matching TaskRun timeout, then the global
+// tasks timeout from the PipelineRun. Returns nil if no timeout is
+// configured at any level.
+func GetTaskRunTimeout(pipelineRun *tektonv1.PipelineRun, taskRun *tektonv1.TaskRun, taskName string) *metav1.Duration {
+	// Check per task timeout override from the PipelineRun TaskRunSpecs.
+	if pipelineRun != nil {
+		for _, taskRunSpec := range pipelineRun.Spec.TaskRunSpecs {
+			if taskRunSpec.PipelineTaskName == taskName && taskRunSpec.Timeout != nil {
+				return taskRunSpec.Timeout
+			}
+		}
+	}
+
+	// No per task override. Check the TaskRun timeout which Tekton sets from the pipeline spec.
+	if taskRun != nil && taskRun.Spec.Timeout != nil {
+		return taskRun.Spec.Timeout
+	}
+
+	// Fall back to the PipelineRun global tasks timeout.
+	if pipelineRun != nil && pipelineRun.Spec.Timeouts != nil {
+		return pipelineRun.Spec.Timeouts.Tasks
+	}
+
+	return nil
 }
