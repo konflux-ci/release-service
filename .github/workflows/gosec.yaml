@@ -23,7 +23,7 @@ jobs:
           ref: ${{ github.sha }}
       - name: Run Gosec Security Scanner
         id: gosec
-        uses: securego/gosec@64b97151cd7b978abdf8d2f1159a4e9096a12c2b # master
+        uses: securego/gosec@c864f68365f29c18b09b66880c76bf74af403aba # master
         with:
           args: -exclude-generated ./...
         env:
@@ -31,7 +31,7 @@ jobs:
         continue-on-error: true
       - name: Run Gosec Security Scanner - save SARIF
         id: gosec-sarif
-        uses: securego/gosec@64b97151cd7b978abdf8d2f1159a4e9096a12c2b # master
+        uses: securego/gosec@c864f68365f29c18b09b66880c76bf74af403aba # master
         with:
           # we let the report trigger a failure using the GitHub Security features.
           args: -exclude-generated -fmt sarif -out results.sarif ./...
