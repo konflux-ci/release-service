@@ -26,10 +26,10 @@ import (
 	"github.com/konflux-ci/release-service/metadata"
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Predicates", Ordered, func() {
@@ -472,6 +472,184 @@ var _ = Describe("Predicates", Ordered, func() {
 
 		It("returns false when the both objects are missing the label", func() {
 			Expect(hasBehaviorLabelChanged(podMissing, podMissing)).To(BeFalse())
+		})
+	})
+
+	Context("When calling hasPipelineChanged", func() {
+		It("returns true when RPA pipeline changes", func() {
+			rpaOld := &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+							Params: []tektonutils.Param{
+								{Name: "url", Value: "https://github.com/org/repo"},
+							},
+						},
+					},
+				},
+			}
+			rpaNew := &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+							Params: []tektonutils.Param{
+								{Name: "url", Value: "https://github.com/org/different"},
+							},
+						},
+					},
+				},
+			}
+			Expect(hasPipelineChanged(rpaOld, rpaNew)).To(BeTrue())
+		})
+
+		It("returns false when RPA pipeline does not change", func() {
+			rpa := &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+						},
+					},
+				},
+			}
+			Expect(hasPipelineChanged(rpa, rpa)).To(BeFalse())
+		})
+
+		It("returns true when RP TenantPipeline changes", func() {
+			rpOld := &v1alpha1.ReleasePlan{
+				Spec: v1alpha1.ReleasePlanSpec{
+					TenantPipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "bundles",
+							},
+						},
+					},
+				},
+			}
+			rpNew := &v1alpha1.ReleasePlan{
+				Spec: v1alpha1.ReleasePlanSpec{
+					TenantPipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+							},
+						},
+					},
+				},
+			}
+			Expect(hasPipelineChanged(rpOld, rpNew)).To(BeTrue())
+		})
+
+		It("returns false when neither object is RPA or RP", func() {
+			pod := &corev1.Pod{}
+			Expect(hasPipelineChanged(pod, pod)).To(BeFalse())
+		})
+	})
+
+	Context("When calling hasDataChanged", func() {
+		It("returns true when RPA data changes", func() {
+			rpaOld := &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Data: nil,
+				},
+			}
+			rpaNew := &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Data: &runtime.RawExtension{Raw: []byte("{}")},
+				},
+			}
+			Expect(hasDataChanged(rpaOld, rpaNew)).To(BeTrue())
+		})
+
+		It("returns false when RPA data does not change", func() {
+			rpa := &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Data: &runtime.RawExtension{Raw: []byte("{}")},
+				},
+			}
+			Expect(hasDataChanged(rpa, rpa)).To(BeFalse())
+		})
+
+		It("returns true when RP data changes", func() {
+			rpOld := &v1alpha1.ReleasePlan{
+				Spec: v1alpha1.ReleasePlanSpec{
+					Data: nil,
+				},
+			}
+			rpNew := &v1alpha1.ReleasePlan{
+				Spec: v1alpha1.ReleasePlanSpec{
+					Data: &runtime.RawExtension{Raw: []byte("{}")},
+				},
+			}
+			Expect(hasDataChanged(rpOld, rpNew)).To(BeTrue())
+		})
+
+		It("returns false when neither object is RPA or RP", func() {
+			pod := &corev1.Pod{}
+			Expect(hasDataChanged(pod, pod)).To(BeFalse())
+		})
+	})
+
+	Context("When calling RetryInfoPredicate", func() {
+		var instance predicate.Predicate
+		var rpaOld, rpaNew *v1alpha1.ReleasePlanAdmission
+
+		BeforeEach(func() {
+			instance = RetryInfoPredicate()
+			rpaOld = &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+						},
+					},
+				},
+			}
+			rpaNew = rpaOld.DeepCopy()
+		})
+
+		It("returns false for create events", func() {
+			contextEvent := event.CreateEvent{Object: rpaOld}
+			Expect(instance.Create(contextEvent)).To(BeFalse())
+		})
+
+		It("returns false for delete events", func() {
+			contextEvent := event.DeleteEvent{Object: rpaOld}
+			Expect(instance.Delete(contextEvent)).To(BeFalse())
+		})
+
+		It("returns false for generic events", func() {
+			contextEvent := event.GenericEvent{Object: rpaOld}
+			Expect(instance.Generic(contextEvent)).To(BeFalse())
+		})
+
+		It("returns true when pipeline changes", func() {
+			rpaNew.Spec.Pipeline.PipelineRef.Resolver = "bundles"
+			contextEvent := event.UpdateEvent{
+				ObjectOld: rpaOld,
+				ObjectNew: rpaNew,
+			}
+			Expect(instance.Update(contextEvent)).To(BeTrue())
+		})
+
+		It("returns true when data changes", func() {
+			rpaNew.Spec.Data = &runtime.RawExtension{Raw: []byte("{}")}
+			contextEvent := event.UpdateEvent{
+				ObjectOld: rpaOld,
+				ObjectNew: rpaNew,
+			}
+			Expect(instance.Update(contextEvent)).To(BeTrue())
+		})
+
+		It("returns false when neither pipeline nor data changes", func() {
+			contextEvent := event.UpdateEvent{
+				ObjectOld: rpaOld,
+				ObjectNew: rpaNew,
+			}
+			Expect(instance.Update(contextEvent)).To(BeFalse())
 		})
 	})
 })
