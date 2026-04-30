@@ -86,6 +86,24 @@ type MatchedReleasePlan struct {
 	Active bool `json:"active,omitempty"`
 }
 
+// RetryInfo contains information about retry configuration for a ReleasePlanAdmission.
+type RetryInfo struct {
+	// Enabled indicates whether retries are enabled for this RPA's pipeline
+	Enabled bool `json:"enabled"`
+
+	// MaxRetries is the maximum number of retries if enabled
+	// +optional
+	MaxRetries *int `json:"maxRetries,omitempty"`
+
+	// Mitigations defines adjustment strategies to apply on retry based on failure type
+	// +optional
+	Mitigations *Mitigations `json:"mitigations,omitempty"`
+
+	// Reason explains why retries are enabled or disabled
+	// Examples: "disabled due to tag: production", "enabled with policy", "no matching pipeline"
+	Reason string `json:"reason"`
+}
+
 // ReleasePlanAdmissionStatus defines the observed state of ReleasePlanAdmission.
 type ReleasePlanAdmissionStatus struct {
 	// Conditions represent the latest available observations for the releasePlanAdmission
@@ -95,6 +113,10 @@ type ReleasePlanAdmissionStatus struct {
 	// ReleasePlan is a list of releasePlans matched to the ReleasePlanAdmission
 	// +optional
 	ReleasePlans []MatchedReleasePlan `json:"releasePlans"`
+
+	// RetryInfo contains information about retry configuration for this ReleasePlanAdmission
+	// +optional
+	RetryInfo *RetryInfo `json:"retryInfo,omitempty"`
 }
 
 // +kubebuilder:object:root=true
