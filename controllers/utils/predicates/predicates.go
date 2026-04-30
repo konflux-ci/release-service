@@ -29,7 +29,7 @@ import (
 )
 
 // MatchPredicate returns a predicate which returns true when a ReleasePlan or ReleasePlanAdmission
-// is created, deleted, or when the auto-release label, target, application, or the matched
+// is created, deleted, or when the auto-release label, target, application, pipeline, data, or the matched
 // resource of one changes.
 func MatchPredicate() predicate.Predicate {
 	return predicate.Funcs{
@@ -46,7 +46,9 @@ func MatchPredicate() predicate.Predicate {
 			return haveApplicationsChanged(e.ObjectOld, e.ObjectNew) ||
 				hasBehaviorLabelChanged(e.ObjectOld, e.ObjectNew) ||
 				hasMatchConditionChanged(e.ObjectOld, e.ObjectNew) ||
-				hasSourceChanged(e.ObjectOld, e.ObjectNew)
+				hasSourceChanged(e.ObjectOld, e.ObjectNew) ||
+				hasPipelineChanged(e.ObjectOld, e.ObjectNew) ||
+				hasDataChanged(e.ObjectOld, e.ObjectNew)
 		},
 	}
 }
@@ -134,4 +136,68 @@ func hasSourceChanged(objectOld, objectNew client.Object) bool {
 	}
 
 	return false
+}
+
+// hasPipelineChanged returns true if the objects are ReleasePlanAdmissions or ReleasePlans
+// and their pipeline specifications have changed.
+func hasPipelineChanged(objectOld, objectNew client.Object) bool {
+	if releasePlanAdmissionOld, ok := objectOld.(*v1alpha1.ReleasePlanAdmission); ok {
+		if releasePlanAdmissionNew, ok := objectNew.(*v1alpha1.ReleasePlanAdmission); ok {
+			return !reflect.DeepEqual(releasePlanAdmissionOld.Spec.Pipeline, releasePlanAdmissionNew.Spec.Pipeline)
+		}
+	}
+
+	if releasePlanOld, ok := objectOld.(*v1alpha1.ReleasePlan); ok {
+		if releasePlanNew, ok := objectNew.(*v1alpha1.ReleasePlan); ok {
+			return !reflect.DeepEqual(releasePlanOld.Spec.TenantPipeline, releasePlanNew.Spec.TenantPipeline) ||
+				!reflect.DeepEqual(releasePlanOld.Spec.FinalPipeline, releasePlanNew.Spec.FinalPipeline)
+		}
+	}
+
+	return false
+}
+
+// hasDataChanged returns true if the objects are ReleasePlanAdmissions or ReleasePlans
+// and their data specifications have changed.
+func hasDataChanged(objectOld, objectNew client.Object) bool {
+	if releasePlanAdmissionOld, ok := objectOld.(*v1alpha1.ReleasePlanAdmission); ok {
+		if releasePlanAdmissionNew, ok := objectNew.(*v1alpha1.ReleasePlanAdmission); ok {
+			return !reflect.DeepEqual(releasePlanAdmissionOld.Spec.Data, releasePlanAdmissionNew.Spec.Data)
+		}
+	}
+
+	if releasePlanOld, ok := objectOld.(*v1alpha1.ReleasePlan); ok {
+		if releasePlanNew, ok := objectNew.(*v1alpha1.ReleasePlan); ok {
+			return !reflect.DeepEqual(releasePlanOld.Spec.Data, releasePlanNew.Spec.Data)
+		}
+	}
+
+	return false
+}
+
+// ReleaseServiceConfigPredicate returns a predicate which returns true when a ReleaseServiceConfig
+// is created or when its RetryablePipelines specification changes.
+func ReleaseServiceConfigPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(createEvent event.CreateEvent) bool {
+			return true
+		},
+		DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+			// ReleaseServiceConfig is a singleton and should not be deleted
+			return false
+		},
+		GenericFunc: func(genericEvent event.GenericEvent) bool {
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			rscOld, okOld := e.ObjectOld.(*v1alpha1.ReleaseServiceConfig)
+			rscNew, okNew := e.ObjectNew.(*v1alpha1.ReleaseServiceConfig)
+
+			if !okOld || !okNew {
+				return false
+			}
+
+			return !reflect.DeepEqual(rscOld.Spec.RetryablePipelines, rscNew.Spec.RetryablePipelines)
+		},
+	}
 }

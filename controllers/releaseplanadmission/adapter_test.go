@@ -201,6 +201,251 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 		})
 	})
 
+	Context("When EnsureRetryInformationIsSet is called", func() {
+		var adapter *adapter
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.releasePlanAdmission)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleasePlanAdmissionAndAdapter()
+		})
+
+		It("should set RetryInfo to disabled when ReleaseServiceConfig is not found", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleaseServiceConfigContextKey,
+					Resource:   nil, // Simulate RSC not found
+				},
+				{
+					ContextKey: loader.MatchedReleasePlansContextKey,
+					Resource:   &v1alpha1.ReleasePlanList{},
+				},
+			})
+
+			result, err := adapter.EnsureRetryInformationIsSet()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo).ToNot(BeNil())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Enabled).To(BeFalse())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Reason).To(Equal("no retry configuration available"))
+		})
+
+		It("should set RetryInfo to disabled when pipeline doesn't match any retryable pipeline", func() {
+			// Update RPA with git resolver pipeline that doesn't match
+			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.Pipeline{
+				PipelineRef: tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/org/repo"},
+						{Name: "revision", Value: "main"},
+						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					},
+				},
+			}
+			Expect(k8sClient.Update(ctx, adapter.releasePlanAdmission)).To(Succeed())
+
+			rsc := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/different/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: 3,
+							},
+						},
+					},
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleaseServiceConfigContextKey,
+					Resource:   rsc,
+				},
+				{
+					ContextKey: loader.MatchedReleasePlansContextKey,
+					Resource:   &v1alpha1.ReleasePlanList{},
+				},
+			})
+
+			result, err := adapter.EnsureRetryInformationIsSet()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo).ToNot(BeNil())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Enabled).To(BeFalse())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Reason).To(Equal("pipeline not configured for retries"))
+		})
+
+		It("should set RetryInfo to enabled when pipeline matches retryable pipeline", func() {
+			// Update RPA with git resolver pipeline
+			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.Pipeline{
+				PipelineRef: tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/org/repo"},
+						{Name: "revision", Value: "main"},
+						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					},
+				},
+			}
+			Expect(k8sClient.Update(ctx, adapter.releasePlanAdmission)).To(Succeed())
+
+			maxRetries := 3
+			rsc := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/org/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: maxRetries,
+							},
+						},
+					},
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleaseServiceConfigContextKey,
+					Resource:   rsc,
+				},
+				{
+					ContextKey: loader.MatchedReleasePlansContextKey,
+					Resource:   &v1alpha1.ReleasePlanList{},
+				},
+			})
+
+			result, err := adapter.EnsureRetryInformationIsSet()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo).ToNot(BeNil())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Enabled).To(BeTrue())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.MaxRetries).ToNot(BeNil())
+			Expect(*adapter.releasePlanAdmission.Status.RetryInfo.MaxRetries).To(Equal(maxRetries))
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Reason).To(Equal("retries enabled by policy"))
+		})
+
+		It("should set RetryInfo to disabled when tags match disable condition", func() {
+			// Update RPA with git resolver pipeline and tags
+			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.Pipeline{
+				PipelineRef: tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/org/repo"},
+						{Name: "revision", Value: "main"},
+						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					},
+				},
+			}
+			Expect(k8sClient.Update(ctx, adapter.releasePlanAdmission)).To(Succeed())
+
+			rsc := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/org/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: 3,
+								DisableOn: &v1alpha1.DisableConditions{
+									Tags: []string{"production"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			// Create matched RP with production tag
+			matchedRP := &v1alpha1.ReleasePlan{
+				Spec: v1alpha1.ReleasePlanSpec{
+					Application: "app",
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleaseServiceConfigContextKey,
+					Resource:   rsc,
+				},
+				{
+					ContextKey: loader.MatchedReleasePlansContextKey,
+					Resource: &v1alpha1.ReleasePlanList{
+						Items: []v1alpha1.ReleasePlan{*matchedRP},
+					},
+				},
+			})
+
+			result, err := adapter.EnsureRetryInformationIsSet()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo).ToNot(BeNil())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Enabled).To(BeTrue())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Reason).To(Equal("retries enabled by policy"))
+		})
+
+		It("should not patch when RetryInfo is unchanged", func() {
+			// Update RPA with git resolver pipeline
+			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.Pipeline{
+				PipelineRef: tektonutils.PipelineRef{
+					Resolver: "git",
+					Params: []tektonutils.Param{
+						{Name: "url", Value: "https://github.com/org/repo"},
+						{Name: "revision", Value: "main"},
+						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					},
+				},
+			}
+			maxRetries := 3
+			adapter.releasePlanAdmission.Status.RetryInfo = &v1alpha1.RetryInfo{
+				Enabled:    true,
+				MaxRetries: &maxRetries,
+				Reason:     "retries enabled by policy",
+			}
+			Expect(k8sClient.Update(ctx, adapter.releasePlanAdmission)).To(Succeed())
+
+			rsc := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/org/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: maxRetries,
+							},
+						},
+					},
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleaseServiceConfigContextKey,
+					Resource:   rsc,
+				},
+				{
+					ContextKey: loader.MatchedReleasePlansContextKey,
+					Resource:   &v1alpha1.ReleasePlanList{},
+				},
+			})
+
+			result, err := adapter.EnsureRetryInformationIsSet()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			// RetryInfo should still be set but no patch should have been issued
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo).ToNot(BeNil())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Enabled).To(BeTrue())
+		})
+	})
+
 	createReleasePlanAdmissionAndAdapter = func() *adapter {
 		releasePlanAdmission := &v1alpha1.ReleasePlanAdmission{
 			ObjectMeta: metav1.ObjectMeta{
