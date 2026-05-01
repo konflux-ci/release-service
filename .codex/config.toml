@@ -1,0 +1,8 @@
+# Codex configuration
+# https://github.com/openai/codex
+
+[setup]
+install = "go mod tidy"
+
+[verify]
+command = "go test ./..."
