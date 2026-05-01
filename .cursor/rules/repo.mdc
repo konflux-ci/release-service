@@ -1,0 +1,20 @@
+---
+globs: **/*.go
+description: Rules for konflux-ci/release-service
+---
+
+# release-service
+
+Kubernetes controller to manage releases in Stonesoup
+
+Test command: `go test ./...`
+Lint command: `go vet ./...`
+
+## Conventions
+
+- Follow existing code patterns
+- Write tests for all changes
+- Keep PRs focused on a single concern
+- Handle all errors explicitly
+- Use table-driven tests with t.Run()
+- Exported names: PascalCase
