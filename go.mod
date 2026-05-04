@@ -13,7 +13,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.28.3
 	github.com/onsi/gomega v1.40.0
 	github.com/operator-framework/operator-lib v0.19.0
-	github.com/tektoncd/pipeline v1.11.1
+	github.com/tektoncd/pipeline v1.12.0
 	go.yaml.in/yaml/v2 v2.4.4
 	k8s.io/api v0.35.4
 	k8s.io/apimachinery v0.35.4
