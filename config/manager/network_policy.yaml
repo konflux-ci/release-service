@@ -33,6 +33,17 @@ spec:
       ports:
         - port: 443
           protocol: TCP
+    # Allow traffic to KubeArchive API server
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: product-kubearchive
+        podSelector:
+          matchLabels:
+            app: kubearchive-api-server
+      ports:
+        - port: 8081
+          protocol: TCP
     # Allow DNS queries so SeaLights can resolve the api url
     - to:
       - namespaceSelector:

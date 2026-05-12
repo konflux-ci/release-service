@@ -45,25 +45,23 @@ type ObjectLoader interface {
 	GetProcessingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*ProcessingResources, error)
 }
 
-// KubeArchiveClient is the subset of kubearchive.Client used by the loader,
-// extracted as an interface to allow substitution in tests.
-type KubeArchiveClient interface {
-	Get(ctx context.Context, cli client.Client, gvr schema.GroupVersionResource,
-		namespace, name string, obj client.Object) error
-}
+// KubeArchiveGetFunc is the function signature for retrieving archived
+// resources from KubeArchive, matching kubearchive.Get.
+type KubeArchiveGetFunc func(ctx context.Context, cli client.Client, gvr schema.GroupVersionResource,
+	namespace, name string, obj client.Object) error
 
 type loader struct {
-	kaClient KubeArchiveClient
+	kaGet KubeArchiveGetFunc
 }
 
 func NewLoader() ObjectLoader {
 	return &loader{
-		kaClient: kubearchive.NewClient(),
+		kaGet: kubearchive.Get,
 	}
 }
 
-func newLoader(kaClient KubeArchiveClient) ObjectLoader {
-	return &loader{kaClient: kaClient}
+func newLoader(kaGet KubeArchiveGetFunc) ObjectLoader {
+	return &loader{kaGet: kaGet}
 }
 
 // GetActiveReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.
@@ -353,7 +351,7 @@ func (l *loader) GetSnapshot(ctx context.Context, cli client.Client, release *v1
 	snapshot := &applicationapiv1alpha1.Snapshot{}
 	err := toolkit.GetObject(release.Spec.Snapshot, release.Namespace, cli, ctx, snapshot)
 	if err != nil && apierrors.IsNotFound(err) {
-		kaErr := l.kaClient.Get(ctx, cli,
+		kaErr := l.kaGet(ctx, cli,
 			schema.GroupVersionResource{
 				Group:    "appstudio.redhat.com",
 				Version:  "v1alpha1",
