@@ -113,6 +113,18 @@ jobs:
           fetch-depth: 0
       - name: Check if dockerimage build is working
         run: docker build -f ./Dockerfile .
+  check-agents-md:
+    name: Check AGENTS.md line count
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Enforce AGENTS.md max 60 lines
+        run: |
+          lines=$(grep -c '.' AGENTS.md)
+          if [ "$lines" -gt 60 ]; then
+            echo "AGENTS.md has $lines non-empty lines (max 60)"
+            exit 1
+          fi
   gitlint:
     name: Run gitlint checks
     runs-on: ubuntu-latest

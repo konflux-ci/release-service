@@ -26,13 +26,10 @@ main.go                # Entry point — registers controllers and webhooks
 ```
 
 ## Architecture
-
 ### Adapter Pattern
-
 Each controller delegates to an **adapter** (`adapter.go`) that holds the K8s client, resource under reconciliation, an `ObjectLoader`, and a `Syncer`. All domain logic lives in adapter methods, not in the controller.
 
 ### Reconciliation Pipeline
-
 The Release controller runs ~20 sequential **operations** via `controller.ReconcileHandler()` from operator-toolkit. Each returns `(OperationResult, error)` — failure requeues, success continues. The pipeline stages are:
 
 1. Finalizer management and config loading
@@ -43,7 +40,6 @@ The Release controller runs ~20 sequential **operations** via `controller.Reconc
 PipelineRuns are watched via `EnqueueRequestForAnnotation` — when a PipelineRun updates, the owning Release is re-reconciled.
 
 ### Resource Loading
-
 `loader.ObjectLoader` centralizes all K8s Gets with error classification (retriable vs permanent) and KubeArchive fallback for deleted resources. A mock implementation exists for tests.
 
 ## Development Guidelines
@@ -58,6 +54,9 @@ PipelineRuns are watched via `EnqueueRequestForAnnotation` — when a PipelineRu
 
 ## Key Patterns
 
+- **Idempotent operations**: every `Ensure*` function starts with gate conditions that skip work already done (e.g. `HasTenantPipelineProcessingFinished()`) or wait for prerequisites (e.g. `HasManagedCollectorsPipelineProcessingFinished()`), making reconciliation safe to re-run at any point
+- **Patching discipline**: status is updated via `client.Status().Patch()` with `client.MergeFrom(a.release.DeepCopy())` only in state-changing operations (marking phases, registering pipeline data) — read-only and tracking operations must not patch
+- **Error handling**: `handlePipelineCreationError` splits errors into retriable (requeue) vs permanent (mark phase failed + **continue**, not stop) — continuing is required so downstream operations can mark their phases as skipped via the `IsFailed()` gate; stopping would hang the release since status-only patches don't trigger `GenerationChangedPredicate`
 - **PipelineRunBuilder** (`tekton/utils/`): fluent API — `.WithParams()`, `.WithWorkspace()`, `.WithPipelineRef()`, `.WithTimeouts()`
 - **Metadata utilities** (`metadata/`): prefix-based label filtering, safe-copy helpers that don't clobber existing keys
 - **Metrics**: registered during reconciliation — `RegisterNewRelease()`, `RegisterCompletedRelease()`, `RegisterValidatedRelease()` with start/completion times
