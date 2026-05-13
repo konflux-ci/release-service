@@ -10,13 +10,14 @@ import (
 
 // Test suite labels for release-service e2e tests.
 var (
-	LabelReleaseService   = ginkgo.Label("release-service")
-	LabelHappyPath        = ginkgo.Label("release-service", "happy-path")
-	LabelTenant           = ginkgo.Label("release-service", "tenant")
-	LabelReleasePlanAdm   = ginkgo.Label("release-service", "release_plan_and_admission")
-	LabelNegative         = ginkgo.Label("release-service", "release-neg", "negMissingReleasePlan")
-	LabelNegBlockReleases = ginkgo.Label("release-service", "release-neg", "negBlockReleases")
-	LabelFinal            = ginkgo.Label("release-service", "final")
+	LabelReleaseService                      = ginkgo.Label("release-service")
+	LabelHappyPath                           = ginkgo.Label("release-service", "happy-path")
+	LabelTenant                              = ginkgo.Label("release-service", "tenant")
+	LabelReleasePlanAdm                      = ginkgo.Label("release-service", "release_plan_and_admission")
+	LabelNegative                            = ginkgo.Label("release-service", "release-neg", "negMissingReleasePlan")
+	LabelNegBlockReleases                    = ginkgo.Label("release-service", "release-neg", "negBlockReleases")
+	LabelNegManagedPipelineRunCreationDenied = ginkgo.Label("release-service", "release-neg", "negManagedPipelineRunCreationDenied")
+	LabelFinal                               = ginkgo.Label("release-service", "final")
 )
 
 // ManagednamespaceSecret contains the secrets required for the managed namespace.
