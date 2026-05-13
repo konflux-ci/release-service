@@ -66,6 +66,7 @@ make test-e2e-list                     # List all tests
 ```bash
 make test-e2e LABEL=happy-path E2E_TIMEOUT=90m
 make test-e2e LABEL="release-service && !release-neg"
+make test-e2e LABEL=negManagedPipelineRunCreationDenied
 ```
 
 ## Test Labels
@@ -77,6 +78,7 @@ make test-e2e LABEL="release-service && !release-neg"
 | `tenant` | Tenant-only pipeline (no managed namespace) |
 | `release_plan_and_admission` | ReleasePlan ↔ ReleasePlanAdmission matching |
 | `release-neg` | Negative/error scenarios |
+| `negManagedPipelineRunCreationDenied` | Managed release `PipelineRun` create denied by quota; failure is surfaced on `Release` status |
 
 ## Writing Tests
 
