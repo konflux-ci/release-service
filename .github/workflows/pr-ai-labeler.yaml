@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Label PR using shared action
-        uses: konflux-ci/release-service-automations/pr-ai-labeler@26b8ead8ea7af6dabb73ba72b238b7757ccddb56  # main
+        uses: konflux-ci/release-service-automations/pr-ai-labeler@ca283f175a3146c198232d72c565376fbde1035f  # main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-number: ${{ github.event.pull_request.number }}
