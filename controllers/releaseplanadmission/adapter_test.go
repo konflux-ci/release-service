@@ -17,6 +17,7 @@ limitations under the License.
 package releaseplanadmission
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
@@ -31,6 +32,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -332,7 +334,7 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 		})
 
 		It("should set RetryInfo to disabled when tags match disable condition", func() {
-			// Update RPA with git resolver pipeline and tags
+			// Update RPA with git resolver pipeline
 			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.Pipeline{
 				PipelineRef: tektonutils.PipelineRef{
 					Resolver: "git",
@@ -355,7 +357,7 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 							RetryPolicy: v1alpha1.RetryPolicy{
 								MaxRetries: 3,
 								DisableOn: &v1alpha1.DisableConditions{
-									Tags: []string{"production"},
+									Tags: []string{"{{ release_timestamp }}", "{{ incrementer }}"},
 								},
 							},
 						},
@@ -363,10 +365,22 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 				},
 			}
 
-			// Create matched RP with production tag
+			// Create matched RP with {{ release_timestamp }} tag in Data
+			rpData, _ := json.Marshal(map[string]interface{}{
+				"mapping": map[string]interface{}{
+					"components": []interface{}{
+						map[string]interface{}{
+							"tags": []string{"{{ release_timestamp }}"},
+						},
+					},
+				},
+			})
 			matchedRP := &v1alpha1.ReleasePlan{
 				Spec: v1alpha1.ReleasePlanSpec{
 					Application: "app",
+					Data: &runtime.RawExtension{
+						Raw: rpData,
+					},
 				},
 			}
 
@@ -387,8 +401,8 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.releasePlanAdmission.Status.RetryInfo).ToNot(BeNil())
-			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Enabled).To(BeTrue())
-			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Reason).To(Equal("retries enabled by policy"))
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Enabled).To(BeFalse())
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Reason).To(Equal("disabled by tag: {{ release_timestamp }}"))
 		})
 
 		It("should not patch when RetryInfo is unchanged", func() {
