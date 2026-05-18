@@ -30,9 +30,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -218,7 +220,7 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.ReleaseServiceConfigContextKey,
-					Resource:   nil, // Simulate RSC not found
+					Err:        errors.NewNotFound(schema.GroupResource{Group: "appstudio.redhat.com", Resource: "releaseserviceconfigs"}, v1alpha1.ReleaseServiceConfigResourceName),
 				},
 				{
 					ContextKey: loader.MatchedReleasePlansContextKey,

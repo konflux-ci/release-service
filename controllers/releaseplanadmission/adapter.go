@@ -86,10 +86,13 @@ func (a *adapter) EnsureRetryInformationIsSet() (controller.OperationResult, err
 		v1alpha1.ReleaseServiceConfigResourceName,
 		a.releasePlanAdmission.Namespace,
 	)
-	if err != nil && !errors.IsNotFound(err) {
-		return controller.RequeueWithError(err)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			rsc = nil
+		} else {
+			return controller.RequeueWithError(err)
+		}
 	}
-	// If not found, rsc will be nil which is handled by DetermineRetryInfo
 
 	// Get matched ReleasePlans
 	matchedRPs, err := a.loader.GetMatchingReleasePlans(a.ctx, a.client, a.releasePlanAdmission)
