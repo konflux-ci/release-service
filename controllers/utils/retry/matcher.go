@@ -30,6 +30,7 @@ import (
 // DetermineRetryInfo determines the retry information for a given ReleasePlanAdmission.
 // It checks if the RPA's pipeline matches any configured retryable pipelines and if
 // tags from the RPA or matched ReleasePlans disable retries.
+// The RPA's Pipeline.MaxRetries can override the RSC configuration.
 func DetermineRetryInfo(
 	rpa *v1alpha1.ReleasePlanAdmission,
 	matchedRPs *v1alpha1.ReleasePlanList,
@@ -52,7 +53,22 @@ func DetermineRetryInfo(
 		}
 	}
 
-	// Try to match the pipeline
+	// Check if retries are explicitly overridden by RPA pipeline
+	if rpa.Spec.Pipeline.MaxRetries != nil {
+		if *rpa.Spec.Pipeline.MaxRetries == 0 {
+			return &v1alpha1.RetryInfo{
+				Enabled: false,
+				Reason:  "retries disabled by RPA pipeline override",
+			}
+		}
+		return &v1alpha1.RetryInfo{
+			Enabled:    true,
+			MaxRetries: rpa.Spec.Pipeline.MaxRetries,
+			Reason:     "retries enabled by RPA pipeline override",
+		}
+	}
+
+	// Try to match the pipeline against RSC retryable pipelines
 	matchedRetryable := MatchPipeline(rpa.Spec.Pipeline, rsc.Spec.RetryablePipelines, logger)
 	if matchedRetryable == nil {
 		return &v1alpha1.RetryInfo{
@@ -88,7 +104,7 @@ func DetermineRetryInfo(
 		}
 	}
 
-	// Retries enabled
+	// Retries enabled by RSC policy
 	maxRetries := matchedRetryable.RetryPolicy.MaxRetries
 	return &v1alpha1.RetryInfo{
 		Enabled:    true,

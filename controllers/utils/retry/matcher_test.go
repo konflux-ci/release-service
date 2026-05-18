@@ -475,6 +475,100 @@ var _ = Describe("Retry Matcher", func() {
 			Expect(retryInfo.Enabled).To(BeFalse())
 			Expect(retryInfo.Reason).To(Equal("disabled by tag: staging"))
 		})
+
+		It("should return disabled when RPA pipeline MaxRetries is 0", func() {
+			maxRetries := 0
+			rpa := createTestRPA(
+				"https://github.com/org/repo",
+				"main",
+				"pipelines/release.yaml",
+				nil,
+			)
+			rpa.Spec.Pipeline.MaxRetries = &maxRetries
+
+			rsc := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/org/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: 3,
+							},
+						},
+					},
+				},
+			}
+
+			retryInfo := retry.DetermineRetryInfo(rpa, &v1alpha1.ReleasePlanList{}, rsc, &logger)
+			Expect(retryInfo.Enabled).To(BeFalse())
+			Expect(retryInfo.Reason).To(Equal("retries disabled by RPA pipeline override"))
+		})
+
+		It("should return enabled when RPA pipeline MaxRetries is non-zero", func() {
+			maxRetries := 5
+			rpa := createTestRPA(
+				"https://github.com/org/repo",
+				"main",
+				"pipelines/release.yaml",
+				nil,
+			)
+			rpa.Spec.Pipeline.MaxRetries = &maxRetries
+
+			rsc := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/org/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: 3,
+							},
+						},
+					},
+				},
+			}
+
+			retryInfo := retry.DetermineRetryInfo(rpa, &v1alpha1.ReleasePlanList{}, rsc, &logger)
+			Expect(retryInfo.Enabled).To(BeTrue())
+			Expect(retryInfo.MaxRetries).ToNot(BeNil())
+			Expect(*retryInfo.MaxRetries).To(Equal(5))
+			Expect(retryInfo.Reason).To(Equal("retries enabled by RPA pipeline override"))
+		})
+
+		It("should enable retries with RPA override even when pipeline doesn't match RSC", func() {
+			maxRetries := 2
+			rpa := createTestRPA(
+				"https://github.com/org/repo",
+				"main",
+				"pipelines/release.yaml",
+				nil,
+			)
+			rpa.Spec.Pipeline.MaxRetries = &maxRetries
+
+			rsc := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/different/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: 3,
+							},
+						},
+					},
+				},
+			}
+
+			retryInfo := retry.DetermineRetryInfo(rpa, &v1alpha1.ReleasePlanList{}, rsc, &logger)
+			Expect(retryInfo.Enabled).To(BeTrue())
+			Expect(retryInfo.MaxRetries).ToNot(BeNil())
+			Expect(*retryInfo.MaxRetries).To(Equal(2))
+			Expect(retryInfo.Reason).To(Equal("retries enabled by RPA pipeline override"))
+		})
 	})
 })
 
