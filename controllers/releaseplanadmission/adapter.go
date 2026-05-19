@@ -23,7 +23,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/konflux-ci/operator-toolkit/controller"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/controllers/utils/retry"
 	"github.com/konflux-ci/release-service/loader"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -71,6 +73,46 @@ func (a *adapter) EnsureMatchingInformationIsSet() (controller.OperationResult, 
 			v1alpha1.MatchedConditionType.String()) != nil {
 		return controller.ContinueProcessing()
 	}
+
+	return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.releasePlanAdmission, patch))
+}
+
+// EnsureRetryInformationIsSet is an operation that will ensure that the ReleasePlanAdmission has updated
+// retry information in its status based on the current ReleaseServiceConfig.
+func (a *adapter) EnsureRetryInformationIsSet() (controller.OperationResult, error) {
+	// Get ReleaseServiceConfig
+	rsc, err := a.loader.GetReleaseServiceConfig(
+		a.ctx, a.client,
+		v1alpha1.ReleaseServiceConfigResourceName,
+		a.releasePlanAdmission.Namespace,
+	)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			rsc = nil
+		} else {
+			return controller.RequeueWithError(err)
+		}
+	}
+
+	// Get matched ReleasePlans
+	matchedRPs, err := a.loader.GetMatchingReleasePlans(a.ctx, a.client, a.releasePlanAdmission)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
+
+	// Determine retry info
+	newRetryInfo := retry.DetermineRetryInfo(a.releasePlanAdmission, matchedRPs, rsc, a.logger)
+
+	// Check if update needed
+	if reflect.DeepEqual(a.releasePlanAdmission.Status.RetryInfo, newRetryInfo) {
+		return controller.ContinueProcessing()
+	}
+
+	// Update status
+	copiedRPA := a.releasePlanAdmission.DeepCopy()
+	patch := client.MergeFrom(copiedRPA)
+
+	a.releasePlanAdmission.Status.RetryInfo = newRetryInfo
 
 	return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.releasePlanAdmission, patch))
 }

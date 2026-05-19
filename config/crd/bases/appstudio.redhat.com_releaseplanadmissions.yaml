@@ -1110,6 +1110,26 @@ spec:
                       type: string
                   type: object
                 type: array
+              retryInfo:
+                description: RetryInfo contains information about retry configuration
+                  for this ReleasePlanAdmission
+                properties:
+                  enabled:
+                    description: Enabled indicates whether retries are enabled for
+                      this RPA's pipeline
+                    type: boolean
+                  maxRetries:
+                    description: MaxRetries is the maximum number of retries if enabled
+                    type: integer
+                  reason:
+                    description: |-
+                      Reason explains why retries are enabled or disabled
+                      Examples: "disabled due to tag: production", "enabled with policy", "no matching pipeline"
+                    type: string
+                required:
+                - enabled
+                - reason
+                type: object
             type: object
         type: object
     served: true

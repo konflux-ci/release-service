@@ -33,6 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	sigsctrl "sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // Controller reconciles a ReleasePlanAdmission object
@@ -65,18 +67,22 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	return controller.ReconcileHandler([]controller.Operation{
 		adapter.EnsureMatchingInformationIsSet,
+		adapter.EnsureRetryInformationIsSet,
 	})
 }
 
 // Register registers the controller with the passed manager and log.
 func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Cluster) error {
 	c.client = mgr.GetClient()
+	c.log = *log
 
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(sigsctrl.Options{MaxConcurrentReconciles: c.MaxConcurrentReconciles}).
 		For(&v1alpha1.ReleasePlanAdmission{}, builder.WithPredicates(predicates.MatchPredicate())).
 		Watches(&v1alpha1.ReleasePlan{}, &handlers.EnqueueRequestForMatchedResource[client.Object]{},
 			builder.WithPredicates(predicates.MatchPredicate())).
+		Watches(&v1alpha1.ReleaseServiceConfig{}, handler.EnqueueRequestsFromMapFunc(c.enqueueAllRPAs),
+			builder.WithPredicates(predicates.ReleaseServiceConfigPredicate())).
 		Complete(c)
 }
 
@@ -84,4 +90,22 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 // field is required.
 func (c *Controller) SetupCache(mgr ctrl.Manager) error {
 	return cache.SetupReleasePlanCache(mgr)
+}
+
+// enqueueAllRPAs is a handler function that enqueues all ReleasePlanAdmissions when a ReleaseServiceConfig changes.
+func (c *Controller) enqueueAllRPAs(ctx context.Context, _ client.Object) []reconcile.Request {
+	rpaList := &v1alpha1.ReleasePlanAdmissionList{}
+	if err := c.client.List(ctx, rpaList); err != nil {
+		c.log.Error(err, "Failed to list ReleasePlanAdmissions for ReleaseServiceConfig watch")
+		return []reconcile.Request{}
+	}
+
+	requests := make([]reconcile.Request, len(rpaList.Items))
+	for i, rpa := range rpaList.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: client.ObjectKeyFromObject(&rpa),
+		}
+	}
+
+	return requests
 }
