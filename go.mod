@@ -1,6 +1,6 @@
 module github.com/konflux-ci/release-service
 
-go 1.25.7
+go 1.26.0
 
 require (
 	github.com/conforma/crds/api v0.1.10
@@ -15,8 +15,8 @@ require (
 	github.com/operator-framework/operator-lib v0.19.0
 	github.com/tektoncd/pipeline v1.12.0
 	go.yaml.in/yaml/v2 v2.4.4
-	k8s.io/api v0.35.4
-	k8s.io/apimachinery v0.35.4
+	k8s.io/api v0.36.1
+	k8s.io/apimachinery v0.36.1
 	k8s.io/client-go v11.0.0+incompatible
 	knative.dev/pkg v0.0.0-20260507212125-df317a52d112
 	sigs.k8s.io/controller-runtime v0.23.3
@@ -111,8 +111,9 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260511170946-3700d4141b60 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	k8s.io/apiserver v0.35.4 // indirect
+	k8s.io/apiserver v0.36.1 // indirect
 	k8s.io/klog v1.0.0 // indirect
+	k8s.io/streaming v0.36.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
@@ -154,10 +155,10 @@ require (
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/grpc v1.81.1 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/apiextensions-apiserver v0.35.4 // indirect
-	k8s.io/component-base v0.35.4 // indirect
+	k8s.io/apiextensions-apiserver v0.36.1 // indirect
+	k8s.io/component-base v0.36.1 // indirect
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-openapi v0.0.0-20260512234627-ef417d054102 // indirect
 	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2
@@ -166,4 +167,4 @@ require (
 )
 
 // This is to work around errors like package k8s.io/client-go/X provided by k8s.io/client-go at latest version v0.34.0 but not at required version v1.5.2
-replace k8s.io/client-go => k8s.io/client-go v0.35.4
+replace k8s.io/client-go => k8s.io/client-go v0.36.1
