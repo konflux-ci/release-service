@@ -2,6 +2,7 @@ package kubearchive
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,7 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,46 +23,50 @@ import (
 
 const (
 	apiURLConfigMapName = "kubearchive-api-url"
-	apiURLConfigMapKey  = "URL"
+
+	kaNamespace   = "product-kubearchive"
+	kaServiceName = "kubearchive-api-server"
+	kaServicePort = 8081
+
+	serviceCAConfigMapName = "openshift-service-ca.crt"
+	serviceCAConfigMapKey  = "service-ca.crt"
+
+	httpClientTimeout = 10 * time.Second
 )
 
-const kaNamespace = "product-kubearchive"
-
-// Client provides access to the KubeArchive API for retrieving archived Kubernetes resources.
-// It lazily discovers the KubeArchive API URL on first use and caches it for subsequent calls.
-// Authentication and TLS are derived from the in-cluster REST configuration.
-type Client struct {
-	mu         sync.Mutex
-	apiURL     string
-	resolved   bool
-	httpClient *http.Client
-}
-
-// NewClient creates a new KubeArchive client. The API URL is discovered lazily on the first
-// Get call using the Kubernetes client to locate the KubeArchive service.
-func NewClient() *Client {
-	return &Client{}
-}
+var (
+	discoverAPIURLFunc = discoverAPIURL
+	newHTTPClientFunc  = newHTTPClient
+)
 
 // Get retrieves an archived resource from KubeArchive by its GroupVersionResource, namespace,
-// and name. The Kubernetes client is used for one-time API URL discovery and is not needed for
-// subsequent calls. The result is unmarshaled into obj, which should be a pointer to the
-// expected resource type.
+// and name. The Kubernetes client is used to check whether KubeArchive is deployed and to load
+// the service-serving CA for TLS. The result is unmarshaled into obj.
 //
 // When multiple archived versions of the same resource exist, the KubeArchive single-resource
 // endpoint returns HTTP 500. In that case, Get falls back to the list endpoint and selects the
 // item with the highest resourceVersion (the most recently persisted version).
-func (c *Client) Get(ctx context.Context, cli client.Client, gvr schema.GroupVersionResource,
+func Get(ctx context.Context, cli client.Client, gvr schema.GroupVersionResource,
 	namespace, name string, obj client.Object) error {
 
-	apiURL, httpClient, err := c.resolve(ctx, cli)
+	logger := ctrl.LoggerFrom(ctx)
+
+	apiURL, err := discoverAPIURLFunc(ctx, cli)
 	if err != nil {
+		logger.Error(err, "Failed to discover KubeArchive API")
 		return err
 	}
 
-	logger := ctrl.LoggerFrom(ctx)
-	body, statusCode, err := c.doGet(ctx, httpClient, apiURL+buildAPIPath(gvr, namespace, name))
+	httpClient, err := newHTTPClientFunc(ctx, cli)
 	if err != nil {
+		logger.Error(err, "Failed to create KubeArchive HTTP client")
+		return err
+	}
+
+	body, statusCode, err := doGet(ctx, httpClient, apiURL+buildAPIPath(gvr, namespace, name))
+	if err != nil {
+		logger.Error(err, "KubeArchive request failed",
+			"gvr", gvr.String(), "namespace", namespace, "name", name)
 		return err
 	}
 
@@ -81,18 +86,18 @@ func (c *Client) Get(ctx context.Context, cli client.Client, gvr schema.GroupVer
 	if statusCode == http.StatusInternalServerError && strings.Contains(string(body), "more than one resource found") {
 		logger.Info("Multiple archived versions found, falling back to list endpoint",
 			"gvr", gvr.String(), "namespace", namespace, "name", name)
-		return c.getFromList(ctx, httpClient, apiURL, gvr, namespace, name, obj)
+		return getFromList(ctx, httpClient, apiURL, gvr, namespace, name, obj)
 	}
 
-	return fmt.Errorf("kubearchive returned HTTP %d for %s/%s: %s",
+	retErr := fmt.Errorf("kubearchive returned HTTP %d for %s/%s: %s",
 		statusCode, namespace, name, truncate(string(body), 200))
+	logger.Error(retErr, "Unexpected KubeArchive response",
+		"gvr", gvr.String(), "statusCode", statusCode)
+	return retErr
 }
 
 // doGet performs an HTTP GET and returns the body, status code, and any transport error.
-func (c *Client) doGet(ctx context.Context, httpClient *http.Client, url string) ([]byte, int, error) {
-	logger := ctrl.LoggerFrom(ctx)
-	logger.Info("Fetching resource from KubeArchive", "url", url)
-
+func doGet(ctx context.Context, httpClient *http.Client, url string) ([]byte, int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, 0, fmt.Errorf("building kubearchive request: %w", err)
@@ -112,13 +117,13 @@ func (c *Client) doGet(ctx context.Context, httpClient *http.Client, url string)
 
 // getFromList queries the list endpoint with a fieldSelector to retrieve only archived
 // versions matching the given name, then picks the one with the highest resourceVersion.
-func (c *Client) getFromList(ctx context.Context, httpClient *http.Client,
+func getFromList(ctx context.Context, httpClient *http.Client,
 	apiURL string, gvr schema.GroupVersionResource,
 	namespace, name string, obj client.Object) error {
 
 	listURL := apiURL + buildListAPIPath(gvr, namespace) +
 		"?fieldSelector=" + url.QueryEscape("metadata.name="+name)
-	body, statusCode, err := c.doGet(ctx, httpClient, listURL)
+	body, statusCode, err := doGet(ctx, httpClient, listURL)
 	if err != nil {
 		return err
 	}
@@ -170,67 +175,66 @@ func (c *Client) getFromList(ctx context.Context, httpClient *http.Client,
 	return json.Unmarshal(bestRaw, obj)
 }
 
-// resolve lazily discovers the KubeArchive API URL and builds an authenticated HTTP client
-// on first call, caching both for subsequent use. If discovery has already been attempted
-// and failed, it returns the cached error without retrying.
-func (c *Client) resolve(ctx context.Context, cli client.Client) (string, *http.Client, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.resolved {
-		if c.apiURL == "" {
-			return "", nil, fmt.Errorf("kubearchive is not available on this cluster")
-		}
-		return c.apiURL, c.httpClient, nil
-	}
-
-	logger := ctrl.LoggerFrom(ctx)
-	apiURL, err := discoverAPIURL(ctx, cli)
-	c.resolved = true
-	if err != nil {
-		logger.Info("KubeArchive not available on this cluster", "error", err)
-		return "", nil, fmt.Errorf("kubearchive discovery failed: %w", err)
-	}
-
-	c.apiURL = apiURL
-	if c.httpClient == nil {
-		c.httpClient, err = newHTTPClient()
-		if err != nil {
-			return "", nil, fmt.Errorf("creating kubearchive HTTP client: %w", err)
-		}
-	}
-	logger.Info("Discovered KubeArchive API", "url", apiURL)
-	return c.apiURL, c.httpClient, nil
-}
-
-// discoverAPIURL finds the KubeArchive API server URL by reading the well-known
-// ConfigMap "kubearchive-api-url" from the product-kubearchive namespace. The
-// ConfigMap is deployed by infra-deployments and contains a single key "URL"
-// with the route URL.
+// discoverAPIURL checks whether KubeArchive is deployed on this cluster by
+// looking for the well-known ConfigMap "kubearchive-api-url" in the
+// product-kubearchive namespace. If present, it returns the in-cluster service
+// URL so that the controller communicates directly with the KubeArchive API
+// server over the cluster network, avoiding external route egress restrictions.
 func discoverAPIURL(ctx context.Context, cli client.Client) (string, error) {
 	cm := &corev1.ConfigMap{}
 	if err := cli.Get(ctx, types.NamespacedName{Namespace: kaNamespace, Name: apiURLConfigMapName}, cm); err != nil {
 		return "", fmt.Errorf("ConfigMap %q not found in namespace %q: %w", apiURLConfigMapName, kaNamespace, err)
 	}
-	if u, ok := cm.Data[apiURLConfigMapKey]; ok &&
-		(strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://")) {
-		return strings.TrimRight(u, "/"), nil
-	}
-	return "", fmt.Errorf("ConfigMap %q in namespace %q has no valid URL", apiURLConfigMapName, kaNamespace)
+	return fmt.Sprintf("https://%s.%s.svc.cluster.local:%d", kaServiceName, kaNamespace, kaServicePort), nil
 }
 
-// newHTTPClient builds an HTTP client that carries the in-cluster service account
-// bearer token for KubeArchive authentication. The cluster CA is cleared so that
-// Go falls back to the system CA bundle, which can verify the external route TLS
-// certificate (signed by a public CA, not the cluster CA).
-func newHTTPClient() (*http.Client, error) {
+// loadServiceCA reads the OpenShift service-serving CA bundle from the
+// well-known "openshift-service-ca.crt" ConfigMap in the product-kubearchive
+// namespace. The ConfigMap is auto-populated by the service-ca operator in
+// every namespace.
+func loadServiceCA(ctx context.Context, cli client.Client) ([]byte, error) {
+	cm := &corev1.ConfigMap{}
+	if err := cli.Get(ctx, types.NamespacedName{Namespace: kaNamespace, Name: serviceCAConfigMapName}, cm); err != nil {
+		return nil, fmt.Errorf("ConfigMap %q not found in namespace %q: %w", serviceCAConfigMapName, kaNamespace, err)
+	}
+	pem, ok := cm.Data[serviceCAConfigMapKey]
+	if !ok || len(pem) == 0 {
+		return nil, fmt.Errorf("ConfigMap %q in namespace %q has no %q key", serviceCAConfigMapName, kaNamespace, serviceCAConfigMapKey)
+	}
+	return []byte(pem), nil
+}
+
+// newHTTPClient builds an HTTP client that carries the in-cluster service
+// account bearer token for KubeArchive authentication and trusts the
+// service-serving CA for TLS verification of the internal service endpoint.
+func newHTTPClient(ctx context.Context, cli client.Client) (*http.Client, error) {
+	caData, err := loadServiceCA(ctx, cli)
+	if err != nil {
+		return nil, fmt.Errorf("loading service-serving CA: %w", err)
+	}
+
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, fmt.Errorf("loading in-cluster config: %w", err)
 	}
-	cfg.TLSClientConfig.CAFile = ""
-	cfg.TLSClientConfig.CAData = nil
-	return rest.HTTPClientFor(cfg)
+
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caData) {
+		return nil, fmt.Errorf("failed to parse service-serving CA bundle")
+	}
+
+	cfg.TLSClientConfig = rest.TLSClientConfig{CAData: caData}
+	cfg.Timeout = httpClientTimeout
+
+	transport, err := rest.TransportFor(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("building transport: %w", err)
+	}
+
+	return &http.Client{
+		Transport: transport,
+		Timeout:   httpClientTimeout,
+	}, nil
 }
 
 // buildAPIPath constructs the REST API path for a named resource, mirroring the
