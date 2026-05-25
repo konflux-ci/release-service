@@ -113,7 +113,7 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	k8s.io/apiserver v0.35.4 // indirect
 	k8s.io/klog v1.0.0 // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.35.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
 )
@@ -154,7 +154,7 @@ require (
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/grpc v1.81.1 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/apiextensions-apiserver v0.35.4 // indirect
 	k8s.io/component-base v0.35.4 // indirect
