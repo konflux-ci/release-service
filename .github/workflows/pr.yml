@@ -153,4 +153,4 @@ jobs:
       - uses: actions/checkout@v6
       - uses: konflux-ci/renovate-config-validator-action@main
         with:
-          config_file: renovate.json
+          config_file: .github/renovate.json
