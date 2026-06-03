@@ -1,0 +1,43 @@
+# Qodo PR-Agent configuration
+# Add only the settings you need.
+# Docs: https://docs.qodo.ai/qodo-documentation/qodo-merge/configuration/configuration-file
+
+[github_app]
+# Ignore PRs opened by these authors.
+ignore_pr_authors = ["red-hat-konflux", "release-service-bot", "dependabot[bot]"]
+# Run review automatically when PRs are opened/reopened/ready.
+pr_commands = [
+  "/review",
+  "/improve",
+]
+# Run review automatically when new commits are pushed to an open PR.
+handle_push_trigger = true
+push_commands = [
+  "/review",
+  "/improve",
+]
+
+[pr_reviewer]
+# Limit review feedback to 3 findings per PR.
+num_max_findings = 3
+# Reuse a single summary comment rather than adding a new one on each update
+persistent_comment = true
+# Reinforce "3 inline comments" behavior.
+extra_instructions = """
+- Provide up to 3 inline review comments per PR.
+- Prefer inline suggestions over a single summary comment.
+- Read the project conventions and architecture at: https://raw.githubusercontent.com/konflux-ci/release-service/refs/heads/main/AGENTS.md
+"""
+
+[pr_code_suggestions]
+# Enable inline, committable suggestions.
+commitable_code_suggestions = true
+# Limit inline suggestions to 3 per PR.
+num_code_suggestions_per_chunk = 3
+# Reuse a single comment rather than adding a new one on each push.
+persistent_comment = true
+extra_instructions = """
+- Before suggesting a change, verify whether the PR already includes it. If it does, do not suggest it.
+- Do not repeat previously rejected suggestions in subsequent updates of the same PR if the thread was resolved without action.
+- Read the project conventions and architecture at: https://raw.githubusercontent.com/konflux-ci/release-service/refs/heads/main/AGENTS.md
+"""
