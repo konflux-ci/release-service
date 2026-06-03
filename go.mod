@@ -18,7 +18,7 @@ require (
 	k8s.io/api v0.35.5
 	k8s.io/apimachinery v0.36.1
 	k8s.io/client-go v11.0.0+incompatible
-	knative.dev/pkg v0.0.0-20260529191007-91499a17111f
+	knative.dev/pkg v0.0.0-20260602142205-ac97e43f6622
 	sigs.k8s.io/controller-runtime v0.23.3
 )
 
@@ -87,7 +87,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.44.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.44.0 // indirect
