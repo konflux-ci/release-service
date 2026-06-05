@@ -114,7 +114,7 @@ require (
 	k8s.io/apiserver v0.35.5 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/streaming v0.36.1 // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.35.0 // indirect
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
 )
