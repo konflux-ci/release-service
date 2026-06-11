@@ -17,14 +17,20 @@ limitations under the License.
 package releaseplanadmission
 
 import (
+	"context"
+	"fmt"
 	"reflect"
 
+	"github.com/konflux-ci/release-service/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -71,4 +77,98 @@ var _ = Describe("ReleasePlanAdmission Controller", Ordered, func() {
 		})
 	})
 
+	When("enqueueAllRPAs is called", func() {
+		var controller *Controller
+		var rsc *v1alpha1.ReleaseServiceConfig
+
+		BeforeEach(func() {
+			rsc = &v1alpha1.ReleaseServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: "default",
+				},
+			}
+		})
+
+		It("should enqueue all ReleasePlanAdmissions", func() {
+			rpa1 := &v1alpha1.ReleasePlanAdmission{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "rpa1",
+					Namespace: "default",
+				},
+			}
+			rpa2 := &v1alpha1.ReleasePlanAdmission{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "rpa2",
+					Namespace: "other",
+				},
+			}
+
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme.Scheme).
+				WithObjects(rpa1, rpa2).
+				Build()
+
+			controller = &Controller{
+				client: fakeClient,
+				log:    ctrl.Log,
+			}
+
+			requests := controller.enqueueAllRPAs(context.TODO(), rsc)
+			Expect(requests).To(HaveLen(2))
+			Expect(requests).To(ContainElements(
+				reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      "rpa1",
+						Namespace: "default",
+					},
+				},
+				reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      "rpa2",
+						Namespace: "other",
+					},
+				},
+			))
+		})
+
+		It("should return empty slice when List fails", func() {
+			// Create a fake client that returns an error on List
+			errorClient := &errorListClient{
+				Client: fake.NewClientBuilder().WithScheme(scheme.Scheme).Build(),
+			}
+
+			controller = &Controller{
+				client: errorClient,
+				log:    ctrl.Log,
+			}
+
+			requests := controller.enqueueAllRPAs(context.TODO(), rsc)
+			Expect(requests).To(BeEmpty())
+		})
+
+		It("should return empty slice when no RPAs exist", func() {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme.Scheme).
+				Build()
+
+			controller = &Controller{
+				client: fakeClient,
+				log:    ctrl.Log,
+			}
+
+			requests := controller.enqueueAllRPAs(context.TODO(), rsc)
+			Expect(requests).To(BeEmpty())
+		})
+	})
+
 })
+
+// errorListClient is a fake client that returns errors on List
+type errorListClient struct {
+	client.Client
+}
+
+func (e *errorListClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	return fmt.Errorf("simulated list error")
+}
