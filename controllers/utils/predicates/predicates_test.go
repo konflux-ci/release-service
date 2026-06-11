@@ -652,4 +652,106 @@ var _ = Describe("Predicates", Ordered, func() {
 			Expect(instance.Update(contextEvent)).To(BeFalse())
 		})
 	})
+
+	Context("When calling ReleaseServiceConfigPredicate", func() {
+		var instance predicate.Predicate
+		var rscOld, rscNew *v1alpha1.ReleaseServiceConfig
+
+		BeforeEach(func() {
+			instance = ReleaseServiceConfigPredicate()
+			rscOld = &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/org/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: 3,
+							},
+						},
+					},
+				},
+			}
+			rscNew = rscOld.DeepCopy()
+		})
+
+		It("returns true for create events", func() {
+			contextEvent := event.CreateEvent{Object: rscOld}
+			Expect(instance.Create(contextEvent)).To(BeTrue())
+		})
+
+		It("returns true for delete events", func() {
+			contextEvent := event.DeleteEvent{Object: rscOld}
+			Expect(instance.Delete(contextEvent)).To(BeTrue())
+		})
+
+		It("returns false for generic events", func() {
+			contextEvent := event.GenericEvent{Object: rscOld}
+			Expect(instance.Generic(contextEvent)).To(BeFalse())
+		})
+
+		It("returns true when RetryablePipelines changes", func() {
+			rscNew.Spec.RetryablePipelines = []v1alpha1.RetryablePipeline{
+				{
+					Url:        "https://github.com/different/repo",
+					Revision:   "main",
+					PathInRepo: "pipelines/release.yaml",
+					RetryPolicy: v1alpha1.RetryPolicy{
+						MaxRetries: 5,
+					},
+				},
+			}
+			contextEvent := event.UpdateEvent{
+				ObjectOld: rscOld,
+				ObjectNew: rscNew,
+			}
+			Expect(instance.Update(contextEvent)).To(BeTrue())
+		})
+
+		It("returns false when RetryablePipelines does not change", func() {
+			contextEvent := event.UpdateEvent{
+				ObjectOld: rscOld,
+				ObjectNew: rscNew,
+			}
+			Expect(instance.Update(contextEvent)).To(BeFalse())
+		})
+
+		It("returns false when both have empty RetryablePipelines", func() {
+			rscOld.Spec.RetryablePipelines = []v1alpha1.RetryablePipeline{}
+			rscNew.Spec.RetryablePipelines = []v1alpha1.RetryablePipeline{}
+			contextEvent := event.UpdateEvent{
+				ObjectOld: rscOld,
+				ObjectNew: rscNew,
+			}
+			Expect(instance.Update(contextEvent)).To(BeFalse())
+		})
+
+		It("returns false when object is not ReleaseServiceConfig", func() {
+			pod := &corev1.Pod{}
+			contextEvent := event.UpdateEvent{
+				ObjectOld: pod,
+				ObjectNew: pod,
+			}
+			Expect(instance.Update(contextEvent)).To(BeFalse())
+		})
+
+		It("returns false when only ObjectOld is not ReleaseServiceConfig", func() {
+			pod := &corev1.Pod{}
+			contextEvent := event.UpdateEvent{
+				ObjectOld: pod,
+				ObjectNew: rscNew,
+			}
+			Expect(instance.Update(contextEvent)).To(BeFalse())
+		})
+
+		It("returns false when only ObjectNew is not ReleaseServiceConfig", func() {
+			pod := &corev1.Pod{}
+			contextEvent := event.UpdateEvent{
+				ObjectOld: rscOld,
+				ObjectNew: pod,
+			}
+			Expect(instance.Update(contextEvent)).To(BeFalse())
+		})
+	})
 })
