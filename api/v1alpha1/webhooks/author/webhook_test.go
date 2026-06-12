@@ -223,7 +223,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 				Expect(rsp.AdmissionResponse.Allowed).To(BeFalse())
 				Expect(rsp.AdmissionResponse.Result).To(Equal(&metav1.Status{
 					Code:    http.StatusBadRequest,
-					Message: "release author label cannnot be updated",
+					Message: "release author label cannot be updated",
 				}))
 			})
 		})
@@ -271,6 +271,19 @@ var _ = Describe("Author webhook", Ordered, func() {
 				// The json functions replace `/` so checking the entire value does not work
 				Expect(patch.Path).To(ContainSubstring("author"))
 				Expect(patch.Value).To(Equal("admin"))
+			})
+
+			It("should leave user as the value for the author label when attribution is set to true", func() {
+				releasePlan.Labels = map[string]string{
+					metadata.AttributionLabel: "true",
+					metadata.AuthorLabel:      "user",
+				}
+				admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
+				Expect(err).NotTo(HaveOccurred())
+
+				rsp := webhook.Handle(ctx, admissionRequest)
+				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
+				Expect(len(rsp.Patches)).To(Equal(0))
 			})
 
 			It("should allow the operation with no patch if the Attribution label is missing", func() {
@@ -328,8 +341,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					}
 				})
 
-				It("should maintain author value if trying to set it to a different user", func() {
-					previousReleasePlan.Labels[metadata.AuthorLabel] = "admin"
+				It("should set the author to be the provided user", func() {
 					releasePlan.Labels[metadata.AuthorLabel] = "user"
 					admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
 					Expect(err).NotTo(HaveOccurred())
@@ -338,41 +350,23 @@ var _ = Describe("Author webhook", Ordered, func() {
 
 					rsp := webhook.Handle(ctx, admissionRequest)
 					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
-					Expect(rsp.AdmissionResponse.Patch).To(BeNil())
+					Expect(len(rsp.Patches)).To(Equal(0))
+				})
+
+				It("should set the author to be the current user if one isn't provided", func() {
+					admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
+					Expect(err).NotTo(HaveOccurred())
+					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
+					Expect(err).NotTo(HaveOccurred())
+
+					rsp := webhook.Handle(ctx, admissionRequest)
+					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 					Expect(len(rsp.Patches)).To(Equal(1))
 					patch := rsp.Patches[0]
-					Expect(patch.Operation).To(Equal("replace"))
+					Expect(patch.Operation).To(Equal("add"))
 					// The json functions replace `/` so checking the entire value does not work
 					Expect(patch.Path).To(ContainSubstring("author"))
 					Expect(patch.Value).To(Equal("admin"))
-				})
-
-				It("should allow the change if author value is not modified", func() {
-					previousReleasePlan.Labels[metadata.AuthorLabel] = "user"
-					releasePlan.Labels[metadata.AuthorLabel] = "user"
-					admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
-					Expect(err).NotTo(HaveOccurred())
-					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
-					Expect(err).NotTo(HaveOccurred())
-
-					rsp := webhook.Handle(ctx, admissionRequest)
-					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
-					Expect(rsp.AdmissionResponse.Patch).To(BeNil())
-					Expect(len(rsp.Patches)).To(Equal(0))
-				})
-
-				It("should allow changing the author to the current user", func() {
-					previousReleasePlan.Labels[metadata.AuthorLabel] = "user"
-					releasePlan.Labels[metadata.AuthorLabel] = "admin"
-					admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
-					Expect(err).NotTo(HaveOccurred())
-					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
-					Expect(err).NotTo(HaveOccurred())
-
-					rsp := webhook.Handle(ctx, admissionRequest)
-					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
-					Expect(rsp.AdmissionResponse.Patch).To(BeNil())
-					Expect(len(rsp.Patches)).To(Equal(0))
 				})
 			})
 
@@ -415,8 +409,19 @@ var _ = Describe("Author webhook", Ordered, func() {
 					}
 				})
 
-				It("should set the author to be current user if provided different user", func() {
+				It("should set the author to be the provided user", func() {
 					releasePlan.Labels[metadata.AuthorLabel] = "user"
+					admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
+					Expect(err).NotTo(HaveOccurred())
+					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
+					Expect(err).NotTo(HaveOccurred())
+
+					rsp := webhook.Handle(ctx, admissionRequest)
+					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
+					Expect(len(rsp.Patches)).To(Equal(0))
+				})
+
+				It("should set the author to be the current user if one isn't provided", func() {
 					admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
 					Expect(err).NotTo(HaveOccurred())
 					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
@@ -426,7 +431,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 					Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
 					Expect(len(rsp.Patches)).To(Equal(1))
 					patch := rsp.Patches[0]
-					Expect(patch.Operation).To(Equal("replace"))
+					Expect(patch.Operation).To(Equal("add"))
 					// The json functions replace `/` so checking the entire value does not work
 					Expect(patch.Path).To(ContainSubstring("author"))
 					Expect(patch.Value).To(Equal("admin"))

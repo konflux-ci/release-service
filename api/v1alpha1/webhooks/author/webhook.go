@@ -92,16 +92,16 @@ func (w *Webhook) handleRelease(req admission.Request) admission.Response {
 		}
 
 		if release.GetLabels()[metadata.AuthorLabel] != oldRelease.GetLabels()[metadata.AuthorLabel] {
-			return admission.Errored(http.StatusBadRequest, errors.New("release author label cannnot be updated"))
+			return admission.Errored(http.StatusBadRequest, errors.New("release author label cannot be updated"))
 		}
 	}
 	return admission.Allowed("Success")
 }
 
 // handleReleasePlan takes an incoming admission request and returns an admission response. If the
-// attribution label is set to true, the current user is set as the author. If the attribution label
-// is false, the author label is removed. The only exception is if the attribution label remains true
-// during an update and the author value is not modified, the previous author label remains.
+// attribution label is set to true and no author is provided, the current user is set as the author.
+// If the attribution label is false, the author label is removed. Finally, if the attribution label
+// is true and an author is provided, no change is made.
 func (w *Webhook) handleReleasePlan(req admission.Request) admission.Response {
 	releasePlan := &v1alpha1.ReleasePlan{}
 	err := json.Unmarshal(req.Object.Raw, releasePlan)
@@ -114,26 +114,10 @@ func (w *Webhook) handleReleasePlan(req admission.Request) admission.Response {
 	}
 
 	switch req.AdmissionRequest.Operation {
-	case admissionv1.Create:
-		if releasePlan.GetLabels()[metadata.AttributionLabel] == "true" {
+	case admissionv1.Create, admissionv1.Update:
+		// Only add the current user as author if attribution is true and no author is provided
+		if releasePlan.GetLabels()[metadata.AttributionLabel] == "true" && releasePlan.GetLabels()[metadata.AuthorLabel] == "" {
 			w.setAuthorLabel(req.UserInfo.Username, releasePlan)
-		}
-	case admissionv1.Update:
-		oldReleasePlan := &v1alpha1.ReleasePlan{}
-		err := json.Unmarshal(req.OldObject.Raw, oldReleasePlan)
-		if err != nil {
-			return admission.Errored(http.StatusBadRequest, errors.Wrap(err, "error decoding object"))
-		}
-
-		if releasePlan.GetLabels()[metadata.AttributionLabel] == "true" {
-			author := releasePlan.GetLabels()[metadata.AuthorLabel]
-
-			if oldReleasePlan.GetLabels()[metadata.AttributionLabel] != "true" || author == w.sanitizeLabelValue(req.UserInfo.Username) {
-				w.setAuthorLabel(req.UserInfo.Username, releasePlan)
-			} else {
-				// Preserve previous author if the new author does not match the user making the change
-				w.setAuthorLabel(oldReleasePlan.GetLabels()[metadata.AuthorLabel], releasePlan)
-			}
 		}
 	}
 
