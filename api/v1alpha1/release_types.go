@@ -50,6 +50,20 @@ type ReleaseSpec struct {
 	// This value is used to define the Release ExpirationTime
 	// +optional
 	GracePeriodDays int `json:"gracePeriodDays,omitempty"`
+
+	// CollectorDataOverrides contains optional overrides for data used by collector operations
+	// +optional
+	CollectorDataOverrides *CollectorDataOverrides `json:"collectorDataOverrides,omitempty"`
+}
+
+// CollectorDataOverrides defines optional overrides for collector pipeline data.
+type CollectorDataOverrides struct {
+	// PreviousRelease is an optional reference to a previous Release name to use for collector operations.
+	// The Release is looked up in the same namespace as the current Release and must not be failed.
+	// If not specified, the previous release is automatically determined.
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	// +optional
+	PreviousRelease string `json:"previousRelease,omitempty"`
 }
 
 // ReleaseStatus defines the observed state of Release.
