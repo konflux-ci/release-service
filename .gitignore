@@ -1,20 +1,74 @@
-# CMake
-cmake-build-*/
+# ==========================================
+# Kubebuilder / Operator SDK Artifacts
+# ==========================================
+# The Makefile downloads localized binaries (like controller-gen, 
+# kustomize, and setup-envtest) into this directory.
+bin/
+testbin/
 
-# File-based project format
+# Local default etcd or envtest data cache paths
+default.etcd/
+
+# ==========================================
+# Go / Compilation Artifacts
+# ==========================================
+# Generic Go binary outputs
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Omit the vendor directory since Go modules (go.mod/go.sum) are used 
+# (Uncomment the line below if your workflow explicitly avoids vendoring)
+# vendor/
+
+# ==========================================
+# Testing & Code Coverage
+# ==========================================
+# Test binaries and coverage profiles generated via 'make test'
+*.test
+*.out
+cover.*
+*coverprofile
+profile.cov
+
+# ==========================================
+# Local Kubernetes & Environment Files
+# ==========================================
+# Avoid committing local configurations, keys, or cluster access tokens
+*.kubeconfig
+kubeconfig
+.env
+.env.local
+
+# ==========================================
+# IDEs, Editors & Tooling
+# ==========================================
+# JetBrains (GoLand / IntelliJ)
+.idea/
+*.iwb
 *.iws
 
-# IntelliJ
-out/
-.idea/
-*.iml
+# Visual Studio Code
+.vscode/
+# (Optional) Allow committing shared task/launch configurations if desired:
+# !.vscode/launch.json
+# !.vscode/tasks.json
 
-# JIRA plugin
-atlassian-ide-plugin.xml
+# Vim / Emacs backup and swap files
+*[._]sw[a-p]
+*~
+[._]s[a-w][a-z]
+\.\#*
 
-# Operator-sdk
-bin/*
-cover.out
-
-# asdf
-.tool-versions
+# ==========================================
+# System Specific Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
