@@ -117,4 +117,7 @@ var (
 
 	// ReleaseSnapshotLabel is the label used to specify the snapshot associated with the PipelineRun
 	ReleaseSnapshotLabel = fmt.Sprintf("%s/%s", RhtapDomain, "snapshot")
+
+	// ReleaseAttemptLabel is the label used to identify the attempt index of a PipelineRun
+	ReleaseAttemptLabel = fmt.Sprintf("%s/%s", releaseLabelPrefix, "attempt")
 )

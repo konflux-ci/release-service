@@ -87,7 +87,7 @@ type ReleaseStatus struct {
 
 	// ManagedPipelineAttempts contains information about each attempt of the release managed pipeline processing
 	// +optional
-	ManagedPipelineAttempts []ManagedPipelineAttempt `json:"managedPipelineAttempts,omitempty"`
+	ManagedPipelineAttempts []PipelineAttempt `json:"managedPipelineAttempts,omitempty"`
 
 	// TenantProcessing contains information about the release tenant processing
 	// +optional
@@ -178,8 +178,8 @@ type PipelineInfo struct {
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 }
 
-// ManagedPipelineAttempt defines the observed state of a managed pipeline processing attempt
-type ManagedPipelineAttempt struct {
+// PipelineAttempt defines the observed state of a pipeline processing attempt
+type PipelineAttempt struct {
 	// PipelineRun contains the namespaced name of the managed Release PipelineRun executed as part of this attempt
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// +optional
@@ -260,12 +260,17 @@ func (r *Release) HasManagedPipelineProcessingFinished() bool {
 	return r.hasPhaseFinished(managedProcessedConditionType)
 }
 
-// GetCurrentManagedPipelineAttempt returns a pointer to the last ManagedPipelineAttempt or nil if none exist.
-func (r *Release) GetCurrentManagedPipelineAttempt() *ManagedPipelineAttempt {
+// GetCurrentManagedPipelineAttempt returns a pointer to the last PipelineAttempt or nil if none exist.
+func (r *Release) GetCurrentManagedPipelineAttempt() *PipelineAttempt {
 	if len(r.Status.ManagedPipelineAttempts) <= 0 {
 		return nil
 	}
 	return &r.Status.ManagedPipelineAttempts[len(r.Status.ManagedPipelineAttempts)-1]
+}
+
+// GetManagedPipelineRetryCount returns the number of attempts performed so far.
+func (r *Release) GetManagedPipelineRetryCount() int {
+	return max(0, len(r.Status.ManagedPipelineAttempts)-1)
 }
 
 // HasTenantCollectorsPipelineProcessingFinished checks whether the Release Tenant Collectors Pipeline processing has finished, regardless of the result.
@@ -318,6 +323,28 @@ func (r *Release) IsManagedCollectorsPipelineProcessedSuccessfully() bool {
 // IsManagedPipelineProcessedSuccessfully checks whether the Release Managed Pipeline was successfully processed.
 func (r *Release) IsManagedPipelineProcessedSuccessfully() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, managedProcessedConditionType.String())
+}
+
+// IsCurrentManagedPipelineAttemptDone checks whether the current managed pipeline attempt has completed.
+func (r *Release) IsCurrentManagedPipelineAttemptDone() bool {
+	attempt := r.GetCurrentManagedPipelineAttempt()
+	return attempt != nil && (attempt.Status == AttemptFailedReason || attempt.Status == AttemptSucceededReason)
+}
+
+// IsCurrentManagedPipelineAttemptFailed checks whether the current managed pipeline attempt has failed.
+func (r *Release) IsCurrentManagedPipelineAttemptFailed() bool {
+	attempt := r.GetCurrentManagedPipelineAttempt()
+	return attempt != nil && attempt.Status == AttemptFailedReason
+}
+
+// IsCurrentManagedPipelineAttemptRetriable checks whether the current managed pipeline attempt
+// failed with a retriable reason.
+func (r *Release) IsCurrentManagedPipelineAttemptRetriable() bool {
+	attempt := r.GetCurrentManagedPipelineAttempt()
+	return attempt != nil && attempt.Status == AttemptFailedReason &&
+		(attempt.FailureReason == AttemptFailureOOMKillReason ||
+			attempt.FailureReason == AttemptFailureTaskRunTimeoutReason ||
+			attempt.FailureReason == AttemptFailurePipelineRunTimeoutReason)
 }
 
 // IsTenantCollectorsPipelineProcessedSuccessfully checks whether the Release Tenant Collectors Pipeline was successfully processed.
@@ -440,6 +467,10 @@ func (r *Release) MarkManagedCollectorsPipelineProcessed() {
 // MarkCurrentManagedPipelineAttemptProcessed marks the current managed pipeline attempt as succeeded.
 func (r *Release) MarkCurrentManagedPipelineAttemptProcessed() {
 	if !r.IsManagedPipelineProcessing() || r.HasManagedPipelineProcessingFinished() {
+		return
+	}
+
+	if r.IsCurrentManagedPipelineAttemptDone() {
 		return
 	}
 
@@ -590,10 +621,12 @@ func (r *Release) MarkCurrentManagedPipelineAttemptProcessing() {
 		return
 	}
 
-	if !r.IsManagedPipelineProcessing() {
+	if attempt.StartTime == nil {
 		attempt.StartTime = &metav1.Time{Time: time.Now()}
 		// Deprecated: mirror to ManagedProcessing for backward compatibility
-		r.Status.ManagedProcessing.StartTime = attempt.StartTime
+		if !r.IsManagedPipelineProcessing() {
+			r.Status.ManagedProcessing.StartTime = attempt.StartTime
+		}
 	}
 
 	attempt.Status = AttemptProgressingReason
@@ -694,6 +727,10 @@ func (r *Release) MarkCurrentManagedPipelineAttemptFailed(message, failureReason
 		return
 	}
 
+	if r.IsCurrentManagedPipelineAttemptDone() {
+		return
+	}
+
 	attempt := r.GetCurrentManagedPipelineAttempt()
 	if attempt == nil {
 		return
@@ -708,8 +745,6 @@ func (r *Release) MarkCurrentManagedPipelineAttemptFailed(message, failureReason
 
 	// Deprecated: mirror to ManagedProcessing for backward compatibility
 	r.Status.ManagedProcessing.CompletionTime = attempt.CompletionTime
-
-	conditions.SetConditionWithMessage(&r.Status.Conditions, managedProcessedConditionType, metav1.ConditionFalse, FailedReason, message)
 
 	go metrics.RegisterCompletedReleasePipelineProcessing(
 		attempt.StartTime,
