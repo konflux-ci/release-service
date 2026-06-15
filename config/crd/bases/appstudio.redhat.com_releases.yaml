@@ -313,8 +313,8 @@ spec:
                 description: ManagedPipelineAttempts contains information about each
                   attempt of the release managed pipeline processing
                 items:
-                  description: ManagedPipelineAttempt defines the observed state of
-                    a managed pipeline processing attempt
+                  description: PipelineAttempt defines the observed state of a pipeline
+                    processing attempt
                   properties:
                     completionTime:
                       description: CompletionTime is the time when the managed pipeline
