@@ -34,6 +34,7 @@ import (
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/loader"
 	"github.com/konflux-ci/release-service/metadata"
+	"github.com/konflux-ci/release-service/retry"
 	"github.com/konflux-ci/release-service/syncer"
 	"github.com/konflux-ci/release-service/tekton"
 	"github.com/konflux-ci/release-service/tekton/utils"
@@ -547,13 +548,18 @@ func (a *adapter) EnsureManagedPipelineIsProcessed() (controller.OperationResult
 		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 	}
 
-	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedPipelineType)
+	// Let the completion operation handle retry when the current attempt has failed
+	if a.release.IsCurrentManagedPipelineAttemptFailed() {
+		return controller.ContinueProcessing()
+	}
+
+	pipelineRun, err := a.loader.GetReleasePipelineRunAttempt(a.ctx, a.client, a.release, a.release.GetManagedPipelineRetryCount())
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
 	}
 
 	// Get RoleBinding from tenant namespace so the managed PipelineRun can access tenant resources.
-	tenantRoleBinding, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.ManagedProcessing, "tenant")
+	tenantRoleBinding, err := a.loader.GetRoleBindingFromPipelineAttempt(a.ctx, a.client, a.release.GetCurrentManagedPipelineAttempt())
 	if err != nil && !errors.IsNotFound(err) && !stderrors.Is(err, loader.ErrInvalidRoleBindingRef) {
 		return controller.RequeueWithError(err)
 	}
@@ -590,7 +596,7 @@ func (a *adapter) EnsureManagedPipelineIsProcessed() (controller.OperationResult
 				}
 			}
 
-			pipelineRun, err = a.createManagedPipelineRun(resources)
+			pipelineRun, err = a.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
 			if err != nil {
 				capturedTenant := tenantRoleBinding
 				return pipelineCreationResult(handlePipelineCreationError(a.ctx, a.client, a.release, err,
@@ -780,7 +786,7 @@ func (a *adapter) EnsureManagedPipelineProcessingIsTracked() (controller.Operati
 		return controller.ContinueProcessing()
 	}
 
-	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedPipelineType)
+	pipelineRun, err := a.loader.GetReleasePipelineRunAttempt(a.ctx, a.client, a.release, a.release.GetManagedPipelineRetryCount())
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}
@@ -813,6 +819,33 @@ func (a *adapter) EnsureFinalPipelineProcessingIsTracked() (controller.Operation
 	}
 
 	return controller.ContinueProcessing()
+}
+
+// EnsureManagedPipelineProcessingIsCompleted is an operation that will ensure that a failed managed
+// pipeline attempt is either retried or finalized as a failure.
+func (a *adapter) EnsureManagedPipelineProcessingIsCompleted() (controller.OperationResult, error) {
+	if !a.release.IsManagedPipelineProcessing() || a.release.HasManagedPipelineProcessingFinished() {
+		return controller.ContinueProcessing()
+	}
+
+	if !a.release.IsCurrentManagedPipelineAttemptFailed() {
+		return controller.ContinueProcessing()
+	}
+
+	rpa, err := a.loader.GetActiveReleasePlanAdmissionFromRelease(a.ctx, a.client, a.release)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
+
+	if a.release.IsCurrentManagedPipelineAttemptRetriable() && rpa.IsRetryEnabled() &&
+		a.release.GetManagedPipelineRetryCount() < *rpa.Status.RetryInfo.MaxRetries {
+		return controller.RequeueOnErrorOrContinue(a.retryManagedPipeline())
+	}
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+	a.release.MarkManagedPipelineProcessingFailed("Release processing failed on managed pipelineRun")
+	a.release.MarkReleaseFailed("Release processing failed on managed pipelineRun")
+	return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 }
 
 // EnsureCollectorsProcessingResourcesAreCleanedUp is an operation that will ensure that the RoleBindings, Roles, and PipelineRuns created for the Collectors
@@ -929,7 +962,14 @@ func (a *adapter) EnsureReleaseProcessingResourcesAreCleanedUp() (controller.Ope
 
 // cleanupPipeline handles pipeline cleanup for any pipeline type
 func (a *adapter) cleanupPipeline(pipelineType metadata.PipelineType) error {
-	// Get the pipeline run
+	if pipelineType == metadata.ManagedPipelineType {
+		return a.cleanupManagedPipelineResources()
+	}
+
+	if pipelineType != metadata.TenantPipelineType && pipelineType != metadata.FinalPipelineType {
+		return fmt.Errorf("unsupported pipeline type: %s", pipelineType.String())
+	}
+
 	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, pipelineType)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
@@ -938,18 +978,74 @@ func (a *adapter) cleanupPipeline(pipelineType metadata.PipelineType) error {
 		return nil
 	}
 
-	// Get role bindings based on pipeline type
-	var roleBindings []*rbac.RoleBinding
-	if pipelineType == metadata.ManagedPipelineType {
-		tenantRoleBinding, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.ManagedProcessing, "tenant")
-		if err == nil && tenantRoleBinding != nil {
-			roleBindings = append(roleBindings, tenantRoleBinding)
-		}
-	} else if pipelineType != metadata.TenantPipelineType && pipelineType != metadata.FinalPipelineType {
-		return fmt.Errorf("unsupported pipeline type: %s", pipelineType.String())
+	return a.cleanupPipelineResources(pipelineRun)
+}
+
+// cleanupManagedPipelineResources removes finalizers from all managed PipelineRuns
+// and deletes the shared tenant RoleBinding.
+func (a *adapter) cleanupManagedPipelineResources() error {
+	attempts := a.release.Status.ManagedPipelineAttempts
+	if len(attempts) == 0 {
+		return nil
 	}
 
-	return a.cleanupPipelineResources(pipelineRun, roleBindings...)
+	// clean the shared RoleBinding once from the first attempt
+	if attempts[0].RoleBindings.TenantRoleBinding != "" {
+		tenantRoleBinding, err := a.loader.GetRoleBindingFromPipelineAttempt(a.ctx, a.client, &attempts[0])
+		if err != nil && !errors.IsNotFound(err) && !stderrors.Is(err, loader.ErrInvalidRoleBindingRef) {
+			return err
+		}
+		if tenantRoleBinding != nil {
+			if err := a.cleanupProcessingResources(nil, tenantRoleBinding); err != nil {
+				return err
+			}
+		}
+	}
+
+	for i, attempt := range attempts {
+		if attempt.PipelineRun == "" {
+			continue
+		}
+		pipelineRun, err := a.loader.GetReleasePipelineRunAttempt(a.ctx, a.client, a.release, i)
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+		if pipelineRun == nil {
+			continue
+		}
+		if err := a.cleanupPipelineResources(pipelineRun); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// retryManagedPipeline creates a new managed Release PipelineRun with mitigations applied based on
+// the previous attempt's failure reason.
+func (a *adapter) retryManagedPipeline() error {
+	resources, err := a.loader.GetProcessingResources(a.ctx, a.client, a.release)
+	if err != nil {
+		return err
+	}
+
+	taskRunSpecs, timeouts := a.computeRetryOverrides(resources)
+	failedAttempt := a.release.GetCurrentManagedPipelineAttempt()
+	tenantRoleBinding, err := a.loader.GetRoleBindingFromPipelineAttempt(a.ctx, a.client, failedAttempt)
+	if err != nil && !errors.IsNotFound(err) && !stderrors.Is(err, loader.ErrInvalidRoleBindingRef) {
+		return err
+	}
+
+	pipelineRun, err := a.createManagedPipelineRun(resources, taskRunSpecs, timeouts)
+	if err != nil {
+		return err
+	}
+
+	a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun (retry)", metadata.ManagedPipelineType),
+		"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace,
+		"Attempt", len(a.release.Status.ManagedPipelineAttempts))
+
+	return a.registerManagedProcessingData(pipelineRun, tenantRoleBinding)
 }
 
 // cleanupPipelineResources - Simple one-shot cleanup (no retries, orphaned cleanup will handle failures)
@@ -1248,7 +1344,7 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 // annotations, so it triggers Release reconciles whenever it changes. The Pipeline information and the parameters to it
 // will be extracted from the given ReleasePlanAdmission. The Release's Snapshot will also be passed to the release
 // PipelineRun.
-func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources) (*tektonv1.PipelineRun, error) {
+func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources, taskRunSpecs []tektonv1.PipelineTaskRunSpec, timeouts tektonv1.TimeoutFields) (*tektonv1.PipelineRun, error) {
 	builder := utils.NewPipelineRunBuilder(metadata.ManagedPipelineType.String(), resources.ReleasePlanAdmission.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithFinalizer(metadata.ReleaseFinalizer).
@@ -1259,6 +1355,7 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 			metadata.ReleaseNameLabel:      a.release.Name,
 			metadata.ReleaseNamespaceLabel: a.release.Namespace,
 			metadata.ReleaseSnapshotLabel:  a.release.Spec.Snapshot,
+			metadata.ReleaseAttemptLabel:   fmt.Sprintf("%d", len(a.release.Status.ManagedPipelineAttempts)),
 		}).
 		WithObjectReferences(a.release, resources.ReleasePlan, resources.ReleasePlanAdmission, a.releaseServiceConfig,
 			resources.Snapshot).
@@ -1268,8 +1365,8 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_git_revision"}).
 		WithPipelineRef(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccountName).
-		WithTaskRunSpecs(resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs...).
-		WithTimeouts(utils.AdjustTimeouts(&resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts, *a.logger), &a.releaseServiceConfig.Spec.DefaultTimeouts).
+		WithTaskRunSpecs(taskRunSpecs...).
+		WithTimeouts(utils.AdjustTimeouts(&timeouts, *a.logger), &a.releaseServiceConfig.Spec.DefaultTimeouts).
 		WithParams(resources.ReleasePlanAdmission.Spec.Pipeline.GetOciStorageParam()...)
 
 	url, revision, pathInRepo, err := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
@@ -1347,6 +1444,95 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 	}
 
 	return pipelineRun, nil
+}
+
+// computeRetryOverrides returns the TaskRunSpecs and Timeouts to use for a retry PipelineRun,
+// applying mitigations based on the previous attempt's failure reason.
+func (a *adapter) computeRetryOverrides(resources *loader.ProcessingResources) ([]tektonv1.PipelineTaskRunSpec, tektonv1.TimeoutFields) {
+	originalSpecs := resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs
+	originalTimeouts := resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts
+
+	failedAttempt := a.release.GetCurrentManagedPipelineAttempt()
+	if failedAttempt == nil {
+		return originalSpecs, originalTimeouts
+	}
+
+	mitigations := resources.ReleasePlanAdmission.GetMitigations()
+	if mitigations == nil {
+		return originalSpecs, originalTimeouts
+	}
+
+	failedPipelineRun, err := a.loader.GetReleasePipelineRunAttempt(a.ctx, a.client, a.release, a.release.GetManagedPipelineRetryCount())
+	if err != nil || failedPipelineRun == nil {
+		a.logger.Info("Failed PipelineRun not found, retrying without mitigations")
+		return originalSpecs, originalTimeouts
+	}
+
+	// use the failed PipelineRun's specs and timeouts as the base so mitigations accumulate
+	baseSpecs := failedPipelineRun.Spec.TaskRunSpecs
+	if baseSpecs == nil {
+		baseSpecs = originalSpecs
+	}
+	baseTimeouts := originalTimeouts
+	if failedPipelineRun.Spec.Timeouts != nil {
+		baseTimeouts = *failedPipelineRun.Spec.Timeouts
+	}
+
+	var failedTaskRun *tektonv1.TaskRun
+	if failedAttempt.LastTask != "" {
+		taskRuns, listErr := a.listTaskRunsForPipelineRun(failedPipelineRun)
+		if listErr != nil {
+			a.logger.Error(listErr, "Failed to list TaskRuns for mitigation")
+		}
+		for i := range taskRuns {
+			if taskRuns[i].Labels["tekton.dev/pipelineTask"] == failedAttempt.LastTask {
+				failedTaskRun = &taskRuns[i]
+				break
+			}
+		}
+	}
+
+	switch failedAttempt.FailureReason {
+	case v1alpha1.AttemptFailureOOMKillReason:
+		if mitigations.OOMKill == nil {
+			break
+		}
+		currentResources := tekton.GetStepComputeResources(failedPipelineRun, failedTaskRun, failedAttempt.LastTask, failedAttempt.LastStep)
+		newResources := retry.ApplyMemoryMitigation(currentResources, mitigations.OOMKill)
+		if newResources == nil {
+			break
+		}
+		return retry.MergeTaskRunSpecs(baseSpecs, tektonv1.PipelineTaskRunSpec{
+			PipelineTaskName: failedAttempt.LastTask,
+			StepSpecs: []tektonv1.TaskRunStepSpec{
+				{Name: failedAttempt.LastStep, ComputeResources: *newResources},
+			},
+		}), baseTimeouts
+
+	case v1alpha1.AttemptFailureTaskRunTimeoutReason:
+		if mitigations.Timeout == nil || mitigations.Timeout.Task == nil {
+			break
+		}
+		currentTimeout := tekton.GetTaskRunTimeout(failedPipelineRun, failedTaskRun, failedAttempt.LastTask)
+		currentTimeouts := tekton.GetPipelineRunTimeouts(failedPipelineRun)
+		newTimeout, adjustedTimeouts := retry.ApplyTaskTimeoutMitigation(currentTimeout, currentTimeouts, mitigations.Timeout.Task)
+		return retry.MergeTaskRunSpecs(baseSpecs, tektonv1.PipelineTaskRunSpec{
+			PipelineTaskName: failedAttempt.LastTask,
+			Timeout:          newTimeout,
+		}), *adjustedTimeouts
+
+	case v1alpha1.AttemptFailurePipelineRunTimeoutReason:
+		if mitigations.Timeout == nil || mitigations.Timeout.Pipeline == nil {
+			break
+		}
+		currentTimeouts := tekton.GetPipelineRunTimeouts(failedPipelineRun)
+		newTimeouts := retry.ApplyPipelineTimeoutMitigation(currentTimeouts, mitigations.Timeout.Pipeline)
+		if newTimeouts != nil {
+			return baseSpecs, *newTimeouts
+		}
+	}
+
+	return baseSpecs, baseTimeouts
 }
 
 // createRoleBindingForCollectorSecrets creates a Role and RoleBinding that grants the specified
@@ -1514,25 +1700,44 @@ func (a *adapter) finalizeRelease(delete bool) error {
 	}
 
 	// Cleanup Managed Processing Resources
-	managedPipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedPipelineType)
-	if err != nil && !errors.IsNotFound(err) {
-		return err
+	attempts := a.release.Status.ManagedPipelineAttempts
+	var firstAttempt *v1alpha1.PipelineAttempt
+	if len(attempts) > 0 {
+		firstAttempt = &attempts[0]
 	}
-
-	tenantRolebinding, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.ManagedProcessing, "tenant")
+	tenantRolebinding, err := a.loader.GetRoleBindingFromPipelineAttempt(a.ctx, a.client, firstAttempt)
 	if err != nil && !errors.IsNotFound(err) && !stderrors.Is(err, loader.ErrInvalidRoleBindingRef) {
 		return err
 	}
 
-	err = a.cleanupProcessingResources(managedPipelineRun, tenantRolebinding)
+	err = a.cleanupProcessingResources(nil, tenantRolebinding)
 	if err != nil {
 		return err
 	}
 
-	if delete && managedPipelineRun != nil {
-		err = a.client.Delete(a.ctx, managedPipelineRun)
+	for i, attempt := range attempts {
+		if attempt.PipelineRun == "" {
+			continue
+		}
+
+		managedPipelineRun, err := a.loader.GetReleasePipelineRunAttempt(a.ctx, a.client, a.release, i)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
+		}
+		if managedPipelineRun == nil {
+			continue
+		}
+
+		err = a.cleanupProcessingResources(managedPipelineRun)
+		if err != nil {
+			return err
+		}
+
+		if delete {
+			err = a.client.Delete(a.ctx, managedPipelineRun)
+			if err != nil && !errors.IsNotFound(err) {
+				return err
+			}
 		}
 	}
 
@@ -1678,7 +1883,7 @@ func (a *adapter) registerManagedProcessingData(releasePipelineRun *tektonv1.Pip
 	a.release.Status.ManagedProcessing.PipelineRun = pipelineRunName
 	a.release.Status.ManagedProcessing.RoleBindings.TenantRoleBinding = tenantRoleBindingName
 
-	a.release.Status.ManagedPipelineAttempts = append(a.release.Status.ManagedPipelineAttempts, v1alpha1.ManagedPipelineAttempt{
+	a.release.Status.ManagedPipelineAttempts = append(a.release.Status.ManagedPipelineAttempts, v1alpha1.PipelineAttempt{
 		PipelineRun: pipelineRunName,
 		RoleBindings: v1alpha1.RoleBindingType{
 			TenantRoleBinding: tenantRoleBindingName,
@@ -1795,7 +2000,7 @@ func (a *adapter) registerManagedCollectorsProcessingStatus(pipelineRun *tektonv
 // associated managed Release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
 func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.PipelineRun) error {
-	if pipelineRun == nil || !tekton.IsPipelineRunDone(pipelineRun) {
+	if pipelineRun == nil || !tekton.IsPipelineRunDone(pipelineRun) || a.release.IsCurrentManagedPipelineAttemptDone() {
 		return nil
 	}
 
@@ -1839,7 +2044,6 @@ func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.Pipeline
 		}
 
 		a.release.MarkCurrentManagedPipelineAttemptFailed(message, failureReason, failureInfo.TaskName, failureInfo.StepName, failureInfo.SuccessfulTasks)
-		a.release.MarkReleaseFailed("Release processing failed on managed pipelineRun")
 	}
 
 	return a.client.Status().Patch(a.ctx, a.release, patch)

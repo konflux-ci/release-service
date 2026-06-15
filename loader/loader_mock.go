@@ -26,6 +26,7 @@ const (
 	ProcessingResourcesContextKey
 	ReleaseContextKey
 	ReleasePipelineRunContextKey
+	ReleasePipelineRunAttemptContextKey
 	ReleasePlanAdmissionContextKey
 	ReleasePlanContextKey
 	ReleaseServiceConfigContextKey
@@ -123,12 +124,28 @@ func (l *mockLoader) GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Con
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, RoleBindingContextKey, &rbac.RoleBinding{})
 }
 
+// GetRoleBindingFromPipelineAttempt returns the resource and error passed as values of the context.
+func (l *mockLoader) GetRoleBindingFromPipelineAttempt(ctx context.Context, cli client.Client, attempt *v1alpha1.PipelineAttempt) (*rbac.RoleBinding, error) {
+	if ctx.Value(RoleBindingContextKey) == nil {
+		return l.loader.GetRoleBindingFromPipelineAttempt(ctx, cli, attempt)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, RoleBindingContextKey, &rbac.RoleBinding{})
+}
+
 // GetReleasePipelineRun returns the resource and error passed as values of the context.
 func (l *mockLoader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType metadata.PipelineType) (*tektonv1.PipelineRun, error) {
 	if ctx.Value(ReleasePipelineRunContextKey) == nil {
 		return l.loader.GetReleasePipelineRun(ctx, cli, release, pipelineType)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleasePipelineRunContextKey, &tektonv1.PipelineRun{})
+}
+
+// GetReleasePipelineRunAttempt returns the resource and error passed as values of the context.
+func (l *mockLoader) GetReleasePipelineRunAttempt(ctx context.Context, cli client.Client, release *v1alpha1.Release, attempt int) (*tektonv1.PipelineRun, error) {
+	if ctx.Value(ReleasePipelineRunAttemptContextKey) == nil {
+		return l.loader.GetReleasePipelineRunAttempt(ctx, cli, release, attempt)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleasePipelineRunAttemptContextKey, &tektonv1.PipelineRun{})
 }
 
 // GetReleasePlan returns the resource and error passed as values of the context.
