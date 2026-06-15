@@ -17,6 +17,7 @@ var (
 	LabelNegative                            = ginkgo.Label("release-service", "release-neg", "negMissingReleasePlan")
 	LabelNegBlockReleases                    = ginkgo.Label("release-service", "release-neg", "negBlockReleases")
 	LabelNegManagedPipelineRunCreationDenied = ginkgo.Label("release-service", "release-neg", "negManagedPipelineRunCreationDenied")
+	LabelNegTenantPipelineInvalidGitRef      = ginkgo.Label("release-service", "release-neg", "negTenantPipelineInvalidGitRef")
 	LabelFinal                               = ginkgo.Label("release-service", "final")
 )
 
