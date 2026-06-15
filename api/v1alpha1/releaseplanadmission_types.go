@@ -134,6 +134,19 @@ type ReleasePlanAdmission struct {
 	Status ReleasePlanAdmissionStatus `json:"status,omitempty"`
 }
 
+// IsRetryEnabled checks whether retries are enabled with a valid MaxRetries value.
+func (rpa *ReleasePlanAdmission) IsRetryEnabled() bool {
+	return rpa.Status.RetryInfo != nil && rpa.Status.RetryInfo.Enabled && rpa.Status.RetryInfo.MaxRetries != nil
+}
+
+// GetMitigations returns the retry mitigations or nil if not configured.
+func (rpa *ReleasePlanAdmission) GetMitigations() *Mitigations {
+	if rpa.Status.RetryInfo == nil {
+		return nil
+	}
+	return rpa.Status.RetryInfo.Mitigations
+}
+
 // MatchesReleasePlan returns true if the given name is in applications or componentGroups.
 func (rpa *ReleasePlanAdmission) MatchesReleasePlan(releasePlan *ReleasePlan) bool {
 	name := releasePlan.GetGroupName()

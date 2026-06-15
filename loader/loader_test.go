@@ -672,6 +672,42 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
+	When("calling GetRoleBindingFromPipelineAttempt", func() {
+		It("returns nil when the attempt is nil", func() {
+			returnedObject, err := loader.GetRoleBindingFromPipelineAttempt(ctx, k8sClient, nil)
+			Expect(returnedObject).To(BeNil())
+			Expect(err).To(BeNil())
+		})
+
+		It("returns nil when the attempt has no RoleBinding configured", func() {
+			attempt := &v1alpha1.PipelineAttempt{}
+			returnedObject, err := loader.GetRoleBindingFromPipelineAttempt(ctx, k8sClient, attempt)
+			Expect(returnedObject).To(BeNil())
+			Expect(err).To(BeNil())
+		})
+
+		It("fails to return a RoleBinding if it does not exist", func() {
+			attempt := &v1alpha1.PipelineAttempt{
+				RoleBindings: v1alpha1.RoleBindingType{TenantRoleBinding: "foo/bar"},
+			}
+			returnedObject, err := loader.GetRoleBindingFromPipelineAttempt(ctx, k8sClient, attempt)
+			Expect(returnedObject).To(BeNil())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("returns the RoleBinding when the reference is valid", func() {
+			attempt := &v1alpha1.PipelineAttempt{
+				RoleBindings: v1alpha1.RoleBindingType{
+					TenantRoleBinding: fmt.Sprintf("%s%c%s", roleBinding.Namespace, types.Separator, roleBinding.Name),
+				},
+			}
+			returnedObject, err := loader.GetRoleBindingFromPipelineAttempt(ctx, k8sClient, attempt)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(BeNil())
+			Expect(returnedObject.Name).To(Equal(roleBinding.Name))
+		})
+	})
+
 	When("calling GetReleasePipelineRun", func() {
 		It("returns an error when called with an unexpected Pipeline type", func() {
 			invalidPipelineType := metadata.PipelineType("invalid-type")
@@ -721,6 +757,29 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			modifiedRelease.Name = "non-existing-release"
 
 			returnedObject, err := loader.GetReleasePipelineRun(ctx, k8sClient, modifiedRelease, metadata.ManagedPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).To(BeNil())
+		})
+	})
+
+	When("calling GetReleasePipelineRunAttempt", func() {
+		It("returns the managed PipelineRun for the matching attempt index", func() {
+			returnedObject, err := loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 0)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(BeNil())
+			Expect(returnedObject.Name).To(Equal(managedPipelineRun.Name))
+		})
+
+		It("returns nil when no PipelineRun matches the attempt index", func() {
+			returnedObject, err := loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 99)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).To(BeNil())
+		})
+
+		It("returns nil when the release name does not match", func() {
+			modifiedRelease := release.DeepCopy()
+			modifiedRelease.Name = "non-existing-release"
+			returnedObject, err := loader.GetReleasePipelineRunAttempt(ctx, k8sClient, modifiedRelease, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).To(BeNil())
 		})
@@ -979,6 +1038,7 @@ var _ = Describe("Release Adapter", Ordered, func() {
 					metadata.ReleaseNameLabel:      release.Name,
 					metadata.ReleaseNamespaceLabel: release.Namespace,
 					metadata.PipelinesTypeLabel:    metadata.ManagedPipelineType.String(),
+					metadata.ReleaseAttemptLabel:   "0",
 				},
 				Name:      "managed-pipeline-run",
 				Namespace: "default",

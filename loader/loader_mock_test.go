@@ -183,6 +183,22 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
+	When("calling GetRoleBindingFromPipelineAttempt", func() {
+		It("returns the resource and error from the context", func() {
+			roleBinding := &rbac.RoleBinding{}
+			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: RoleBindingContextKey,
+					Resource:   roleBinding,
+				},
+			})
+			attempt := &v1alpha1.PipelineAttempt{}
+			resource, err := loader.GetRoleBindingFromPipelineAttempt(mockContext, nil, attempt)
+			Expect(resource).To(Equal(roleBinding))
+			Expect(err).To(BeNil())
+		})
+	})
+
 	When("calling GetReleasePipelineRun", func() {
 		It("returns the resource and error from the context", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
@@ -193,6 +209,21 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				},
 			})
 			resource, err := loader.GetReleasePipelineRun(mockContext, nil, nil, metadata.ManagedPipelineType)
+			Expect(resource).To(Equal(pipelineRun))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	When("calling GetReleasePipelineRunAttempt", func() {
+		It("returns the resource and error from the context", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			mockContext := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: ReleasePipelineRunAttemptContextKey,
+					Resource:   pipelineRun,
+				},
+			})
+			resource, err := loader.GetReleasePipelineRunAttempt(mockContext, nil, nil, 0)
 			Expect(resource).To(Equal(pipelineRun))
 			Expect(err).To(BeNil())
 		})
