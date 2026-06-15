@@ -2226,6 +2226,40 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.IsFailed()).To(BeTrue())
 			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
 		})
+
+		It("should mark tenant pipeline and release as failed when git resolver has empty URL/revision", func() {
+			newReleasePlan := releasePlan.DeepCopy()
+			newReleasePlan.Spec.TenantPipeline = &tektonutils.ParameterizedPipeline{
+				Pipeline: tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "git",
+						Params: []tektonutils.Param{
+							{Name: "url", Value: ""},
+							{Name: "revision", Value: ""},
+							{Name: "pathInRepo", Value: ""},
+						},
+					},
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource:   newReleasePlan,
+				},
+				{
+					ContextKey: loader.SnapshotContextKey,
+					Resource:   snapshot,
+				},
+			})
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
+		})
 	})
 
 	When("EnsureReleaseIsValid is called", func() {

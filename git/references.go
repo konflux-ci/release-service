@@ -17,6 +17,7 @@ limitations under the License.
 package git
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -25,6 +26,14 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+)
+
+// Sentinel errors for git configuration problems that won't resolve on retry.
+var (
+	// ErrInvalidGitResolverConfig indicates the git resolver configuration is invalid (e.g., empty URL or revision).
+	ErrInvalidGitResolverConfig = errors.New("invalid git configuration")
+	// ErrBranchNotFound indicates the specified branch does not exist in the repository.
+	ErrBranchNotFound = errors.New("branch not found")
 )
 
 var shaRegex = regexp.MustCompile("^[a-f0-9]{40}$")
@@ -45,10 +54,29 @@ func isRateLimitError(err error) bool {
 		strings.Contains(errStr, "403")
 }
 
+// ValidateGitResolverConfig validates the git resolver configuration parameters.
+// Returns ErrInvalidGitResolverConfig if any required parameter is empty or whitespace-only.
+func ValidateGitResolverConfig(url, revision, pathInRepo string) error {
+	var missing []string
+	if strings.TrimSpace(url) == "" {
+		missing = append(missing, "url")
+	}
+	if strings.TrimSpace(revision) == "" {
+		missing = append(missing, "revision")
+	}
+	if strings.TrimSpace(pathInRepo) == "" {
+		missing = append(missing, "pathInRepo")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("%w: %s cannot be empty", ErrInvalidGitResolverConfig, strings.Join(missing, ", "))
+	}
+	return nil
+}
+
 // ResolveBranchToSHA resolves a git branch reference to a commit SHA using go-git
 func ResolveBranchToSHA(repoURL, revision string) (string, error) {
 	if repoURL == "" || revision == "" {
-		return "", fmt.Errorf("invalid configuration: repository URL and revision cannot be empty")
+		return "", fmt.Errorf("%w: repository URL and revision cannot be empty", ErrInvalidGitResolverConfig)
 	}
 
 	if IsSHA(revision) {
@@ -97,5 +125,5 @@ func ResolveBranchToSHA(repoURL, revision string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("branch lookup failed: branch '%s' not found in repository", revision)
+	return "", fmt.Errorf("%w: branch '%s' not found in repository", ErrBranchNotFound, revision)
 }

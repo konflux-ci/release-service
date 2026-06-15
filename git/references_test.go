@@ -17,6 +17,7 @@ limitations under the License.
 package git
 
 import (
+	"errors"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -80,25 +81,25 @@ var _ = Describe("Git References", func() {
 			Expect(result).To(Equal(sha))
 		})
 
-		It("should return error for empty URL", func() {
+		It("should return ErrInvalidGitResolverConfig for empty URL", func() {
 			_, err := ResolveBranchToSHA("", "main")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("invalid configuration"))
+			Expect(errors.Is(err, ErrInvalidGitResolverConfig)).To(BeTrue(), "error should wrap ErrInvalidGitResolverConfig")
 			Expect(err.Error()).To(ContainSubstring("repository URL and revision cannot be empty"))
 		})
 
-		It("should return error for empty revision", func() {
+		It("should return ErrInvalidGitResolverConfig for empty revision", func() {
 			_, err := ResolveBranchToSHA("https://github.com/org/repo.git", "")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("invalid configuration"))
+			Expect(errors.Is(err, ErrInvalidGitResolverConfig)).To(BeTrue(), "error should wrap ErrInvalidGitResolverConfig")
 			Expect(err.Error()).To(ContainSubstring("repository URL and revision cannot be empty"))
 		})
 
-		It("should return error for branch not found in repository", func() {
+		It("should return ErrBranchNotFound for branch not found in repository", func() {
 			// Use a real public repository but with a non-existent branch
 			_, err := ResolveBranchToSHA("https://github.com/octocat/Hello-World.git", "nonexistent-branch-xyz")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("branch lookup failed"))
+			Expect(errors.Is(err, ErrBranchNotFound)).To(BeTrue(), "error should wrap ErrBranchNotFound")
 			Expect(err.Error()).To(ContainSubstring("branch 'nonexistent-branch-xyz' not found"))
 		})
 
@@ -116,6 +117,37 @@ var _ = Describe("Git References", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolvedSHA).NotTo(BeEmpty())
 			Expect(IsSHA(resolvedSHA)).To(BeTrue())
+		})
+	})
+
+	Describe("ValidateGitResolverConfig", func() {
+		It("should return nil for valid configuration", func() {
+			err := ValidateGitResolverConfig("https://github.com/org/repo", "main", "pipelines/release.yaml")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return ErrInvalidGitResolverConfig for empty URL", func() {
+			err := ValidateGitResolverConfig("", "main", "pipelines/release.yaml")
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrInvalidGitResolverConfig)).To(BeTrue())
+		})
+
+		It("should return ErrInvalidGitResolverConfig for empty revision", func() {
+			err := ValidateGitResolverConfig("https://github.com/org/repo", "", "pipelines/release.yaml")
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrInvalidGitResolverConfig)).To(BeTrue())
+		})
+
+		It("should return ErrInvalidGitResolverConfig for empty pathInRepo", func() {
+			err := ValidateGitResolverConfig("https://github.com/org/repo", "main", "")
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrInvalidGitResolverConfig)).To(BeTrue())
+		})
+
+		It("should return ErrInvalidGitResolverConfig when all params are empty", func() {
+			err := ValidateGitResolverConfig("", "", "")
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrInvalidGitResolverConfig)).To(BeTrue())
 		})
 	})
 })

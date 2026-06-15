@@ -79,6 +79,7 @@ make test-e2e LABEL=negManagedPipelineRunCreationDenied
 | `release_plan_and_admission` | ReleasePlan ↔ ReleasePlanAdmission matching |
 | `release-neg` | Negative/error scenarios |
 | `negManagedPipelineRunCreationDenied` | Managed release `PipelineRun` create denied by quota; failure is surfaced on `Release` status |
+| `negTenantPipelineInvalidGitRef` | Tenant pipeline with invalid git resolver config (empty URL/revision/pathInRepo); failure is surfaced on `Release` status |
 
 ## Writing Tests
 
