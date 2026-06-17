@@ -11,7 +11,7 @@ require (
 	github.com/konflux-ci/integration-service v0.0.0-20260604150218-3d19241c0a21
 	github.com/konflux-ci/operator-toolkit v0.0.0-20260312101100-d4e398191a68
 	github.com/onsi/ginkgo/v2 v2.30.0
-	github.com/onsi/gomega v1.41.0
+	github.com/onsi/gomega v1.42.0
 	github.com/operator-framework/operator-lib v0.19.0
 	github.com/tektoncd/pipeline v1.13.1
 	go.yaml.in/yaml/v2 v2.4.4
