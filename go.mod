@@ -16,7 +16,7 @@ require (
 	github.com/tektoncd/pipeline v1.13.1
 	go.yaml.in/yaml/v2 v2.4.4
 	k8s.io/api v0.35.5
-	k8s.io/apimachinery v0.36.1
+	k8s.io/apimachinery v0.36.2
 	k8s.io/client-go v11.0.0+incompatible
 	knative.dev/pkg v0.0.0-20260602142205-ac97e43f6622
 	sigs.k8s.io/controller-runtime v0.23.3
@@ -113,7 +113,7 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	k8s.io/apiserver v0.35.5 // indirect
 	k8s.io/klog v1.0.0 // indirect
-	k8s.io/streaming v0.36.1 // indirect
+	k8s.io/streaming v0.36.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
