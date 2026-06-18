@@ -1151,7 +1151,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("should requeue with error if fetching the Release managed pipeline returns an error besides not found", func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
-					ContextKey: loader.ReleasePipelineRunContextKey,
+					ContextKey: loader.ReleasePipelineRunAttemptContextKey,
 					Err:        fmt.Errorf("some error"),
 				},
 			})
@@ -1224,7 +1224,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("should continue if the PipelineRun exists and the release managed pipeline processing has started", func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
-					ContextKey: loader.ReleasePipelineRunContextKey,
+					ContextKey: loader.ReleasePipelineRunAttemptContextKey,
 					Resource: &tektonv1.PipelineRun{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "pipeline-run",
@@ -1249,7 +1249,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("should register the processing data if the PipelineRun already exists", func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
-					ContextKey: loader.ReleasePipelineRunContextKey,
+					ContextKey: loader.ReleasePipelineRunAttemptContextKey,
 					Resource: &tektonv1.PipelineRun{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "pipeline-run",

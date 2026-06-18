@@ -548,7 +548,12 @@ func (a *adapter) EnsureManagedPipelineIsProcessed() (controller.OperationResult
 		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 	}
 
-	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.ManagedPipelineType)
+	// Let the completion operation handle retry when the current attempt has failed
+	if a.release.IsCurrentManagedPipelineAttemptFailed() {
+		return controller.ContinueProcessing()
+	}
+
+	pipelineRun, err := a.loader.GetReleasePipelineRunAttempt(a.ctx, a.client, a.release, a.release.GetManagedPipelineRetryCount())
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
 	}

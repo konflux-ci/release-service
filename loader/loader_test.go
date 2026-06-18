@@ -764,10 +764,32 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetReleasePipelineRunAttempt", func() {
 		It("returns the managed PipelineRun for the matching attempt index", func() {
+			retryPipelineRun1 := managedPipelineRun.DeepCopy()
+			retryPipelineRun1.Name = "managed-pipeline-run-retry-1"
+			retryPipelineRun1.ResourceVersion = ""
+			retryPipelineRun1.Labels[metadata.ReleaseAttemptLabel] = "1"
+			Expect(k8sClient.Create(ctx, retryPipelineRun1)).To(Succeed())
+
+			retryPipelineRun2 := managedPipelineRun.DeepCopy()
+			retryPipelineRun2.Name = "managed-pipeline-run-retry-2"
+			retryPipelineRun2.ResourceVersion = ""
+			retryPipelineRun2.Labels[metadata.ReleaseAttemptLabel] = "2"
+			Expect(k8sClient.Create(ctx, retryPipelineRun2)).To(Succeed())
+
 			returnedObject, err := loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 0)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(BeNil())
 			Expect(returnedObject.Name).To(Equal(managedPipelineRun.Name))
+
+			returnedObject, err = loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 1)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject.Name).To(Equal(retryPipelineRun1.Name))
+
+			returnedObject, err = loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 2)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject.Name).To(Equal(retryPipelineRun2.Name))
+
+			Expect(k8sClient.Delete(ctx, retryPipelineRun1)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, retryPipelineRun2)).To(Succeed())
 		})
 
 		It("returns nil when no PipelineRun matches the attempt index", func() {
