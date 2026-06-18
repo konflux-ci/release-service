@@ -475,6 +475,10 @@ func (r *Release) MarkCurrentManagedPipelineAttemptProcessed() {
 	}
 
 	attempt := r.GetCurrentManagedPipelineAttempt()
+	if attempt == nil {
+		return
+	}
+
 	attempt.Status = AttemptSucceededReason
 	attempt.CompletionTime = &metav1.Time{Time: time.Now()}
 
@@ -728,6 +732,10 @@ func (r *Release) MarkCurrentManagedPipelineAttemptFailed(message, failureReason
 	}
 
 	attempt := r.GetCurrentManagedPipelineAttempt()
+	if attempt == nil {
+		return
+	}
+
 	attempt.Status = AttemptFailedReason
 	attempt.CompletionTime = &metav1.Time{Time: time.Now()}
 	attempt.FailureReason = failureReason
