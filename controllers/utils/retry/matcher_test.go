@@ -506,7 +506,7 @@ var _ = Describe("Retry Matcher", func() {
 			Expect(retryInfo.Reason).To(Equal("retries disabled by RPA pipeline override"))
 		})
 
-		It("should return enabled when RPA pipeline MaxRetries is non-zero", func() {
+		It("should use RPA maxRetries but keep mitigations from RSC", func() {
 			maxRetries := 5
 			rpa := createTestRPA(
 				"https://github.com/org/repo",
@@ -525,6 +525,9 @@ var _ = Describe("Retry Matcher", func() {
 							PathInRepo: "pipelines/release.yaml",
 							RetryPolicy: v1alpha1.RetryPolicy{
 								MaxRetries: 3,
+								Mitigations: &v1alpha1.Mitigations{
+									OOMKill: &v1alpha1.MemoryMitigation{Multiplier: "2"},
+								},
 							},
 						},
 					},
@@ -533,12 +536,13 @@ var _ = Describe("Retry Matcher", func() {
 
 			retryInfo := retry.DetermineRetryInfo(rpa, &v1alpha1.ReleasePlanList{}, rsc, &logger)
 			Expect(retryInfo.Enabled).To(BeTrue())
-			Expect(retryInfo.MaxRetries).ToNot(BeNil())
 			Expect(*retryInfo.MaxRetries).To(Equal(5))
+			Expect(retryInfo.Mitigations).NotTo(BeNil())
+			Expect(retryInfo.Mitigations.OOMKill.Multiplier).To(Equal("2"))
 			Expect(retryInfo.Reason).To(Equal("retries enabled by RPA pipeline override"))
 		})
 
-		It("should enable retries with RPA override even when pipeline doesn't match RSC", func() {
+		It("should not enable retries with RPA override when pipeline doesn't match RSC", func() {
 			maxRetries := 2
 			rpa := createTestRPA(
 				"https://github.com/org/repo",
@@ -563,11 +567,10 @@ var _ = Describe("Retry Matcher", func() {
 				},
 			}
 
+			// pipeline must match the RSC to get mitigations, RPA only overrides the count
 			retryInfo := retry.DetermineRetryInfo(rpa, &v1alpha1.ReleasePlanList{}, rsc, &logger)
-			Expect(retryInfo.Enabled).To(BeTrue())
-			Expect(retryInfo.MaxRetries).ToNot(BeNil())
-			Expect(*retryInfo.MaxRetries).To(Equal(2))
-			Expect(retryInfo.Reason).To(Equal("retries enabled by RPA pipeline override"))
+			Expect(retryInfo.Enabled).To(BeFalse())
+			Expect(retryInfo.Reason).To(Equal("pipeline not configured for retries"))
 		})
 	})
 })
