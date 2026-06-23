@@ -48,18 +48,11 @@ func DetermineRetryInfo(rpa *v1alpha1.ReleasePlanAdmission, matchedRPs *v1alpha1
 		}
 	}
 
-	// Check if retries are explicitly overridden by RPA pipeline
-	if rpa.Spec.Pipeline.MaxRetries != nil {
-		if *rpa.Spec.Pipeline.MaxRetries == 0 {
-			return &v1alpha1.RetryInfo{
-				Enabled: false,
-				Reason:  "retries disabled by RPA pipeline override",
-			}
-		}
+	// Check if retries are explicitly disabled by RPA pipeline
+	if rpa.Spec.Pipeline.MaxRetries != nil && *rpa.Spec.Pipeline.MaxRetries == 0 {
 		return &v1alpha1.RetryInfo{
-			Enabled:    true,
-			MaxRetries: rpa.Spec.Pipeline.MaxRetries,
-			Reason:     "retries enabled by RPA pipeline override",
+			Enabled: false,
+			Reason:  "retries disabled by RPA pipeline override",
 		}
 	}
 
@@ -99,7 +92,17 @@ func DetermineRetryInfo(rpa *v1alpha1.ReleasePlanAdmission, matchedRPs *v1alpha1
 		}
 	}
 
-	// Retries enabled by RSC policy
+	// RPA can override the retry count but mitigations always come from the RSC
+	if rpa.Spec.Pipeline.MaxRetries != nil {
+		maxRetries := *rpa.Spec.Pipeline.MaxRetries
+		return &v1alpha1.RetryInfo{
+			Enabled:     true,
+			MaxRetries:  &maxRetries,
+			Mitigations: matchedRetryable.RetryPolicy.Mitigations,
+			Reason:      "retries enabled by RPA pipeline override",
+		}
+	}
+
 	maxRetries := matchedRetryable.RetryPolicy.MaxRetries
 	return &v1alpha1.RetryInfo{
 		Enabled:     true,
