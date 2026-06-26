@@ -10,7 +10,7 @@ import (
 	"github.com/devfile/library/v2/pkg/util"
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	"go.yaml.in/yaml/v2"
+	"go.yaml.in/yaml/v3"
 
 	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
