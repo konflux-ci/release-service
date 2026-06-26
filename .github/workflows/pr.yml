@@ -23,7 +23,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Cache Operator SDK ${{ env.OPERATOR_SDK_VERSION }}
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         id: cache-operator-sdk
         with:
           path: ~/cache
@@ -45,7 +45,7 @@ jobs:
           make kustomize controller-gen
       - name: Cache go modules
         id: cache-mod
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
