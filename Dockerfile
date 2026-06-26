@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM registry.access.redhat.com/ubi9/go-toolset:9.8-1780490420 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:9.8-1782377916 as builder
 
 # Build arguments
 ARG ENABLE_COVERAGE=false
