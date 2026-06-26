@@ -38,7 +38,9 @@ type ObjectLoader interface {
 	GetPreviousRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.Release, error)
 	GetRelease(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.Release, error)
 	GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context, cli client.Client, pipelineInfo *v1alpha1.PipelineInfo, roleBindingType string) (*rbac.RoleBinding, error)
+	GetRoleBindingFromPipelineAttempt(ctx context.Context, cli client.Client, attempt *v1alpha1.PipelineAttempt) (*rbac.RoleBinding, error)
 	GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType metadata.PipelineType) (*tektonv1.PipelineRun, error)
+	GetReleasePipelineRunAttempt(ctx context.Context, cli client.Client, release *v1alpha1.Release, attempt int) (*tektonv1.PipelineRun, error)
 	GetReleasePlan(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlan, error)
 	GetReleaseServiceConfig(ctx context.Context, cli client.Client, name, namespace string) (*v1alpha1.ReleaseServiceConfig, error)
 	GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error)
@@ -307,6 +309,31 @@ func (l *loader) GetRoleBindingFromReleaseStatusPipelineInfo(ctx context.Context
 	return roleBinding, nil
 }
 
+// GetRoleBindingFromPipelineAttempt retrieves the tenant RoleBinding associated with a PipelineAttempt
+// or nil if the attempt is nil or has no RoleBinding configured.
+func (l *loader) GetRoleBindingFromPipelineAttempt(ctx context.Context, cli client.Client, attempt *v1alpha1.PipelineAttempt) (*rbac.RoleBinding, error) {
+	if attempt == nil || attempt.RoleBindings.TenantRoleBinding == "" {
+		return nil, nil
+	}
+
+	roleBinding := &rbac.RoleBinding{}
+
+	namespacedName := attempt.RoleBindings.TenantRoleBinding
+	roleBindingNamespacedName := strings.Split(namespacedName, string(types.Separator))
+	if len(roleBindingNamespacedName) != 2 {
+		return nil, fmt.Errorf("%w: %q", ErrInvalidRoleBindingRef, namespacedName)
+	}
+	err := cli.Get(ctx, types.NamespacedName{
+		Namespace: roleBindingNamespacedName[0],
+		Name:      roleBindingNamespacedName[1],
+	}, roleBinding)
+	if err != nil {
+		return nil, err
+	}
+
+	return roleBinding, nil
+}
+
 // GetReleasePipelineRun returns the Release PipelineRun of the specified type referenced by the given Release
 // or nil if it's not found. In the case the List operation fails, an error will be returned.
 func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, release *v1alpha1.Release, pipelineType metadata.PipelineType) (*tektonv1.PipelineRun, error) {
@@ -322,6 +349,25 @@ func (l *loader) GetReleasePipelineRun(ctx context.Context, cli client.Client, r
 			metadata.ReleaseNameLabel:      release.Name,
 			metadata.ReleaseNamespaceLabel: release.Namespace,
 			metadata.PipelinesTypeLabel:    pipelineType.String(),
+		})
+	if err == nil && len(pipelineRuns.Items) > 0 {
+		return &pipelineRuns.Items[0], nil
+	}
+
+	return nil, err
+}
+
+// GetReleasePipelineRunAttempt returns the managed Release PipelineRun for a specific attempt index
+// or nil if it's not found. In the case the List operation fails, an error will be returned.
+func (l *loader) GetReleasePipelineRunAttempt(ctx context.Context, cli client.Client, release *v1alpha1.Release, attempt int) (*tektonv1.PipelineRun, error) {
+	pipelineRuns := &tektonv1.PipelineRunList{}
+	err := cli.List(ctx, pipelineRuns,
+		client.Limit(1),
+		client.MatchingLabels{
+			metadata.ReleaseNameLabel:      release.Name,
+			metadata.ReleaseNamespaceLabel: release.Namespace,
+			metadata.PipelinesTypeLabel:    metadata.ManagedPipelineType.String(),
+			metadata.ReleaseAttemptLabel:   fmt.Sprintf("%d", attempt),
 		})
 	if err == nil && len(pipelineRuns.Items) > 0 {
 		return &pipelineRuns.Items[0], nil
