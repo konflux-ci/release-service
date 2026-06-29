@@ -126,6 +126,22 @@ var (
 		Name: "release_total",
 		Help: "Total number of releases reconciled by the operator",
 	}
+
+	ReleaseRetryMitigationSuccessTotal = prometheus.NewCounterVec(
+		releaseRetryMitigationSuccessTotalOpts,
+		releaseRetryMitigationSuccessTotalLabels,
+	)
+	// Prometheus fails if these are not in alphabetical order
+	releaseRetryMitigationSuccessTotalLabels = []string{
+		"failure_reason",
+		"step",
+		"task",
+		"tenant",
+	}
+	releaseRetryMitigationSuccessTotalOpts = prometheus.CounterOpts{
+		Name: "release_retry_mitigation_success_total",
+		Help: "Total number of managed pipeline retries that succeeded after mitigation",
+	}
 )
 
 // RegisterCompletedRelease registers a Release as complete, decreasing the number of concurrent releases, adding a new
@@ -215,6 +231,17 @@ func RegisterNewReleasePipelineProcessing(startTime, processingStartTime *metav1
 	ReleaseConcurrentProcessingsTotal.WithLabelValues().Inc()
 }
 
+// RegisterSuccessfulManagedPipelineRetryMitigation registers a managed pipeline retry that succeeded
+// after mitigation.
+func RegisterSuccessfulManagedPipelineRetryMitigation(failureReason, step, task, tenant string) {
+	ReleaseRetryMitigationSuccessTotal.With(prometheus.Labels{
+		"failure_reason": failureReason,
+		"step":           step,
+		"task":           task,
+		"tenant":         tenant,
+	}).Inc()
+}
+
 func init() {
 	metrics.Registry.MustRegister(
 		ReleaseConcurrentTotal,
@@ -223,6 +250,7 @@ func init() {
 		ReleaseValidationDurationSeconds,
 		ReleaseDurationSeconds,
 		ReleaseProcessingDurationSeconds,
+		ReleaseRetryMitigationSuccessTotal,
 		ReleaseTotal,
 	)
 }

@@ -494,6 +494,20 @@ func (r *Release) MarkCurrentManagedPipelineAttemptProcessed() {
 		r.Status.Target,
 		metadata.ManagedPipelineType.String(),
 	)
+
+	if r.GetManagedPipelineRetryCount() == 0 {
+		return
+	}
+
+	// The previous attempt sits one position before the current one
+	prevAttempt := r.Status.ManagedPipelineAttempts[len(r.Status.ManagedPipelineAttempts)-2]
+
+	go metrics.RegisterSuccessfulManagedPipelineRetryMitigation(
+		prevAttempt.FailureReason,
+		prevAttempt.LastStep,
+		prevAttempt.LastTask,
+		r.Namespace,
+	)
 }
 
 // MarkTenantCollectorsPipelineProcessed marks the Release Tenant Collectors Pipeline as processed.
