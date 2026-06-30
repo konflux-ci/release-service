@@ -50,6 +50,19 @@ Before contributing code or documentation to this project, make sure you read th
 
 The project follows the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification and enforces it using [gitlint](https://jorisroovers.com/gitlint/). The rules for this project are specified in the [.gitlint](.gitlint) config file. There is also a second rule file for the commit description that can be found in the [.github/gitlint directory](.github/gitlint).
 
+#### Pre-commit hooks (optional)
+
+The project provides pre-commit hooks to validate commit messages locally before they reach CI. To use them:
+
+```bash
+pip install pre-commit
+pre-commit install --hook-type pre-commit --hook-type commit-msg
+```
+
+This will automatically run gitlint on your commit messages. Note that pre-commit hooks are optional and complement (do not replace) the CI validation that runs on all PRs.
+
+#### Commit message format
+
 The commit message should contain an overall explanation about the change and the motivation behind it. Please note that mentioning a Jira ticket ID or a GitHub issue, isn't a replacement for that.
 
 A well formatted commit would look something like this:
