@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/git"
 	"github.com/konflux-ci/release-service/kubearchive"
 	"github.com/konflux-ci/release-service/metadata"
 )
@@ -454,13 +455,29 @@ func (l *loader) GetProcessingResources(ctx context.Context, cli client.Client, 
 	return resources, nil
 }
 
+// isInvalidGitConfigError checks if the error is a permanent git configuration error
+// that won't resolve on retry (e.g., empty URL/revision, non-existent branch).
+// Uses errors.Is() for type-safe detection of sentinel errors from git package.
+func isInvalidGitConfigError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, git.ErrInvalidGitResolverConfig) || errors.Is(err, git.ErrBranchNotFound)
+}
+
 // IsRetryableCreationError returns true if the error is transient and the creation should be
 // retried. Returns false for known permanent failures (e.g. admission webhook denial, invalid
-// resource spec, insufficient RBAC) that will not resolve on retry.
+// resource spec, insufficient RBAC, invalid git configuration) that will not resolve on retry.
 func IsRetryableCreationError(err error) bool {
 	if err == nil {
 		return false
 	}
+
+	// Git configuration errors are permanent and won't resolve on retry
+	if isInvalidGitConfigError(err) {
+		return false
+	}
+
 	return !apierrors.IsBadRequest(err) &&
 		!apierrors.IsInvalid(err) &&
 		!apierrors.IsForbidden(err) &&

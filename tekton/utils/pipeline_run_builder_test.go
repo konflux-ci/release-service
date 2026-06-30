@@ -377,6 +377,10 @@ var _ = Describe("PipelineRun builder", func() {
 						Name:  "revision",
 						Value: "master",
 					},
+					{
+						Name:  "pathInRepo",
+						Value: "pipelines/release.yaml",
+					},
 				},
 			}
 
@@ -402,6 +406,10 @@ var _ = Describe("PipelineRun builder", func() {
 					{
 						Name:  "revision",
 						Value: originalSHA,
+					},
+					{
+						Name:  "pathInRepo",
+						Value: "pipelines/release.yaml",
 					},
 				},
 			}
@@ -433,6 +441,10 @@ var _ = Describe("PipelineRun builder", func() {
 					{
 						Name:  "revision",
 						Value: originalSHA,
+					},
+					{
+						Name:  "pathInRepo",
+						Value: "pipelines/release.yaml",
 					},
 				},
 			}
@@ -467,6 +479,10 @@ var _ = Describe("PipelineRun builder", func() {
 						Name:  "revision",
 						Value: nonExistentBranch,
 					},
+					{
+						Name:  "pathInRepo",
+						Value: "pipelines/release.yaml",
+					},
 				},
 			}
 
@@ -475,7 +491,7 @@ var _ = Describe("PipelineRun builder", func() {
 			_, err := builder.Build()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("git resolution failed"))
-			Expect(err.Error()).To(ContainSubstring("branch lookup failed"))
+			Expect(err.Error()).To(ContainSubstring("branch not found"))
 		})
 
 		It("fails fast when repository URL is invalid", func() {

@@ -13,6 +13,7 @@ import (
 	ecapiv1alpha1 "github.com/conforma/crds/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
 	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/git"
 	"github.com/konflux-ci/release-service/metadata"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1105,6 +1106,10 @@ var _ = Describe("Loader helpers", func() {
 			Entry("unauthorized", errors.NewUnauthorized("not authorized")),
 			Entry("method not supported", errors.NewMethodNotSupported(schema.GroupResource{}, "patch")),
 			Entry("request entity too large", errors.NewRequestEntityTooLargeError("payload too large")),
+			Entry("git invalid config (empty URL/revision)",
+				fmt.Errorf("git resolution failed: %w: repository URL and revision cannot be empty", git.ErrInvalidGitResolverConfig)),
+			Entry("git branch not found",
+				fmt.Errorf("git resolution failed: %w: branch 'nonexistent' not found in repository", git.ErrBranchNotFound)),
 		)
 
 		DescribeTable("should return true for transient / retriable errors",
@@ -1116,10 +1121,46 @@ var _ = Describe("Loader helpers", func() {
 			Entry("service unavailable", errors.NewServiceUnavailable("service unavailable")),
 			Entry("too many requests", errors.NewTooManyRequests("throttled", 1)),
 			Entry("internal server error", errors.NewInternalError(fmt.Errorf("internal"))),
+			Entry("git remote access failed (transient network issue)",
+				fmt.Errorf("remote repository access failed: connection timeout")),
 		)
 
 		It("should return true for an unknown non-API error", func() {
 			Expect(IsRetryableCreationError(fmt.Errorf("some unexpected error"))).To(BeTrue())
 		})
+	})
+
+	Describe("isInvalidGitConfigError", func() {
+		It("should return false for nil error", func() {
+			Expect(isInvalidGitConfigError(nil)).To(BeFalse())
+		})
+
+		DescribeTable("should return true for permanent git configuration errors",
+			func(err error) {
+				Expect(isInvalidGitConfigError(err)).To(BeTrue())
+			},
+			Entry("ErrInvalidGitResolverConfig directly",
+				git.ErrInvalidGitResolverConfig),
+			Entry("ErrBranchNotFound directly",
+				git.ErrBranchNotFound),
+			Entry("wrapped ErrInvalidGitResolverConfig",
+				fmt.Errorf("git resolution failed: %w: repository URL and revision cannot be empty", git.ErrInvalidGitResolverConfig)),
+			Entry("wrapped ErrBranchNotFound",
+				fmt.Errorf("git resolution failed: %w: branch 'main' not found", git.ErrBranchNotFound)),
+			Entry("deeply wrapped ErrInvalidGitResolverConfig",
+				fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", git.ErrInvalidGitResolverConfig))),
+		)
+
+		DescribeTable("should return false for transient or unrelated errors",
+			func(err error) {
+				Expect(isInvalidGitConfigError(err)).To(BeFalse())
+			},
+			Entry("remote access failed (transient)",
+				fmt.Errorf("remote repository access failed: connection timeout")),
+			Entry("unrelated error",
+				fmt.Errorf("some random error")),
+			Entry("similar message but not sentinel error",
+				fmt.Errorf("invalid git configuration: something")),
+		)
 	})
 })

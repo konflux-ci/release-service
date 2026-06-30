@@ -218,7 +218,7 @@ func (b *PipelineRunBuilder) WithPipelineRef(pipelineRef *tektonv1.PipelineRef) 
 	b.pipelineRun.Spec.PipelineRef = pipelineRef
 
 	if pipelineRef != nil && pipelineRef.ResolverRef.Resolver == "git" {
-		var gitURL, revision string
+		var gitURL, revision, pathInRepo string
 
 		for _, param := range pipelineRef.ResolverRef.Params {
 			switch param.Name {
@@ -226,7 +226,14 @@ func (b *PipelineRunBuilder) WithPipelineRef(pipelineRef *tektonv1.PipelineRef) 
 				gitURL = param.Value.StringVal
 			case "revision":
 				revision = param.Value.StringVal
+			case "pathInRepo":
+				pathInRepo = param.Value.StringVal
 			}
+		}
+
+		if err := git.ValidateGitResolverConfig(gitURL, revision, pathInRepo); err != nil {
+			b.err = multierror.Append(b.err, fmt.Errorf("git resolution failed: %w", err))
+			return b
 		}
 
 		resolvedSHA, err := git.ResolveBranchToSHA(gitURL, revision)
