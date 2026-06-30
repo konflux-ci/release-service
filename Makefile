@@ -98,6 +98,10 @@ help: ## Display this help.
 
 ##@ Development
 
+.PHONY: setup
+setup: manifests generate fmt vet ## Set up development environment from fresh clone
+	@echo "Development environment ready. Run 'make test' to verify."
+
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
