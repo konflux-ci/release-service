@@ -26,6 +26,7 @@ import (
 	"time"
 
 	toolkit "github.com/konflux-ci/operator-toolkit/webhook"
+
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks/author"
 

@@ -29,6 +29,7 @@ import (
 
 	"github.com/konflux-ci/operator-toolkit/controller"
 	"github.com/konflux-ci/operator-toolkit/webhook"
+
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks"
 	"github.com/konflux-ci/release-service/metadata"
 	"github.com/konflux-ci/release-service/tracing"

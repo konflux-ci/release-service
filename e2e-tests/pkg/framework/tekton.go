@@ -5,9 +5,6 @@ import (
 	"fmt"
 
 	ecp "github.com/conforma/crds/api/v1alpha1"
-	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
-	"github.com/konflux-ci/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -15,6 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
+	"github.com/konflux-ci/release-service/metadata"
 )
 
 // TektonController handles Tekton-related operations: PipelineRun, TaskRun, EC Policy, PVC, and signing secrets.

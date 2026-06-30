@@ -17,8 +17,9 @@ limitations under the License.
 package metadata
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
+
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // AddAnnotations copies the map into the resource's Annotations map.

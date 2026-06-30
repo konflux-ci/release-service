@@ -17,9 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"regexp"
+
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"regexp"
 )
 
 const ReleaseServiceConfigResourceName string = "release-service-config"

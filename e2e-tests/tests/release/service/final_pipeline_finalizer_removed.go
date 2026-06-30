@@ -8,15 +8,11 @@ import (
 
 	ecp "github.com/conforma/crds/api/v1alpha1"
 	"github.com/devfile/library/v2/pkg/util"
-	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"go.yaml.in/yaml/v2"
 
-	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
-	"github.com/konflux-ci/release-service/e2e-tests/pkg/framework"
-	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
-	releasecommon "github.com/konflux-ci/release-service/e2e-tests/tests/release"
+	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
+
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -24,6 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/framework"
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
+	releasecommon "github.com/konflux-ci/release-service/e2e-tests/tests/release"
 )
 
 const (

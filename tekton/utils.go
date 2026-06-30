@@ -19,12 +19,13 @@ package tekton
 import (
 	"reflect"
 
-	"github.com/konflux-ci/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/konflux-ci/release-service/metadata"
 )
 
 // isReleasePipelineRun returns a boolean indicating whether the object passed is a Final, Managed or a Tenant Release PipelineRun.

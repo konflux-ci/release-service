@@ -33,9 +33,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	appstudiov1alpha1 "github.com/konflux-ci/release-service/api/v1alpha1"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
+
+	appstudiov1alpha1 "github.com/konflux-ci/release-service/api/v1alpha1"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	//+kubebuilder:scaffold:imports

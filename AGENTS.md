@@ -4,7 +4,7 @@ Release Service is a Kubernetes operator that orchestrates software release pipe
 
 ## Technology Stack
 
-- **Language**: Go 
+- **Language**: Go
 - **Framework:** controller-runtime
 - **CRDs**: Release, ReleasePlan, ReleasePlanAdmission, ReleaseServiceConfig
 - **Pipeline engine**: Tekton PipelineRuns
@@ -13,7 +13,7 @@ Release Service is a Kubernetes operator that orchestrates software release pipe
 
 ## Repository Structure
 
-```
+```text
 api/v1alpha1/          # CRD types and webhooks
 controllers/           # Reconcilers: release/, releaseplan/, releaseplanadmission/
 loader/                # ObjectLoader interface — abstracts K8s resource fetching
@@ -27,10 +27,13 @@ main.go                # Entry point — registers controllers and webhooks
 ```
 
 ## Architecture
+
 ### Adapter Pattern
+
 Each controller delegates to an **adapter** (`adapter.go`) that holds the K8s client, resource under reconciliation, an `ObjectLoader`, and a `Syncer`. All domain logic lives in adapter methods, not in the controller.
 
 ### Reconciliation Pipeline
+
 The Release controller runs ~20 sequential **operations** via `controller.ReconcileHandler()` from operator-toolkit. Each returns `(OperationResult, error)` — failure requeues, success continues. The pipeline stages are:
 
 1. Finalizer management and config loading
@@ -41,6 +44,7 @@ The Release controller runs ~20 sequential **operations** via `controller.Reconc
 PipelineRuns are watched via `EnqueueRequestForAnnotation` — when a PipelineRun updates, the owning Release is re-reconciled.
 
 ### Resource Loading
+
 `loader.ObjectLoader` centralizes all K8s Gets with error classification (retriable vs permanent) and KubeArchive fallback for deleted resources. A mock implementation exists for tests.
 
 ## Development Guidelines

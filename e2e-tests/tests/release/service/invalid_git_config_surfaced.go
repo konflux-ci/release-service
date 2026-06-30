@@ -3,15 +3,16 @@ package service
 import (
 	"strings"
 
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
+	meta "k8s.io/apimachinery/pkg/api/meta"
+
 	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/framework"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
 	releasecommon "github.com/konflux-ci/release-service/e2e-tests/tests/release"
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
-	ginkgo "github.com/onsi/ginkgo/v2"
-	gomega "github.com/onsi/gomega"
-	meta "k8s.io/apimachinery/pkg/api/meta"
 )
 
 const tenantPipelineRunCreationFailedMsg = "Release processing failed on tenant pipelineRun creation"

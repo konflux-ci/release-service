@@ -17,12 +17,13 @@ limitations under the License.
 package tekton
 
 import (
-	"github.com/konflux-ci/release-service/metadata"
-	"github.com/konflux-ci/release-service/tekton/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/konflux-ci/release-service/metadata"
+	"github.com/konflux-ci/release-service/tekton/utils"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )

@@ -22,9 +22,10 @@ import (
 	"regexp"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // DetermineRetryInfo determines the retry information for a given ReleasePlanAdmission.

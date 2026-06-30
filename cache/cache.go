@@ -20,9 +20,10 @@ import (
 	"context"
 
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
-	"github.com/konflux-ci/release-service/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
 )
 
 // SetupComponentCache adds a new index field to be able to search Components by application.

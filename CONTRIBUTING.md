@@ -37,10 +37,10 @@ Once it’s filed:
 
 Enhancement suggestions are tracked as [GitHub issues](/issues).
 
-- Use a **clear and descriptive title** for the issue to identify the suggestion.
-- Provide a **step-by-step description of the suggested enhancement** in as many details as possible.
-- Describe the current behavior, the expected one, and why you expect this behavior. At this point you can also list which alternatives do not work for you.
-- **Explain why this enhancement would be useful** to other users. You may also want to point out the other projects that solved it better and could serve as inspiration.
+* Use a **clear and descriptive title** for the issue to identify the suggestion.
+* Provide a **step-by-step description of the suggested enhancement** in as many details as possible.
+* Describe the current behavior, the expected one, and why you expect this behavior. At this point you can also list which alternatives do not work for you.
+* **Explain why this enhancement would be useful** to other users. You may also want to point out the other projects that solved it better and could serve as inspiration.
 
 ## Submitting changes
 
@@ -67,7 +67,7 @@ The commit message should contain an overall explanation about the change and th
 
 A well formatted commit would look something like this:
 
-```
+```text
 feat(issue-id): what this commit does
 
 Overall explanation of what this commit is achieving and the motivation behind it.
@@ -94,7 +94,7 @@ Before a pull request can be merged:
 
 Tests are written using the *[Ginkgo](https://onsi.github.io/ginkgo/)* framework. Here are some general advices when writing tests:
 
-* When the global `Describe` doesn't add enough context to the tests, use a nested `Describe` or a `Context` to specify what this test alludes to. Contexts should always start with _When_ (ie. "_When calling the function Foo_")
+* When the global `Describe` doesn't add enough context to the tests, use a nested `Describe` or a `Context` to specify what this test alludes to. Contexts should always start with *When* (ie. "*When calling the function Foo*")
 * Start the descriptions of `It` blocks in lowercase and try to be as descriptive as possible
 * Avoid ignoring errors. In other words, make sure all of them are caught and tested
 * Files ending with `_suite_test.go` are meant to store the code that is common for tests in the same directory and that will be executed before them. Use these files only if your test setup is big enough to justify it (ie. the suite file has more than the test suite name and the teardown)
@@ -102,7 +102,7 @@ Tests are written using the *[Ginkgo](https://onsi.github.io/ginkgo/)* framework
 * After `Create()` or `Update()` objects, use `Get()` before making assurances as the object might be outdated. It is useful after `Delete()` to check if the client returns `errors.IsNotFound`
 * Some assurances are likely to require usage of `Eventually` blocks instead of or in addition to `Expect` blocks
 
-### Useful links:
+### Useful links
 
 Links that may be used as a starting point:
 

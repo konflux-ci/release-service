@@ -18,15 +18,17 @@ package handlers
 
 import (
 	"context"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 
-	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	crtHandler "sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
 )
 
 var _ crtHandler.EventHandler = &EnqueueRequestForMatchedResource[client.Object]{}

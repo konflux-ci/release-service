@@ -33,11 +33,12 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	appstudiov1alpha1 "github.com/konflux-ci/release-service/api/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	appstudiov1alpha1 "github.com/konflux-ci/release-service/api/v1alpha1"
 )
 
 var (

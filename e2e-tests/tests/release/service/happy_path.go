@@ -5,18 +5,20 @@ import (
 	"fmt"
 
 	ecp "github.com/conforma/crds/api/v1alpha1"
-	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
+
 	appservice "github.com/konflux-ci/application-api/api/v1alpha1"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
+
 	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/framework"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
 	releasecommon "github.com/konflux-ci/release-service/e2e-tests/tests/release"
-	ginkgo "github.com/onsi/ginkgo/v2"
-	gomega "github.com/onsi/gomega"
 )
 
 var _ = ginkgo.Describe("Release service happy path", releasecommon.LabelHappyPath, ginkgo.Ordered, func() {

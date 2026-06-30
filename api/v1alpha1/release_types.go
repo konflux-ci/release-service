@@ -21,9 +21,10 @@ import (
 
 	"github.com/konflux-ci/operator-toolkit/conditions"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"github.com/konflux-ci/release-service/metadata"
 	"github.com/konflux-ci/release-service/metrics"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

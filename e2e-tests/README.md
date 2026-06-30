@@ -31,6 +31,7 @@ make test-e2e
 | `RELEASE_CATALOG_TA_QUAY_TOKEN` | `dockerconfigjson` | Quay auth for trusted artifacts |
 
 **Token Format Example:**
+
 ```json
 {
   "auths": {
@@ -63,6 +64,7 @@ make test-e2e-list                     # List all tests
 ```
 
 **Combine options:**
+
 ```bash
 make test-e2e LABEL=happy-path E2E_TIMEOUT=90m
 make test-e2e LABEL="release-service && !release-neg"

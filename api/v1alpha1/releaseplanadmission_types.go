@@ -22,11 +22,12 @@ import (
 	"sort"
 
 	"github.com/konflux-ci/operator-toolkit/conditions"
-	"github.com/konflux-ci/release-service/metadata"
-	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/konflux-ci/release-service/metadata"
+	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 )
 
 // ReleasePlanAdmissionSpec defines the desired state of ReleasePlanAdmission.

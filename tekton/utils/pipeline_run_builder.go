@@ -24,7 +24,6 @@ import (
 	"unicode"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/konflux-ci/release-service/git"
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +31,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/konflux-ci/release-service/git"
 )
 
 type PipelineRunBuilder struct {

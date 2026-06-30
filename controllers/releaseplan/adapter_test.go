@@ -20,13 +20,15 @@ import (
 	"reflect"
 
 	toolkit "github.com/konflux-ci/operator-toolkit/loader"
-	"github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/loader"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
 
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/loader"
+
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
+
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 
 	"k8s.io/apimachinery/pkg/api/errors"

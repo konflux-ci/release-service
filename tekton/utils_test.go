@@ -19,8 +19,6 @@ package tekton
 import (
 	"time"
 
-	"github.com/konflux-ci/release-service/metadata"
-	"github.com/konflux-ci/release-service/tekton/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
@@ -29,6 +27,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+
+	"github.com/konflux-ci/release-service/metadata"
+	"github.com/konflux-ci/release-service/tekton/utils"
 )
 
 var _ = Describe("Utils", Ordered, func() {

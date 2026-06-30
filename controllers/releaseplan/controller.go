@@ -23,16 +23,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 
 	"github.com/go-logr/logr"
-	"github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/controllers/utils/handlers"
-	"github.com/konflux-ci/release-service/controllers/utils/predicates"
-	"github.com/konflux-ci/release-service/loader"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	sigsctrl "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/controllers/utils/handlers"
+	"github.com/konflux-ci/release-service/controllers/utils/predicates"
+	"github.com/konflux-ci/release-service/loader"
 )
 
 // Controller reconciles a ReleasePlan object

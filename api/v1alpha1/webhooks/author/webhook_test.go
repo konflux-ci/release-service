@@ -21,10 +21,11 @@ import (
 
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 
-	"github.com/konflux-ci/release-service/metadata"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/konflux-ci/release-service/metadata"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"

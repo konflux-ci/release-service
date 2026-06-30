@@ -16,12 +16,13 @@
 package releaseplanadmission
 
 import (
-	"github.com/konflux-ci/release-service/api/v1alpha1"
-	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 
 	"github.com/konflux-ci/release-service/metadata"
 

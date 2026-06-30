@@ -17,10 +17,11 @@ limitations under the License.
 package tekton
 
 import (
-	"github.com/konflux-ci/release-service/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/konflux-ci/release-service/metadata"
 )
 
 // ReleasePipelineRunLifecyclePredicate is a predicate to select Release PipelineRuns during
