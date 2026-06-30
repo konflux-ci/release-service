@@ -51,6 +51,7 @@ PipelineRuns are watched via `EnqueueRequestForAnnotation` — when a PipelineRu
 - **Controller changes**: implement in `controllers/<resource>/adapter.go`
 - **Webhooks**: add to `api/v1alpha1/webhooks/<resource>/`
 - **Tests**: unit tests alongside code using Ginkgo + envtest; E2E in dedicated repos
+- **Quick package verification**: `go vet ./path/to/package/` (lint), `go build ./path/to/package/` (type-check) — faster than full `make test` for iterating on a single package
 
 ## Key Patterns
 
