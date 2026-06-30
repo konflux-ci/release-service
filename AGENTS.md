@@ -61,3 +61,13 @@ PipelineRuns are watched via `EnqueueRequestForAnnotation` — when a PipelineRu
 - **Metadata utilities** (`metadata/`): prefix-based label filtering, safe-copy helpers that don't clobber existing keys
 - **Metrics**: registered during reconciliation — `RegisterNewRelease()`, `RegisterCompletedRelease()`, `RegisterValidatedRelease()` with start/completion times
 - **Syncer**: copies Snapshot metadata to target namespace idempotently (ignores AlreadyExists)
+
+## Pattern References
+
+When making common changes, follow these existing implementations as reference:
+
+- **New controller**: follow the pattern in `controllers/release/controller.go` — register with manager, set up watches, delegate to adapter
+- **New reconciler operation**: see `controllers/release/adapter.go` operations like `EnsureFinalizersAreCalled()` — gate conditions, state changes, proper patching
+- **New CRD field**: follow pattern in `api/v1alpha1/release_types.go` — add field to spec/status, run `make generate manifests`
+- **New webhook validation**: see `api/v1alpha1/webhooks/release/release_webhook.go` — implement ValidateCreate/Update/Delete
+- **New Tekton PipelineRun**: use `tekton/utils.go` PipelineRunBuilder pattern — fluent API for params, workspaces, timeouts
