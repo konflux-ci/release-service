@@ -24,16 +24,18 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/konflux-ci/release-service/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlWebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+
 	"github.com/go-logr/logr"
-	"github.com/konflux-ci/release-service/metadata"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/konflux-ci/release-service/metadata"
 )
 
 // Webhook describes the data structure for the author webhook
@@ -151,7 +153,7 @@ func (w *Webhook) sanitizeLabelValue(username string) string {
 	author = strings.Replace(author, "@", ".", 1)     // At sign is disallowed. Support usernames that uses email address.
 
 	if len(author) > metadata.MaxLabelLength {
-		author = string(author)[0:metadata.MaxLabelLength]
+		author = author[0:metadata.MaxLabelLength]
 	}
 
 	// Ensure author ends with an alphanumeric character

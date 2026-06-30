@@ -2,10 +2,11 @@
 package common
 
 import (
-	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
-	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
 )
 
 // Test suite labels for release-service e2e tests.

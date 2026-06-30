@@ -7,12 +7,13 @@ import (
 
 	ecapiv1alpha1 "github.com/conforma/crds/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
-	"github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/metadata"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/metadata"
 )
 
 const (

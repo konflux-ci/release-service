@@ -4,9 +4,10 @@ import (
 	"context"
 
 	"github.com/konflux-ci/operator-toolkit/controller"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/loader"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // maxConditionMessageLength is the maximum length for a Kubernetes condition message.

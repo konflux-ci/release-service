@@ -25,11 +25,12 @@ import (
 	"github.com/konflux-ci/release-service/metadata"
 
 	"github.com/go-logr/logr"
-	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
 )
 
 // Webhook describes the data structure for the release webhook

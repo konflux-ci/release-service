@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"github.com/konflux-ci/operator-toolkit/webhook"
+
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks/author"
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks/release"
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks/releaseplan"

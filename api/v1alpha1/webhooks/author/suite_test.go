@@ -25,9 +25,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

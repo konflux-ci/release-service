@@ -19,14 +19,15 @@ package retry_test
 import (
 	"time"
 
-	"github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/retry"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/retry"
 )
 
 var _ = Describe("Mitigations", func() {

@@ -7,18 +7,21 @@ Release service is a Kubernetes operator to control the life cycle of Konflux-ma
 All development tasks use the [Makefile](Makefile).
 
 **Setup from fresh clone**:
+
 ```shell
 $ make setup  # One command to set up development environment
 $ make test   # Run tests to verify setup
 ```
 
 **Run locally** (e.g., CRC cluster):
+
 ```shell
 $ make manifests generate  # After code changes
 $ make run install
 ```
 
 **Build and push image**:
+
 ```shell
 $ make docker-build docker-push
 $ TAG_NAME=my-tag make docker-build docker-push  # Custom tag
@@ -26,11 +29,13 @@ $ IMG=quay.io/user/release:my-tag make docker-build docker-push  # Custom repo
 ```
 
 **Run tests**:
+
 ```shell
 $ make test  # Includes coverage report
 ```
 
 **Disable webhooks** (local development):
+
 ```shell
 $ ENABLE_WEBHOOKS=false make run install
 ```

@@ -5,16 +5,18 @@ import (
 	"strings"
 
 	"github.com/konflux-ci/application-api/api/v1alpha1"
+
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
+
+	ginkgo "github.com/onsi/ginkgo/v2"
+	gomega "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/framework"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
 	releasecommon "github.com/konflux-ci/release-service/e2e-tests/tests/release"
-	ginkgo "github.com/onsi/ginkgo/v2"
-	gomega "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = ginkgo.Describe("Release CR fails when missing ReleasePlan and ReleasePlanAdmission", releasecommon.LabelNegative, ginkgo.Ordered, func() {

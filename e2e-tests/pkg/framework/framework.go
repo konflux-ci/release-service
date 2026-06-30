@@ -7,8 +7,9 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 
-	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
 )
 
 // ControllerHub aggregates all controller clients.

@@ -106,7 +106,7 @@ func doGet(ctx context.Context, httpClient *http.Client, url string) ([]byte, in
 	if err != nil {
 		return nil, 0, fmt.Errorf("kubearchive request to %s failed: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

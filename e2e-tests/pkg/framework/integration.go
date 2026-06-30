@@ -5,9 +5,10 @@ import (
 	"fmt"
 
 	appstudioApi "github.com/konflux-ci/application-api/api/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
 	"github.com/konflux-ci/release-service/metadata"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // IntegrationController handles Snapshot operations (integration-service domain).

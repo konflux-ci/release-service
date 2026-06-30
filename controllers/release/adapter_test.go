@@ -31,9 +31,6 @@ import (
 
 	"github.com/konflux-ci/operator-toolkit/controller"
 	toolkit "github.com/konflux-ci/operator-toolkit/loader"
-	"github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/loader"
-	"github.com/konflux-ci/release-service/metadata"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/operator-framework/operator-lib/handler"
@@ -44,6 +41,10 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/loader"
+	"github.com/konflux-ci/release-service/metadata"
 
 	ecapiv1alpha1 "github.com/conforma/crds/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
@@ -4852,8 +4853,8 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			bundle := enterpriseContractConfigMap.Data["verify_ec_task_bundle"]
 			revision := enterpriseContractConfigMap.Data["verify_ec_task_git_revision"]
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(bundle)))))
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(string(revision)))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(bundle))))
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(revision))))
 		})
 
 		It("passes ociStorage param from ReleasePlanAdmission to PipelineRun", func() {

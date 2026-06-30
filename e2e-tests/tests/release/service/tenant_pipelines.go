@@ -5,20 +5,22 @@ import (
 	"fmt"
 	"time"
 
-	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
-	"github.com/konflux-ci/release-service/e2e-tests/pkg/framework"
-	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
-	releasecommon "github.com/konflux-ci/release-service/e2e-tests/tests/release"
+	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
+
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/framework"
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
+	releasecommon "github.com/konflux-ci/release-service/e2e-tests/tests/release"
 )
 
 var _ = ginkgo.Describe("Release service tenant pipeline", releasecommon.LabelTenant, ginkgo.Ordered, func() {

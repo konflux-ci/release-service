@@ -15,8 +15,9 @@ import (
 
 	ecpApi "github.com/conforma/crds/api/v1alpha1"
 	appstudioApi "github.com/konflux-ci/application-api/api/v1alpha1"
-	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+
+	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
 )
 
 // KubeClient wraps a controller-runtime client with helper methods.

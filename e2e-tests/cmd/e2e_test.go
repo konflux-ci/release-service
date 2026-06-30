@@ -18,13 +18,14 @@ import (
 
 	ecpApi "github.com/conforma/crds/api/v1alpha1"
 	appstudioApi "github.com/konflux-ci/application-api/api/v1alpha1"
-	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
 )
 
 func init() {

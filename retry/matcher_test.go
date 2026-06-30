@@ -20,12 +20,13 @@ import (
 	"encoding/json"
 
 	"github.com/go-logr/logr"
-	"github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/retry"
-	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/retry"
+	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 )
 
 var _ = Describe("Retry Matcher", func() {

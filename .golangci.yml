@@ -1,0 +1,43 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - unconvert
+    - unparam
+  settings:
+    staticcheck:
+      checks:
+        - "all"
+        - "-QF*"
+        - "-ST1000"
+        - "-ST1003"
+  exclusions:
+    rules:
+      - path: "_test\\.go"
+        linters:
+          - errcheck
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/konflux-ci/release-service
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

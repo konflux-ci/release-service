@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"github.com/konflux-ci/operator-toolkit/controller"
+
 	"github.com/konflux-ci/release-service/controllers/release"
 	"github.com/konflux-ci/release-service/controllers/releaseplan"
 	"github.com/konflux-ci/release-service/controllers/releaseplanadmission"

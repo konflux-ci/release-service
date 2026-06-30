@@ -31,14 +31,6 @@ import (
 	integrationgitops "github.com/konflux-ci/integration-service/gitops"
 	"github.com/konflux-ci/operator-toolkit/controller"
 	toolkitmetadata "github.com/konflux-ci/operator-toolkit/metadata"
-	"github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/loader"
-	"github.com/konflux-ci/release-service/metadata"
-	"github.com/konflux-ci/release-service/retry"
-	"github.com/konflux-ci/release-service/syncer"
-	"github.com/konflux-ci/release-service/tekton"
-	"github.com/konflux-ci/release-service/tekton/utils"
-	"github.com/konflux-ci/release-service/tracing"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
@@ -51,6 +43,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/loader"
+	"github.com/konflux-ci/release-service/metadata"
+	"github.com/konflux-ci/release-service/retry"
+	"github.com/konflux-ci/release-service/syncer"
+	"github.com/konflux-ci/release-service/tekton"
+	"github.com/konflux-ci/release-service/tekton/utils"
+	"github.com/konflux-ci/release-service/tracing"
 )
 
 // adapter holds the objects needed to reconcile a Release.
@@ -2443,7 +2444,7 @@ func (a *adapter) getTaskRunLogs(taskRun *tektonv1.TaskRun) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to stream pod logs: %w", err)
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	logs, err := io.ReadAll(stream)
 	if err != nil {

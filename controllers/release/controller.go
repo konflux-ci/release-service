@@ -25,10 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 
 	"github.com/go-logr/logr"
-	"github.com/konflux-ci/release-service/api/v1alpha1"
-	"github.com/konflux-ci/release-service/cache"
-	"github.com/konflux-ci/release-service/loader"
-	"github.com/konflux-ci/release-service/tekton"
 	libhandler "github.com/operator-framework/operator-lib/handler"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,6 +33,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	sigsctrl "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/cache"
+	"github.com/konflux-ci/release-service/loader"
+	"github.com/konflux-ci/release-service/tekton"
 )
 
 // Controller reconciles a Release object

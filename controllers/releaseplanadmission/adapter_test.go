@@ -24,12 +24,13 @@ import (
 	"time"
 
 	toolkit "github.com/konflux-ci/operator-toolkit/loader"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/loader"
 	"github.com/konflux-ci/release-service/metadata"
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
