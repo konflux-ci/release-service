@@ -4,7 +4,13 @@ Release service is a Kubernetes operator to control the life cycle of Konflux-ma
 
 ## Development
 
-All development tasks use the [Makefile](Makefile):
+All development tasks use the [Makefile](Makefile).
+
+**Setup from fresh clone**:
+```shell
+$ make setup  # One command to set up development environment
+$ make test   # Run tests to verify setup
+```
 
 **Run locally** (e.g., CRC cluster):
 ```shell
