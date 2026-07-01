@@ -30,9 +30,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+var pipelineRunBuilderLog = ctrl.Log.WithName("pipeline-run-builder")
 
 type PipelineRunBuilder struct {
 	err         *multierror.Error
@@ -238,8 +241,9 @@ func (b *PipelineRunBuilder) WithPipelineRef(pipelineRef *tektonv1.PipelineRef) 
 
 		resolvedSHA, err := git.ResolveBranchToSHA(gitURL, revision)
 		if err != nil {
-			if strings.Contains(err.Error(), "authentication required") ||
-				strings.Contains(err.Error(), "remote repository access failed") {
+			if strings.Contains(err.Error(), "authentication required") {
+				pipelineRunBuilderLog.Info("could not resolve git revision to SHA, using branch name",
+					"url", gitURL, "revision", revision, "error", err.Error())
 				resolvedSHA = revision
 			} else {
 				b.err = multierror.Append(b.err, fmt.Errorf("git resolution failed: %w", err))
