@@ -62,6 +62,16 @@ const (
 	PipelinesAsCodePrefix = "pac.test.appstudio.openshift.io"
 )
 
+// Distributed tracing annotations
+const (
+	// SpanContextAnnotation is Tekton's contract for propagating a traceparent across PipelineRun reconcilers.
+	SpanContextAnnotation = "tekton.dev/pipelinerunSpanContext"
+
+	// TimingEmittedAnnotation marks a PipelineRun whose timing spans have been emitted;
+	// delivery.tekton.dev domain distinguishes delivery-chain traces from execution traces.
+	TimingEmittedAnnotation = "delivery.tekton.dev/timingEmitted"
+)
+
 // Prefixes to be used by Release Pipelines labels
 var (
 	// pipelinesLabelPrefix is the prefix of the pipelines label
