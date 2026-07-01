@@ -19,6 +19,11 @@ package git
 import (
 	"errors"
 	"fmt"
+	"os"
+
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -148,6 +153,48 @@ var _ = Describe("Git References", func() {
 			err := ValidateGitResolverConfig("", "", "")
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrInvalidGitResolverConfig)).To(BeTrue())
+		})
+	})
+
+	Describe("remoteListOptions", func() {
+		It("should not set auth when GITHUB_TOKEN is unset", func() {
+			Expect(os.Getenv(GitHubTokenEnvVar)).To(BeEmpty())
+			opts := remoteListOptions()
+			Expect(opts.Auth).To(BeNil())
+		})
+
+		It("should set GitHub basic auth when GITHUB_TOKEN is set", func() {
+			GinkgoT().Setenv(GitHubTokenEnvVar, "test-token")
+			opts := remoteListOptions()
+			Expect(opts.Auth).NotTo(BeNil())
+
+			basicAuth, ok := opts.Auth.(*githttp.BasicAuth)
+			Expect(ok).To(BeTrue())
+			Expect(basicAuth.Username).To(Equal("x-access-token"))
+			Expect(basicAuth.Password).To(Equal("test-token"))
+		})
+	})
+
+	Describe("ResolveBranchToSHA with mocked remote list", func() {
+		var originalListRemoteRefs func(*git.Remote, *git.ListOptions) ([]*plumbing.Reference, error)
+
+		BeforeEach(func() {
+			originalListRemoteRefs = listRemoteRefs
+		})
+
+		AfterEach(func() {
+			listRemoteRefs = originalListRemoteRefs
+		})
+
+		It("should return an error when rate limited instead of falling back silently", func() {
+			listRemoteRefs = func(_ *git.Remote, _ *git.ListOptions) ([]*plumbing.Reference, error) {
+				return nil, fmt.Errorf("API rate limit exceeded")
+			}
+
+			_, err := ResolveBranchToSHA("https://github.com/octocat/Hello-World.git", "master")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("remote repository access failed"))
+			Expect(err.Error()).To(ContainSubstring("rate limited"))
 		})
 	})
 })
