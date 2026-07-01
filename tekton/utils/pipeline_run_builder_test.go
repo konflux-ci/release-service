@@ -517,6 +517,35 @@ var _ = Describe("PipelineRun builder", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("git resolution failed"))
 		})
+
+		It("fails instead of falling back to branch name on remote repository access errors", func() {
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{
+						Name:  "url",
+						Value: "https://release-service-git-test.invalid/org/repo.git",
+					},
+					{
+						Name:  "revision",
+						Value: "main",
+					},
+					{
+						Name:  "pathInRepo",
+						Value: "pipelines/release.yaml",
+					},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+
+			_, err := builder.Build()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("git resolution failed"))
+			Expect(err.Error()).To(ContainSubstring("remote repository access failed"))
+		})
 	})
 
 	When("WithServiceAccount method is called", func() {
