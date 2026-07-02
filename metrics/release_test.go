@@ -237,6 +237,36 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
+	When("RegisterSuccessfulManagedPipelineRetryMitigation is called", func() {
+		BeforeEach(func() {
+			initializeMetrics()
+		})
+
+		It("increments ReleaseRetryMitigationSuccessTotal", func() {
+			RegisterSuccessfulManagedPipelineRetryMitigation("failureReason", "stepName", "taskName", "tenantName")
+			metadata := `
+                # HELP release_retry_mitigation_success_total Total number of managed pipeline retries that succeeded after mitigation
+                # TYPE release_retry_mitigation_success_total counter
+            `
+			expected := `
+                release_retry_mitigation_success_total{failure_reason="failureReason",step="stepName",task="taskName",tenant="tenantName"} 1
+            `
+			Expect(testutil.CollectAndCompare(ReleaseRetryMitigationSuccessTotal, strings.NewReader(metadata+expected), "release_retry_mitigation_success_total")).To(Succeed())
+		})
+
+		It("handles empty step and task", func() {
+			RegisterSuccessfulManagedPipelineRetryMitigation("failureReason", "", "", "tenantName")
+			metadata := `
+                # HELP release_retry_mitigation_success_total Total number of managed pipeline retries that succeeded after mitigation
+                # TYPE release_retry_mitigation_success_total counter
+            `
+			expected := `
+                release_retry_mitigation_success_total{failure_reason="failureReason",step="",task="",tenant="tenantName"} 1
+            `
+			Expect(testutil.CollectAndCompare(ReleaseRetryMitigationSuccessTotal, strings.NewReader(metadata+expected), "release_retry_mitigation_success_total")).To(Succeed())
+		})
+	})
+
 	initializeMetrics = func() {
 		ReleaseConcurrentTotal.Reset()
 		ReleaseConcurrentProcessingsTotal.Reset()
@@ -244,6 +274,7 @@ var _ = Describe("Release metrics", Ordered, func() {
 		ReleasePreProcessingDurationSeconds.Reset()
 		ReleaseDurationSeconds.Reset()
 		ReleaseProcessingDurationSeconds.Reset()
+		ReleaseRetryMitigationSuccessTotal.Reset()
 		ReleaseTotal.Reset()
 	}
 
