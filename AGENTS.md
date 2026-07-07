@@ -9,7 +9,7 @@ Release Service is a Kubernetes operator that orchestrates software release pipe
 - **CRDs**: Release, ReleasePlan, ReleasePlanAdmission, ReleaseServiceConfig
 - **Pipeline engine**: Tekton PipelineRuns
 - **Testing**: Ginkgo/Gomega + envtest (local K8s API server)
-- **Build**: `make test` (unit), `make manifests generate` (codegen)
+- **Build**: `make setup` (bootstrap), `make test` (unit), `make manifests generate` (codegen)
 
 ## Repository Structure
 
