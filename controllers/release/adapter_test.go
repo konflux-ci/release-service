@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -37,6 +38,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/operator-framework/operator-lib/handler"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -88,6 +91,27 @@ func (c *createAfterNErrorClient) Create(ctx context.Context, obj ctrlclient.Obj
 		return c.createErr
 	}
 	return c.Client.Create(ctx, obj, opts...)
+}
+
+// recordingExporter captures spans in memory for assertions about what was emitted.
+type recordingExporter struct {
+	mu    sync.Mutex
+	spans []sdktrace.ReadOnlySpan
+}
+
+func (e *recordingExporter) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.spans = append(e.spans, spans...)
+	return nil
+}
+
+func (e *recordingExporter) Shutdown(context.Context) error { return nil }
+
+func (e *recordingExporter) Spans() []sdktrace.ReadOnlySpan {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]sdktrace.ReadOnlySpan(nil), e.spans...)
 }
 
 var _ = Describe("Release adapter", Ordered, func() {
@@ -2300,8 +2324,18 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("should mark the release as failed if a validation fails", func() {
+			prev := otel.GetTracerProvider()
+			exporter := &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
+
 			adapter.validations = []controller.ValidationFunction{
 				func() *controller.ValidationResult {
+					adapter.release.MarkValidationFailed("test validation failed")
 					return &controller.ValidationResult{Valid: false}
 				},
 			}
@@ -2317,6 +2351,36 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.IsValid()).To(BeFalse())
 			Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
+		})
+
+		It("does not re-emit the validation-failure span when the Release has already been marked failed", func() {
+			prev := otel.GetTracerProvider()
+			exporter := &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
+
+			adapter.validations = []controller.ValidationFunction{
+				func() *controller.ValidationResult {
+					return &controller.ValidationResult{Valid: false}
+				},
+			}
+			adapter.release.MarkValidationFailed("prior validation failure")
+			adapter.release.MarkReleaseFailed("prior failure")
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			adapter.release.MarkManagedPipelineProcessingSkipped()
+			adapter.release.MarkFinalPipelineProcessingSkipped()
+			Expect(adapter.client.Status().Update(adapter.ctx, adapter.release)).To(Succeed())
+
+			_, err := adapter.EnsureReleaseIsValid()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exporter.Spans()).To(BeEmpty())
 		})
 
 		It("should not stop reconciling if not all phases are complete, but still mark release as invalid", func() {
@@ -4291,6 +4355,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 			}
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
 		})
+
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			newRPA := releasePlanAdmission.DeepCopy()
+			newRPA.Spec.Collectors = &v1alpha1.Collectors{
+				Items: []v1alpha1.CollectorItem{{Name: "foo", Type: "bar", Params: []v1alpha1.Param{}}},
+			}
+			tracedPipelineRun, err := adapter.createManagedCollectorsPipelineRun(newRPA)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			Expect(pipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
+		})
 	})
 
 	When("createTenantCollectorsPipelineRun is called", func() {
@@ -4375,6 +4459,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 				}
 			}
 			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", revision)))
+		})
+
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			newRP := releasePlan.DeepCopy()
+			newRP.Spec.Collectors = &v1alpha1.Collectors{
+				Items: []v1alpha1.CollectorItem{{Name: "foo", Type: "bar", Params: []v1alpha1.Param{}}},
+			}
+			tracedPipelineRun, err := adapter.createTenantCollectorsPipelineRun(newRP, releasePlanAdmission)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			Expect(pipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
 		})
 	})
 
@@ -4555,6 +4659,22 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(emptyDirPipelineRun.Spec.Workspaces[0].EmptyDir).NotTo(BeNil())
 			Expect(emptyDirPipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
 			Expect(k8sClient.Delete(ctx, emptyDirPipelineRun)).To(Succeed())
+		})
+
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			tracedPipelineRun, err := adapter.createTenantPipelineRun(newReleasePlan, snapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			Expect(pipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
 		})
 	})
 
@@ -4901,6 +5021,25 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Expect(pipelineRun.Spec.Workspaces[0].VolumeClaimTemplate).To(BeNil())
 			})
 		})
+
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			tracedPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			plainPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plainPipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
+			Expect(k8sClient.Delete(ctx, plainPipelineRun)).To(Succeed())
+		})
 	})
 
 	When("createFinalPipelineRun is called", func() {
@@ -5020,6 +5159,22 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("has owner annotations", func() {
 			Expect(pipelineRun.GetAnnotations()[handler.NamespacedNameAnnotation]).To(ContainSubstring(adapter.release.Name))
 			Expect(pipelineRun.GetAnnotations()[handler.TypeAnnotation]).To(ContainSubstring("Release"))
+		})
+
+		It("propagates the span context annotation when present", func() {
+			adapter.release.Annotations = map[string]string{
+				metadata.SpanContextAnnotation: "{\"traceparent\":\"00-abc123-def456-01\"}",
+			}
+			tracedPipelineRun, err := adapter.createFinalPipelineRun(newReleasePlan, snapshot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tracedPipelineRun.GetAnnotations()).To(HaveKeyWithValue(
+				metadata.SpanContextAnnotation, "{\"traceparent\":\"00-abc123-def456-01\"}",
+			))
+			Expect(k8sClient.Delete(ctx, tracedPipelineRun)).To(Succeed())
+		})
+
+		It("does not set the span context annotation when absent", func() {
+			Expect(pipelineRun.GetAnnotations()).NotTo(HaveKey(metadata.SpanContextAnnotation))
 		})
 
 		It("has release labels", func() {
@@ -6063,7 +6218,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 	})
 
 	When("registerManagedCollectorsProcessingStatus is called", func() {
-		var adapter *adapter
+		var (
+			adapter  *adapter
+			exporter *recordingExporter
+		)
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -6071,6 +6229,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			prev := otel.GetTracerProvider()
+			exporter = &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
 		})
 
 		It("does nothing if there is no PipelineRun", func() {
@@ -6087,20 +6253,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("sets the Release as Managed Collectors Processed if the PipelineRun succeeded", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkSucceeded("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 			adapter.release.MarkManagedCollectorsPipelineProcessing()
 
 			Expect(adapter.registerManagedCollectorsProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeTrue())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
 		})
 
 		It("sets the Release as ManagedCollectors Processing failed if the PipelineRun didn't succeed", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkFailed("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 			adapter.release.MarkManagedCollectorsPipelineProcessing()
 
 			Expect(adapter.registerManagedCollectorsProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasManagedCollectorsPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
 		})
 
 		It("sets the Release as failed if the PipelineRun is deleted while still running", func() {
@@ -6113,11 +6285,15 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.registerManagedCollectorsProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasManagedCollectorsPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsManagedCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
+			Expect(exporter.Spans()).To(BeEmpty())
 		})
 	})
 
 	When("registerTenantCollectorsProcessingStatus is called", func() {
-		var adapter *adapter
+		var (
+			adapter  *adapter
+			exporter *recordingExporter
+		)
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -6125,6 +6301,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			prev := otel.GetTracerProvider()
+			exporter = &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
 		})
 
 		It("does nothing if there is no PipelineRun", func() {
@@ -6141,20 +6325,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("sets the Release as Tenant Collectors Processed if the PipelineRun succeeded", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkSucceeded("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 
 			Expect(adapter.registerTenantCollectorsProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.IsTenantCollectorsPipelineProcessedSuccessfully()).To(BeTrue())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
 		})
 
 		It("sets the Release as Tenant Collectors Processing failed if the PipelineRun didn't succeed", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkFailed("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 			adapter.release.MarkTenantCollectorsPipelineProcessing()
 
 			Expect(adapter.registerTenantCollectorsProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasTenantCollectorsPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsTenantCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
 		})
 
 		It("sets the Release as failed if the PipelineRun is deleted while still running", func() {
@@ -6167,11 +6357,15 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.registerTenantCollectorsProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasTenantCollectorsPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsTenantCollectorsPipelineProcessedSuccessfully()).To(BeFalse())
+			Expect(exporter.Spans()).To(BeEmpty())
 		})
 	})
 
 	When("registerTenantProcessingStatus is called", func() {
-		var adapter *adapter
+		var (
+			adapter  *adapter
+			exporter *recordingExporter
+		)
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -6179,6 +6373,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			prev := otel.GetTracerProvider()
+			exporter = &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
 		})
 
 		It("does nothing if there is no PipelineRun", func() {
@@ -6195,20 +6397,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("sets the Release as Tenant Processed if the PipelineRun succeeded", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkSucceeded("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 			adapter.release.MarkTenantPipelineProcessing()
 
 			Expect(adapter.registerTenantProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.IsTenantPipelineProcessedSuccessfully()).To(BeTrue())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
 		})
 
 		It("sets the Release as Tenant Processing failed if the PipelineRun didn't succeed", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkFailed("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 			adapter.release.MarkTenantPipelineProcessing()
 
 			Expect(adapter.registerTenantProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsTenantPipelineProcessedSuccessfully()).To(BeFalse())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
 		})
 
 		It("sets the Release as failed if the PipelineRun is deleted while still running", func() {
@@ -6221,11 +6429,15 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.registerTenantProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsTenantPipelineProcessedSuccessfully()).To(BeFalse())
+			Expect(exporter.Spans()).To(BeEmpty())
 		})
 	})
 
 	When("registerManagedProcessingStatus is called", func() {
-		var adapter *adapter
+		var (
+			adapter  *adapter
+			exporter *recordingExporter
+		)
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -6233,6 +6445,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			prev := otel.GetTracerProvider()
+			exporter = &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
 		})
 
 		It("does nothing if there is no PipelineRun", func() {
@@ -6249,16 +6469,21 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("sets the Release as Managed Processed if the PipelineRun succeeded", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkSucceeded("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{PipelineRun: "default/pr"}}
 			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
 
 			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.IsManagedPipelineProcessedSuccessfully()).To(BeTrue())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
 		})
 
 		It("marks the attempt as failed but does not finalize the phase if the PipelineRun didn't succeed", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkFailed("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{PipelineRun: "default/pr"}}
 			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
 
@@ -6267,6 +6492,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(attempt.Status).To(Equal(v1alpha1.AttemptFailedReason))
 			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeFalse())
 			Expect(adapter.release.IsFailed()).To(BeFalse())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
 		})
 
 		It("marks the attempt as failed if the PipelineRun is deleted while still running", func() {
@@ -6281,6 +6507,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			attempt := adapter.release.GetCurrentManagedPipelineAttempt()
 			Expect(attempt.Status).To(Equal(v1alpha1.AttemptFailedReason))
 			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeFalse())
+			Expect(exporter.Spans()).To(BeEmpty())
 		})
 
 		It("does nothing if the current attempt is already done", func() {
@@ -6295,11 +6522,15 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.GetCurrentManagedPipelineAttempt().Status).To(Equal(v1alpha1.AttemptSucceededReason))
+			Expect(exporter.Spans()).To(BeEmpty())
 		})
 	})
 
 	When("registerFinalProcessingStatus is called", func() {
-		var adapter *adapter
+		var (
+			adapter  *adapter
+			exporter *recordingExporter
+		)
 
 		AfterEach(func() {
 			_ = adapter.client.Delete(ctx, adapter.release)
@@ -6307,6 +6538,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 		BeforeEach(func() {
 			adapter = createReleaseAndAdapter()
+			prev := otel.GetTracerProvider()
+			exporter = &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
 		})
 
 		It("does nothing if there is no PipelineRun", func() {
@@ -6323,20 +6562,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("sets the Release as Final Processed if the PipelineRun succeeded", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkSucceeded("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 			adapter.release.MarkFinalPipelineProcessing()
 
 			Expect(adapter.registerFinalProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.IsFinalPipelineProcessedSuccessfully()).To(BeTrue())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
 		})
 
 		It("sets the Release as Final Processing failed if the PipelineRun didn't succeed", func() {
 			pipelineRun := &tektonv1.PipelineRun{}
 			pipelineRun.Status.MarkFailed("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
 			adapter.release.MarkFinalPipelineProcessing()
 
 			Expect(adapter.registerFinalProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasFinalPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsFinalPipelineProcessedSuccessfully()).To(BeFalse())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
 		})
 
 		It("sets the Release as failed if the PipelineRun is deleted while still running", func() {
@@ -6349,6 +6594,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.registerFinalProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.HasFinalPipelineProcessingFinished()).To(BeTrue())
 			Expect(adapter.release.IsFinalPipelineProcessedSuccessfully()).To(BeFalse())
+			Expect(exporter.Spans()).To(BeEmpty())
 		})
 	})
 
@@ -7444,6 +7690,180 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result, err := adapter.getFailedTaskRunLogs(pipelineRun)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(BeEmpty())
+		})
+	})
+
+	When("emitTimingSpans is called", func() {
+		var (
+			adapter     *adapter
+			pipelineRun *tektonv1.PipelineRun
+		)
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+			pipelineRun = &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "release-pr-",
+					Namespace:    "default",
+					Labels: map[string]string{
+						metadata.PipelinesTypeLabel: metadata.FinalPipelineType.String(),
+					},
+				},
+				Spec: tektonv1.PipelineRunSpec{
+					PipelineRef: &tektonv1.PipelineRef{Name: "release"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, pipelineRun)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+			Expect(k8sClient.Delete(ctx, pipelineRun)).To(Succeed())
+		})
+
+		It("does nothing when the PipelineRun is nil", func() {
+			adapter.emitTimingSpans(nil)
+		})
+
+		It("does not emit when the global tracer provider is the noop", func() {
+			adapter.emitTimingSpans(pipelineRun)
+		})
+
+		It("emits spans when the run has completed and a tracer provider is active", func() {
+			prev := otel.GetTracerProvider()
+			exporter := &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
+
+			start := time.Now().Add(-time.Minute)
+			end := time.Now()
+			pipelineRun.Status = tektonv1.PipelineRunStatus{
+				PipelineRunStatusFields: tektonv1.PipelineRunStatusFields{
+					StartTime:      &metav1.Time{Time: start},
+					CompletionTime: &metav1.Time{Time: end},
+				},
+			}
+			Expect(k8sClient.Status().Update(ctx, pipelineRun)).To(Succeed())
+
+			adapter.emitTimingSpans(pipelineRun)
+
+			Expect(exporter.Spans()).NotTo(BeEmpty())
+		})
+	})
+
+	When("emitValidationFailureWaitSpan is called", func() {
+		var adapter *adapter
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+			adapter.release.Status.StartTime = &metav1.Time{Time: time.Now()}
+			adapter.release.MarkReleaseFailed("Release validation failed")
+			adapter.release.MarkValidationFailed("missing required field")
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		It("does nothing when the Validated condition is absent", func() {
+			prev := otel.GetTracerProvider()
+			exporter := &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
+
+			adapter.release.Status.Conditions = nil
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+
+			adapter.emitValidationFailureWaitSpan()
+
+			Expect(exporter.Spans()).To(BeEmpty())
+		})
+
+		It("does not emit when the global tracer provider is the noop", func() {
+			adapter.emitValidationFailureWaitSpan()
+		})
+
+		It("emits a span when the Validated condition is present and a tracer provider is active", func() {
+			prev := otel.GetTracerProvider()
+			exporter := &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
+
+			adapter.emitValidationFailureWaitSpan()
+
+			Expect(exporter.Spans()).NotTo(BeEmpty())
+		})
+	})
+
+	When("patchStatusAndEmitSpans is called", func() {
+		var (
+			adapter  *adapter
+			exporter *recordingExporter
+		)
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+			adapter.release.MarkReleasing("")
+			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
+			prev := otel.GetTracerProvider()
+			exporter = &recordingExporter{}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+			otel.SetTracerProvider(tp)
+			DeferCleanup(func() {
+				otel.SetTracerProvider(prev)
+				_ = tp.Shutdown(adapter.ctx)
+			})
+		})
+
+		It("persists the status patch and emits timing spans on success", func() {
+			patch := ctrlclient.MergeFrom(adapter.release.DeepCopy())
+			adapter.release.MarkValidated()
+
+			pipelineRun := &tektonv1.PipelineRun{}
+			pipelineRun.Status.MarkSucceeded("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+
+			Expect(adapter.patchStatusAndEmitSpans(patch, pipelineRun)).To(Succeed())
+
+			fresh := &v1alpha1.Release{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: adapter.release.Namespace, Name: adapter.release.Name,
+			}, fresh)).To(Succeed())
+			Expect(fresh.IsValid()).To(BeTrue())
+			Expect(exporter.Spans()).NotTo(BeEmpty())
+		})
+
+		It("returns the patch error and skips emitting spans", func() {
+			patch := ctrlclient.MergeFrom(adapter.release.DeepCopy())
+			adapter.release.MarkValidated()
+
+			pipelineRun := &tektonv1.PipelineRun{}
+			pipelineRun.Status.MarkSucceeded("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+
+			Expect(k8sClient.Delete(ctx, adapter.release)).To(Succeed())
+
+			Expect(adapter.patchStatusAndEmitSpans(patch, pipelineRun)).NotTo(Succeed())
+			Expect(exporter.Spans()).To(BeEmpty())
 		})
 	})
 
