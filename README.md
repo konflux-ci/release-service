@@ -21,7 +21,7 @@ $ make run install
 **Build and push image**:
 ```shell
 $ make docker-build docker-push
-$ TAG=my-tag make docker-build docker-push  # Custom tag
+$ TAG_NAME=my-tag make docker-build docker-push  # Custom tag
 $ IMG=quay.io/user/release:my-tag make docker-build docker-push  # Custom repo
 ```
 
