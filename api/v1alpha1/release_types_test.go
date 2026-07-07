@@ -848,6 +848,27 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("GetValidatedCondition method is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should return the Validated condition when present alongside other conditions", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionFalse, FailedReason)
+			conditions.SetCondition(&release.Status.Conditions, validatedConditionType, metav1.ConditionTrue, SucceededReason)
+			condition := release.GetValidatedCondition()
+			Expect(condition).NotTo(BeNil())
+			Expect(condition.Type).To(Equal(validatedConditionType.String()))
+		})
+
+		It("should return nil when the Validated condition is missing", func() {
+			conditions.SetCondition(&release.Status.Conditions, releasedConditionType, metav1.ConditionFalse, FailedReason)
+			Expect(release.GetValidatedCondition()).To(BeNil())
+		})
+	})
+
 	When("IsFailed method is called", func() {
 		var release *Release
 

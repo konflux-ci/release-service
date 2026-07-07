@@ -422,6 +422,11 @@ func (r *Release) IsValid() bool {
 	return meta.IsStatusConditionTrue(r.Status.Conditions, validatedConditionType.String())
 }
 
+// GetValidatedCondition returns the Release's Validated condition, or nil if not present.
+func (r *Release) GetValidatedCondition() *metav1.Condition {
+	return meta.FindStatusCondition(r.Status.Conditions, validatedConditionType.String())
+}
+
 // IsFailed checks whether the Release has failed.
 func (r *Release) IsFailed() bool {
 	condition := meta.FindStatusCondition(r.Status.Conditions, releasedConditionType.String())

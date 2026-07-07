@@ -62,6 +62,12 @@ const (
 	PipelinesAsCodePrefix = "pac.test.appstudio.openshift.io"
 )
 
+// Distributed tracing annotations
+const (
+	// SpanContextAnnotation is Tekton's contract for propagating a traceparent across PipelineRun reconcilers.
+	SpanContextAnnotation = "tekton.dev/pipelinerunSpanContext"
+)
+
 // Prefixes to be used by Release Pipelines labels
 var (
 	// pipelinesLabelPrefix is the prefix of the pipelines label

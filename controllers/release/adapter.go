@@ -38,6 +38,7 @@ import (
 	"github.com/konflux-ci/release-service/syncer"
 	"github.com/konflux-ci/release-service/tekton"
 	"github.com/konflux-ci/release-service/tekton/utils"
+	"github.com/konflux-ci/release-service/tracing"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
@@ -734,6 +735,7 @@ func (a *adapter) EnsureReleaseExpirationTimeIsAdded() (controller.OperationResu
 // validation checks.
 func (a *adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
 	patch := client.MergeFrom(a.release.DeepCopy())
+	releaseAlreadyFinished := a.release.HasReleaseFinished()
 
 	result := controller.Validate(a.validations...)
 	if !result.Valid {
@@ -743,19 +745,24 @@ func (a *adapter) EnsureReleaseIsValid() (controller.OperationResult, error) {
 		a.release.MarkReleaseFailed("Release validation failed")
 	}
 
-	// IsReleasing will be false if MarkReleaseFailed was called
+	// IsReleasing will be false if MarkReleaseFailed was called (this or a prior reconcile).
 	if a.release.IsReleasing() {
 		a.release.MarkValidated()
 		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
 	}
 
+	err := a.client.Status().Patch(a.ctx, a.release, patch)
+	if err == nil && !releaseAlreadyFinished && !result.Valid {
+		a.emitValidationFailureWaitSpan()
+	}
+
 	if !a.release.AreAllProcessingPhasesFinished() {
 		a.logger.Info("EnsureReleaseIsValid: release finished but not all phases finished, continuing so we can complete properly",
 			"Release", fmt.Sprintf("%s/%s", a.release.Namespace, a.release.Name))
-		return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+		return controller.RequeueOnErrorOrContinue(err)
 	}
 
-	return controller.RequeueOnErrorOrStop(a.client.Status().Patch(a.ctx, a.release, patch))
+	return controller.RequeueOnErrorOrStop(err)
 }
 
 // EnsureTenantPipelineProcessingIsTracked is an operation that will ensure that the Release Tenant PipelineRun status
@@ -1173,6 +1180,7 @@ func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType metadata.Pipeline
 
 	return utils.NewPipelineRunBuilder(pipelineType.String(), namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
+		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, metadata.SpanContextAnnotation)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
 			metadata.PipelinesTypeLabel:    pipelineType.String(),
@@ -1314,6 +1322,7 @@ func (a *adapter) createTenantCollectorsPipelineRun(releasePlan *v1alpha1.Releas
 func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snapshot *applicationapiv1alpha1.Snapshot) (*tektonv1.PipelineRun, error) {
 	builder := utils.NewPipelineRunBuilder(metadata.FinalPipelineType.String(), releasePlan.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
+		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, metadata.SpanContextAnnotation)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  releasePlan.Spec.Application,
@@ -1364,6 +1373,7 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources, taskRunSpecs []tektonv1.PipelineTaskRunSpec, timeouts tektonv1.TimeoutFields) (*tektonv1.PipelineRun, error) {
 	builder := utils.NewPipelineRunBuilder(metadata.ManagedPipelineType.String(), resources.ReleasePlanAdmission.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
+		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, metadata.SpanContextAnnotation)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  resources.ReleasePlan.Spec.Application,
@@ -1420,6 +1430,7 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, snapshot *applicationapiv1alpha1.Snapshot) (*tektonv1.PipelineRun, error) {
 	builder := utils.NewPipelineRunBuilder(metadata.TenantPipelineType.String(), releasePlan.Namespace).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
+		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, metadata.SpanContextAnnotation)).
 		WithFinalizer(metadata.ReleaseFinalizer).
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  releasePlan.Spec.Application,
@@ -1911,6 +1922,49 @@ func (a *adapter) registerManagedProcessingData(releasePipelineRun *tektonv1.Pip
 	return a.client.Status().Patch(a.ctx, a.release, patch)
 }
 
+// emitValidationFailureWaitSpan emits a waitDuration span measuring how long a Release waited before rejection.
+func (a *adapter) emitValidationFailureWaitSpan() {
+	cond := a.release.GetValidatedCondition()
+	if cond == nil {
+		return
+	}
+	createdAt := a.release.CreationTimestamp.Time
+	validatedAt := cond.LastTransitionTime.Time
+	if validatedAt.IsZero() {
+		validatedAt = time.Now()
+	}
+
+	parentCtx, _ := tracing.CtxFromSpanContext(a.release.Annotations[metadata.SpanContextAnnotation])
+	if !tracing.EmitReleaseValidationFailureWait(
+		parentCtx,
+		a.release.Name, a.release.Namespace,
+		a.release.Labels,
+		createdAt, validatedAt,
+		cond.Message,
+		tracing.LoadLabelNames(),
+	) {
+		a.logger.Info("Skipped release-validation waitDuration emission", "release.Name", a.release.Name)
+	}
+}
+
+// emitTimingSpans emits timing spans for a completed PipelineRun.
+func (a *adapter) emitTimingSpans(pipelineRun *tektonv1.PipelineRun) {
+	if pipelineRun == nil {
+		return
+	}
+	spanContext := pipelineRun.Annotations[metadata.SpanContextAnnotation]
+	tracing.EmitTimingSpans(a.ctx, a.client, pipelineRun, tracing.LoadLabelNames(), spanContext)
+}
+
+// patchStatusAndEmitSpans persists the Release status and, on success, emits timing spans.
+func (a *adapter) patchStatusAndEmitSpans(patch client.Patch, pipelineRun *tektonv1.PipelineRun) error {
+	if err := a.client.Status().Patch(a.ctx, a.release, patch); err != nil {
+		return err
+	}
+	a.emitTimingSpans(pipelineRun)
+	return nil
+}
+
 // registerTenantCollectorsProcessingStatus updates the status of the Release being processed by monitoring the status of the
 // associated tenant collectors Release PipelineRun and setting the appropriate state in the Release. If the PipelineRun hasn't
 // started/succeeded, no action will be taken.
@@ -1942,7 +1996,7 @@ func (a *adapter) registerTenantCollectorsProcessingStatus(pipelineRun *tektonv1
 		a.release.MarkReleaseFailed("Release processing failed on tenant collectors pipelineRun")
 	}
 
-	return a.client.Status().Patch(a.ctx, a.release, patch)
+	return a.patchStatusAndEmitSpans(patch, pipelineRun)
 }
 
 // registerTenantProcessingStatus updates the status of the Release being processed by monitoring the status of the
@@ -1976,7 +2030,7 @@ func (a *adapter) registerTenantProcessingStatus(pipelineRun *tektonv1.PipelineR
 		a.release.MarkReleaseFailed("Release processing failed on tenant pipelineRun")
 	}
 
-	return a.client.Status().Patch(a.ctx, a.release, patch)
+	return a.patchStatusAndEmitSpans(patch, pipelineRun)
 }
 
 // registerManagedCollectorsProcessingStatus updates the status of the Release being processed by monitoring the status of the
@@ -2010,7 +2064,7 @@ func (a *adapter) registerManagedCollectorsProcessingStatus(pipelineRun *tektonv
 		a.release.MarkReleaseFailed("Release processing failed on managed collectors pipelineRun")
 	}
 
-	return a.client.Status().Patch(a.ctx, a.release, patch)
+	return a.patchStatusAndEmitSpans(patch, pipelineRun)
 }
 
 // registerManagedProcessingStatus updates the status of the Release being processed by monitoring the status of the
@@ -2063,7 +2117,7 @@ func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.Pipeline
 		a.release.MarkCurrentManagedPipelineAttemptFailed(message, failureReason, failureInfo.TaskName, failureInfo.StepName, failureInfo.SuccessfulTasks)
 	}
 
-	return a.client.Status().Patch(a.ctx, a.release, patch)
+	return a.patchStatusAndEmitSpans(patch, pipelineRun)
 }
 
 // registerFinalProcessingStatus updates the status of the Release being processed by monitoring the status of the
@@ -2097,7 +2151,7 @@ func (a *adapter) registerFinalProcessingStatus(pipelineRun *tektonv1.PipelineRu
 		a.release.MarkReleaseFailed("Release processing failed on final pipelineRun")
 	}
 
-	return a.client.Status().Patch(a.ctx, a.release, patch)
+	return a.patchStatusAndEmitSpans(patch, pipelineRun)
 }
 
 // validateApplication will ensure that the same Application is used in both the Snapshot and the ReleasePlan. If the
