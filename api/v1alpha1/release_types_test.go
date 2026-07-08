@@ -2411,6 +2411,101 @@ var _ = Describe("Release type", func() {
 			attempt := release.GetCurrentManagedPipelineAttempt()
 			Expect(attempt.Status).To(Equal(AttemptFailedReason))
 		})
+
+		It("should succeed on first attempt without mitigation data", func() {
+			release.Status.ManagedPipelineAttempts = []PipelineAttempt{{PipelineRun: "default/run-1"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptSucceededReason))
+			Expect(attempt.Mitigation).To(BeNil())
+		})
+
+		It("should preserve previous attempt failure data and current mitigation on OOMKill retry", func() {
+			release.Status.ManagedPipelineAttempts = []PipelineAttempt{
+				{
+					PipelineRun:   "default/run-1",
+					Status:        AttemptFailedReason,
+					FailureReason: AttemptFailureOOMKillReason,
+					LastTask:      "build-task",
+					LastStep:      "build-step",
+				},
+				{
+					PipelineRun: "default/run-2",
+					Mitigation: &AppliedMitigation{
+						MemoryLimit:   "512Mi",
+						MemoryRequest: "256Mi",
+					},
+				},
+			}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptSucceededReason))
+			Expect(attempt.Mitigation).NotTo(BeNil())
+			Expect(attempt.Mitigation.MemoryLimit).To(Equal("512Mi"))
+			Expect(attempt.Mitigation.MemoryRequest).To(Equal("256Mi"))
+			previousAttempt := release.Status.ManagedPipelineAttempts[0]
+			Expect(previousAttempt.FailureReason).To(Equal(AttemptFailureOOMKillReason))
+			Expect(previousAttempt.LastTask).To(Equal("build-task"))
+			Expect(previousAttempt.LastStep).To(Equal("build-step"))
+		})
+
+		It("should preserve previous attempt failure data and current mitigation on TaskRunTimeout retry", func() {
+			release.Status.ManagedPipelineAttempts = []PipelineAttempt{
+				{
+					PipelineRun:   "default/run-1",
+					Status:        AttemptFailedReason,
+					FailureReason: AttemptFailureTaskRunTimeoutReason,
+					LastTask:      "publish-data",
+					LastStep:      "publish-step",
+				},
+				{
+					PipelineRun: "default/run-2",
+					Mitigation: &AppliedMitigation{
+						TaskTimeout: "20m0s",
+					},
+				},
+			}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptSucceededReason))
+			Expect(attempt.Mitigation).NotTo(BeNil())
+			Expect(attempt.Mitigation.TaskTimeout).To(Equal("20m0s"))
+			previousAttempt := release.Status.ManagedPipelineAttempts[0]
+			Expect(previousAttempt.FailureReason).To(Equal(AttemptFailureTaskRunTimeoutReason))
+			Expect(previousAttempt.LastTask).To(Equal("publish-data"))
+		})
+
+		It("should preserve previous attempt failure data and current mitigation on PipelineRunTimeout retry", func() {
+			release.Status.ManagedPipelineAttempts = []PipelineAttempt{
+				{
+					PipelineRun:   "default/run-1",
+					Status:        AttemptFailedReason,
+					FailureReason: AttemptFailurePipelineRunTimeoutReason,
+					LastTask:      "final-task",
+					LastStep:      "final-step",
+				},
+				{
+					PipelineRun: "default/run-2",
+					Mitigation: &AppliedMitigation{
+						PipelinesTimeout: "1h30m0s",
+						TasksTimeout:     "45m0s",
+					},
+				},
+			}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptProcessed()
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptSucceededReason))
+			Expect(attempt.Mitigation).NotTo(BeNil())
+			Expect(attempt.Mitigation.PipelinesTimeout).To(Equal("1h30m0s"))
+			Expect(attempt.Mitigation.TasksTimeout).To(Equal("45m0s"))
+			previousAttempt := release.Status.ManagedPipelineAttempts[0]
+			Expect(previousAttempt.FailureReason).To(Equal(AttemptFailurePipelineRunTimeoutReason))
+			Expect(previousAttempt.LastTask).To(Equal("final-task"))
+		})
 	})
 
 	When("MarkCurrentManagedPipelineAttemptFailed is called", func() {
