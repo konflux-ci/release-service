@@ -127,6 +127,57 @@ var _ = Describe("ReleasePlanAdmission type", func() {
 		})
 	})
 
+	When("IsRetryEnabled method is called", func() {
+		It("should return false when RetryInfo is nil", func() {
+			rpa := &ReleasePlanAdmission{}
+			Expect(rpa.IsRetryEnabled()).To(BeFalse())
+		})
+
+		It("should return false when retries are not enabled", func() {
+			rpa := &ReleasePlanAdmission{}
+			rpa.Status.RetryInfo = &RetryInfo{Enabled: false}
+			Expect(rpa.IsRetryEnabled()).To(BeFalse())
+		})
+
+		It("should return false when MaxRetries is nil", func() {
+			rpa := &ReleasePlanAdmission{}
+			rpa.Status.RetryInfo = &RetryInfo{Enabled: true}
+			Expect(rpa.IsRetryEnabled()).To(BeFalse())
+		})
+
+		It("should return true when enabled with a valid MaxRetries", func() {
+			maxRetries := 3
+			rpa := &ReleasePlanAdmission{}
+			rpa.Status.RetryInfo = &RetryInfo{Enabled: true, MaxRetries: &maxRetries}
+			Expect(rpa.IsRetryEnabled()).To(BeTrue())
+		})
+	})
+
+	When("GetMitigations method is called", func() {
+		It("should return nil when RetryInfo is nil", func() {
+			rpa := &ReleasePlanAdmission{}
+			Expect(rpa.GetMitigations()).To(BeNil())
+		})
+
+		It("should return nil when no mitigations are configured", func() {
+			rpa := &ReleasePlanAdmission{}
+			rpa.Status.RetryInfo = &RetryInfo{Enabled: true}
+			Expect(rpa.GetMitigations()).To(BeNil())
+		})
+
+		It("should return the mitigations when configured", func() {
+			rpa := &ReleasePlanAdmission{}
+			rpa.Status.RetryInfo = &RetryInfo{
+				Mitigations: &Mitigations{
+					OOMKill: &MemoryMitigation{Multiplier: "2"},
+				},
+			}
+			mitigations := rpa.GetMitigations()
+			Expect(mitigations).NotTo(BeNil())
+			Expect(mitigations.OOMKill.Multiplier).To(Equal("2"))
+		})
+	})
+
 	When("MatchesReleasePlan method is called", func() {
 		It("should return true when RP Application is in RPA Applications", func() {
 			releasePlan := &ReleasePlan{

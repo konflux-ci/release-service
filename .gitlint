@@ -14,5 +14,5 @@ line-length=88
 [contrib-title-conventional-commits]
 
 [ignore-by-author-name]
-regex=(.*)\[bot\](.*)
-ignore=T1,B1
+regex=((.*)\[bot\](.*)|fullsend-ai-review)
+ignore=T1,B1,CC1
