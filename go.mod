@@ -7,7 +7,7 @@ require (
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/go-logr/logr v1.4.3
 	github.com/konflux-ci/application-api v0.0.0-20260603073049-dd8c9b1a64c2
-	github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260702112528-a398cbb1e51f
+	github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260710100728-56c3783c0021
 	github.com/konflux-ci/integration-service v0.0.0-20260622154138-5b4f7e50f417
 	github.com/konflux-ci/operator-toolkit v0.0.0-20260312101100-d4e398191a68
 	github.com/onsi/ginkgo/v2 v2.32.0
