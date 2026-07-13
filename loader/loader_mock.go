@@ -8,7 +8,6 @@ import (
 	ecapiv1alpha1 "github.com/conforma/crds/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -19,7 +18,6 @@ import (
 const (
 	ApplicationComponentsContextKey toolkit.ContextKey = iota
 	ApplicationContextKey
-	EnterpriseContractConfigMapContextKey
 	EnterpriseContractPolicyContextKey
 	MatchedReleasePlansContextKey
 	MatchedReleasePlanAdmissionContextKey
@@ -75,14 +73,6 @@ func (l *mockLoader) GetEnterpriseContractPolicy(ctx context.Context, cli client
 		return l.loader.GetEnterpriseContractPolicy(ctx, cli, releasePlanAdmission)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, EnterpriseContractPolicyContextKey, &ecapiv1alpha1.EnterpriseContractPolicy{})
-}
-
-// GetEnterpriseContractConfigMap returns the resource and error passed as values of the context.
-func (l *mockLoader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
-	if ctx.Value(EnterpriseContractConfigMapContextKey) == nil {
-		return l.loader.GetEnterpriseContractConfigMap(ctx, cli)
-	}
-	return toolkit.GetMockedResourceAndErrorFromContext(ctx, EnterpriseContractConfigMapContextKey, &corev1.ConfigMap{})
 }
 
 // GetMatchingReleasePlanAdmission returns the resource and error passed as values of the context.
