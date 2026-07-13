@@ -1410,8 +1410,6 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 			resources.Snapshot).
 		WithObjectSpecsAsJson(resources.EnterpriseContractPolicy).
 		WithOwner(a.release).
-		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_bundle"}).
-		WithParamsFromConfigMap(resources.EnterpriseContractConfigMap, []string{"verify_ec_task_git_revision"}).
 		WithPipelineRef(resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.ToTektonPipelineRef()).
 		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccountName).
 		WithTaskRunSpecs(taskRunSpecs...).
