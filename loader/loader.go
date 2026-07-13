@@ -5,14 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 
 	ecapiv1alpha1 "github.com/conforma/crds/api/v1alpha1"
 	applicationapiv1alpha1 "github.com/konflux-ci/application-api/api/v1alpha1"
 	toolkit "github.com/konflux-ci/operator-toolkit/loader"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,7 +30,6 @@ type ObjectLoader interface {
 	GetActiveReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error)
 	GetActiveReleasePlanAdmissionFromRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlanAdmission, error)
 	GetApplication(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*applicationapiv1alpha1.Application, error)
-	GetEnterpriseContractConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error)
 	GetEnterpriseContractPolicy(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*ecapiv1alpha1.EnterpriseContractPolicy, error)
 	GetMatchingReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error)
 	GetMatchingReleasePlans(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*v1alpha1.ReleasePlanList, error)
@@ -111,20 +108,6 @@ func (l *loader) GetApplication(ctx context.Context, cli client.Client, releaseP
 func (l *loader) GetEnterpriseContractPolicy(ctx context.Context, cli client.Client, releasePlanAdmission *v1alpha1.ReleasePlanAdmission) (*ecapiv1alpha1.EnterpriseContractPolicy, error) {
 	enterpriseContractPolicy := &ecapiv1alpha1.EnterpriseContractPolicy{}
 	return enterpriseContractPolicy, toolkit.GetObject(releasePlanAdmission.Spec.Policy, releasePlanAdmission.Namespace, cli, ctx, enterpriseContractPolicy)
-}
-
-// GetEnterpriseContractConfigMap returns the defaults ConfigMap in the Enterprise Contract namespace . If the ENTERPRISE_CONTRACT_CONFIG_MAP
-// value is invalid or not set, nil is returned. If the ConfigMap is not found or the Get operation fails, an error is returned.
-func (l *loader) GetEnterpriseContractConfigMap(ctx context.Context, cli client.Client) (*corev1.ConfigMap, error) {
-	enterpriseContractConfigMap := &corev1.ConfigMap{}
-	namespacedName := os.Getenv("ENTERPRISE_CONTRACT_CONFIG_MAP")
-
-	if index := strings.IndexByte(namespacedName, '/'); index >= 0 {
-		return enterpriseContractConfigMap, toolkit.GetObject(namespacedName[index+1:], namespacedName[:index],
-			cli, ctx, enterpriseContractConfigMap)
-	}
-
-	return nil, nil
 }
 
 // GetMatchingReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.
@@ -418,11 +401,10 @@ func (l *loader) GetSnapshot(ctx context.Context, cli client.Client, release *v1
 
 // ProcessingResources contains the required resources to process the Release.
 type ProcessingResources struct {
-	EnterpriseContractConfigMap *corev1.ConfigMap
-	EnterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
-	ReleasePlan                 *v1alpha1.ReleasePlan
-	ReleasePlanAdmission        *v1alpha1.ReleasePlanAdmission
-	Snapshot                    *applicationapiv1alpha1.Snapshot
+	EnterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy
+	ReleasePlan              *v1alpha1.ReleasePlan
+	ReleasePlanAdmission     *v1alpha1.ReleasePlanAdmission
+	Snapshot                 *applicationapiv1alpha1.Snapshot
 }
 
 // GetProcessingResources returns all the resources required to process the Release. If any of those resources cannot
@@ -437,11 +419,6 @@ func (l *loader) GetProcessingResources(ctx context.Context, cli client.Client, 
 	}
 
 	resources.ReleasePlanAdmission, err = l.GetActiveReleasePlanAdmissionFromRelease(ctx, cli, release)
-	if err != nil {
-		return resources, err
-	}
-
-	resources.EnterpriseContractConfigMap, err = l.GetEnterpriseContractConfigMap(ctx, cli)
 	if err != nil {
 		return resources, err
 	}

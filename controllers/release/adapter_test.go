@@ -121,15 +121,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 		createResources         func()
 		deleteResources         func()
 
-		application                 *applicationapiv1alpha1.Application
-		component                   *applicationapiv1alpha1.Component
-		enterpriseContractConfigMap *corev1.ConfigMap
-		enterpriseContractPolicy    *ecapiv1alpha1.EnterpriseContractPolicy
-		releasePlan                 *v1alpha1.ReleasePlan
-		releasePlanAdmission        *v1alpha1.ReleasePlanAdmission
-		releaseServiceConfig        *v1alpha1.ReleaseServiceConfig
-		roleBinding                 *rbac.RoleBinding
-		snapshot                    *applicationapiv1alpha1.Snapshot
+		application              *applicationapiv1alpha1.Application
+		component                *applicationapiv1alpha1.Component
+		enterpriseContractPolicy *ecapiv1alpha1.EnterpriseContractPolicy
+		releasePlan              *v1alpha1.ReleasePlan
+		releasePlanAdmission     *v1alpha1.ReleasePlanAdmission
+		releaseServiceConfig     *v1alpha1.ReleaseServiceConfig
+		roleBinding              *rbac.RoleBinding
+		snapshot                 *applicationapiv1alpha1.Snapshot
 	)
 
 	AfterAll(func() {
@@ -220,11 +219,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 				{
@@ -1239,11 +1237,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        newReleasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     newReleasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 				{
@@ -1303,11 +1300,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						ReleasePlan:                 releasePlan,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						ReleasePlan:              releasePlan,
+						Snapshot:                 snapshot,
 					},
 				},
 			})
@@ -1338,11 +1334,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 				{
@@ -1362,11 +1357,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 			})
@@ -1411,11 +1405,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        newReleasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     newReleasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 				{
@@ -1435,11 +1428,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        newReleasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     newReleasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 			})
@@ -1460,11 +1452,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 				{
@@ -1490,11 +1481,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 				{
@@ -1520,11 +1510,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 				{
@@ -1553,11 +1542,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 				{
@@ -1583,11 +1571,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlan:                 releasePlan,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlan:              releasePlan,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 				{
@@ -2654,11 +2641,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlanAdmission:        retryRpa,
-						ReleasePlan:                 releasePlan,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     retryRpa,
+						ReleasePlan:              releasePlan,
+						Snapshot:                 snapshot,
 					},
 				},
 			})
@@ -2722,11 +2708,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlanAdmission:        retryRpa,
-						ReleasePlan:                 releasePlan,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     retryRpa,
+						ReleasePlan:              releasePlan,
+						Snapshot:                 snapshot,
 					},
 				},
 			})
@@ -3423,11 +3408,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("should call finalizeRelease with false if all release processing is complete", func() {
 			adapter.releaseServiceConfig = releaseServiceConfig
 			resources := &loader.ProcessingResources{
-				ReleasePlan:                 releasePlan,
-				ReleasePlanAdmission:        releasePlanAdmission,
-				EnterpriseContractConfigMap: enterpriseContractConfigMap,
-				EnterpriseContractPolicy:    enterpriseContractPolicy,
-				Snapshot:                    snapshot,
+				ReleasePlan:              releasePlan,
+				ReleasePlanAdmission:     releasePlanAdmission,
+				EnterpriseContractPolicy: enterpriseContractPolicy,
+				Snapshot:                 snapshot,
 			}
 			parameterizedPipeline := tektonutils.ParameterizedPipeline{}
 			parameterizedPipeline.PipelineRef = tektonutils.PipelineRef{
@@ -3721,11 +3705,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("should cleanup PipelineRuns for all attempts", func() {
 			adapter.releaseServiceConfig = releaseServiceConfig
 			resources := &loader.ProcessingResources{
-				ReleasePlan:                 releasePlan,
-				ReleasePlanAdmission:        releasePlanAdmission,
-				EnterpriseContractConfigMap: enterpriseContractConfigMap,
-				EnterpriseContractPolicy:    enterpriseContractPolicy,
-				Snapshot:                    snapshot,
+				ReleasePlan:              releasePlan,
+				ReleasePlanAdmission:     releasePlanAdmission,
+				EnterpriseContractPolicy: enterpriseContractPolicy,
+				Snapshot:                 snapshot,
 			}
 			// first attempt
 			firstPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
@@ -3757,11 +3740,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("should cleanup the shared RoleBinding from the first attempt", func() {
 			adapter.releaseServiceConfig = releaseServiceConfig
 			resources := &loader.ProcessingResources{
-				ReleasePlan:                 releasePlan,
-				ReleasePlanAdmission:        releasePlanAdmission,
-				EnterpriseContractConfigMap: enterpriseContractConfigMap,
-				EnterpriseContractPolicy:    enterpriseContractPolicy,
-				Snapshot:                    snapshot,
+				ReleasePlan:              releasePlan,
+				ReleasePlanAdmission:     releasePlanAdmission,
+				EnterpriseContractPolicy: enterpriseContractPolicy,
+				Snapshot:                 snapshot,
 			}
 
 			tenantRoleBinding, err := adapter.createRoleBindingForClusterRole(
@@ -3816,11 +3798,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						ReleasePlan:                 releasePlan,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						ReleasePlan:              releasePlan,
+						Snapshot:                 snapshot,
 					},
 				},
 			})
@@ -3899,11 +3880,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						ReleasePlan:                 releasePlan,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						ReleasePlan:              releasePlan,
+						Snapshot:                 snapshot,
 					},
 				},
 				{
@@ -4699,11 +4679,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 			adapter.releaseServiceConfig = releaseServiceConfig
 			pipelineRun = nil
 			resources = &loader.ProcessingResources{
-				ReleasePlan:                 releasePlan,
-				ReleasePlanAdmission:        releasePlanAdmission,
-				EnterpriseContractConfigMap: enterpriseContractConfigMap,
-				EnterpriseContractPolicy:    enterpriseContractPolicy,
-				Snapshot:                    snapshot,
+				ReleasePlan:              releasePlan,
+				ReleasePlanAdmission:     releasePlanAdmission,
+				EnterpriseContractPolicy: enterpriseContractPolicy,
+				Snapshot:                 snapshot,
 			}
 		})
 
@@ -4843,18 +4822,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(pipelineRun.Spec.Timeouts.Pipeline).To(Equal(releasePlanAdmission.Spec.Pipeline.Timeouts.Pipeline))
-		})
-
-		It("contains parameters with the verify ec task bundle and verify conforma git revision", func() {
-			var err error
-			pipelineRun, err = adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
-			Expect(pipelineRun).NotTo(BeNil())
-			Expect(err).NotTo(HaveOccurred())
-
-			bundle := enterpriseContractConfigMap.Data["verify_ec_task_bundle"]
-			revision := enterpriseContractConfigMap.Data["verify_ec_task_git_revision"]
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(bundle))))
-			Expect(pipelineRun.Spec.Params).Should(ContainElement(HaveField("Value.StringVal", Equal(revision))))
 		})
 
 		It("passes ociStorage param from ReleasePlanAdmission to PipelineRun", func() {
@@ -5755,11 +5722,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("finalizes the Release and removes the finalizer from the Managed PipelineRuns when called with false", func() {
 			adapter.releaseServiceConfig = releaseServiceConfig
 			resources := &loader.ProcessingResources{
-				ReleasePlan:                 releasePlan,
-				ReleasePlanAdmission:        releasePlanAdmission,
-				EnterpriseContractConfigMap: enterpriseContractConfigMap,
-				EnterpriseContractPolicy:    enterpriseContractPolicy,
-				Snapshot:                    snapshot,
+				ReleasePlan:              releasePlan,
+				ReleasePlanAdmission:     releasePlanAdmission,
+				EnterpriseContractPolicy: enterpriseContractPolicy,
+				Snapshot:                 snapshot,
 			}
 			// first attempt
 			firstPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
@@ -5858,11 +5824,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 		It("finalizes the Release and deletes the Managed PipelineRun when called with true", func() {
 			adapter.releaseServiceConfig = releaseServiceConfig
 			resources := &loader.ProcessingResources{
-				ReleasePlan:                 releasePlan,
-				ReleasePlanAdmission:        releasePlanAdmission,
-				EnterpriseContractConfigMap: enterpriseContractConfigMap,
-				EnterpriseContractPolicy:    enterpriseContractPolicy,
-				Snapshot:                    snapshot,
+				ReleasePlan:              releasePlan,
+				ReleasePlanAdmission:     releasePlanAdmission,
+				EnterpriseContractPolicy: enterpriseContractPolicy,
+				Snapshot:                 snapshot,
 			}
 			// first attempt
 			firstPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
@@ -6818,10 +6783,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 				{
 					ContextKey: loader.ProcessingResourcesContextKey,
 					Resource: &loader.ProcessingResources{
-						EnterpriseContractConfigMap: enterpriseContractConfigMap,
-						EnterpriseContractPolicy:    enterpriseContractPolicy,
-						ReleasePlanAdmission:        releasePlanAdmission,
-						Snapshot:                    snapshot,
+						EnterpriseContractPolicy: enterpriseContractPolicy,
+						ReleasePlanAdmission:     releasePlanAdmission,
+						Snapshot:                 snapshot,
 					},
 				},
 			})
@@ -7909,18 +7873,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, component)).Should(Succeed())
 
-		enterpriseContractConfigMap = &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "enterprise-contract-cm",
-				Namespace: "default",
-			},
-			Data: map[string]string{
-				"verify_ec_task_bundle":       "test-bundle",
-				"verify_ec_task_git_revision": "main",
-			},
-		}
-		Expect(k8sClient.Create(ctx, enterpriseContractConfigMap)).Should(Succeed())
-
 		enterpriseContractPolicy = &ecapiv1alpha1.EnterpriseContractPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "enterprise-contract-policy",
@@ -8047,7 +7999,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 	deleteResources = func() {
 		Expect(k8sClient.Delete(ctx, application)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, component)).Should(Succeed())
-		Expect(k8sClient.Delete(ctx, enterpriseContractConfigMap)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, enterpriseContractPolicy)).Should(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlan)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, releasePlanAdmission)).Should(Succeed())
