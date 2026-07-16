@@ -21,7 +21,7 @@ $ make run install
 **Build and push image**:
 ```shell
 $ make docker-build docker-push
-$ TAG=my-tag make docker-build docker-push  # Custom tag
+$ TAG_NAME=my-tag make docker-build docker-push  # Custom tag
 $ IMG=quay.io/user/release:my-tag make docker-build docker-push  # Custom repo
 ```
 
@@ -46,6 +46,7 @@ by default, this operator exports the following custom metrics:
 | release_concurrent_post_actions_executions_total | Gauge     | Total number of concurrent release post actions executions attempts |
 | release_concurrent_processings_total             | Gauge     | Total number of concurrent release processing attempts.             |
 | release_duration_seconds                         | Histogram | How long in seconds a Release takes to complete.                    |
+| release_mitigation_success_total                 | Counter   | Total number of successful release retry mitigations.               |
 | release_post_actions_execution_duration_seconds  | Histogram | How long in seconds Release post-actions take to complete.          |
 | release_processing_duration_seconds              | Histogram | How long in seconds a Release processing takes to complete.         |
 | release_pre_processing_duration_seconds          | Histogram | How long in seconds a Release takes to start processing             |

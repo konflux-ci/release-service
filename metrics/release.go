@@ -107,6 +107,27 @@ var (
 		Buckets: dailyBuckets,
 	}
 
+	ReleaseMitigationSuccessTotal = prometheus.NewCounterVec(
+		releaseMitigationSuccessTotalOpts,
+		releaseMitigationSuccessTotalLabels,
+	)
+	// Prometheus fails if these are not in alphabetical order
+	releaseMitigationSuccessTotalLabels = []string{
+		"failure_reason",
+		"memory_limit",
+		"memory_request",
+		"pipelines_timeout",
+		"step",
+		"target",
+		"task",
+		"task_timeout",
+		"tasks_timeout",
+	}
+	releaseMitigationSuccessTotalOpts = prometheus.CounterOpts{
+		Name: "release_mitigation_success_total",
+		Help: "Total number of successful release retry mitigations",
+	}
+
 	ReleaseTotal = prometheus.NewCounterVec(
 		releaseTotalOpts,
 		releaseTotalLabels,
@@ -191,6 +212,22 @@ func RegisterValidatedRelease(startTime, validationTime *metav1.Time, reason, ta
 		Observe(validationTime.Sub(startTime.Time).Seconds())
 }
 
+// RegisterSuccessfulManagedPipelineRetryMitigation registers a successful managed pipeline retry,
+// increasing the total number of successful mitigations with the applied mitigation values.
+func RegisterSuccessfulManagedPipelineRetryMitigation(failureReason, task, step, target, memoryLimit, memoryRequest, taskTimeout, tasksTimeout, pipelinesTimeout string) {
+	ReleaseMitigationSuccessTotal.With(prometheus.Labels{
+		"failure_reason":    failureReason,
+		"memory_limit":      memoryLimit,
+		"memory_request":    memoryRequest,
+		"pipelines_timeout": pipelinesTimeout,
+		"step":              step,
+		"target":            target,
+		"task":              task,
+		"task_timeout":      taskTimeout,
+		"tasks_timeout":     tasksTimeout,
+	}).Inc()
+}
+
 // RegisterNewRelease register a new Release, increasing the number of concurrent releases.
 func RegisterNewRelease() {
 	ReleaseConcurrentTotal.WithLabelValues().Inc()
@@ -219,6 +256,7 @@ func init() {
 	metrics.Registry.MustRegister(
 		ReleaseConcurrentTotal,
 		ReleaseConcurrentProcessingsTotal,
+		ReleaseMitigationSuccessTotal,
 		ReleasePreProcessingDurationSeconds,
 		ReleaseValidationDurationSeconds,
 		ReleaseDurationSeconds,

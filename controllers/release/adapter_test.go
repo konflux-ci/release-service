@@ -2568,6 +2568,74 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 		})
 
+		It("should retry successfully when the attempt is retriable and retries are available", func() {
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+			adapter.release.MarkCurrentManagedPipelineAttemptFailed("oom", v1alpha1.AttemptFailureOOMKillReason, "", "", 0)
+			adapter.releaseServiceConfig = releaseServiceConfig
+
+			maxRetries := 3
+			retryRpa := releasePlanAdmission.DeepCopy()
+			retryRpa.Status.RetryInfo = &v1alpha1.RetryInfo{
+				Enabled:    true,
+				MaxRetries: &maxRetries,
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   retryRpa,
+				},
+				{
+					ContextKey: loader.ProcessingResourcesContextKey,
+					Resource: &loader.ProcessingResources{
+						EnterpriseContractConfigMap: enterpriseContractConfigMap,
+						EnterpriseContractPolicy:    enterpriseContractPolicy,
+						ReleasePlanAdmission:        retryRpa,
+						ReleasePlan:                 releasePlan,
+						Snapshot:                    snapshot,
+					},
+				},
+			})
+			adapter.release.MarkReleasing("")
+
+			result, err := adapter.EnsureManagedPipelineProcessingIsCompleted()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeFalse())
+			Expect(adapter.release.Status.ManagedPipelineAttempts).To(HaveLen(2))
+		})
+
+		It("should finalize the failure when max retries are exhausted", func() {
+			maxRetries := 1
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{
+				{PipelineRun: "default/pr-1"},
+				{PipelineRun: "default/pr-2"},
+			}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+			adapter.release.MarkCurrentManagedPipelineAttemptFailed("oom", v1alpha1.AttemptFailureOOMKillReason, "", "", 0)
+			adapter.release.MarkReleasing("")
+
+			retryRpa := releasePlanAdmission.DeepCopy()
+			retryRpa.Status.RetryInfo = &v1alpha1.RetryInfo{
+				Enabled:    true,
+				MaxRetries: &maxRetries,
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   retryRpa,
+				},
+			})
+
+			result, err := adapter.EnsureManagedPipelineProcessingIsCompleted()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+		})
+
 		It("should mark managed pipeline and release as failed and stop if PipelineRun creation returns a non-retriable error during retry", func() {
 			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{PipelineRun: "default/pr"}}
 			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
@@ -3345,7 +3413,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
 
 			// register the managed PipelineRun so cleanup knows which attempts to iterate
-			Expect(adapter.registerManagedProcessingData(managedPipelineRun, nil)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(managedPipelineRun, nil, nil)).To(Succeed())
 			adapter.release.MarkCurrentManagedPipelineAttemptProcessed()
 			Expect(k8sClient.Status().Update(ctx, adapter.release)).To(Succeed())
 
@@ -3598,13 +3666,13 @@ var _ = Describe("Release adapter", Ordered, func() {
 			firstPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(firstPipelineRun).NotTo(BeNil())
-			Expect(adapter.registerManagedProcessingData(firstPipelineRun, nil)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(firstPipelineRun, nil, nil)).To(Succeed())
 
 			// second attempt is a retry
 			secondPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secondPipelineRun).NotTo(BeNil())
-			Expect(adapter.registerManagedProcessingData(secondPipelineRun, nil)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(secondPipelineRun, nil, nil)).To(Succeed())
 
 			Expect(adapter.cleanupManagedPipelineResources()).To(Succeed())
 
@@ -3640,7 +3708,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 				resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs,
 				resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.registerManagedProcessingData(pipelineRun, tenantRoleBinding)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(pipelineRun, tenantRoleBinding, nil)).To(Succeed())
 
 			Expect(adapter.cleanupManagedPipelineResources()).To(Succeed())
 
@@ -5057,9 +5125,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 			resources := &loader.ProcessingResources{
 				ReleasePlanAdmission: releasePlanAdmission,
 			}
-			specs, timeouts := adapter.computeRetryOverrides(resources)
+			specs, timeouts, appliedMitigation := adapter.computeRetryOverrides(resources)
 			Expect(specs).To(Equal(releasePlanAdmission.Spec.Pipeline.TaskRunSpecs))
 			Expect(timeouts).To(Equal(releasePlanAdmission.Spec.Pipeline.Timeouts))
+			Expect(appliedMitigation).To(BeNil())
 		})
 
 		It("returns original specs when mitigations are not configured", func() {
@@ -5073,9 +5142,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 			rpa.Status.RetryInfo = &v1alpha1.RetryInfo{Enabled: true}
 
 			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
-			specs, timeouts := adapter.computeRetryOverrides(resources)
+			specs, timeouts, appliedMitigation := adapter.computeRetryOverrides(resources)
 			Expect(specs).To(Equal(rpa.Spec.Pipeline.TaskRunSpecs))
 			Expect(timeouts).To(Equal(rpa.Spec.Pipeline.Timeouts))
+			Expect(appliedMitigation).To(BeNil())
 		})
 
 		It("returns original specs when the failed PipelineRun is not found", func() {
@@ -5096,9 +5166,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 			}
 
 			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
-			specs, timeouts := adapter.computeRetryOverrides(resources)
+			specs, timeouts, appliedMitigation := adapter.computeRetryOverrides(resources)
 			Expect(specs).To(Equal(rpa.Spec.Pipeline.TaskRunSpecs))
 			Expect(timeouts).To(Equal(rpa.Spec.Pipeline.Timeouts))
+			Expect(appliedMitigation).To(BeNil())
 		})
 
 		It("should double the memory for an OOMKill failure", func() {
@@ -5145,11 +5216,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 
 			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
-			specs, _ := adapter.computeRetryOverrides(resources)
+			specs, _, appliedMitigation := adapter.computeRetryOverrides(resources)
 			Expect(specs).To(HaveLen(1))
 			Expect(specs[0].PipelineTaskName).To(Equal("push-snapshot"))
 			Expect(specs[0].StepSpecs[0].ComputeResources.Limits.Memory().Value()).To(Equal(int64(256 * 1024 * 1024)))
 			Expect(specs[0].StepSpecs[0].ComputeResources.Requests.Memory().Value()).To(Equal(int64(128 * 1024 * 1024)))
+			Expect(appliedMitigation).NotTo(BeNil())
+			Expect(appliedMitigation.MemoryLimit).To(Equal("256Mi"))
+			Expect(appliedMitigation.MemoryRequest).To(Equal("128Mi"))
 		})
 
 		It("should bump the task timeout for a TaskRunTimeout failure", func() {
@@ -5193,12 +5267,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 
 			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
-			specs, timeouts := adapter.computeRetryOverrides(resources)
+			specs, timeouts, appliedMitigation := adapter.computeRetryOverrides(resources)
 			Expect(specs).To(HaveLen(1))
 			Expect(specs[0].PipelineTaskName).To(Equal("publish-data"))
 			Expect(specs[0].Timeout.Duration).To(Equal(20 * time.Minute))
 			Expect(timeouts.Pipeline.Duration).To(Equal(1 * time.Hour))
 			Expect(timeouts.Tasks.Duration).To(Equal(50 * time.Minute))
+			Expect(appliedMitigation).NotTo(BeNil())
+			Expect(appliedMitigation.TaskTimeout).To(Equal("20m0s"))
 		})
 
 		It("should bump the pipeline timeout for a PipelineRunTimeout failure", func() {
@@ -5230,6 +5306,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 						Spec: tektonv1.PipelineRunSpec{
 							Timeouts: &tektonv1.TimeoutFields{
 								Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
+								Tasks:    &metav1.Duration{Duration: 45 * time.Minute},
 							},
 						},
 					},
@@ -5237,8 +5314,12 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 
 			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
-			_, timeouts := adapter.computeRetryOverrides(resources)
+			_, timeouts, appliedMitigation := adapter.computeRetryOverrides(resources)
 			Expect(timeouts.Pipeline.Duration).To(Equal(90 * time.Minute))
+			Expect(timeouts.Tasks.Duration).To(Equal(45 * time.Minute))
+			Expect(appliedMitigation).NotTo(BeNil())
+			Expect(appliedMitigation.PipelinesTimeout).To(Equal("1h30m0s"))
+			Expect(appliedMitigation.TasksTimeout).To(Equal("45m0s"))
 		})
 
 		It("returns base specs when OOMKill mitigation is not configured", func() {
@@ -5265,8 +5346,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 
 			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
-			specs, _ := adapter.computeRetryOverrides(resources)
+			specs, _, appliedMitigation := adapter.computeRetryOverrides(resources)
 			Expect(specs).To(Equal(failedSpecs))
+			Expect(appliedMitigation).To(BeNil())
 		})
 
 		It("returns base specs when task timeout mitigation is not configured", func() {
@@ -5293,8 +5375,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 
 			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
-			specs, _ := adapter.computeRetryOverrides(resources)
+			specs, _, appliedMitigation := adapter.computeRetryOverrides(resources)
 			Expect(specs).To(Equal(failedSpecs))
+			Expect(appliedMitigation).To(BeNil())
 		})
 
 		It("returns base specs when pipeline timeout mitigation is not configured", func() {
@@ -5321,8 +5404,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			})
 
 			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
-			specs, _ := adapter.computeRetryOverrides(resources)
+			specs, _, appliedMitigation := adapter.computeRetryOverrides(resources)
 			Expect(specs).To(Equal(failedSpecs))
+			Expect(appliedMitigation).To(BeNil())
 		})
 	})
 
@@ -5525,13 +5609,13 @@ var _ = Describe("Release adapter", Ordered, func() {
 			firstPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
 			Expect(firstPipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.registerManagedProcessingData(firstPipelineRun, nil)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(firstPipelineRun, nil, nil)).To(Succeed())
 
 			// second attempt is a retry
 			secondPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
 			Expect(secondPipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.registerManagedProcessingData(secondPipelineRun, nil)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(secondPipelineRun, nil, nil)).To(Succeed())
 
 			Expect(adapter.finalizeRelease(false)).To(Succeed())
 
@@ -5628,13 +5712,13 @@ var _ = Describe("Release adapter", Ordered, func() {
 			firstPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
 			Expect(firstPipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.registerManagedProcessingData(firstPipelineRun, nil)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(firstPipelineRun, nil, nil)).To(Succeed())
 
 			// second attempt is a retry
 			secondPipelineRun, err := adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
 			Expect(secondPipelineRun).NotTo(BeNil())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.registerManagedProcessingData(secondPipelineRun, nil)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(secondPipelineRun, nil, nil)).To(Succeed())
 
 			Expect(adapter.finalizeRelease(true)).To(Succeed())
 
@@ -5848,7 +5932,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 		})
 
 		It("does nothing if there is no PipelineRun", func() {
-			Expect(adapter.registerManagedProcessingData(nil, nil)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(nil, nil, nil)).To(Succeed())
 			Expect(adapter.release.Status.ManagedPipelineAttempts).To(HaveLen(0))
 			// Deprecated: kept for backward compatibility
 			Expect(adapter.release.Status.ManagedProcessing.PipelineRun).To(BeEmpty())
@@ -5868,7 +5952,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Namespace: "default",
 				},
 			}
-			Expect(adapter.registerManagedProcessingData(pipelineRun, tenantRoleBinding)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(pipelineRun, tenantRoleBinding, nil)).To(Succeed())
 			Expect(adapter.release.Status.ManagedPipelineAttempts).To(HaveLen(1))
 			Expect(adapter.release.Status.ManagedPipelineAttempts[0].PipelineRun).To(Equal(fmt.Sprintf("%s%c%s",
 				pipelineRun.Namespace, types.Separator, pipelineRun.Name)))
@@ -5890,12 +5974,62 @@ var _ = Describe("Release adapter", Ordered, func() {
 				},
 			}
 
-			Expect(adapter.registerManagedProcessingData(pipelineRun, nil)).To(Succeed())
+			Expect(adapter.registerManagedProcessingData(pipelineRun, nil, nil)).To(Succeed())
 			Expect(adapter.release.Status.ManagedPipelineAttempts).To(HaveLen(1))
 			Expect(adapter.release.Status.ManagedPipelineAttempts[0].RoleBindings).To(Equal(v1alpha1.RoleBindingType{}))
 			Expect(adapter.release.IsManagedPipelineProcessing()).To(BeTrue())
 			// Deprecated: kept for backward compatibility
 			Expect(adapter.release.Status.ManagedProcessing.RoleBindings).To(Equal(v1alpha1.RoleBindingType{}))
+		})
+
+		It("stores the OOMKill mitigation on the PipelineAttempt", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run",
+					Namespace: "default",
+				},
+			}
+			mitigation := &v1alpha1.AppliedMitigation{
+				MemoryLimit:   "512Mi",
+				MemoryRequest: "256Mi",
+			}
+
+			Expect(adapter.registerManagedProcessingData(pipelineRun, nil, mitigation)).To(Succeed())
+			Expect(adapter.release.Status.ManagedPipelineAttempts).To(HaveLen(1))
+			Expect(adapter.release.Status.ManagedPipelineAttempts[0].Mitigation).To(Equal(mitigation))
+		})
+
+		It("stores the TaskRunTimeout mitigation on the PipelineAttempt", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run",
+					Namespace: "default",
+				},
+			}
+			mitigation := &v1alpha1.AppliedMitigation{
+				TaskTimeout: "20m0s",
+			}
+
+			Expect(adapter.registerManagedProcessingData(pipelineRun, nil, mitigation)).To(Succeed())
+			Expect(adapter.release.Status.ManagedPipelineAttempts).To(HaveLen(1))
+			Expect(adapter.release.Status.ManagedPipelineAttempts[0].Mitigation).To(Equal(mitigation))
+		})
+
+		It("stores the PipelineRunTimeout mitigation on the PipelineAttempt", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pipeline-run",
+					Namespace: "default",
+				},
+			}
+			mitigation := &v1alpha1.AppliedMitigation{
+				PipelinesTimeout: "1h30m0s",
+				TasksTimeout:     "45m0s",
+			}
+
+			Expect(adapter.registerManagedProcessingData(pipelineRun, nil, mitigation)).To(Succeed())
+			Expect(adapter.release.Status.ManagedPipelineAttempts).To(HaveLen(1))
+			Expect(adapter.release.Status.ManagedPipelineAttempts[0].Mitigation).To(Equal(mitigation))
 		})
 	})
 

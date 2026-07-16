@@ -237,9 +237,76 @@ var _ = Describe("Release metrics", Ordered, func() {
 		})
 	})
 
+	When("RegisterSuccessfulManagedPipelineRetryMitigation is called", func() {
+		BeforeEach(func() {
+			initializeMetrics()
+		})
+
+		It("increments ReleaseMitigationSuccessTotal with OOMKill labels", func() {
+			RegisterSuccessfulManagedPipelineRetryMitigation(
+				"OOMKill", "build-task", "build-step", "target-tenant",
+				"512Mi", "256Mi", "", "", "",
+			)
+			metadata := `
+                # HELP release_mitigation_success_total Total number of successful release retry mitigations
+                # TYPE release_mitigation_success_total counter
+            `
+			expected := `
+                release_mitigation_success_total{failure_reason="OOMKill",memory_limit="512Mi",memory_request="256Mi",pipelines_timeout="",step="build-step",target="target-tenant",task="build-task",task_timeout="",tasks_timeout=""} 1
+            `
+			Expect(testutil.CollectAndCompare(ReleaseMitigationSuccessTotal, strings.NewReader(metadata+expected), "release_mitigation_success_total")).To(Succeed())
+		})
+
+		It("increments ReleaseMitigationSuccessTotal with PipelineRunTimeout labels", func() {
+			RegisterSuccessfulManagedPipelineRetryMitigation(
+				"PipelineRunTimeout", "final-task", "final-step", "target-tenant",
+				"", "", "", "1h30m0s", "3h0m0s",
+			)
+			metadata := `
+                # HELP release_mitigation_success_total Total number of successful release retry mitigations
+                # TYPE release_mitigation_success_total counter
+            `
+			expected := `
+                release_mitigation_success_total{failure_reason="PipelineRunTimeout",memory_limit="",memory_request="",pipelines_timeout="3h0m0s",step="final-step",target="target-tenant",task="final-task",task_timeout="",tasks_timeout="1h30m0s"} 1
+            `
+			Expect(testutil.CollectAndCompare(ReleaseMitigationSuccessTotal, strings.NewReader(metadata+expected), "release_mitigation_success_total")).To(Succeed())
+		})
+
+		It("increments ReleaseMitigationSuccessTotal with TaskRunTimeout labels", func() {
+			RegisterSuccessfulManagedPipelineRetryMitigation(
+				"TaskRunTimeout", "deploy-task", "deploy-step", "target-tenant",
+				"", "", "17m0s", "", "",
+			)
+			metadata := `
+                # HELP release_mitigation_success_total Total number of successful release retry mitigations
+                # TYPE release_mitigation_success_total counter
+            `
+			expected := `
+                release_mitigation_success_total{failure_reason="TaskRunTimeout",memory_limit="",memory_request="",pipelines_timeout="",step="deploy-step",target="target-tenant",task="deploy-task",task_timeout="17m0s",tasks_timeout=""} 1
+            `
+			Expect(testutil.CollectAndCompare(ReleaseMitigationSuccessTotal, strings.NewReader(metadata+expected), "release_mitigation_success_total")).To(Succeed())
+		})
+
+		It("increments ReleaseMitigationSuccessTotal with empty mitigations", func() {
+			RegisterSuccessfulManagedPipelineRetryMitigation(
+				"OOMKill", "build-task", "build-step", "target-tenant",
+				"", "", "", "", "",
+			)
+			metadata := `
+                # HELP release_mitigation_success_total Total number of successful release retry mitigations
+                # TYPE release_mitigation_success_total counter
+            `
+			expected := `
+                release_mitigation_success_total{failure_reason="OOMKill",memory_limit="",memory_request="",pipelines_timeout="",step="build-step",target="target-tenant",task="build-task",task_timeout="",tasks_timeout=""} 1
+            `
+			Expect(testutil.CollectAndCompare(ReleaseMitigationSuccessTotal, strings.NewReader(metadata+expected), "release_mitigation_success_total")).To(Succeed())
+		})
+	})
+
 	initializeMetrics = func() {
 		ReleaseConcurrentTotal.Reset()
 		ReleaseConcurrentProcessingsTotal.Reset()
+		ReleaseMitigationSuccessTotal.Reset()
 		ReleaseValidationDurationSeconds.Reset()
 		ReleasePreProcessingDurationSeconds.Reset()
 		ReleaseDurationSeconds.Reset()

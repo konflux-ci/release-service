@@ -615,7 +615,7 @@ func (a *adapter) EnsureManagedPipelineIsProcessed() (controller.OperationResult
 				"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace)
 		}
 
-		return controller.RequeueOnErrorOrContinue(a.registerManagedProcessingData(pipelineRun, tenantRoleBinding))
+		return controller.RequeueOnErrorOrContinue(a.registerManagedProcessingData(pipelineRun, tenantRoleBinding, nil))
 	}
 
 	return controller.ContinueProcessing()
@@ -1050,7 +1050,7 @@ func (a *adapter) retryManagedPipeline() error {
 			return err
 		}
 
-		taskRunSpecs, timeouts := a.computeRetryOverrides(resources)
+		taskRunSpecs, timeouts, appliedMitigation := a.computeRetryOverrides(resources)
 
 		pipelineRun, err = a.createManagedPipelineRun(resources, taskRunSpecs, timeouts)
 		if err != nil {
@@ -1060,9 +1060,11 @@ func (a *adapter) retryManagedPipeline() error {
 		a.logger.Info(fmt.Sprintf("Created %s Release PipelineRun (retry)", metadata.ManagedPipelineType),
 			"PipelineRun.Name", pipelineRun.Name, "PipelineRun.Namespace", pipelineRun.Namespace,
 			"Attempt", nextAttempt)
+
+		return a.registerManagedProcessingData(pipelineRun, tenantRoleBinding, appliedMitigation)
 	}
 
-	return a.registerManagedProcessingData(pipelineRun, tenantRoleBinding)
+	return a.registerManagedProcessingData(pipelineRun, tenantRoleBinding, nil)
 }
 
 // cleanupPipelineResources - Simple one-shot cleanup (no retries, orphaned cleanup will handle failures)
@@ -1465,24 +1467,24 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 
 // computeRetryOverrides returns the TaskRunSpecs and Timeouts to use for a retry PipelineRun,
 // applying mitigations based on the previous attempt's failure reason.
-func (a *adapter) computeRetryOverrides(resources *loader.ProcessingResources) ([]tektonv1.PipelineTaskRunSpec, tektonv1.TimeoutFields) {
+func (a *adapter) computeRetryOverrides(resources *loader.ProcessingResources) ([]tektonv1.PipelineTaskRunSpec, tektonv1.TimeoutFields, *v1alpha1.AppliedMitigation) {
 	originalSpecs := resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs
 	originalTimeouts := resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts
 
 	failedAttempt := a.release.GetCurrentManagedPipelineAttempt()
 	if failedAttempt == nil {
-		return originalSpecs, originalTimeouts
+		return originalSpecs, originalTimeouts, nil
 	}
 
 	mitigations := resources.ReleasePlanAdmission.GetMitigations()
 	if mitigations == nil {
-		return originalSpecs, originalTimeouts
+		return originalSpecs, originalTimeouts, nil
 	}
 
 	failedPipelineRun, err := a.loader.GetReleasePipelineRunAttempt(a.ctx, a.client, a.release, a.release.GetManagedPipelineRetryCount())
 	if err != nil || failedPipelineRun == nil {
 		a.logger.Info("Failed PipelineRun not found, retrying without mitigations")
-		return originalSpecs, originalTimeouts
+		return originalSpecs, originalTimeouts, nil
 	}
 
 	// use the failed PipelineRun's specs and timeouts as the base so mitigations accumulate
@@ -1519,12 +1521,19 @@ func (a *adapter) computeRetryOverrides(resources *loader.ProcessingResources) (
 		if newResources == nil {
 			break
 		}
+		appliedMitigation := &v1alpha1.AppliedMitigation{}
+		if memoryLimit, ok := newResources.Limits[corev1.ResourceMemory]; ok {
+			appliedMitigation.MemoryLimit = memoryLimit.String()
+		}
+		if memoryRequest, ok := newResources.Requests[corev1.ResourceMemory]; ok {
+			appliedMitigation.MemoryRequest = memoryRequest.String()
+		}
 		return retry.MergeTaskRunSpecs(baseSpecs, tektonv1.PipelineTaskRunSpec{
 			PipelineTaskName: failedAttempt.LastTask,
 			StepSpecs: []tektonv1.TaskRunStepSpec{
 				{Name: failedAttempt.LastStep, ComputeResources: *newResources},
 			},
-		}), baseTimeouts
+		}), baseTimeouts, appliedMitigation
 
 	case v1alpha1.AttemptFailureTaskRunTimeoutReason:
 		if mitigations.Timeout == nil || mitigations.Timeout.Task == nil {
@@ -1533,10 +1542,13 @@ func (a *adapter) computeRetryOverrides(resources *loader.ProcessingResources) (
 		currentTimeout := tekton.GetTaskRunTimeout(failedPipelineRun, failedTaskRun, failedAttempt.LastTask)
 		currentTimeouts := tekton.GetPipelineRunTimeouts(failedPipelineRun)
 		newTimeout, adjustedTimeouts := retry.ApplyTaskTimeoutMitigation(currentTimeout, currentTimeouts, mitigations.Timeout.Task)
+		appliedMitigation := &v1alpha1.AppliedMitigation{
+			TaskTimeout: newTimeout.Duration.String(),
+		}
 		return retry.MergeTaskRunSpecs(baseSpecs, tektonv1.PipelineTaskRunSpec{
 			PipelineTaskName: failedAttempt.LastTask,
 			Timeout:          newTimeout,
-		}), *adjustedTimeouts
+		}), *adjustedTimeouts, appliedMitigation
 
 	case v1alpha1.AttemptFailurePipelineRunTimeoutReason:
 		if mitigations.Timeout == nil || mitigations.Timeout.Pipeline == nil {
@@ -1545,11 +1557,18 @@ func (a *adapter) computeRetryOverrides(resources *loader.ProcessingResources) (
 		currentTimeouts := tekton.GetPipelineRunTimeouts(failedPipelineRun)
 		newTimeouts := retry.ApplyPipelineTimeoutMitigation(currentTimeouts, mitigations.Timeout.Pipeline)
 		if newTimeouts != nil {
-			return baseSpecs, *newTimeouts
+			appliedMitigation := &v1alpha1.AppliedMitigation{}
+			if newTimeouts.Tasks != nil {
+				appliedMitigation.TasksTimeout = newTimeouts.Tasks.Duration.String()
+			}
+			if newTimeouts.Pipeline != nil {
+				appliedMitigation.PipelinesTimeout = newTimeouts.Pipeline.Duration.String()
+			}
+			return baseSpecs, *newTimeouts, appliedMitigation
 		}
 	}
 
-	return baseSpecs, baseTimeouts
+	return baseSpecs, baseTimeouts, nil
 }
 
 // createRoleBindingForCollectorSecrets creates a Role and RoleBinding that grants the specified
@@ -1880,7 +1899,7 @@ func (a *adapter) registerManagedCollectorsProcessingData(releasePipelineRun *te
 }
 
 // registerProcessingData adds all the Release Managed processing information to its Status and marks it as managed processing.
-func (a *adapter) registerManagedProcessingData(releasePipelineRun *tektonv1.PipelineRun, tenantRoleBinding *rbac.RoleBinding) error {
+func (a *adapter) registerManagedProcessingData(releasePipelineRun *tektonv1.PipelineRun, tenantRoleBinding *rbac.RoleBinding, mitigation *v1alpha1.AppliedMitigation) error {
 	if releasePipelineRun == nil {
 		return nil
 	}
@@ -1905,6 +1924,7 @@ func (a *adapter) registerManagedProcessingData(releasePipelineRun *tektonv1.Pip
 		RoleBindings: v1alpha1.RoleBindingType{
 			TenantRoleBinding: tenantRoleBindingName,
 		},
+		Mitigation: mitigation,
 	})
 	a.release.MarkCurrentManagedPipelineAttemptProcessing()
 

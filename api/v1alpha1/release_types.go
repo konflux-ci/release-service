@@ -178,6 +178,29 @@ type PipelineInfo struct {
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 }
 
+// AppliedMitigation defines the mitigated values applied to a retry PipelineRun
+type AppliedMitigation struct {
+	// MemoryLimit is the memory limit applied to the retried step
+	// +optional
+	MemoryLimit string `json:"memoryLimit,omitempty"`
+
+	// MemoryRequest is the memory request applied to the retried step
+	// +optional
+	MemoryRequest string `json:"memoryRequest,omitempty"`
+
+	// TaskTimeout is the per-task timeout applied to the retried task
+	// +optional
+	TaskTimeout string `json:"taskTimeout,omitempty"`
+
+	// TasksTimeout is the global tasks-level timeout after adjustment
+	// +optional
+	TasksTimeout string `json:"tasksTimeout,omitempty"`
+
+	// PipelinesTimeout is the pipeline-level timeout applied
+	// +optional
+	PipelinesTimeout string `json:"pipelinesTimeout,omitempty"`
+}
+
 // PipelineAttempt defines the observed state of a pipeline processing attempt
 type PipelineAttempt struct {
 	// PipelineRun contains the namespaced name of the managed Release PipelineRun executed as part of this attempt
@@ -216,6 +239,10 @@ type PipelineAttempt struct {
 	// SuccessfulTasks is the number of tasks that completed successfully
 	// +optional
 	SuccessfulTasks int `json:"successfulTasks,omitempty"`
+
+	// Mitigation defines the mitigated values applied when retrying this attempt
+	// +optional
+	Mitigation *AppliedMitigation `json:"mitigation,omitempty"`
 }
 
 // ValidationInfo defines the observed state of the release validation.
@@ -493,6 +520,29 @@ func (r *Release) MarkCurrentManagedPipelineAttemptProcessed() {
 		SucceededReason.String(),
 		r.Status.Target,
 		metadata.ManagedPipelineType.String(),
+	)
+
+	if r.GetManagedPipelineRetryCount() == 0 {
+		return
+	}
+
+	// The current attempt is the retry that succeeded, the one before it is the failure it mitigated
+	previousAttempt := r.Status.ManagedPipelineAttempts[len(r.Status.ManagedPipelineAttempts)-2]
+	mitigation := attempt.Mitigation
+	if mitigation == nil {
+		mitigation = &AppliedMitigation{}
+	}
+
+	go metrics.RegisterSuccessfulManagedPipelineRetryMitigation(
+		previousAttempt.FailureReason,
+		previousAttempt.LastTask,
+		previousAttempt.LastStep,
+		r.Status.Target,
+		mitigation.MemoryLimit,
+		mitigation.MemoryRequest,
+		mitigation.TaskTimeout,
+		mitigation.TasksTimeout,
+		mitigation.PipelinesTimeout,
 	)
 }
 
