@@ -52,14 +52,14 @@ The project follows the [Conventional Commits](https://www.conventionalcommits.o
 
 #### Pre-commit hooks (optional)
 
-The project provides pre-commit hooks to validate commit messages locally before they reach CI. To use them:
+The project provides pre-commit hooks to validate commit messages and auto-format Go files locally. To use them:
 
 ```bash
 pip install pre-commit
 pre-commit install --hook-type pre-commit --hook-type commit-msg
 ```
 
-This will automatically run gitlint on your commit messages. Note that pre-commit hooks are optional and complement (do not replace) the CI validation that runs on all PRs.
+This will automatically run gitlint on your commit messages and `gofmt` on staged Go files. Note that pre-commit hooks are optional and complement (do not replace) the CI validation that runs on all PRs.
 
 #### Commit message format
 
