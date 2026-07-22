@@ -1,0 +1,32 @@
+name: Update Repomix Context
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  repomix:
+    name: Generate Repomix context
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install Repomix
+        run: npm install -g repomix@1.16.1
+      - name: Prepare output directory
+        run: mkdir -p repomix
+      - name: Generate context
+        run: repomix
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: repomix-output
+          path: repomix/repomix-output.md
+          retention-days: 30
