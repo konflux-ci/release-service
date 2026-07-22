@@ -4,3 +4,10 @@ repos:
     hooks:
       - id: gitlint
         stages: [commit-msg]
+
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: fb24a639f7c938759fe56eeebbb7713b69d60494 # v0.5.1
+    hooks:
+      - id: go-fmt
+        args: ['-s']
+        files: '\.go$'
