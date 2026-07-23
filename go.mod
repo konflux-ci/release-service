@@ -1,6 +1,6 @@
 module github.com/konflux-ci/release-service
 
-go 1.26.0
+go 1.26.4
 
 require (
 	github.com/conforma/crds/api v0.1.11
@@ -13,7 +13,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
 	github.com/operator-framework/operator-lib v0.19.0
-	github.com/tektoncd/pipeline v1.13.1
+	github.com/tektoncd/pipeline v1.14.1
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.44.0
 	go.opentelemetry.io/otel/sdk v1.44.0
