@@ -4,7 +4,6 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +35,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 		application                  *applicationapiv1alpha1.Application
 		component                    *applicationapiv1alpha1.Component
-		enterpriseContractConfigMap  *corev1.ConfigMap
 		enterpriseContractPolicy     *ecapiv1alpha1.EnterpriseContractPolicy
 		finalPipelineRun             *tektonv1.PipelineRun
 		managedCollectorsPipelineRun *tektonv1.PipelineRun
@@ -115,23 +112,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(returnedObject).NotTo(Equal(&applicationapiv1alpha1.Application{}))
 			Expect(returnedObject.Name).To(Equal(application.Name))
-		})
-	})
-
-	When("calling GetEnterpriseContractConfigMap", func() {
-		It("returns nil when the ENTERPRISE_CONTRACT_CONFIG_MAP variable is not set", func() {
-			os.Unsetenv("ENTERPRISE_CONTRACT_CONFIG_MAP")
-			returnedObject, err := loader.GetEnterpriseContractConfigMap(ctx, k8sClient)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).To(BeNil())
-		})
-
-		It("returns the requested enterprise contract configmap", func() {
-			os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "default/ec-defaults")
-			returnedObject, err := loader.GetEnterpriseContractConfigMap(ctx, k8sClient)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject).NotTo(Equal(&corev1.ConfigMap{}))
-			Expect(returnedObject.Name).To(Equal(enterpriseContractConfigMap.Name))
 		})
 	})
 
@@ -897,15 +877,13 @@ var _ = Describe("Release Adapter", Ordered, func() {
 
 	When("calling GetProcessingResources", func() {
 		It("returns all the relevant resources", func() {
-			os.Setenv("ENTERPRISE_CONTRACT_CONFIG_MAP", "default/ec-defaults")
 			resources, err := loader.GetProcessingResources(ctx, k8sClient, release)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*resources).To(MatchFields(IgnoreExtras, Fields{
-				"EnterpriseContractConfigMap": Not(BeNil()),
-				"EnterpriseContractPolicy":    Not(BeNil()),
-				"ReleasePlan":                 Not(BeNil()),
-				"ReleasePlanAdmission":        Not(BeNil()),
-				"Snapshot":                    Not(BeNil()),
+				"EnterpriseContractPolicy": Not(BeNil()),
+				"ReleasePlan":              Not(BeNil()),
+				"ReleasePlanAdmission":     Not(BeNil()),
+				"Snapshot":                 Not(BeNil()),
 			}))
 		})
 
@@ -941,14 +919,6 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, component)).Should(Succeed())
-
-		enterpriseContractConfigMap = &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ec-defaults",
-				Namespace: "default",
-			},
-		}
-		Expect(k8sClient.Create(ctx, enterpriseContractConfigMap)).Should(Succeed())
 
 		enterpriseContractPolicy = &ecapiv1alpha1.EnterpriseContractPolicy{
 			ObjectMeta: metav1.ObjectMeta{
