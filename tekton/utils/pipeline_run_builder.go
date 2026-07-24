@@ -29,11 +29,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/konflux-ci/release-service/git"
 )
+
+var pipelineRunBuilderLog = ctrl.Log.WithName("pipeline-run-builder")
 
 type PipelineRunBuilder struct {
 	err         *multierror.Error
@@ -239,8 +242,17 @@ func (b *PipelineRunBuilder) WithPipelineRef(pipelineRef *tektonv1.PipelineRef) 
 
 		resolvedSHA, err := git.ResolveBranchToSHA(gitURL, revision)
 		if err != nil {
-			if strings.Contains(err.Error(), "authentication required") ||
-				strings.Contains(err.Error(), "remote repository access failed") {
+			// RELEASE-2681: never fall back on rate limits — that was passing branch names as SHAs.
+			// Also fail when a GitHub token is configured but resolution still fails (bad/expired token).
+			failHard := git.IsRateLimitError(err) || (git.IsGitHubURL(gitURL) && git.HasGitHubToken())
+			canFallback := !failHard &&
+				(strings.Contains(err.Error(), "authentication required") ||
+					strings.Contains(err.Error(), "remote repository access failed"))
+			if canFallback {
+				// RELEASE-1720: private repos / environments where go-git cannot list refs (e.g. kind
+				// clusters with custom TLS CAs) may still resolve via Tekton's git clone.
+				pipelineRunBuilderLog.Info("could not resolve git revision to SHA, using branch name",
+					"url", git.RedactURLCredentials(gitURL), "revision", revision, "error", err.Error())
 				resolvedSHA = revision
 			} else {
 				b.err = multierror.Append(b.err, fmt.Errorf("git resolution failed: %w", err))
