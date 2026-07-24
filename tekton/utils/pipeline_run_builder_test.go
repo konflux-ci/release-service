@@ -27,6 +27,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/konflux-ci/release-service/git"
 )
 
 var _ = Describe("PipelineRun builder", func() {
@@ -516,6 +518,124 @@ var _ = Describe("PipelineRun builder", func() {
 			_, err := builder.Build()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("git resolution failed"))
+		})
+
+		It("falls back to the branch name on non-rate-limit remote access errors when no GitHub token is set", func() {
+			// Kind E2E clusters often hit TLS/CA errors from go-git; Tekton can still clone.
+			GinkgoT().Setenv(git.GitHubTokenEnvVar, "")
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{
+						Name:  "url",
+						Value: "https://release-service-git-test.invalid/org/repo.git",
+					},
+					{
+						Name:  "revision",
+						Value: "main",
+					},
+					{
+						Name:  "pathInRepo",
+						Value: "pipelines/release.yaml",
+					},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+
+			pipelineRun, err := builder.Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			var taskGitRevision string
+			for _, param := range pipelineRun.Spec.Params {
+				if param.Name == "taskGitRevision" {
+					taskGitRevision = param.Value.StringVal
+				}
+			}
+			Expect(taskGitRevision).To(Equal("main"))
+		})
+
+		It("fails instead of falling back to branch name on rate limit errors", func() {
+			original := git.ResolveBranchToSHA
+			DeferCleanup(func() { git.ResolveBranchToSHA = original })
+			GinkgoT().Setenv(git.GitHubTokenEnvVar, "")
+			git.ResolveBranchToSHA = func(repoURL, revision string) (string, error) {
+				return "", fmt.Errorf("remote repository access failed after 3 retries (rate limited): API rate limit exceeded")
+			}
+
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{Name: "url", Value: "https://github.com/org/repo.git"},
+					{Name: "revision", Value: "production"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+			_, err := builder.Build()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("git resolution failed"))
+			Expect(err.Error()).To(ContainSubstring("rate limited"))
+		})
+
+		It("fails when a GitHub token is set but authentication is rejected", func() {
+			original := git.ResolveBranchToSHA
+			DeferCleanup(func() { git.ResolveBranchToSHA = original })
+			GinkgoT().Setenv(git.GitHubTokenEnvVar, "bad-token")
+			git.ResolveBranchToSHA = func(repoURL, revision string) (string, error) {
+				return "", fmt.Errorf("authentication required")
+			}
+
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{Name: "url", Value: "https://github.com/org/repo.git"},
+					{Name: "revision", Value: "production"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+			_, err := builder.Build()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("git resolution failed"))
+			Expect(err.Error()).To(ContainSubstring("authentication required"))
+		})
+
+		It("falls back to the branch name on authentication errors when no GitHub token is set", func() {
+			original := git.ResolveBranchToSHA
+			DeferCleanup(func() { git.ResolveBranchToSHA = original })
+			GinkgoT().Setenv(git.GitHubTokenEnvVar, "")
+			git.ResolveBranchToSHA = func(repoURL, revision string) (string, error) {
+				return "", fmt.Errorf("authentication required")
+			}
+
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{Name: "url", Value: "https://github.com/org/private-repo.git"},
+					{Name: "revision", Value: "main"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+			pipelineRun, err := builder.Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			var taskGitRevision string
+			for _, param := range pipelineRun.Spec.Params {
+				if param.Name == "taskGitRevision" {
+					taskGitRevision = param.Value.StringVal
+				}
+			}
+			Expect(taskGitRevision).To(Equal("main"))
 		})
 	})
 

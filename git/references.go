@@ -19,6 +19,8 @@ package git
 import (
 	"errors"
 	"fmt"
+	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -26,6 +28,14 @@ import (
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
+	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+const (
+	// GitHubTokenEnvVar is the environment variable used to authenticate GitHub API
+	// requests when resolving branch names to commit SHAs.
+	GitHubTokenEnvVar = "GITHUB_TOKEN" // #nosec G101 -- env var name, not a credential
 )
 
 // Sentinel errors for git configuration problems that won't resolve on retry.
@@ -36,15 +46,22 @@ var (
 	ErrBranchNotFound = errors.New("branch not found")
 )
 
-var shaRegex = regexp.MustCompile("^[a-f0-9]{40}$")
+var (
+	shaRegex       = regexp.MustCompile("^[a-f0-9]{40}$")
+	gitLog         = ctrl.Log.WithName("git")
+	listRemoteRefs = func(remote *git.Remote, opts *git.ListOptions) ([]*plumbing.Reference, error) {
+		return remote.List(opts)
+	}
+	retryDelay = time.Sleep
+)
 
 // IsSHA checks if a reference is already a 40-character SHA (optimized)
 func IsSHA(ref string) bool {
 	return shaRegex.MatchString(ref)
 }
 
-// isRateLimitError checks if an error is a rate limit error
-func isRateLimitError(err error) bool {
+// IsRateLimitError reports whether err looks like a GitHub / git rate-limit failure.
+func IsRateLimitError(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -73,8 +90,52 @@ func ValidateGitResolverConfig(url, revision, pathInRepo string) error {
 	return nil
 }
 
-// ResolveBranchToSHA resolves a git branch reference to a commit SHA using go-git
-func ResolveBranchToSHA(repoURL, revision string) (string, error) {
+// HasGitHubToken reports whether GITHUB_TOKEN is set in the environment.
+func HasGitHubToken() bool {
+	return strings.TrimSpace(os.Getenv(GitHubTokenEnvVar)) != ""
+}
+
+// IsGitHubURL reports whether repoURL points at a GitHub repository over HTTPS.
+func IsGitHubURL(repoURL string) bool {
+	parsed, err := url.Parse(repoURL)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsed.Scheme, "https") &&
+		strings.EqualFold(parsed.Hostname(), "github.com")
+}
+
+func remoteListOptions(repoURL string) *git.ListOptions {
+	opts := &git.ListOptions{}
+	if IsGitHubURL(repoURL) {
+		if token := strings.TrimSpace(os.Getenv(GitHubTokenEnvVar)); token != "" {
+			opts.Auth = &githttp.BasicAuth{
+				Username: "x-access-token",
+				Password: token,
+			}
+		}
+	}
+	return opts
+}
+
+// RedactURLCredentials returns repoURL with userinfo stripped so credentials are
+// not written to controller logs. Unparseable URLs are replaced with a fixed
+// placeholder so a malformed credential-bearing string is never logged raw.
+func RedactURLCredentials(repoURL string) string {
+	parsed, err := url.Parse(repoURL)
+	if err != nil {
+		return "<invalid repository URL>"
+	}
+	if parsed.User == nil {
+		return repoURL
+	}
+	parsed.User = nil
+	return parsed.String()
+}
+
+// ResolveBranchToSHA resolves a git branch reference to a commit SHA using go-git.
+// The package-level variable form allows tests to stub remote resolution.
+var ResolveBranchToSHA = func(repoURL, revision string) (string, error) {
 	if repoURL == "" || revision == "" {
 		return "", fmt.Errorf("%w: repository URL and revision cannot be empty", ErrInvalidGitResolverConfig)
 	}
@@ -84,7 +145,7 @@ func ResolveBranchToSHA(repoURL, revision string) (string, error) {
 	}
 
 	gitURL := repoURL
-	if strings.HasPrefix(repoURL, "https://github.com/") && !strings.HasSuffix(repoURL, ".git") {
+	if IsGitHubURL(repoURL) && !strings.HasSuffix(strings.ToLower(repoURL), ".git") {
 		gitURL = repoURL + ".git"
 	}
 
@@ -95,26 +156,29 @@ func ResolveBranchToSHA(repoURL, revision string) (string, error) {
 
 	maxRetries := 3
 	baseDelay := 2 * time.Second
+	listOpts := remoteListOptions(repoURL)
 
 	var refs []*plumbing.Reference
 	var err error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		refs, err = remote.List(&git.ListOptions{})
+		refs, err = listRemoteRefs(remote, listOpts)
 		if err == nil {
 			break
 		}
 
-		if !isRateLimitError(err) {
+		if !IsRateLimitError(err) {
 			return "", fmt.Errorf("remote repository access failed: %w", err)
 		}
 
 		if attempt == maxRetries {
+			gitLog.Error(err, "failed to resolve branch to SHA after rate limit retries",
+				"url", RedactURLCredentials(repoURL), "revision", revision, "authenticated", listOpts.Auth != nil)
 			return "", fmt.Errorf("remote repository access failed after %d retries (rate limited): %w", maxRetries, err)
 		}
 
 		delay := baseDelay * time.Duration(1<<uint(attempt))
-		time.Sleep(delay)
+		retryDelay(delay)
 	}
 
 	refName := plumbing.ReferenceName("refs/heads/" + revision)
