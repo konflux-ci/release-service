@@ -19,6 +19,11 @@ package git
 import (
 	"errors"
 	"fmt"
+	"time"
+
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -45,31 +50,31 @@ var _ = Describe("Git References", func() {
 		})
 	})
 
-	Describe("isRateLimitError", func() {
+	Describe("IsRateLimitError", func() {
 		It("should return false for nil error", func() {
-			Expect(isRateLimitError(nil)).To(BeFalse())
+			Expect(IsRateLimitError(nil)).To(BeFalse())
 		})
 
 		It("should return true for rate limit errors", func() {
 			err := fmt.Errorf("rate limit exceeded")
-			Expect(isRateLimitError(err)).To(BeTrue())
+			Expect(IsRateLimitError(err)).To(BeTrue())
 
 			err = fmt.Errorf("API rate limit")
-			Expect(isRateLimitError(err)).To(BeTrue())
+			Expect(IsRateLimitError(err)).To(BeTrue())
 
 			err = fmt.Errorf("status code 403")
-			Expect(isRateLimitError(err)).To(BeTrue())
+			Expect(IsRateLimitError(err)).To(BeTrue())
 		})
 
 		It("should return false for other errors", func() {
 			err := fmt.Errorf("authentication required")
-			Expect(isRateLimitError(err)).To(BeFalse())
+			Expect(IsRateLimitError(err)).To(BeFalse())
 
 			err = fmt.Errorf("connection refused")
-			Expect(isRateLimitError(err)).To(BeFalse())
+			Expect(IsRateLimitError(err)).To(BeFalse())
 
 			err = fmt.Errorf("some other error")
-			Expect(isRateLimitError(err)).To(BeFalse())
+			Expect(IsRateLimitError(err)).To(BeFalse())
 		})
 	})
 
@@ -148,6 +153,103 @@ var _ = Describe("Git References", func() {
 			err := ValidateGitResolverConfig("", "", "")
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrInvalidGitResolverConfig)).To(BeTrue())
+		})
+	})
+
+	Describe("HasGitHubToken", func() {
+		It("should return false when GITHUB_TOKEN is unset", func() {
+			GinkgoT().Setenv(GitHubTokenEnvVar, "")
+			Expect(HasGitHubToken()).To(BeFalse())
+		})
+
+		It("should return false when GITHUB_TOKEN is whitespace-only", func() {
+			GinkgoT().Setenv(GitHubTokenEnvVar, "   ")
+			Expect(HasGitHubToken()).To(BeFalse())
+		})
+
+		It("should return true when GITHUB_TOKEN is set", func() {
+			GinkgoT().Setenv(GitHubTokenEnvVar, "test-token")
+			Expect(HasGitHubToken()).To(BeTrue())
+		})
+	})
+
+	Describe("IsGitHubURL", func() {
+		It("should return true for GitHub HTTPS URLs", func() {
+			Expect(IsGitHubURL("https://github.com/org/repo")).To(BeTrue())
+			Expect(IsGitHubURL("https://github.com/org/repo.git")).To(BeTrue())
+			Expect(IsGitHubURL("HTTPS://GitHub.com/org/repo.git")).To(BeTrue())
+		})
+
+		It("should return false for non-GitHub and non-HTTPS GitHub URLs", func() {
+			Expect(IsGitHubURL("http://github.com/org/repo.git")).To(BeFalse())
+			Expect(IsGitHubURL("https://gitlab.com/org/repo.git")).To(BeFalse())
+			Expect(IsGitHubURL("https://bitbucket.org/org/repo.git")).To(BeFalse())
+			Expect(IsGitHubURL("://bad")).To(BeFalse())
+		})
+	})
+
+	Describe("RedactURLCredentials", func() {
+		It("should strip userinfo from URLs", func() {
+			Expect(RedactURLCredentials("https://user:token@github.com/org/repo.git")).
+				To(Equal("https://github.com/org/repo.git"))
+		})
+
+		It("should leave URLs without credentials unchanged", func() {
+			Expect(RedactURLCredentials("https://github.com/org/repo.git")).
+				To(Equal("https://github.com/org/repo.git"))
+		})
+
+		It("should return a placeholder for unparseable URLs", func() {
+			Expect(RedactURLCredentials("://user:token@host/repo")).
+				To(Equal("<invalid repository URL>"))
+		})
+	})
+
+	Describe("remoteListOptions", func() {
+		It("should not set auth when GITHUB_TOKEN is unset", func() {
+			GinkgoT().Setenv(GitHubTokenEnvVar, "")
+			opts := remoteListOptions("https://github.com/org/repo.git")
+			Expect(opts.Auth).To(BeNil())
+		})
+
+		It("should set GitHub basic auth when GITHUB_TOKEN is set for a GitHub URL", func() {
+			GinkgoT().Setenv(GitHubTokenEnvVar, "test-token")
+			opts := remoteListOptions("https://github.com/org/repo.git")
+			Expect(opts.Auth).NotTo(BeNil())
+
+			basicAuth, ok := opts.Auth.(*githttp.BasicAuth)
+			Expect(ok).To(BeTrue())
+			Expect(basicAuth.Username).To(Equal("x-access-token"))
+			Expect(basicAuth.Password).To(Equal("test-token"))
+		})
+
+		It("should not set auth for non-GitHub URLs even when GITHUB_TOKEN is set", func() {
+			GinkgoT().Setenv(GitHubTokenEnvVar, "test-token")
+			opts := remoteListOptions("https://gitlab.com/org/repo.git")
+			Expect(opts.Auth).To(BeNil())
+		})
+	})
+
+	Describe("ResolveBranchToSHA with mocked remote list", func() {
+		BeforeEach(func() {
+			originalListRemoteRefs := listRemoteRefs
+			originalRetryDelay := retryDelay
+			retryDelay = func(time.Duration) {}
+			DeferCleanup(func() {
+				listRemoteRefs = originalListRemoteRefs
+				retryDelay = originalRetryDelay
+			})
+		})
+
+		It("should return an error when rate limited instead of falling back silently", func() {
+			listRemoteRefs = func(_ *git.Remote, _ *git.ListOptions) ([]*plumbing.Reference, error) {
+				return nil, fmt.Errorf("API rate limit exceeded")
+			}
+
+			_, err := ResolveBranchToSHA("https://github.com/octocat/Hello-World.git", "master")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("remote repository access failed"))
+			Expect(err.Error()).To(ContainSubstring("rate limited"))
 		})
 	})
 })
