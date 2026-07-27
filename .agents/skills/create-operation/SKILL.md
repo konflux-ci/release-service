@@ -114,6 +114,7 @@ return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.rele
 ```
 
 Rules:
+
 - Use `a.client.Status().Patch()` for status subresource updates.
 - Use `a.client.Patch()` for metadata updates (finalizers, labels, annotations).
 - Only patch in operations that change state. Read-only and tracking operations that find no changes must NOT patch.
@@ -154,6 +155,7 @@ return pipelineCreationResult(handlePipelineCreationError(a.ctx, a.client, a.rel
 ## Loading resources
 
 Always load resources through `a.loader` (the `loader.ObjectLoader` interface), never directly via `a.client.Get()`. The loader provides:
+
 - Error classification (retriable vs permanent)
 - KubeArchive fallback for deleted resources
 - A mock implementation for tests
@@ -171,6 +173,7 @@ return controller.ReconcileHandler([]controller.Operation{
 ```
 
 **Order matters.** Operations execute sequentially and any one can short-circuit the pipeline. Place the new operation:
+
 - After its prerequisites (operations whose results it depends on)
 - Before operations that depend on its results
 - Processing operations before their corresponding tracking operations
@@ -183,6 +186,7 @@ Tests use Ginkgo/Gomega with envtest. Each test file lives alongside the code it
 ### What to test
 
 For each operation, test:
+
 1. **Gate condition**: returns `ContinueProcessing` when the work is already done or prerequisites aren't met.
 2. **Failure skip**: marks the phase as skipped and continues when `IsFailed()`.
 3. **Loader errors**: requeues with error when resource loading fails.
