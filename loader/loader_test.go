@@ -787,17 +787,20 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			retryPipelineRun2.Labels[metadata.ReleaseAttemptLabel] = "2"
 			Expect(k8sClient.Create(ctx, retryPipelineRun2)).To(Succeed())
 
-			returnedObject, err := loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject.Name).To(Equal(managedPipelineRun.Name))
+			Eventually(func() bool {
+				returnedObject, err := loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 0)
+				return err == nil && returnedObject != nil && returnedObject.Name == managedPipelineRun.Name
+			}).Should(BeTrue())
 
-			returnedObject, err = loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 1)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject.Name).To(Equal(retryPipelineRun1.Name))
+			Eventually(func() bool {
+				returnedObject, err := loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 1)
+				return err == nil && returnedObject != nil && returnedObject.Name == retryPipelineRun1.Name
+			}).Should(BeTrue())
 
-			returnedObject, err = loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 2)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(returnedObject.Name).To(Equal(retryPipelineRun2.Name))
+			Eventually(func() bool {
+				returnedObject, err := loader.GetReleasePipelineRunAttempt(ctx, k8sClient, release, 2)
+				return err == nil && returnedObject != nil && returnedObject.Name == retryPipelineRun2.Name
+			}).Should(BeTrue())
 
 			Expect(k8sClient.Delete(ctx, retryPipelineRun1)).To(Succeed())
 			Expect(k8sClient.Delete(ctx, retryPipelineRun2)).To(Succeed())
