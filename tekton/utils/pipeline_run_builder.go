@@ -190,30 +190,6 @@ func (b *PipelineRunBuilder) WithParams(params ...tektonv1.Param) *PipelineRunBu
 	return b
 }
 
-// WithParamsFromConfigMap adds parameters to the PipelineRun based on the provided keys from a given ConfigMap.
-// If a key is present in the ConfigMap, a new tektonv1.Param is constructed with the key as the name and the associated
-// value from the ConfigMap. Keys not found in the ConfigMap are ignored.
-func (b *PipelineRunBuilder) WithParamsFromConfigMap(configMap *corev1.ConfigMap, keys []string) *PipelineRunBuilder {
-	if configMap == nil {
-		return b
-	}
-
-	var params []tektonv1.Param
-	for _, key := range keys {
-		if value, exists := configMap.Data[key]; exists {
-			params = append(params, tektonv1.Param{
-				Name: key,
-				Value: tektonv1.ParamValue{
-					Type:      tektonv1.ParamTypeString,
-					StringVal: value,
-				},
-			})
-		}
-	}
-
-	return b.WithParams(params...)
-}
-
 // WithPipelineRef sets the PipelineRef for the PipelineRun's spec.
 func (b *PipelineRunBuilder) WithPipelineRef(pipelineRef *tektonv1.PipelineRef) *PipelineRunBuilder {
 	b.pipelineRun.Spec.PipelineRef = pipelineRef

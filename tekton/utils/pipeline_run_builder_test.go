@@ -320,37 +320,6 @@ var _ = Describe("PipelineRun builder", func() {
 		})
 	})
 
-	When("WithParamsFromConfigMap method is called", func() {
-		It("should add parameters corresponding to the provided keys", func() {
-			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
-			configMap := &corev1.ConfigMap{
-				Data: map[string]string{
-					"key1": "value1",
-					"key2": "value2",
-				},
-			}
-
-			builder.WithParamsFromConfigMap(configMap, []string{"key1", "key2", "key3"}) // "key3" doesn't exist in the ConfigMap.
-
-			paramKey1 := tektonv1.Param{
-				Name:  "key1",
-				Value: tektonv1.ParamValue{Type: tektonv1.ParamTypeString, StringVal: "value1"},
-			}
-			paramKey2 := tektonv1.Param{
-				Name:  "key2",
-				Value: tektonv1.ParamValue{Type: tektonv1.ParamTypeString, StringVal: "value2"},
-			}
-
-			Expect(builder.pipelineRun.Spec.Params).To(ContainElement(paramKey1))
-			Expect(builder.pipelineRun.Spec.Params).To(ContainElement(paramKey2))
-
-			// Check that "key3" is not added as a Param since it doesn't exist in the ConfigMap.
-			for _, param := range builder.pipelineRun.Spec.Params {
-				Expect(param.Name).ToNot(Equal("key3"))
-			}
-		})
-	})
-
 	When("WithPipelineRef method is called", func() {
 		It("should set the PipelineRef for the PipelineRun's spec", func() {
 			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
