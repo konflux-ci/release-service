@@ -41,6 +41,15 @@ spec:
       description: "URL to the artifact browser deployment. If provided, a link will be added to PR comments."
       default: ""
       type: string
+    - name: konflux-ready-timeout
+      description: Timeout for waiting on the Konflux CR Ready condition.
+      type: string
+      default: 30m
+    - name: konflux-cr-configmap
+      description: >-
+        ConfigMap in the pipeline namespace containing the Konflux CR to apply.
+      type: string
+      default: konflux-deploy-cr
 
   tasks:
     # ──────────────────────────────────────────────────────────────────────────
@@ -143,34 +152,41 @@ spec:
         resolver: git
         params:
           - name: url
-            value: https://github.com/konflux-ci/tekton-integration-catalog
+            value: https://github.com/konflux-ci/konflux-ci.git
           - name: revision
             value: main
           - name: pathInRepo
-            value: tasks/konflux-ci/deploy/0.3/deploy-konflux-ci.yaml
+            value: .tekton/tasks/deploy-konflux/task.yaml
       params:
         - name: cluster-access-secret
           value: kfg-$(context.pipelineRun.name)
-        - name: component-name
-          value: release-service
-        - name: component-pr-owner
-          value: $(tasks.test-metadata.results.pull-request-author)
-        - name: component-pr-sha
-          value: $(tasks.test-metadata.results.git-revision)
-        - name: component-pr-source-branch
-          value: $(tasks.test-metadata.results.source-repo-branch)
-        - name: oci-ref
-          value: $(params.oci-container-repo):$(context.pipelineRun.name)
-        - name: credentials-secret-name
+        - name: git-url
+          value: https://github.com/konflux-ci/konflux-ci.git
+        - name: revision
+          value: main
+        - name: konflux-ready-timeout
+          value: $(params.konflux-ready-timeout)
+        - name: konflux-cr-configmap
+          value: $(params.konflux-cr-configmap)
+        - name: konflux-cr-configmap-key
+          value: konflux-cr.yaml
+        - name: oci-container-repo
+          value: $(params.oci-container-repo)
+        - name: oci-container-repo-credentials-secret
           value: $(params.konflux-test-infra-secret)
-        - name: component-image-repository
-          value: $(tasks.test-metadata.results.instrumented-container-repo)
-        - name: component-image-tag
-          value: $(tasks.test-metadata.results.instrumented-container-tag)
-        - name: oci-credentials
-          value: konflux-test-infra
-        - name: build-credentials
-          value: konflux-e2e-secrets
+        - name: pipeline-run-name
+          value: $(context.pipelineRun.name)
+        - name: overrides-yaml
+          value: |
+            - name: release
+              git:
+                - sourceRepo: konflux-ci/release-service
+                  remote:
+                    repo: "$(tasks.test-metadata.results.git-url)"
+                    ref: "$(tasks.test-metadata.results.git-revision)"
+              images:
+                - orig: quay.io/konflux-ci/release-service
+                  replacement: "$(tasks.test-metadata.results.instrumented-container-repo):$(tasks.test-metadata.results.instrumented-container-tag)"
 
     # ──────────────────────────────────────────────────────────────────────────
     # E2E tests: clone release-service repo and run Ginkgo suite

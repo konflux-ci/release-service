@@ -122,14 +122,18 @@ func setupFinalPipelineFinalizerSuite() {
 		ecPolicyName := "ffinalizer-policy-" + util.GenerateRandomString(4)
 		defaultEcPolicy, err := fw.AsKubeAdmin.TektonController.GetEnterpriseContractPolicy("default", "enterprise-contract-service")
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to get default EC policy: %v", err)
+		gomega.Expect(defaultEcPolicy.Spec.Sources).ToNot(gomega.BeEmpty(), "default EC policy has no sources")
+
+		source := defaultEcPolicy.Spec.Sources[0]
+		source.Config = &ecp.SourceConfig{
+			Include: []string{"@slsa3"},
+			Exclude: []string{"step_image_registries", "tasks.required_tasks_found:prefetch-dependencies"},
+		}
+
 		defaultEcPolicySpec := ecp.EnterpriseContractPolicySpec{
 			Description: "Red Hat's enterprise requirements",
 			PublicKey:   fmt.Sprintf("k8s://%s/%s", m.managedNs, constants.PublicSecretNameAuth),
-			Sources:     defaultEcPolicy.Spec.Sources,
-			Configuration: &ecp.EnterpriseContractPolicyConfiguration{
-				Collections: []string{"@slsa3"},
-				Exclude:     []string{"step_image_registries", "tasks.required_tasks_found:prefetch-dependencies"},
-			},
+			Sources:     []ecp.Source{source},
 		}
 		_, err = fw.AsKubeAdmin.TektonController.CreateEnterpriseContractPolicy(ecPolicyName, m.managedNs, defaultEcPolicySpec)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create EC policy %s: %v", ecPolicyName, err)
