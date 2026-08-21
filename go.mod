@@ -19,7 +19,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.45.0
 	go.opentelemetry.io/otel/trace v1.45.0
 	go.yaml.in/yaml/v2 v2.4.4
-	k8s.io/api v0.35.7
+	k8s.io/api v0.36.3
 	k8s.io/apimachinery v0.36.3
 	k8s.io/client-go v11.0.0+incompatible
 	knative.dev/pkg v0.0.0-20260727151759-521cb33b33dd
@@ -111,7 +111,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	k8s.io/apiserver v0.35.7 // indirect
+	k8s.io/apiserver v0.36.3 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/streaming v0.36.3 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0 // indirect
@@ -157,8 +157,8 @@ require (
 	google.golang.org/grpc v1.83.0 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260806062936-644d0267c26e // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/apiextensions-apiserver v0.35.7 // indirect
-	k8s.io/component-base v0.35.7 // indirect
+	k8s.io/apiextensions-apiserver v0.36.3 // indirect
+	k8s.io/component-base v0.36.3 // indirect
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
@@ -167,4 +167,4 @@ require (
 )
 
 // This is to work around errors like package k8s.io/client-go/X provided by k8s.io/client-go at latest version v0.34.0 but not at required version v1.5.2
-replace k8s.io/client-go => k8s.io/client-go v0.35.4
+replace k8s.io/client-go => k8s.io/client-go v0.36.3
