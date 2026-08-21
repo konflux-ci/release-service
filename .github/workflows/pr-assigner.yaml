@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Assign reviewers using shared action
-        uses: konflux-ci/release-service-automations/pr-assigner@5f659d076b62341c25efe6883cc561094e51f7fb # main
+        uses: konflux-ci/release-service-automations/pr-assigner@d9c0240ce9784cad4083d1f3b705188098796120 # main
         with:
           event-type: ${{ github.event.action }}
           pr-number: ${{ github.event.pull_request.number }}
