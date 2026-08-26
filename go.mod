@@ -8,7 +8,7 @@ require (
 	github.com/go-logr/logr v1.4.4
 	github.com/konflux-ci/application-api v0.0.0-20260727123715-2999a91451c6
 	github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260811133333-454aceabdba8
-	github.com/konflux-ci/integration-service v0.0.0-20260805103208-2ae28781df30
+	github.com/konflux-ci/integration-service v0.0.0-20260820151237-7dd7fe87a3ea
 	github.com/konflux-ci/operator-toolkit v0.0.0-20260312101100-d4e398191a68
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.42.1
