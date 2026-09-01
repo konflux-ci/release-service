@@ -48,6 +48,8 @@ make test-e2e
 |----------|---------|-------------|
 | `RELEASE_SERVICE_CATALOG_URL` | `https://github.com/konflux-ci/release-service-catalog` | Release pipeline catalog repo |
 | `RELEASE_SERVICE_CATALOG_REVISION` | `development` | Catalog git branch/tag |
+| `RELEASE_SERVICE_OPERATOR_URL` | `https://github.com/konflux-ci/release-service.git` | Release Service Operator repo |
+| `RELEASE_SERVICE_OPERATOR_REVISION` | `main` | Git branch/tag |
 | `E2E_APPLICATIONS_NAMESPACE` | *auto-generated* | Override test namespace |
 
 ## Running Tests
@@ -80,8 +82,21 @@ make test-e2e LABEL=negManagedPipelineRunCreationDenied
 | `tenant` | Tenant-only pipeline (no managed namespace) |
 | `release_plan_and_admission` | ReleasePlan ↔ ReleasePlanAdmission matching |
 | `release-neg` | Negative/error scenarios |
+| `negMissingReleasePlan` | Release fails when no matching `ReleasePlan` or `ReleasePlanAdmission` is found |
+| `negBlockReleases` | Release fails when `block-releases: "true"` is set on the `ReleasePlanAdmission` |
 | `negManagedPipelineRunCreationDenied` | Managed release `PipelineRun` create denied by quota; failure is surfaced on `Release` status |
 | `negTenantPipelineInvalidGitRef` | Tenant pipeline with invalid git resolver config (empty URL/revision/pathInRepo); failure is surfaced on `Release` status |
+| `retry-managed` | All managed pipeline retry scenarios |
+| `managed-pipeline-oom-retry` | OOM failure on the managed pipeline is retried with memory limit mitigation |
+| `managed-pipeline-task-timeout-retry` | `TaskRunTimeout` on the managed pipeline is retried with task timeout mitigation |
+| `managed-pipeline-pipeline-timeout-retry` | `PipelineRunTimeout` on the managed pipeline is retried with pipeline/tasks timeout mitigation |
+| `managed-pipeline-error-no-retry` | Generic error failure on the managed pipeline is not retried |
+| `managed-pipeline-max-retries-zero` | OOM failure is not retried when `MaxRetries=0` is set on the RPA, overriding the RSC retry policy |
+| `managed-pipeline-taskrunspecs-oom-retry` | OOM failure on a task whose memory limit is set via RPA `TaskRunSpecs` is retried with the mitigation applied to the overridden limit |
+| `managed-pipeline-retry-final-pipeline-ordering` | Verifies that the final pipeline does not start until all managed pipeline retries have completed in a task-timeout retry scenario |
+| `managed-pipeline-disabled-by-tag-no-retry` | OOM failure is not retried when the RPA mapping data carries a tag matched by the RSC `RetryPolicy.DisableOn.Tags` |
+| `managed-pipeline-retry-exhausted` | Repeated OOM failures exhaust all configured retries (mitigation capped below the OOM threshold), and the Release ultimately fails |
+| `final` | Final pipeline execution and finalizer test |
 
 ## Writing Tests
 

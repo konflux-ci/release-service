@@ -1,0 +1,253 @@
+---
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: retry-e2e-managed
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/tags: release
+spec:
+  description: >-
+    Managed pipeline for retry E2E tests. Reads failMode and failOnTask
+    from releasePlanAdmission.spec.data. error and oom can be triggered
+    on task-01 or task-02. task-timeout is supported on task-01.
+    pipeline-timeout and oom-always is triggered from task-02. 
+    failOnTask defaults to task-01 if not set.
+  params:
+    - name: release
+      type: string
+    - name: releasePlan
+      type: string
+    - name: releasePlanAdmission
+      type: string
+    - name: releaseServiceConfig
+      type: string
+    - name: snapshot
+      type: string
+    - name: enterpriseContractPolicy
+      type: string
+  tasks:
+    - name: collect-data
+      params:
+        - name: releasePlanAdmission
+          value: "$(params.releasePlanAdmission)"
+      taskSpec:
+        params:
+          - name: releasePlanAdmission
+            type: string
+        results:
+          - name: failMode
+            type: string
+          - name: failOnTask
+            type: string
+        steps:
+        # This step collects the failMode and failOnTask values from the RPA
+        # CR and stores them in results for use by downstream tasks. 
+          - name: collect-data
+            image: quay.io/konflux-ci/release-service-utils@sha256:850118bc6eda4ca3f98ef1e53109164f64a0945a6ac0942f908b7e106f50775c
+            computeResources:
+              requests:
+                memory: 64Mi
+                cpu: 50m
+              limits:
+                memory: 64Mi
+            script: |
+              #!/usr/bin/env bash
+              set -euo pipefail
+
+              DATA=$(get-resource releasePlanAdmission "$(params.releasePlanAdmission)" |
+                jq '.spec.data // {}')
+
+              FAIL_MODE=$(jq -r '.failMode // "none"' <<<"${DATA}")
+              FAIL_ON_TASK=$(jq -r '.failOnTask // "task-01"' <<<"${DATA}")
+
+              printf '%s' "${FAIL_MODE}" > "$(results.failMode.path)"
+              printf '%s' "${FAIL_ON_TASK}" > "$(results.failOnTask.path)"
+    - name: task-01
+      # Timeout is set to 1 minute to have a TaskRunTimeout error
+      # for the task-timeout failMode. The retry mitigation should 
+      # increase the timeout to allow the task to complete on retry.
+      timeout: "1m"
+      runAfter:
+        - collect-data
+      params:
+        - name: failMode
+          value: "$(tasks.collect-data.results.failMode)"
+        - name: failOnTask
+          value: "$(tasks.collect-data.results.failOnTask)"
+      taskSpec:
+        params:
+          - name: failMode
+            type: string
+          - name: failOnTask
+            type: string
+        steps:
+          - name: task-01-step-01
+            image: quay.io/konflux-ci/release-service-utils@sha256:850118bc6eda4ca3f98ef1e53109164f64a0945a6ac0942f908b7e106f50775c
+            computeResources:
+              requests:
+                memory: 64Mi
+                cpu: 100m
+              limits:
+                memory: 64Mi
+            script: |
+              #!/usr/bin/env bash
+              set -euo pipefail
+
+              FAIL_MODE="$(params.failMode)"
+              FAIL_ON_TASK="$(params.failOnTask)"
+
+              # Only inject failures into the selected task.
+              [[ "${FAIL_ON_TASK}" == "task-01" ]] || exit 0
+
+              echo "task-01-step-01: failMode=${FAIL_MODE}"
+
+              case "${FAIL_MODE}" in
+                error)
+                  exit 1
+                  ;;
+                oom)
+                  # Trigger OOM only when the task is still running with the
+                  # original memory limit. After retry mitigation the limit
+                  # should be increased and this path should no longer OOM.
+                  LIMIT="max"
+                  [[ -r /sys/fs/cgroup/memory.max ]] && read -r LIMIT < /sys/fs/cgroup/memory.max
+
+                  THRESHOLD=104857600 # 100 Mi
+
+                  if [[ "${LIMIT}" != "max" ]] && (( LIMIT < THRESHOLD )); then
+                    echo "limit ${LIMIT} < ${THRESHOLD}: triggering OOMKill"
+
+                    X=$(dd if=/dev/zero bs=1M count=150 status=none | tr '\0' 'a')
+                    echo "${#X}"
+                  else
+                    echo "limit ${LIMIT} sufficient"
+                  fi
+                  ;;
+                task-timeout)
+                  # Sleep longer than the task timeout. Which is set to 1 minute.
+                  sleep 90
+                  ;;
+                none)
+                  ;;
+                *)
+                  echo "unknown fail mode: ${FAIL_MODE}" >&2
+                  exit 1
+                  ;;
+              esac
+          - name: task-01-step-02
+            image: quay.io/konflux-ci/release-service-utils@sha256:850118bc6eda4ca3f98ef1e53109164f64a0945a6ac0942f908b7e106f50775c
+            computeResources:
+              requests:
+                memory: 32Mi
+                cpu: 50m
+              limits:
+                memory: 32Mi
+            script: |
+              #!/usr/bin/env bash
+              echo "task-01-step-02: complete"
+    - name: task-02
+      runAfter:
+        - task-01
+      params:
+        - name: failMode
+          value: "$(tasks.collect-data.results.failMode)"
+        - name: failOnTask
+          value: "$(tasks.collect-data.results.failOnTask)"
+      taskSpec:
+        params:
+          - name: failMode
+            type: string
+          - name: failOnTask
+            type: string
+        stepTemplate:
+          image: quay.io/konflux-ci/release-service-utils@sha256:850118bc6eda4ca3f98ef1e53109164f64a0945a6ac0942f908b7e106f50775c
+          # task-02 uses task level computeResources. task-01 defines
+          # computeResources on each step. This allows the retry e2e
+          # tests to verify that resource mitigation are applied
+          # correctly at both the task and step level.
+          computeResources:
+            requests:
+              memory: 64Mi
+              cpu: 100m
+            limits:
+              memory: 64Mi
+        steps:
+          - name: task-02-step-01
+            script: |
+              #!/usr/bin/env bash
+              set -euo pipefail
+
+              FAIL_MODE="$(params.failMode)"
+              FAIL_ON_TASK="$(params.failOnTask)"
+
+              # pipeline-timeout always runs from task-02 regardless of failOnTask.
+              if [[ "${FAIL_ON_TASK}" != "task-02" && "${FAIL_MODE}" != "pipeline-timeout" ]]; then
+                echo "task-02: complete"
+                exit 0
+              fi
+
+              echo "task-02-step-01: failMode=${FAIL_MODE}"
+
+              case "${FAIL_MODE}" in
+                pipeline-timeout)
+                  # Sleep past the pipeline level pipeline/tasks timeout. This is used to verify
+                  # that retry mitigation updates both pipeline and tasks timeouts
+                  # and allows the pipelineRun to complete on retry.
+                  echo "task-02-step-01: sleeping 120s"
+                  sleep 120
+                  ;;
+                error)
+                  exit 1
+                  ;;
+                oom)
+                  # Trigger OOM only when the task is still running with the
+                  # original memory limit. After retry mitigation the limit
+                  # should be increased and this path should no longer OOM.
+                  LIMIT="max"
+                  [[ -r /sys/fs/cgroup/memory.max ]] && read -r LIMIT < /sys/fs/cgroup/memory.max
+
+                  THRESHOLD=104857600 # 100 Mi
+
+                  if [[ "${LIMIT}" != "max" ]] && (( LIMIT < THRESHOLD )); then
+                    echo "limit ${LIMIT} < ${THRESHOLD}: triggering OOMKill"
+                    X=$(dd if=/dev/zero bs=1M count=150 status=none | tr '\0' 'a')
+                    echo "${#X}"
+                  else
+                    echo "limit ${LIMIT} sufficient"
+                  fi
+                  ;;
+                oom-always)
+                # Always trigger an OOMKill regardless of the memory limit.
+                # This is used to verify that retry mitigation cannot fix
+                # the failure even after resource requests/limits are increased.
+                
+                X=$(dd if=/dev/zero bs=1M count=2048 status=none | tr '\0' 'a')
+                echo "${#X}"
+                ;;
+                none)
+                  ;;
+                *)
+                  echo "unknown fail mode: ${FAIL_MODE}" >&2
+                  exit 1
+                  ;;
+              esac
+          - name: task-02-step-02
+            script: |
+              #!/usr/bin/env bash
+              echo "task-02-step-02: complete"
+  finally:
+    - name: finalize
+      taskSpec:
+        steps:
+          - name: finalize-step-01
+            image: quay.io/konflux-ci/release-service-utils@sha256:850118bc6eda4ca3f98ef1e53109164f64a0945a6ac0942f908b7e106f50775c
+            computeResources:
+              requests:
+                memory: 32Mi
+                cpu: 50m
+              limits:
+                memory: 32Mi
+            script: |
+              #!/usr/bin/env bash
+              echo "finalize: complete"

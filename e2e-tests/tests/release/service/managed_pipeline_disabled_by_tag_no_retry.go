@@ -3,40 +3,37 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	ecp "github.com/conforma/crds/api/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
-	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
-
 	appservice "github.com/konflux-ci/application-api/api/v1alpha1"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/framework"
 	"github.com/konflux-ci/release-service/e2e-tests/pkg/utils"
 	releasecommon "github.com/konflux-ci/release-service/e2e-tests/tests/release"
+	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 )
 
-var _ = ginkgo.Describe("Release service happy path", releasecommon.LabelHappyPath, ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Managed pipeline OOM is not retried when disabled by a production tag", releasecommon.LabelManagedPipelineDisabledByTagNoRetry, ginkgo.Ordered, func() {
 	defer ginkgo.GinkgoRecover()
 
 	var fw *framework.Framework
 	ginkgo.AfterEach(framework.ReportFailure(&fw))
 	var err error
-	var compName string
-	var devNamespace = "happy-path"
-	var managedNamespace = "happy-path-managed"
+	var devNamespace = "retry-tag-disabled"
+	var managedNamespace = "retry-tag-disabled-managed"
 	var _ *appservice.Snapshot
-	var verifyConformaTaskName = "verify-conforma"
-	var releasedImagePushRepo = "quay.io/redhat-appstudio-qe/dcmetromap"
 	var sampleImage = "quay.io/hacbs-release-tests/dcmetromap@sha256:544259be8bcd9e6a2066224b805d854d863064c9b64fa3a87bfcd03f5b0f28e6"
-	var gitSourceURL = constants.GitSourceComponentUrl
 	var gitSourceRevision = "d49914874789147eb2de9bb6a12cd5d150bfff92"
-	var ecPolicyName = "hpath-policy-" + utils.GenerateRandomString(4)
+	var ecPolicyName = "retry-tag-disabled-policy-" + utils.GenerateRandomString(4)
 
 	var releaseCR *releaseApi.Release
 
@@ -48,26 +45,11 @@ var _ = ginkgo.Describe("Release service happy path", releasecommon.LabelHappyPa
 		_, err = fw.AsKubeAdmin.CommonController.CreateTestNamespace(managedNamespace)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create managed namespace %s: %v", managedNamespace, err)
 
-		sourceAuthJson := utils.GetEnv("QUAY_TOKEN", "")
-		gomega.Expect(sourceAuthJson).ToNot(gomega.BeEmpty(), "QUAY_TOKEN env var is required (dockerconfigjson format)")
-
-		releaseCatalogTrustedArtifactsQuayAuthJson := utils.GetEnv("RELEASE_CATALOG_TA_QUAY_TOKEN", "")
-		gomega.Expect(releaseCatalogTrustedArtifactsQuayAuthJson).ToNot(gomega.BeEmpty(), "RELEASE_CATALOG_TA_QUAY_TOKEN env var is required (dockerconfigjson format)")
-
-		managedServiceAccount, err := fw.AsKubeAdmin.CommonController.CreateServiceAccount(constants.ReleasePipelineServiceAccountDefault, managedNamespace, releasecommon.ManagednamespaceSecret, nil)
+		managedServiceAccount, err := fw.AsKubeAdmin.CommonController.CreateServiceAccount(constants.ReleasePipelineServiceAccountDefault, managedNamespace, nil, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create service account %s in %s: %v", constants.ReleasePipelineServiceAccountDefault, managedNamespace, err)
 
 		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePipelineRoleBindingForServiceAccount(managedNamespace, managedServiceAccount)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create rolebinding for service account: %v", err)
-
-		_, err = fw.AsKubeAdmin.CommonController.CreateRegistryAuthSecret(constants.RedhatAppstudioUserSecret, managedNamespace, sourceAuthJson)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create secret %s: %v", constants.RedhatAppstudioUserSecret, err)
-
-		_, err = fw.AsKubeAdmin.CommonController.CreateRegistryAuthSecret(constants.ReleaseCatalogTAQuaySecret, managedNamespace, releaseCatalogTrustedArtifactsQuayAuthJson)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create secret %s: %v", constants.ReleaseCatalogTAQuaySecret, err)
-
-		err = fw.AsKubeAdmin.CommonController.LinkSecretToServiceAccount(managedNamespace, constants.RedhatAppstudioUserSecret, constants.ReleasePipelineServiceAccountDefault, true)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to link secret to service account: %v", err)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create RoleBinding: %v", err)
 
 		releasePublicKeyDecoded := []byte("-----BEGIN PUBLIC KEY-----\n" +
 			"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEocSG/SnE0vQ20wRfPltlXrY4Ib9B\n" +
@@ -94,6 +76,43 @@ var _ = ginkgo.Describe("Release service happy path", releasecommon.LabelHappyPa
 		_, err = fw.AsKubeAdmin.TektonController.CreateEnterpriseContractPolicy(ecPolicyName, managedNamespace, defaultEcPolicySpec)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create EC policy %s: %v", ecPolicyName, err)
 
+		// Delete any existing ReleaseServiceConfig and create a new one with the desired RetryablePipeline configuration.
+		_ = fw.AsKubeAdmin.ReleaseController.DeleteReleaseServiceConfig(releaseApi.ReleaseServiceConfigResourceName, "release-service")
+		err = fw.AsKubeAdmin.ReleaseController.CreateReleaseServiceConfig(
+			releaseApi.ReleaseServiceConfigResourceName, "release-service", []releaseApi.RetryablePipeline{
+				{
+					Url:        releasecommon.RelSvcOperatorURL,
+					Revision:   releasecommon.RelSvcOperatorRevision,
+					PathInRepo: "e2e-tests/pipelines/retry-e2e-managed.yaml",
+					RetryPolicy: releaseApi.RetryPolicy{
+						MaxRetries: 3,
+						DisableOn: &releaseApi.DisableConditions{
+							Tags: []string{"production"},
+						},
+						Mitigations: &releaseApi.Mitigations{
+							OOMKill: &releaseApi.MemoryMitigation{
+								Multiplier: "2.0",
+								MaxComputeResources: &corev1.ResourceRequirements{
+									Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("512Mi")},
+									Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("512Mi")},
+								},
+							},
+							Timeout: &releaseApi.TimeoutMitigation{
+								Task: &releaseApi.TimeoutIncrement{
+									Increment:  metav1.Duration{Duration: 5 * time.Minute},
+									MaxTimeout: &metav1.Duration{Duration: 10 * time.Minute},
+								},
+								Pipeline: &releaseApi.TimeoutIncrement{
+									Increment:  metav1.Duration{Duration: 5 * time.Minute},
+									MaxTimeout: &metav1.Duration{Duration: 20 * time.Minute},
+								},
+							},
+						},
+					},
+				},
+			})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleaseServiceConfig: %v", err)
+
 		_, err = fw.AsKubeAdmin.KonfluxApiController.CreateApplication(constants.ApplicationNameDefault, devNamespace)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create Application %s: %v", constants.ApplicationNameDefault, err)
 
@@ -101,43 +120,40 @@ var _ = ginkgo.Describe("Release service happy path", releasecommon.LabelHappyPa
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlan %s: %v", constants.SourceReleasePlanName, err)
 
 		data, err := json.Marshal(map[string]interface{}{
+			"failMode":   "oom",
+			"failOnTask": "task-02",
 			"mapping": map[string]interface{}{
 				"components": []map[string]interface{}{
 					{
-						"component":  compName,
-						"repository": releasedImagePushRepo,
+						"name": constants.ComponentName,
+						"repositories": []map[string]interface{}{
+							{
+								"url":  "quay.io/redhat/example-component",
+								"tags": []string{"production"},
+							},
+						},
 					},
 				},
 			},
 		})
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to marshal RPA data: %v", err)
 
+		// The RPA overrides MaxRetries value higher than the RSC default 3 to prove
+		// that DisableOn.Tags still wins even when retries are increased.
+		maxRetries := 4
 		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlanAdmission(constants.TargetReleasePlanAdmissionName, managedNamespace, "", devNamespace, ecPolicyName, constants.ReleasePipelineServiceAccountDefault, []string{constants.ApplicationNameDefault}, false, &tektonutils.PipelineRef{
 			Resolver: "git",
 			Params: []tektonutils.Param{
-				{Name: "url", Value: releasecommon.RelSvcCatalogURL},
-				{Name: "revision", Value: releasecommon.RelSvcCatalogRevision},
-				{Name: "pathInRepo", Value: "pipelines/managed/e2e/e2e.yaml"},
+				{Name: "url", Value: releasecommon.RelSvcOperatorURL},
+				{Name: "revision", Value: releasecommon.RelSvcOperatorRevision},
+				{Name: "pathInRepo", Value: "e2e-tests/pipelines/retry-e2e-managed.yaml"},
 			},
 		}, &runtime.RawExtension{
 			Raw: data,
-		}, nil, nil, nil)
+		}, &maxRetries, nil, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlanAdmission %s: %v", constants.TargetReleasePlanAdmissionName, err)
 
-		_, err = fw.AsKubeAdmin.CommonController.CreateRole("role-release-service-account", managedNamespace, map[string][]string{
-			"apiGroupsList": {""},
-			"roleResources": {"secrets"},
-			"roleVerbs":     {"get", "list", "watch"},
-		})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create Role: %v", err)
-
-		_, err = fw.AsKubeAdmin.CommonController.CreateRoleBinding("role-release-service-account-binding", managedNamespace, "ServiceAccount", constants.ReleasePipelineServiceAccountDefault, managedNamespace, "Role", "role-release-service-account", "rbac.authorization.k8s.io")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create RoleBinding: %v", err)
-
-		_, err = fw.AsKubeAdmin.TektonController.CreatePVCInAccessMode(constants.ReleasePvcName, managedNamespace, corev1.ReadWriteOnce)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create PVC %s: %v", constants.ReleasePvcName, err)
-
-		_, err = fw.AsKubeAdmin.IntegrationController.CreateSnapshotWithImageSource(constants.ComponentName, constants.ApplicationNameDefault, devNamespace, sampleImage, gitSourceURL, gitSourceRevision, "", "", "", "")
+		_, err = fw.AsKubeAdmin.IntegrationController.CreateSnapshotWithImageSource(constants.ComponentName, constants.ApplicationNameDefault, devNamespace, sampleImage, constants.GitSourceComponentUrl, gitSourceRevision, "", "", "", "")
 		gomega.Expect(err).ShouldNot(gomega.HaveOccurred(), "failed to create Snapshot: %v", err)
 	})
 
@@ -157,38 +173,21 @@ var _ = ginkgo.Describe("Release service happy path", releasecommon.LabelHappyPa
 			}, constants.ReleaseCreationTimeout, constants.DefaultInterval).Should(gomega.Succeed())
 		})
 
-		ginkgo.It("verifies that Release PipelineRun is triggered", func() {
-			gomega.Expect(fw.AsKubeAdmin.TektonController.WaitForReleasePipelineToBeFinished(releaseCR, managedNamespace)).To(gomega.Succeed(), "pipelinerun for release %s/%s failed", releaseCR.GetNamespace(), releaseCR.GetName())
+		ginkgo.It("verifies that a managed PipelineRun is triggered", func() {
+			gomega.Expect(fw.AsKubeAdmin.TektonController.WaitForPipelineRunToStart(releaseCR, managedNamespace)).To(gomega.Succeed())
 		})
 
-		ginkgo.It("verifies that Enterprise Contract Task has succeeded in the Release PipelineRun", func() {
-			gomega.Eventually(func() error {
-				pr, err := fw.AsKubeAdmin.TektonController.GetPipelineRunInNamespace(managedNamespace, releaseCR.GetName(), releaseCR.GetNamespace())
-				if err != nil {
-					return fmt.Errorf("failed to get PipelineRun: %w", err)
-				}
-				ecTaskRunStatus, err := fw.AsKubeAdmin.TektonController.GetTaskRunStatus(fw.AsKubeAdmin.CommonController.KubeRest(), pr, verifyConformaTaskName)
-				if err != nil {
-					return fmt.Errorf("failed to get TaskRun status for %s: %w", verifyConformaTaskName, err)
-				}
-				if !framework.DidTaskSucceed(ecTaskRunStatus) {
-					return fmt.Errorf("task %s has not succeeded yet", verifyConformaTaskName)
-				}
-				return nil
-			}, constants.ReleasePipelineRunCompletionTimeout, constants.DefaultInterval).Should(gomega.Succeed())
+		ginkgo.It("verifies the Release is marked as failed", func() {
+			releaseCR, err = fw.AsKubeAdmin.ReleaseController.WaitForRelease(releaseCR)
+			gomega.Expect(err).To(gomega.HaveOccurred(), "expected release %s/%s to fail", releaseCR.GetNamespace(), releaseCR.GetName())
 		})
 
-		ginkgo.It("verifies that a Release is marked as succeeded.", func() {
-			gomega.Eventually(func() error {
-				releaseCR, err = fw.AsKubeAdmin.ReleaseController.GetFirstReleaseInNamespace(devNamespace)
-				if err != nil {
-					return fmt.Errorf("failed to get Release: %w", err)
-				}
-				if !releaseCR.IsReleased() {
-					return fmt.Errorf("release %s is not marked as released yet", releaseCR.Name)
-				}
-				return nil
-			}, constants.ReleaseCreationTimeout, constants.DefaultInterval).Should(gomega.Succeed())
+		ginkgo.It("verifies the Release failed with a single OOM attempt and no retries", func() {
+			gomega.Expect(framework.GetManagedPipelineRetryCount(releaseCR)).To(gomega.Equal(0), "expected no retries when disabled by the production tag, even with the RPA MaxRetries override set to 4")
+
+			attempts := releaseCR.Status.ManagedPipelineAttempts
+			gomega.Expect(attempts).NotTo(gomega.BeEmpty(), "expected a single managed pipeline attempt to be present")
+			gomega.Expect(attempts[0].FailureReason).To(gomega.Equal("OOMKill"), "expected OOMKill failure reason, got %s", attempts[0].FailureReason)
 		})
 	})
 })

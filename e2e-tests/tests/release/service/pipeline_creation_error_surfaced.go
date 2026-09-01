@@ -124,7 +124,7 @@ var _ = ginkgo.Describe("Managed PipelineRun creation denial is surfaced on Rele
 			},
 		}, &runtime.RawExtension{
 			Raw: data,
-		})
+		}, nil, nil, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlanAdmission %s: %v", constants.TargetReleasePlanAdmissionName, err)
 
 		_, err = fw.AsKubeAdmin.CommonController.CreateRole("role-release-service-account", managedNamespace, map[string][]string{

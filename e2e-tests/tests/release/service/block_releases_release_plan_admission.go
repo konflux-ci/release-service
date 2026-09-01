@@ -66,7 +66,7 @@ var _ = ginkgo.Describe("Release CR fails when block-releases true in ReleasePla
 				{Name: "revision", Value: releasecommon.RelSvcCatalogRevision},
 				{Name: "pathInRepo", Value: "pipelines/managed/e2e/e2e.yaml"},
 			},
-		}, nil)
+		}, nil, nil, nil, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlanAdmission %s with block-releases=true", destinationReleasePlanAdmissionName)
 
 		_, err = fw.AsKubeAdmin.ReleaseController.CreateRelease(releaseName, devNamespace, snapshotName, constants.SourceReleasePlanName)

@@ -2,15 +2,20 @@ package framework
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	releaseApi "github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/e2e-tests/pkg/constants"
 	"github.com/konflux-ci/release-service/loader"
 	releaseMetadata "github.com/konflux-ci/release-service/metadata"
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
@@ -81,6 +86,41 @@ func (r *ReleaseController) GetFirstReleaseInNamespace(namespace string) (*relea
 	return &releaseList.Items[0], nil
 }
 
+// WaitForRelease polls until the Release's "Released" condition shows it has finished.
+// Returns an error if the release failed.
+func (r *ReleaseController) WaitForRelease(release *releaseApi.Release) (*releaseApi.Release, error) {
+	current := release
+	err := wait.PollUntilContextTimeout(context.Background(), constants.PipelineRunPollingInterval, constants.ReleasePipelineRunCompletionTimeout, true, func(ctx context.Context) (bool, error) {
+		fetched, getErr := r.GetRelease(release.Name, release.Namespace)
+		if getErr != nil {
+			return false, nil
+		}
+		current = fetched
+
+		condition := meta.FindStatusCondition(current.Status.Conditions, "Released")
+		if condition == nil {
+			return false, nil
+		}
+		if condition.Status == metav1.ConditionTrue {
+			return true, nil
+		}
+		if condition.Status == metav1.ConditionFalse && condition.Reason != "Progressing" {
+			return false, fmt.Errorf("release %s/%s failed: %s", current.Namespace, current.Name, condition.Message)
+		}
+		return false, nil
+	})
+	return current, err
+}
+
+// GetManagedPipelineRetryCount returns the number of retries performed for the managed pipeline
+// (attempts minus the initial run) same as main project code.
+func GetManagedPipelineRetryCount(release *releaseApi.Release) int {
+	if count := len(release.Status.ManagedPipelineAttempts) - 1; count > 0 {
+		return count
+	}
+	return 0
+}
+
 // CreateReleasePipelineRoleBindingForServiceAccount creates a RoleBinding for the release pipeline SA.
 func (r *ReleaseController) CreateReleasePipelineRoleBindingForServiceAccount(namespace string, serviceAccount *corev1.ServiceAccount) (*rbacv1.RoleBinding, error) {
 	rb := &rbacv1.RoleBinding{
@@ -106,6 +146,35 @@ func (r *ReleaseController) CreateReleasePipelineRoleBindingForServiceAccount(na
 		return nil, err
 	}
 	return rb, nil
+}
+
+// =============================================================================
+// ReleaseServiceConfig Operations
+// =============================================================================
+
+// CreateReleaseServiceConfig creates a ReleaseServiceConfig.
+func (r *ReleaseController) CreateReleaseServiceConfig(name, namespace string, retryablePipelines []releaseApi.RetryablePipeline) error {
+	rsc := &releaseApi.ReleaseServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: releaseApi.ReleaseServiceConfigSpec{
+			RetryablePipelines: retryablePipelines,
+		},
+	}
+	return r.kubeClient.Create(context.Background(), rsc)
+}
+
+// DeleteReleaseServiceConfig deletes a ReleaseServiceConfig.
+func (r *ReleaseController) DeleteReleaseServiceConfig(name, namespace string) error {
+	rsc := &releaseApi.ReleaseServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	return r.kubeClient.Delete(context.Background(), rsc)
 }
 
 // =============================================================================
@@ -168,7 +237,7 @@ func (r *ReleaseController) DeleteReleasePlan(name, namespace string, wait bool)
 // =============================================================================
 
 // CreateReleasePlanAdmission creates a ReleasePlanAdmission.
-func (r *ReleaseController) CreateReleasePlanAdmission(name, namespace, environment, origin, policy, serviceAccount string, applications []string, blockReleases bool, pipelineRef *tektonutils.PipelineRef, data *runtime.RawExtension) (*releaseApi.ReleasePlanAdmission, error) {
+func (r *ReleaseController) CreateReleasePlanAdmission(name, namespace, environment, origin, policy, serviceAccount string, applications []string, blockReleases bool, pipelineRef *tektonutils.PipelineRef, data *runtime.RawExtension, maxRetries *int, taskRunSpecs []tektonv1.PipelineTaskRunSpec, timeouts *tektonv1.TimeoutFields) (*releaseApi.ReleasePlanAdmission, error) {
 	rpa := &releaseApi.ReleasePlanAdmission{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -184,9 +253,15 @@ func (r *ReleaseController) CreateReleasePlanAdmission(name, namespace, environm
 			Pipeline: &tektonutils.Pipeline{
 				PipelineRef:        *pipelineRef,
 				ServiceAccountName: serviceAccount,
+				MaxRetries:         maxRetries,
+				TaskRunSpecs:       taskRunSpecs,
 			},
 			Data: data,
 		},
+	}
+
+	if timeouts != nil {
+		rpa.Spec.Pipeline.Timeouts = *timeouts
 	}
 
 	err := r.kubeClient.Create(context.Background(), rpa)

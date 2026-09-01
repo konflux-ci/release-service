@@ -98,14 +98,36 @@ func ApplyTaskTimeoutMitigation(current *metav1.Duration, pipelineTimeouts *tekt
 	return &metav1.Duration{Duration: newTaskTimeout}, adjustedTimeouts
 }
 
-// ApplyPipelineTimeoutMitigation adds the increment to the pipeline timeout, capping at MaxTimeout.
+// ApplyPipelineTimeoutMitigation adds the increment to the pipeline and tasks timeout, capping at MaxTimeout.
+// Both timeouts share the same MaxTimeout, so a tasks timeout that started lower than the pipeline
+// timeout can end up capped to the same value once both exceed it.
 func ApplyPipelineTimeoutMitigation(current *tektonv1.TimeoutFields, mitigation *v1alpha1.TimeoutIncrement) *tektonv1.TimeoutFields {
 	if mitigation == nil {
 		return current
 	}
 	adjustedTimeouts := copyTimeoutFields(current)
+
 	newPipelineTimeout := addCappedDuration(adjustedTimeouts.Pipeline, mitigation)
 	adjustedTimeouts.Pipeline = &metav1.Duration{Duration: newPipelineTimeout}
+
+	// PipelineRunTimeout fires for both the pipeline timeout and the tasks timeout, so bump tasks
+	// too when it was already set. Leave it unset otherwise.
+	if adjustedTimeouts.Tasks != nil {
+		adjustedTimeouts.Tasks = &metav1.Duration{Duration: addCappedDuration(adjustedTimeouts.Tasks, mitigation)}
+	}
+
+	// Tekton requires pipeline greater than or equal to tasks plus finally (both 0 when not set).
+	// If the capped pipeline no longer satisfies this, extend it by the difference.
+	var tasksDuration, finallyDuration time.Duration
+	if adjustedTimeouts.Tasks != nil {
+		tasksDuration = adjustedTimeouts.Tasks.Duration
+	}
+	if adjustedTimeouts.Finally != nil {
+		finallyDuration = adjustedTimeouts.Finally.Duration
+	}
+	if difference := (tasksDuration + finallyDuration) - adjustedTimeouts.Pipeline.Duration; difference > 0 {
+		adjustedTimeouts.Pipeline.Duration += difference
+	}
 
 	return adjustedTimeouts
 }

@@ -5433,7 +5433,7 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(appliedMitigation.TaskTimeout).To(Equal("20m0s"))
 		})
 
-		It("should bump the pipeline timeout for a PipelineRunTimeout failure", func() {
+		It("should bump the pipeline and tasks timeout for a PipelineRunTimeout failure", func() {
 			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{
 				PipelineRun:   "default/pr",
 				Status:        v1alpha1.AttemptFailedReason,
@@ -5472,10 +5472,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
 			_, timeouts, appliedMitigation := adapter.computeRetryOverrides(resources)
 			Expect(timeouts.Pipeline.Duration).To(Equal(90 * time.Minute))
-			Expect(timeouts.Tasks.Duration).To(Equal(45 * time.Minute))
+			Expect(timeouts.Tasks.Duration).To(Equal(75 * time.Minute))
 			Expect(appliedMitigation).NotTo(BeNil())
 			Expect(appliedMitigation.PipelinesTimeout).To(Equal("1h30m0s"))
-			Expect(appliedMitigation.TasksTimeout).To(Equal("45m0s"))
+			Expect(appliedMitigation.TasksTimeout).To(Equal("1h15m0s"))
 		})
 
 		It("returns base specs when OOMKill mitigation is not configured", func() {

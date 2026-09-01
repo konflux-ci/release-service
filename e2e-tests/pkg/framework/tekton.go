@@ -152,6 +152,25 @@ func (t *TektonController) GetPipelineRunInNamespace(namespace, releaseName, rel
 	return nil, fmt.Errorf("no pipelinerun found for release %s/%s in namespace %s", releaseNamespace, releaseName, namespace)
 }
 
+// WaitForPipelineRunToStart waits until a PipelineRun for the given release appears in managedNamespace.
+func (t *TektonController) WaitForPipelineRunToStart(release *releaseApi.Release, managedNamespace string) error {
+	return wait.PollUntilContextTimeout(context.Background(), constants.PipelineRunPollingInterval, constants.ReleaseCreationTimeout, true, func(ctx context.Context) (done bool, err error) {
+		prs, listErr := t.GetAllPipelineRunsInNamespace(managedNamespace)
+		if listErr != nil {
+			return false, nil
+		}
+		for i := range prs.Items {
+			pr := &prs.Items[i]
+			if pr.Labels != nil &&
+				pr.Labels[metadata.ReleaseNameLabel] == release.GetName() &&
+				pr.Labels[metadata.ReleaseNamespaceLabel] == release.GetNamespace() {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+}
+
 // WaitForReleasePipelineToBeFinished waits for a release pipeline to finish.
 // Uses knative apis.ConditionSucceeded for condition checking (same as main project).
 func (t *TektonController) WaitForReleasePipelineToBeFinished(release *releaseApi.Release, managedNamespace string) error {
