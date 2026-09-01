@@ -205,7 +205,7 @@ var _ = Describe("Mitigations", func() {
 	})
 
 	Context("ApplyPipelineTimeoutMitigation", func() {
-		It("should add the increment and preserve tasks timeout", func() {
+		It("should add the increment to both pipeline and tasks timeouts", func() {
 			current := &tektonv1.TimeoutFields{
 				Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
 				Tasks:    &metav1.Duration{Duration: 50 * time.Minute},
@@ -214,23 +214,78 @@ var _ = Describe("Mitigations", func() {
 				&v1alpha1.TimeoutIncrement{Increment: metav1.Duration{Duration: 30 * time.Minute}},
 			)
 			Expect(result.Pipeline.Duration).To(Equal(90 * time.Minute))
-			Expect(result.Tasks.Duration).To(Equal(50 * time.Minute))
+			Expect(result.Tasks.Duration).To(Equal(80 * time.Minute))
 		})
 
-		It("should cap at MaxTimeout", func() {
+		It("should leave tasks nil when it wasn't already set", func() {
+			result := retry.ApplyPipelineTimeoutMitigation(
+				&tektonv1.TimeoutFields{Pipeline: &metav1.Duration{Duration: 1 * time.Hour}},
+				&v1alpha1.TimeoutIncrement{Increment: metav1.Duration{Duration: 30 * time.Minute}},
+			)
+			Expect(result.Pipeline.Duration).To(Equal(90 * time.Minute))
+			Expect(result.Tasks).To(BeNil())
+		})
+
+		It("should cap both pipeline and tasks at MaxTimeout with no difference when they cap equally", func() {
 			max := metav1.Duration{Duration: 1 * time.Hour}
 			result := retry.ApplyPipelineTimeoutMitigation(
-				&tektonv1.TimeoutFields{Pipeline: &metav1.Duration{Duration: 50 * time.Minute}},
+				&tektonv1.TimeoutFields{
+					Pipeline: &metav1.Duration{Duration: 50 * time.Minute},
+					Tasks:    &metav1.Duration{Duration: 45 * time.Minute},
+				},
 				&v1alpha1.TimeoutIncrement{Increment: metav1.Duration{Duration: 30 * time.Minute}, MaxTimeout: &max},
 			)
 			Expect(result.Pipeline.Duration).To(Equal(1 * time.Hour))
+			Expect(result.Tasks.Duration).To(Equal(1 * time.Hour))
 		})
 
-		It("should use the increment when current is nil", func() {
+		It("should extend pipeline by the difference when tasks exceed the pipeline limit", func() {
+			result := retry.ApplyPipelineTimeoutMitigation(
+				&tektonv1.TimeoutFields{
+					Pipeline: &metav1.Duration{Duration: 40 * time.Minute},
+					Tasks:    &metav1.Duration{Duration: 50 * time.Minute},
+				},
+				&v1alpha1.TimeoutIncrement{Increment: metav1.Duration{Duration: 10 * time.Minute}},
+			)
+			Expect(result.Tasks.Duration).To(Equal(60 * time.Minute))
+			Expect(result.Pipeline.Duration).To(Equal(60 * time.Minute))
+		})
+
+		It("should extend pipeline by the difference when tasks plus finally exceed the pipeline limit", func() {
+			max := metav1.Duration{Duration: 1 * time.Hour}
+			result := retry.ApplyPipelineTimeoutMitigation(
+				&tektonv1.TimeoutFields{
+					Pipeline: &metav1.Duration{Duration: 50 * time.Minute},
+					Tasks:    &metav1.Duration{Duration: 45 * time.Minute},
+					Finally:  &metav1.Duration{Duration: 10 * time.Minute},
+				},
+				&v1alpha1.TimeoutIncrement{Increment: metav1.Duration{Duration: 30 * time.Minute}, MaxTimeout: &max},
+			)
+			Expect(result.Tasks.Duration).To(Equal(1 * time.Hour))
+			Expect(result.Pipeline.Duration).To(Equal(70 * time.Minute))
+			Expect(result.Finally.Duration).To(Equal(10 * time.Minute))
+		})
+
+		It("should not produce a negative timeout when finally exceeds the capped pipeline timeout", func() {
+			max := metav1.Duration{Duration: 12 * time.Minute}
+			result := retry.ApplyPipelineTimeoutMitigation(
+				&tektonv1.TimeoutFields{
+					Pipeline: &metav1.Duration{Duration: 10 * time.Minute},
+					Finally:  &metav1.Duration{Duration: 30 * time.Minute},
+				},
+				&v1alpha1.TimeoutIncrement{Increment: metav1.Duration{Duration: 5 * time.Minute}, MaxTimeout: &max},
+			)
+			Expect(result.Pipeline.Duration).To(Equal(30 * time.Minute))
+			Expect(result.Tasks).To(BeNil())
+			Expect(result.Finally.Duration).To(Equal(30 * time.Minute))
+		})
+
+		It("should bump pipeline but leave tasks nil when current is nil", func() {
 			result := retry.ApplyPipelineTimeoutMitigation(nil,
 				&v1alpha1.TimeoutIncrement{Increment: metav1.Duration{Duration: 30 * time.Minute}},
 			)
 			Expect(result.Pipeline.Duration).To(Equal(30 * time.Minute))
+			Expect(result.Tasks).To(BeNil())
 		})
 
 		It("should return current when mitigation is nil", func() {
