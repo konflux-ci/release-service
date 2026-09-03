@@ -18,3 +18,6 @@ Fixes #
 - [ ] Commit messages follow conventional format: `type(RELEASE-NNNN): description`
 - [ ] Documentation updated if needed
 - [ ] Generated manifests updated (`make manifests generate`)
+- [ ] CI passes successfully
+- [ ] Branch rebased onto target branch
+- [ ] All review comments addressed and resolved
