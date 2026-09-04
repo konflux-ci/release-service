@@ -273,6 +273,10 @@ spec:
               export QUAY_TOKEN="$(base64 -d < "${SECRETS}/quay-token")"
               export RELEASE_CATALOG_TA_QUAY_TOKEN="$(base64 -d < "${SECRETS}/release-catalog-ta-quay-token")"
 
+              # Point the retry pipeline git resolver at this PR's repo and commit
+              export RELEASE_SERVICE_OPERATOR_URL="${GIT_URL}"
+              export RELEASE_SERVICE_OPERATOR_REVISION="${GIT_REVISION}"
+
               # Set up a clean working directory
               WORK_DIR="$(mktemp -d)"
               export GOPATH="${WORK_DIR}/go"
