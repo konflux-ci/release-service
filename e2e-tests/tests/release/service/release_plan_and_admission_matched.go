@@ -75,7 +75,7 @@ var _ = ginkgo.Describe("ReleasePlan and ReleasePlanAdmission match", releasecom
 					{Name: "revision", Value: releasecommon.RelSvcCatalogRevision},
 					{Name: "pathInRepo", Value: "pipelines/managed/e2e/e2e.yaml"},
 				},
-			}, nil)
+			}, nil, nil, nil, nil)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlanAdmission %s in %s", constants.TargetReleasePlanAdmissionName, managedNamespace)
 		})
 

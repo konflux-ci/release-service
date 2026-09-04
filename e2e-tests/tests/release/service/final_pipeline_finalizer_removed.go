@@ -157,7 +157,7 @@ func setupFinalPipelineFinalizerSuite() {
 				{Name: "revision", Value: pipelineExamplesRev},
 				{Name: "pathInRepo", Value: m.pipelinePath},
 			},
-		}, &runtime.RawExtension{Raw: data})
+		}, &runtime.RawExtension{Raw: data}, nil, nil, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlanAdmission %s: %v", m.rpaName, err)
 	}
 
