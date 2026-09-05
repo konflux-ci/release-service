@@ -33,8 +33,8 @@ github.com/cloudevents/sdk-go/v2 v2.16.2 h1:ZYDFrYke4FD+jM8TZTJJO6JhKHzOQl2oqpFK
 github.com/cloudevents/sdk-go/v2 v2.16.2/go.mod h1:laOcGImm4nVJEU+PHnUrKL56CKmRL65RlQF0kRmW/kg=
 github.com/cloudflare/circl v1.6.5 h1:O64F26HEqNhznd/hrC5KZXVKYuKM2rx4deZDTc4ihQA=
 github.com/cloudflare/circl v1.6.5/go.mod h1:h5LNyxAc5nTue9DS5jT+48en2PSDYt3zdGnz5OstK6c=
-github.com/conforma/crds/api v0.1.11 h1:52Lb8J2uVEzLgTaUU4YABw+4r2GIO4es1vV9YkrEjZs=
-github.com/conforma/crds/api v0.1.11/go.mod h1:vaUCN54r99HME4555KRKOUPGJxBNAlX1agZ4jlGI2YA=
+github.com/conforma/crds/api v0.1.12 h1:CRalYLMr9QBK9rOalWb4inMC5QuNana4QRl5aTUF7fo=
+github.com/conforma/crds/api v0.1.12/go.mod h1:vaUCN54r99HME4555KRKOUPGJxBNAlX1agZ4jlGI2YA=
 github.com/coreos/go-semver v0.3.1 h1:yi21YpKnrx1gt5R+la8n5WgS0kCrsPp33dmEyHReZr4=
 github.com/coreos/go-semver v0.3.1/go.mod h1:irMmmIw/7yzSRPWryHsK7EYSg09caPQL03VsM8rvUec=
 github.com/coreos/go-systemd/v22 v22.5.0 h1:RrqgGjYQKalulkV8NGVIfkXQf6YYmOyiJKk8iXXhfZs=
