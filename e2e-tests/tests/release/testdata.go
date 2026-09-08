@@ -30,6 +30,6 @@ var ManagednamespaceSecret = []corev1.ObjectReference{
 
 // Pipeline configuration variables (loaded from environment at runtime).
 var (
-	RelSvcCatalogURL      string = utils.GetEnv("RELEASE_SERVICE_CATALOG_URL", "https://github.com/konflux-ci/release-service-catalog")
-	RelSvcCatalogRevision string = utils.GetEnv("RELEASE_SERVICE_CATALOG_REVISION", "development")
+	RelSvcCatalogURL      string = utils.GetEnv("RELEASE_SERVICE_CATALOG_URL", "https://github.com/joejstuart/release-service-catalog")
+	RelSvcCatalogRevision string = utils.GetEnv("RELEASE_SERVICE_CATALOG_REVISION", "EC-1794")
 )
