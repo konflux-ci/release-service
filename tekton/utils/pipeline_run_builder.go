@@ -242,15 +242,15 @@ func (b *PipelineRunBuilder) WithPipelineRef(pipelineRef *tektonv1.PipelineRef) 
 
 		resolvedSHA, err := git.ResolveBranchToSHA(gitURL, revision)
 		if err != nil {
-			// RELEASE-2681: never fall back on rate limits — that was passing branch names as SHAs.
-			// Also fail when a GitHub token is configured but resolution still fails (bad/expired token).
-			failHard := git.IsRateLimitError(err) || (git.IsGitHubURL(gitURL) && git.HasGitHubToken())
+			isAuthError := git.IsAuthenticationError(err)
+			// Hard-fail only on a rate limit, or an explicit auth rejection with a
+			// GitHub token configured. Any other resolution failure falls back to
+			// the branch name and lets Tekton's own git clone resolve it.
+			failHard := git.IsRateLimitError(err) ||
+				(isAuthError && git.IsGitHubURL(gitURL) && git.HasGitHubToken())
 			canFallback := !failHard &&
-				(strings.Contains(err.Error(), "authentication required") ||
-					strings.Contains(err.Error(), "remote repository access failed"))
+				(isAuthError || strings.Contains(err.Error(), "remote repository access failed"))
 			if canFallback {
-				// RELEASE-1720: private repos / environments where go-git cannot list refs (e.g. kind
-				// clusters with custom TLS CAs) may still resolve via Tekton's git clone.
 				pipelineRunBuilderLog.Info("could not resolve git revision to SHA, using branch name",
 					"url", git.RedactURLCredentials(gitURL), "revision", revision, "error", err.Error())
 				resolvedSHA = revision
