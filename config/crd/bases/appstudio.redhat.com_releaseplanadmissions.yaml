@@ -1114,6 +1114,12 @@ spec:
                 description: RetryInfo contains information about retry configuration
                   for this ReleasePlanAdmission
                 properties:
+                  disableTags:
+                    description: DisableTags is the list of tags from the ReleaseServiceConfig
+                      that disable retries on match.
+                    items:
+                      type: string
+                    type: array
                   enabled:
                     description: Enabled indicates whether retries are enabled for
                       this RPA's pipeline

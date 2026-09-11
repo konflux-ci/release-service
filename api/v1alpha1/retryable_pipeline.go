@@ -43,8 +43,8 @@ type RetryPolicy struct {
 
 // DisableConditions defines conditions that disable automatic retries.
 type DisableConditions struct {
-	// Tags is a list of values which disable retries when present in the ReleasePlanAdmission
-	// mapping data.
+	// Tags is a list of values which disable retries when present in the ReleasePlan or
+	// ReleasePlanAdmission mapping data.
 	// +optional
 	Tags []string `json:"tags,omitempty"`
 }

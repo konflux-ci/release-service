@@ -95,6 +95,7 @@ make test-e2e LABEL=negManagedPipelineRunCreationDenied
 | `managed-pipeline-taskrunspecs-oom-retry` | OOM failure on a task whose memory limit is set via RPA `TaskRunSpecs` is retried with the mitigation applied to the overridden limit |
 | `managed-pipeline-retry-final-pipeline-ordering` | Verifies that the final pipeline does not start until all managed pipeline retries have completed in a task-timeout retry scenario |
 | `managed-pipeline-disabled-by-tag-no-retry` | OOM failure is not retried when the RPA mapping data carries a tag matched by the RSC `RetryPolicy.DisableOn.Tags` |
+| `managed-pipeline-disabled-by-release-tag-no-retry` | OOM failure is not retried when the Release CR data carries unresolved template variable tags e.g. `{{ release_timestamp }}`, `v{{ incrementer }}` |
 | `managed-pipeline-retry-exhausted` | Repeated OOM failures exhaust all configured retries (mitigation capped below the OOM threshold), and the Release ultimately fails |
 | `final` | Final pipeline execution and finalizer test |
 

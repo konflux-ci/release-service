@@ -404,7 +404,7 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.releasePlanAdmission.Status.RetryInfo).ToNot(BeNil())
 			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Enabled).To(BeFalse())
-			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Reason).To(Equal("disabled by tag: {{ release_timestamp }}"))
+			Expect(adapter.releasePlanAdmission.Status.RetryInfo.Reason).To(Equal("disabled by ReleasePlan or ReleasePlanAdmission tag(s): {{ release_timestamp }}"))
 		})
 
 		It("should copy Mitigations from RSC to RetryInfo", func() {

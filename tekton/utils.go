@@ -230,9 +230,8 @@ func GetPipelineRunTimeouts(pipelineRun *tektonv1.PipelineRun) *tektonv1.Timeout
 }
 
 // GetTaskRunTimeout returns the timeout for a task by checking PipelineRun
-// per task overrides first, then the matching TaskRun timeout, then the global
-// tasks timeout from the PipelineRun. Returns nil if no timeout is
-// configured at any level.
+// per task overrides first, then the matching TaskRun timeout.
+// Returns nil if no timeout is configured at any level.
 func GetTaskRunTimeout(pipelineRun *tektonv1.PipelineRun, taskRun *tektonv1.TaskRun, taskName string) *metav1.Duration {
 	// Check per task timeout override from the PipelineRun TaskRunSpecs.
 	if pipelineRun != nil {
@@ -246,11 +245,6 @@ func GetTaskRunTimeout(pipelineRun *tektonv1.PipelineRun, taskRun *tektonv1.Task
 	// No per task override. Check the TaskRun timeout which Tekton sets from the pipeline spec.
 	if taskRun != nil && taskRun.Spec.Timeout != nil {
 		return taskRun.Spec.Timeout
-	}
-
-	// Fall back to the PipelineRun global tasks timeout.
-	if pipelineRun != nil && pipelineRun.Spec.Timeouts != nil {
-		return pipelineRun.Spec.Timeouts.Tasks
 	}
 
 	return nil

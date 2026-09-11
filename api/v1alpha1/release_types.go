@@ -241,6 +241,10 @@ type PipelineAttempt struct {
 	// +optional
 	SuccessfulTasks int `json:"successfulTasks,omitempty"`
 
+	// RetryDisabledReason is the reason retries were not performed for this attempt
+	// +optional
+	RetryDisabledReason string `json:"retryDisabledReason,omitempty"`
+
 	// Mitigation defines the mitigated values applied when retrying this attempt
 	// +optional
 	Mitigation *AppliedMitigation `json:"mitigation,omitempty"`
@@ -809,6 +813,15 @@ func (r *Release) MarkCurrentManagedPipelineAttemptFailed(message, failureReason
 		r.Status.Target,
 		metadata.ManagedPipelineType.String(),
 	)
+}
+
+// MarkCurrentManagedPipelineAttemptRetryDisabled records the reason retries were skipped for the current attempt.
+func (r *Release) MarkCurrentManagedPipelineAttemptRetryDisabled(reason string) {
+	attempt := r.GetCurrentManagedPipelineAttempt()
+	if attempt == nil {
+		return
+	}
+	attempt.RetryDisabledReason = reason
 }
 
 // MarkTenantCollectorsPipelineProcessingFailed marks the Release Tenant Collectors Pipeline processing as failed.
