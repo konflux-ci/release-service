@@ -100,6 +100,10 @@ type RetryInfo struct {
 	// +optional
 	Mitigations *Mitigations `json:"mitigations,omitempty"`
 
+	// DisableTags is the list of tags from the ReleaseServiceConfig that disable retries on match.
+	// +optional
+	DisableTags []string `json:"disableTags,omitempty"`
+
 	// Reason explains why retries are enabled or disabled
 	// Examples: "disabled due to tag: production", "enabled with policy", "no matching pipeline"
 	Reason string `json:"reason"`
@@ -146,6 +150,14 @@ func (rpa *ReleasePlanAdmission) GetMitigations() *Mitigations {
 		return nil
 	}
 	return rpa.Status.RetryInfo.Mitigations
+}
+
+// GetRetryDisableTags returns the disable tags from RetryInfo or nil if not configured.
+func (rpa *ReleasePlanAdmission) GetRetryDisableTags() []string {
+	if rpa.Status.RetryInfo == nil {
+		return nil
+	}
+	return rpa.Status.RetryInfo.DisableTags
 }
 
 // MatchesReleasePlan returns true if the given name is in applications or componentGroups.

@@ -2742,6 +2742,85 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.IsFailed()).To(BeTrue())
 			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
 		})
+
+		It("should finalize the failure when retries are disabled by release data tags", func() {
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+			adapter.release.MarkCurrentManagedPipelineAttemptFailed("oom", v1alpha1.AttemptFailureOOMKillReason, "", "", 0)
+			adapter.release.MarkReleasing("")
+
+			// Set a tag on the Release that matches the disable condition
+			releaseData, _ := json.Marshal(map[string]interface{}{
+				"mapping": map[string]interface{}{
+					"defaults": map[string]interface{}{
+						"tags": []string{"production"},
+					},
+				},
+			})
+			adapter.release.Spec.Data = &runtime.RawExtension{Raw: releaseData}
+
+			maxRetries := 3
+			retryRpa := releasePlanAdmission.DeepCopy()
+			retryRpa.Status.RetryInfo = &v1alpha1.RetryInfo{
+				Enabled:     true,
+				MaxRetries:  &maxRetries,
+				DisableTags: []string{"production"},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   retryRpa,
+				},
+			})
+
+			result, err := adapter.EnsureManagedPipelineProcessingIsCompleted()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.GetCurrentManagedPipelineAttempt().RetryDisabledReason).To(ContainSubstring("production"))
+		})
+
+		It("should not set the failure to a release tag when the attempt was not retriable to begin with", func() {
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+			adapter.release.MarkCurrentManagedPipelineAttemptFailed("err", v1alpha1.AttemptFailureErrorReason, "", "", 0)
+			adapter.release.MarkReleasing("")
+			Expect(adapter.client.Status().Update(adapter.ctx, adapter.release)).To(Succeed())
+
+			// Set a tag on the Release that matches the disable condition
+			releaseData, _ := json.Marshal(map[string]interface{}{
+				"mapping": map[string]interface{}{
+					"defaults": map[string]interface{}{
+						"tags": []string{"production"},
+					},
+				},
+			})
+			adapter.release.Spec.Data = &runtime.RawExtension{Raw: releaseData}
+
+			maxRetries := 3
+			retryRpa := releasePlanAdmission.DeepCopy()
+			retryRpa.Status.RetryInfo = &v1alpha1.RetryInfo{
+				Enabled:     true,
+				MaxRetries:  &maxRetries,
+				DisableTags: []string{"production"},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource:   retryRpa,
+				},
+			})
+
+			result, err := adapter.EnsureManagedPipelineProcessingIsCompleted()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.GetCurrentManagedPipelineAttempt().RetryDisabledReason).To(BeEmpty())
+		})
 	})
 
 	When("EnsureFinalPipelineProcessingIsTracked is called", func() {
@@ -5433,6 +5512,48 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(appliedMitigation.TaskTimeout).To(Equal("20m0s"))
 		})
 
+		It("should return no mitigation for a TaskRunTimeout when no task timeout was set", func() {
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{
+				PipelineRun:   "default/pr",
+				Status:        v1alpha1.AttemptFailedReason,
+				FailureReason: v1alpha1.AttemptFailureTaskRunTimeoutReason,
+				LastTask:      "publish-data",
+			}}
+
+			maxRetries := 3
+			rpa := releasePlanAdmission.DeepCopy()
+			rpa.Status.RetryInfo = &v1alpha1.RetryInfo{
+				Enabled:    true,
+				MaxRetries: &maxRetries,
+				Mitigations: &v1alpha1.Mitigations{
+					Timeout: &v1alpha1.TimeoutMitigation{
+						Task: &v1alpha1.TimeoutIncrement{
+							Increment:  metav1.Duration{Duration: 15 * time.Minute},
+							MaxTimeout: &metav1.Duration{Duration: 1 * time.Hour},
+						},
+					},
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunAttemptContextKey,
+					Resource: &tektonv1.PipelineRun{
+						Spec: tektonv1.PipelineRunSpec{
+							Timeouts: &tektonv1.TimeoutFields{
+								Tasks: &metav1.Duration{Duration: 30 * time.Minute},
+							},
+						},
+					},
+				},
+			})
+
+			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
+			specs, _, appliedMitigation := adapter.computeRetryOverrides(resources)
+			Expect(specs).To(Equal(rpa.Spec.Pipeline.TaskRunSpecs))
+			Expect(appliedMitigation).To(BeNil())
+		})
+
 		It("should bump the pipeline and tasks timeout for a PipelineRunTimeout failure", func() {
 			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{
 				PipelineRun:   "default/pr",
@@ -5476,6 +5597,51 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(appliedMitigation).NotTo(BeNil())
 			Expect(appliedMitigation.PipelinesTimeout).To(Equal("1h30m0s"))
 			Expect(appliedMitigation.TasksTimeout).To(Equal("1h15m0s"))
+		})
+
+		It("bumps only the tasks timeout for a PipelineRunTimeout failure when no pipeline timeout was set", func() {
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{
+				PipelineRun:   "default/pr",
+				Status:        v1alpha1.AttemptFailedReason,
+				FailureReason: v1alpha1.AttemptFailurePipelineRunTimeoutReason,
+			}}
+
+			maxRetries := 3
+			rpa := releasePlanAdmission.DeepCopy()
+			rpa.Status.RetryInfo = &v1alpha1.RetryInfo{
+				Enabled:    true,
+				MaxRetries: &maxRetries,
+				Mitigations: &v1alpha1.Mitigations{
+					Timeout: &v1alpha1.TimeoutMitigation{
+						Pipeline: &v1alpha1.TimeoutIncrement{
+							Increment:  metav1.Duration{Duration: 30 * time.Minute},
+							MaxTimeout: &metav1.Duration{Duration: 3 * time.Hour},
+						},
+					},
+				},
+			}
+
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunAttemptContextKey,
+					Resource: &tektonv1.PipelineRun{
+						Spec: tektonv1.PipelineRunSpec{
+							Timeouts: &tektonv1.TimeoutFields{
+								Tasks: &metav1.Duration{Duration: 45 * time.Minute},
+							},
+						},
+					},
+				},
+			})
+
+			resources := &loader.ProcessingResources{ReleasePlanAdmission: rpa}
+			specs, timeouts, appliedMitigation := adapter.computeRetryOverrides(resources)
+			Expect(specs).To(Equal(rpa.Spec.Pipeline.TaskRunSpecs))
+			Expect(timeouts.Pipeline).To(BeNil())
+			Expect(timeouts.Tasks.Duration).To(Equal(75 * time.Minute))
+			Expect(appliedMitigation).NotTo(BeNil())
+			Expect(appliedMitigation.TasksTimeout).To(Equal("1h15m0s"))
+			Expect(appliedMitigation.PipelinesTimeout).To(BeEmpty())
 		})
 
 		It("returns base specs when OOMKill mitigation is not configured", func() {

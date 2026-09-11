@@ -774,17 +774,16 @@ var _ = Describe("Utils", Ordered, func() {
 			Expect(GetTaskRunTimeout(pipelineRun, taskRun, "publish-data")).To(Equal(taskRunTimeout))
 		})
 
-		It("should fall back to global tasks timeout when no per-task or TaskRun timeout exists", func() {
-			tasksTimeout := &metav1.Duration{Duration: 90 * time.Minute}
+		It("should return nil when no per task or TaskRun timeout exists", func() {
 			pipelineRun := &tektonv1.PipelineRun{
 				Spec: tektonv1.PipelineRunSpec{
 					Timeouts: &tektonv1.TimeoutFields{
-						Tasks: tasksTimeout,
+						Tasks: &metav1.Duration{Duration: 90 * time.Minute},
 					},
 				},
 			}
 
-			Expect(GetTaskRunTimeout(pipelineRun, nil, "update-cr-status")).To(Equal(tasksTimeout))
+			Expect(GetTaskRunTimeout(pipelineRun, nil, "update-cr-status")).To(BeNil())
 		})
 
 		It("should return nil when no task level timeouts exist", func() {

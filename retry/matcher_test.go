@@ -140,15 +140,17 @@ var _ = Describe("Retry Matcher", func() {
 			matchedTag, disabled := retry.IsDisabledByTags(
 				[]string{"prod", "test"},
 				[]string{"prod"},
+				&logger,
 			)
 			Expect(disabled).To(BeTrue())
-			Expect(matchedTag).To(Equal("prod"))
+			Expect(matchedTag).To(ContainSubstring("prod"))
 		})
 
 		It("should return false if no tag matches", func() {
 			_, disabled := retry.IsDisabledByTags(
 				[]string{"staging", "test"},
 				[]string{"prod"},
+				&logger,
 			)
 			Expect(disabled).To(BeFalse())
 		})
@@ -157,8 +159,110 @@ var _ = Describe("Retry Matcher", func() {
 			_, disabled := retry.IsDisabledByTags(
 				[]string{"prod"},
 				[]string{},
+				&logger,
 			)
 			Expect(disabled).To(BeFalse())
+		})
+
+		It("should match tag with regex pattern", func() {
+			matchedTag, disabled := retry.IsDisabledByTags(
+				[]string{"v1.2.3", "release-1"},
+				[]string{"v.*"},
+				&logger,
+			)
+			Expect(disabled).To(BeTrue())
+			Expect(matchedTag).To(ContainSubstring("v1.2.3"))
+		})
+
+		It("should return all matching tags separated by comma", func() {
+			matchedTag, disabled := retry.IsDisabledByTags(
+				[]string{"v1.2.3", "v2.0.0", "release-1"},
+				[]string{"v.*"},
+				&logger,
+			)
+			Expect(disabled).To(BeTrue())
+			Expect(matchedTag).To(ContainSubstring("v1.2.3"))
+			Expect(matchedTag).To(ContainSubstring("v2.0.0"))
+			Expect(matchedTag).NotTo(ContainSubstring("release-1"))
+		})
+
+		It("should match tag with template variable pattern", func() {
+			matchedTag, disabled := retry.IsDisabledByTags(
+				[]string{"v{{ ociVersion }}", "unsafe"},
+				[]string{`v\{\{.*\}\}`},
+				&logger,
+			)
+			Expect(disabled).To(BeTrue())
+			Expect(matchedTag).To(ContainSubstring("v{{ ociVersion }}"))
+			Expect(matchedTag).NotTo(ContainSubstring("unsafe"))
+		})
+
+		It("should disable when tag is a bare template variable", func() {
+			matchedTag, disabled := retry.IsDisabledByTags(
+				[]string{"{{ incrementer }}", "safe-tag"},
+				[]string{`.*\{\{ incrementer \}\}.*`},
+				&logger,
+			)
+			Expect(disabled).To(BeTrue())
+			Expect(matchedTag).To(ContainSubstring("{{ incrementer }}"))
+		})
+
+		It("should disable when tag contains the template variable alongside another", func() {
+			matchedTag, disabled := retry.IsDisabledByTags(
+				[]string{"{{ timestamp }}-{{ incrementer }}", "safe-tag"},
+				[]string{`.*\{\{ incrementer \}\}.*`},
+				&logger,
+			)
+			Expect(disabled).To(BeTrue())
+			Expect(matchedTag).To(ContainSubstring("{{ timestamp }}-{{ incrementer }}"))
+		})
+
+		It("should not disable when tag does not contain the specific template variable", func() {
+			_, disabled := retry.IsDisabledByTags(
+				[]string{"{{ timestamp }}", "safe-tag"},
+				[]string{`.*\{\{ incrementer \}\}.*`},
+				&logger,
+			)
+			Expect(disabled).To(BeFalse())
+		})
+
+		It("should skip invalid regex and log", func() {
+			_, disabled := retry.IsDisabledByTags(
+				[]string{"prod"},
+				[]string{"[invalid(regex"},
+				&logger,
+			)
+			Expect(disabled).To(BeFalse())
+		})
+
+		It("should not duplicate a tag matched by more than one disable pattern", func() {
+			matchedTag, disabled := retry.IsDisabledByTags(
+				[]string{"v1.2.3", "release-1"},
+				[]string{"v.*", `v1\.2\.3`},
+				&logger,
+			)
+			Expect(disabled).To(BeTrue())
+			Expect(matchedTag).To(Equal("v1.2.3"))
+		})
+
+		It("should fall back to an exact match when the disable tag is not valid regex", func() {
+			matchedTag, disabled := retry.IsDisabledByTags(
+				[]string{"warning(prod)", "test"},
+				[]string{"warning(prod)"},
+				&logger,
+			)
+			Expect(disabled).To(BeTrue())
+			Expect(matchedTag).To(Equal("warning(prod)"))
+		})
+
+		It("should not duplicate a tag that appears more than once in combinedTags", func() {
+			matchedTag, disabled := retry.IsDisabledByTags(
+				[]string{"prod", "prod"},
+				[]string{"prod"},
+				&logger,
+			)
+			Expect(disabled).To(BeTrue())
+			Expect(matchedTag).To(Equal("prod"))
 		})
 	})
 
@@ -301,6 +405,116 @@ var _ = Describe("Retry Matcher", func() {
 			matched := retry.GetMatchingRetryablePipeline(nil, []v1alpha1.RetryablePipeline{}, &logger)
 			Expect(matched).To(BeNil())
 		})
+
+		It("should match bare pipeline URL against config URL with .git suffix", func() {
+			pipeline := createTestPipeline(
+				"https://github.com/org/repo",
+				"main",
+				"pipelines/release.yaml",
+			)
+
+			retryablePipelines := []v1alpha1.RetryablePipeline{
+				{
+					Url:        "https://github.com/org/repo.git",
+					Revision:   "main",
+					PathInRepo: "pipelines/release.yaml",
+					RetryPolicy: v1alpha1.RetryPolicy{
+						MaxRetries: 3,
+					},
+				},
+			}
+
+			matched := retry.GetMatchingRetryablePipeline(pipeline, retryablePipelines, &logger)
+			Expect(matched).ToNot(BeNil())
+		})
+
+		It("should match pipeline URL with .git suffix against bare config URL", func() {
+			pipeline := createTestPipeline(
+				"https://github.com/org/repo.git",
+				"main",
+				"pipelines/release.yaml",
+			)
+
+			retryablePipelines := []v1alpha1.RetryablePipeline{
+				{
+					Url:        "https://github.com/org/repo",
+					Revision:   "main",
+					PathInRepo: "pipelines/release.yaml",
+					RetryPolicy: v1alpha1.RetryPolicy{
+						MaxRetries: 3,
+					},
+				},
+			}
+
+			matched := retry.GetMatchingRetryablePipeline(pipeline, retryablePipelines, &logger)
+			Expect(matched).ToNot(BeNil())
+		})
+
+		It("should match pipeline URL without .git suffix against bare config URL", func() {
+			pipeline := createTestPipeline(
+				"https://github.com/org/repo",
+				"main",
+				"pipelines/release.yaml",
+			)
+
+			retryablePipelines := []v1alpha1.RetryablePipeline{
+				{
+					Url:        "https://github.com/org/repo",
+					Revision:   "main",
+					PathInRepo: "pipelines/release.yaml",
+					RetryPolicy: v1alpha1.RetryPolicy{
+						MaxRetries: 3,
+					},
+				},
+			}
+
+			matched := retry.GetMatchingRetryablePipeline(pipeline, retryablePipelines, &logger)
+			Expect(matched).ToNot(BeNil())
+		})
+
+		It("should match pipeline URL with .git suffix against wildcard config URL", func() {
+			pipeline := createTestPipeline(
+				"https://github.com/org/repo.git",
+				"main",
+				"pipelines/release.yaml",
+			)
+
+			retryablePipelines := []v1alpha1.RetryablePipeline{
+				{
+					Url:        ".*",
+					Revision:   ".*",
+					PathInRepo: "pipelines/release.yaml",
+					RetryPolicy: v1alpha1.RetryPolicy{
+						MaxRetries: 3,
+					},
+				},
+			}
+
+			matched := retry.GetMatchingRetryablePipeline(pipeline, retryablePipelines, &logger)
+			Expect(matched).ToNot(BeNil())
+		})
+
+		It("should match a config URL with an escaped .git suffix without corrupting the regex", func() {
+			pipeline := createTestPipeline(
+				"https://github.com/org/repo",
+				"main",
+				"pipelines/release.yaml",
+			)
+
+			retryablePipelines := []v1alpha1.RetryablePipeline{
+				{
+					Url:        `https://github\.com/org/repo\.git`,
+					Revision:   "main",
+					PathInRepo: "pipelines/release.yaml",
+					RetryPolicy: v1alpha1.RetryPolicy{
+						MaxRetries: 3,
+					},
+				},
+			}
+
+			matched := retry.GetMatchingRetryablePipeline(pipeline, retryablePipelines, &logger)
+			Expect(matched).ToNot(BeNil())
+		})
 	})
 
 	Context("DetermineRetryInfo", func() {
@@ -423,7 +637,7 @@ var _ = Describe("Retry Matcher", func() {
 
 			retryInfo := retry.DetermineRetryInfo(rpa, &v1alpha1.ReleasePlanList{}, rsc, &logger)
 			Expect(retryInfo.Enabled).To(BeFalse())
-			Expect(retryInfo.Reason).To(Equal("disabled by tag: production"))
+			Expect(retryInfo.Reason).To(Equal("disabled by ReleasePlan or ReleasePlanAdmission tag(s): production"))
 		})
 
 		It("should return disabled when RP tags match disable tags", func() {
@@ -474,7 +688,7 @@ var _ = Describe("Retry Matcher", func() {
 
 			retryInfo := retry.DetermineRetryInfo(rpa, matchedRPs, rsc, &logger)
 			Expect(retryInfo.Enabled).To(BeFalse())
-			Expect(retryInfo.Reason).To(Equal("disabled by tag: staging"))
+			Expect(retryInfo.Reason).To(Equal("disabled by ReleasePlan or ReleasePlanAdmission tag(s): staging"))
 		})
 
 		It("should return disabled when RPA pipeline MaxRetries is 0", func() {
@@ -572,6 +786,98 @@ var _ = Describe("Retry Matcher", func() {
 			retryInfo := retry.DetermineRetryInfo(rpa, &v1alpha1.ReleasePlanList{}, rsc, &logger)
 			Expect(retryInfo.Enabled).To(BeFalse())
 			Expect(retryInfo.Reason).To(Equal("pipeline not configured for retries"))
+		})
+
+		It("should populate DisableTags when retries are enabled", func() {
+			rpa := createTestRPA(
+				"https://github.com/org/repo",
+				"main",
+				"pipelines/release.yaml",
+				nil,
+			)
+
+			rsc := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/org/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: 3,
+								DisableOn: &v1alpha1.DisableConditions{
+									Tags: []string{"production", "unsafe"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			retryInfo := retry.DetermineRetryInfo(rpa, &v1alpha1.ReleasePlanList{}, rsc, &logger)
+			Expect(retryInfo.Enabled).To(BeTrue())
+			Expect(retryInfo.DisableTags).To(ConsistOf("production", "unsafe"))
+		})
+
+		It("should populate DisableTags when RPA overrides MaxRetries", func() {
+			maxRetries := 5
+			rpa := createTestRPA(
+				"https://github.com/org/repo",
+				"main",
+				"pipelines/release.yaml",
+				nil,
+			)
+			rpa.Spec.Pipeline.MaxRetries = &maxRetries
+
+			rsc := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/org/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: 3,
+								DisableOn: &v1alpha1.DisableConditions{
+									Tags: []string{"production"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			retryInfo := retry.DetermineRetryInfo(rpa, &v1alpha1.ReleasePlanList{}, rsc, &logger)
+			Expect(retryInfo.Enabled).To(BeTrue())
+			Expect(retryInfo.DisableTags).To(ConsistOf("production"))
+		})
+
+		It("should have empty DisableTags when no DisableOn is configured", func() {
+			rpa := createTestRPA(
+				"https://github.com/org/repo",
+				"main",
+				"pipelines/release.yaml",
+				nil,
+			)
+
+			rsc := &v1alpha1.ReleaseServiceConfig{
+				Spec: v1alpha1.ReleaseServiceConfigSpec{
+					RetryablePipelines: []v1alpha1.RetryablePipeline{
+						{
+							Url:        "https://github.com/org/repo",
+							Revision:   "main",
+							PathInRepo: "pipelines/release.yaml",
+							RetryPolicy: v1alpha1.RetryPolicy{
+								MaxRetries: 3,
+							},
+						},
+					},
+				},
+			}
+
+			retryInfo := retry.DetermineRetryInfo(rpa, &v1alpha1.ReleasePlanList{}, rsc, &logger)
+			Expect(retryInfo.Enabled).To(BeTrue())
+			Expect(retryInfo.DisableTags).To(BeEmpty())
 		})
 	})
 })

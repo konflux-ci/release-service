@@ -69,7 +69,7 @@ var _ = ginkgo.Describe("Release CR fails when block-releases true in ReleasePla
 		}, nil, nil, nil, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create ReleasePlanAdmission %s with block-releases=true", destinationReleasePlanAdmissionName)
 
-		_, err = fw.AsKubeAdmin.ReleaseController.CreateRelease(releaseName, devNamespace, snapshotName, constants.SourceReleasePlanName)
+		_, err = fw.AsKubeAdmin.ReleaseController.CreateRelease(releaseName, devNamespace, snapshotName, constants.SourceReleasePlanName, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to create Release %s", releaseName)
 	})
 
