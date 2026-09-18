@@ -40,7 +40,7 @@ func NewReleaseController(kubeClient *KubeClient) *ReleaseController {
 // =============================================================================
 
 // CreateRelease creates a Release.
-func (r *ReleaseController) CreateRelease(name, namespace, snapshot, releasePlan string) (*releaseApi.Release, error) {
+func (r *ReleaseController) CreateRelease(name, namespace, snapshot, releasePlan string, data *runtime.RawExtension) (*releaseApi.Release, error) {
 	release := &releaseApi.Release{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -49,6 +49,7 @@ func (r *ReleaseController) CreateRelease(name, namespace, snapshot, releasePlan
 		Spec: releaseApi.ReleaseSpec{
 			Snapshot:    snapshot,
 			ReleasePlan: releasePlan,
+			Data:        data,
 		},
 	}
 
