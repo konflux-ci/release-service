@@ -71,6 +71,18 @@ func IsRateLimitError(err error) bool {
 		strings.Contains(errStr, "403")
 }
 
+// IsAuthenticationError reports whether err is go-git's transport rejecting the
+// request's credentials: HTTP 401 ("authentication required") or HTTP 403
+// ("authorization failed"). See go-git's transport/http.NewErr.
+func IsAuthenticationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "authentication required") ||
+		strings.Contains(errStr, "authorization failed")
+}
+
 // ValidateGitResolverConfig validates the git resolver configuration parameters.
 // Returns ErrInvalidGitResolverConfig if any required parameter is empty or whitespace-only.
 func ValidateGitResolverConfig(url, revision, pathInRepo string) error {

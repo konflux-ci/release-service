@@ -557,6 +557,43 @@ var _ = Describe("PipelineRun builder", func() {
 			Expect(taskGitRevision).To(Equal("main"))
 		})
 
+		It("falls back to the branch name when a GitHub token is set but the failure is a network/TLS error, not auth or a rate limit", func() {
+			// This is the RELEASE-2681 staging regression: a restrictive egress
+			// NetworkPolicy blocked the controller from reaching GitHub at all
+			// (context deadline exceeded / TLS errors), which is not something a
+			// missing or bad token caused. With a GITHUB_TOKEN configured, the
+			// original fix hard-failed here too, which stalled every Release stuck
+			// behind that ReleasePlanAdmission. It must fall back instead.
+			original := git.ResolveBranchToSHA
+			DeferCleanup(func() { git.ResolveBranchToSHA = original })
+			GinkgoT().Setenv(git.GitHubTokenEnvVar, "some-valid-token")
+			git.ResolveBranchToSHA = func(repoURL, revision string) (string, error) {
+				return "", fmt.Errorf("remote repository access failed: Get %q: context deadline exceeded", repoURL)
+			}
+
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{Name: "url", Value: "https://github.com/org/repo.git"},
+					{Name: "revision", Value: "production"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+			pipelineRun, err := builder.Build()
+			Expect(err).NotTo(HaveOccurred())
+
+			var taskGitRevision string
+			for _, param := range pipelineRun.Spec.Params {
+				if param.Name == "taskGitRevision" {
+					taskGitRevision = param.Value.StringVal
+				}
+			}
+			Expect(taskGitRevision).To(Equal("production"))
+		})
+
 		It("fails instead of falling back to branch name on rate limit errors", func() {
 			original := git.ResolveBranchToSHA
 			DeferCleanup(func() { git.ResolveBranchToSHA = original })
@@ -605,6 +642,38 @@ var _ = Describe("PipelineRun builder", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("git resolution failed"))
 			Expect(err.Error()).To(ContainSubstring("authentication required"))
+		})
+
+		It("fails when a GitHub token is set but the request is rejected with a non-rate-limit 403", func() {
+			// go-git maps HTTP 403 to "authorization failed" (transport.ErrAuthorizationFailed),
+			// distinct from the 401 "authentication required" case. GitHub returns 403 for
+			// reasons other than rate limiting too (SSO not authorized, a fine-grained PAT
+			// lacking repo access, a blocked/suspended token). None of those responses
+			// necessarily contain "rate limit" or the literal "403" text IsRateLimitError
+			// looks for, so this must still be treated as an explicit rejection and hard-fail,
+			// not be masked by falling back to the branch name.
+			original := git.ResolveBranchToSHA
+			DeferCleanup(func() { git.ResolveBranchToSHA = original })
+			GinkgoT().Setenv(git.GitHubTokenEnvVar, "revoked-token")
+			git.ResolveBranchToSHA = func(repoURL, revision string) (string, error) {
+				return "", fmt.Errorf("remote repository access failed: authorization failed: Resource not accessible by personal access token")
+			}
+
+			builder := NewPipelineRunBuilder("testPrefix", "testNamespace")
+			pipelineRef := &PipelineRef{
+				Resolver: "git",
+				Params: []Param{
+					{Name: "url", Value: "https://github.com/org/repo.git"},
+					{Name: "revision", Value: "production"},
+					{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+				},
+			}
+
+			builder.WithPipelineRef(pipelineRef.ToTektonPipelineRef())
+			_, err := builder.Build()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("git resolution failed"))
+			Expect(err.Error()).To(ContainSubstring("authorization failed"))
 		})
 
 		It("falls back to the branch name on authentication errors when no GitHub token is set", func() {
