@@ -477,7 +477,7 @@ var _ = Describe("Predicates", Ordered, func() {
 	})
 
 	Context("When calling hasPipelineChanged", func() {
-		It("returns true when RPA pipeline changes", func() {
+		It("returns true when RPA pipeline url changes", func() {
 			rpaOld := &v1alpha1.ReleasePlanAdmission{
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
 					Pipeline: &tektonutils.Pipeline{
@@ -485,6 +485,8 @@ var _ = Describe("Predicates", Ordered, func() {
 							Resolver: "git",
 							Params: []tektonutils.Param{
 								{Name: "url", Value: "https://github.com/org/repo"},
+								{Name: "revision", Value: "main"},
+								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
 							},
 						},
 					},
@@ -497,6 +499,72 @@ var _ = Describe("Predicates", Ordered, func() {
 							Resolver: "git",
 							Params: []tektonutils.Param{
 								{Name: "url", Value: "https://github.com/org/different"},
+								{Name: "revision", Value: "main"},
+								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+							},
+						},
+					},
+				},
+			}
+			Expect(hasPipelineChanged(rpaOld, rpaNew)).To(BeTrue())
+		})
+
+		It("returns true when RPA pipeline revision changes", func() {
+			rpaOld := &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+							Params: []tektonutils.Param{
+								{Name: "url", Value: "https://github.com/org/repo"},
+								{Name: "revision", Value: "main"},
+								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+							},
+						},
+					},
+				},
+			}
+			rpaNew := &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+							Params: []tektonutils.Param{
+								{Name: "url", Value: "https://github.com/org/repo"},
+								{Name: "revision", Value: "develop"},
+								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+							},
+						},
+					},
+				},
+			}
+			Expect(hasPipelineChanged(rpaOld, rpaNew)).To(BeTrue())
+		})
+
+		It("returns true when RPA pipeline pathInRepo changes", func() {
+			rpaOld := &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+							Params: []tektonutils.Param{
+								{Name: "url", Value: "https://github.com/org/repo"},
+								{Name: "revision", Value: "main"},
+								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+							},
+						},
+					},
+				},
+			}
+			rpaNew := &v1alpha1.ReleasePlanAdmission{
+				Spec: v1alpha1.ReleasePlanAdmissionSpec{
+					Pipeline: &tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+							Params: []tektonutils.Param{
+								{Name: "url", Value: "https://github.com/org/repo"},
+								{Name: "revision", Value: "main"},
+								{Name: "pathInRepo", Value: "pipelines/different.yaml"},
 							},
 						},
 					},
@@ -627,7 +695,7 @@ var _ = Describe("Predicates", Ordered, func() {
 			Expect(instance.Generic(contextEvent)).To(BeFalse())
 		})
 
-		It("returns true when pipeline changes", func() {
+		It("returns true when RPA pipeline changes", func() {
 			rpaNew.Spec.Pipeline.PipelineRef.Resolver = "bundles"
 			contextEvent := event.UpdateEvent{
 				ObjectOld: rpaOld,
@@ -636,7 +704,7 @@ var _ = Describe("Predicates", Ordered, func() {
 			Expect(instance.Update(contextEvent)).To(BeTrue())
 		})
 
-		It("returns true when data changes", func() {
+		It("returns true when RPA data changes", func() {
 			rpaNew.Spec.Data = &runtime.RawExtension{Raw: []byte("{}")}
 			contextEvent := event.UpdateEvent{
 				ObjectOld: rpaOld,
@@ -645,10 +713,52 @@ var _ = Describe("Predicates", Ordered, func() {
 			Expect(instance.Update(contextEvent)).To(BeTrue())
 		})
 
-		It("returns false when neither pipeline nor data changes", func() {
+		It("returns false when neither RPA pipeline nor data changes", func() {
 			contextEvent := event.UpdateEvent{
 				ObjectOld: rpaOld,
 				ObjectNew: rpaNew,
+			}
+			Expect(instance.Update(contextEvent)).To(BeFalse())
+		})
+
+		It("returns true when RP pipeline changes", func() {
+			rpOld := &v1alpha1.ReleasePlan{
+				Spec: v1alpha1.ReleasePlanSpec{
+					TenantPipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "bundles",
+							},
+						},
+					},
+				},
+			}
+			rpNew := rpOld.DeepCopy()
+			rpNew.Spec.TenantPipeline.PipelineRef.Resolver = "git"
+			contextEvent := event.UpdateEvent{
+				ObjectOld: rpOld,
+				ObjectNew: rpNew,
+			}
+			Expect(instance.Update(contextEvent)).To(BeTrue())
+		})
+
+		It("returns true when RP data changes", func() {
+			rpOld := &v1alpha1.ReleasePlan{}
+			rpNew := rpOld.DeepCopy()
+			rpNew.Spec.Data = &runtime.RawExtension{Raw: []byte("{}")}
+			contextEvent := event.UpdateEvent{
+				ObjectOld: rpOld,
+				ObjectNew: rpNew,
+			}
+			Expect(instance.Update(contextEvent)).To(BeTrue())
+		})
+
+		It("returns false when neither RP pipeline nor data changes", func() {
+			rpOld := &v1alpha1.ReleasePlan{}
+			rpNew := rpOld.DeepCopy()
+			contextEvent := event.UpdateEvent{
+				ObjectOld: rpOld,
+				ObjectNew: rpNew,
 			}
 			Expect(instance.Update(contextEvent)).To(BeFalse())
 		})

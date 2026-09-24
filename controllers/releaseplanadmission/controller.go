@@ -82,7 +82,7 @@ func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Clus
 		WithOptions(sigsctrl.Options{MaxConcurrentReconciles: c.MaxConcurrentReconciles}).
 		For(&v1alpha1.ReleasePlanAdmission{}, builder.WithPredicates(predicate.Or(predicates.MatchPredicate(), predicates.RetryInfoPredicate()))).
 		Watches(&v1alpha1.ReleasePlan{}, &handlers.EnqueueRequestForMatchedResource[client.Object]{},
-			builder.WithPredicates(predicates.MatchPredicate())).
+			builder.WithPredicates(predicate.Or(predicates.MatchPredicate(), predicates.RetryInfoPredicate()))).
 		Watches(&v1alpha1.ReleaseServiceConfig{}, handler.EnqueueRequestsFromMapFunc(c.enqueueAllRPAs),
 			builder.WithPredicates(predicates.ReleaseServiceConfigPredicate())).
 		Complete(c)

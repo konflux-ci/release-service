@@ -363,6 +363,10 @@ spec:
                         managed Release PipelineRun executed as part of this attempt
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?\/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
+                    retryDisabledReason:
+                      description: RetryDisabledReason is the reason retries were
+                        not performed for this attempt
+                      type: string
                     roleBindings:
                       description: RoleBindings defines the roleBindings for accessing
                         resources during the managed pipeline attempt

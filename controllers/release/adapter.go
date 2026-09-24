@@ -845,8 +845,13 @@ func (a *adapter) EnsureManagedPipelineProcessingIsCompleted() (controller.Opera
 		return controller.RequeueWithError(err)
 	}
 
-	if a.release.IsCurrentManagedPipelineAttemptRetriable() && rpa.IsRetryEnabled() &&
-		a.release.GetManagedPipelineRetryCount() < *rpa.Status.RetryInfo.MaxRetries {
+	// Check if the Release data contains tags that disable retry attempts.
+	releaseTags := retry.ExtractTags(a.release.Spec.Data, a.logger)
+	matchedReleaseTags, disabledByRelease := retry.MatchDisablingTags(releaseTags, rpa.GetDisablingTags(), a.logger)
+
+	canRetry := a.canRetryManagedPipeline(rpa)
+
+	if canRetry && !disabledByRelease {
 		err = a.retryManagedPipeline()
 		if err != nil {
 			return pipelineCreationResult(handlePipelineCreationError(a.ctx, a.client, a.release, err,
@@ -858,6 +863,13 @@ func (a *adapter) EnsureManagedPipelineProcessingIsCompleted() (controller.Opera
 	}
 
 	patch := client.MergeFrom(a.release.DeepCopy())
+
+	if canRetry && disabledByRelease {
+		a.release.MarkCurrentManagedPipelineAttemptRetryDisabled(
+			fmt.Sprintf("disabled by Release tag(s): %s", matchedReleaseTags),
+		)
+	}
+
 	a.release.MarkManagedPipelineProcessingFailed("Release processing failed on managed pipelineRun")
 	a.release.MarkReleaseFailed("Release processing failed on managed pipelineRun")
 	return controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
@@ -1034,6 +1046,13 @@ func (a *adapter) cleanupManagedPipelineResources() error {
 	}
 
 	return nil
+}
+
+// canRetryManagedPipeline checks whether the current managed pipeline attempt failed with a retriable reason,
+// retries are enabled on the ReleasePlanAdmission and there are retries left.
+func (a *adapter) canRetryManagedPipeline(releasePlanAdmission *v1alpha1.ReleasePlanAdmission) bool {
+	return a.release.IsCurrentManagedPipelineAttemptRetriable() && releasePlanAdmission.IsRetryEnabled() &&
+		a.release.GetManagedPipelineRetryCount() < *releasePlanAdmission.Status.RetryInfo.MaxRetries
 }
 
 // retryManagedPipeline creates a new managed Release PipelineRun with mitigations applied based on
@@ -1554,13 +1573,20 @@ func (a *adapter) computeRetryOverrides(resources *loader.ProcessingResources) (
 		currentTimeout := tekton.GetTaskRunTimeout(failedPipelineRun, failedTaskRun, failedAttempt.LastTask)
 		currentTimeouts := tekton.GetPipelineRunTimeouts(failedPipelineRun)
 		newTimeout, adjustedTimeouts := retry.ApplyTaskTimeoutMitigation(currentTimeout, currentTimeouts, mitigations.Timeout.Task)
+		if newTimeout == nil {
+			break
+		}
 		appliedMitigation := &v1alpha1.AppliedMitigation{
 			TaskTimeout: newTimeout.Duration.String(),
+		}
+		timeouts := baseTimeouts
+		if adjustedTimeouts != nil {
+			timeouts = *adjustedTimeouts
 		}
 		return retry.MergeTaskRunSpecs(baseSpecs, tektonv1.PipelineTaskRunSpec{
 			PipelineTaskName: failedAttempt.LastTask,
 			Timeout:          newTimeout,
-		}), *adjustedTimeouts, appliedMitigation
+		}), timeouts, appliedMitigation
 
 	case v1alpha1.AttemptFailurePipelineRunTimeoutReason:
 		if mitigations.Timeout == nil || mitigations.Timeout.Pipeline == nil {
@@ -1568,16 +1594,17 @@ func (a *adapter) computeRetryOverrides(resources *loader.ProcessingResources) (
 		}
 		currentTimeouts := tekton.GetPipelineRunTimeouts(failedPipelineRun)
 		newTimeouts := retry.ApplyPipelineTimeoutMitigation(currentTimeouts, mitigations.Timeout.Pipeline)
-		if newTimeouts != nil {
-			appliedMitigation := &v1alpha1.AppliedMitigation{}
-			if newTimeouts.Tasks != nil {
-				appliedMitigation.TasksTimeout = newTimeouts.Tasks.Duration.String()
-			}
-			if newTimeouts.Pipeline != nil {
-				appliedMitigation.PipelinesTimeout = newTimeouts.Pipeline.Duration.String()
-			}
-			return baseSpecs, *newTimeouts, appliedMitigation
+		if newTimeouts.Pipeline == nil && newTimeouts.Tasks == nil {
+			break
 		}
+		appliedMitigation := &v1alpha1.AppliedMitigation{}
+		if newTimeouts.Pipeline != nil {
+			appliedMitigation.PipelinesTimeout = newTimeouts.Pipeline.Duration.String()
+		}
+		if newTimeouts.Tasks != nil {
+			appliedMitigation.TasksTimeout = newTimeouts.Tasks.Duration.String()
+		}
+		return baseSpecs, *newTimeouts, appliedMitigation
 	}
 
 	return baseSpecs, baseTimeouts, nil

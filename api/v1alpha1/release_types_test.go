@@ -2607,4 +2607,26 @@ var _ = Describe("Release type", func() {
 			Expect(attempt.Status).To(Equal(AttemptSucceededReason))
 		})
 	})
+
+	When("MarkCurrentManagedPipelineAttemptRetryDisabled is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing when there are no attempts", func() {
+			release.MarkCurrentManagedPipelineAttemptRetryDisabled("disabled by tag(s): production")
+			Expect(release.GetCurrentManagedPipelineAttempt()).To(BeNil())
+		})
+
+		It("should set RetryDisabledReason on the current attempt", func() {
+			release.Status.ManagedPipelineAttempts = []PipelineAttempt{{PipelineRun: "default/run-1"}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptFailed("oom", AttemptFailureOOMKillReason, "", "", 0)
+			release.MarkCurrentManagedPipelineAttemptRetryDisabled("disabled by tag(s): production")
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.RetryDisabledReason).To(Equal("disabled by tag(s): production"))
+		})
+	})
 })

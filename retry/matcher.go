@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -85,31 +86,40 @@ func DetermineRetryInfo(rpa *v1alpha1.ReleasePlanAdmission, matchedRPs *v1alpha1
 		allTags := append(rpaTags, rpTags...)
 
 		// Check if disabled by tags
-		if matchedTag, disabled := IsDisabledByTags(allTags, matchedRetryable.RetryPolicy.DisableOn.Tags); disabled {
+		if matchedTag, matched := MatchDisablingTags(allTags, matchedRetryable.RetryPolicy.DisableOn.Tags, logger); matched {
 			return &v1alpha1.RetryInfo{
 				Enabled: false,
-				Reason:  fmt.Sprintf("disabled by tag: %s", matchedTag),
+				Reason:  fmt.Sprintf("disabled by ReleasePlan or ReleasePlanAdmission tag(s): %s", matchedTag),
 			}
 		}
+	}
+
+	// Collect disabling tags from the matched pipeline so the Release adapter can check
+	// Release tags at a retry attempt.
+	var disablingTags []string
+	if matchedRetryable.RetryPolicy.DisableOn != nil {
+		disablingTags = matchedRetryable.RetryPolicy.DisableOn.Tags
 	}
 
 	// RPA can override the retry count but mitigations always come from the RSC
 	if rpa.Spec.Pipeline.MaxRetries != nil {
 		maxRetries := *rpa.Spec.Pipeline.MaxRetries
 		return &v1alpha1.RetryInfo{
-			Enabled:     true,
-			MaxRetries:  &maxRetries,
-			Mitigations: matchedRetryable.RetryPolicy.Mitigations,
-			Reason:      "retries enabled by RPA pipeline override",
+			Enabled:       true,
+			MaxRetries:    &maxRetries,
+			Mitigations:   matchedRetryable.RetryPolicy.Mitigations,
+			DisablingTags: disablingTags,
+			Reason:        "retries enabled by RPA pipeline override",
 		}
 	}
 
 	maxRetries := matchedRetryable.RetryPolicy.MaxRetries
 	return &v1alpha1.RetryInfo{
-		Enabled:     true,
-		MaxRetries:  &maxRetries,
-		Mitigations: matchedRetryable.RetryPolicy.Mitigations,
-		Reason:      "retries enabled by policy",
+		Enabled:       true,
+		MaxRetries:    &maxRetries,
+		Mitigations:   matchedRetryable.RetryPolicy.Mitigations,
+		DisablingTags: disablingTags,
+		Reason:        "retries enabled by policy",
 	}
 }
 
@@ -131,6 +141,9 @@ func GetMatchingRetryablePipeline(pipeline *tektonutils.Pipeline, retryablePipel
 		return nil
 	}
 
+	// Normalize URL to strip trailing .git so both bare and .git forms match
+	url = strings.TrimSuffix(url, ".git")
+
 	// Try to match against each retryable pipeline
 	for i, retryable := range retryablePipelines {
 		// Match URL with regex (auto-anchor to prevent substring matches)
@@ -142,7 +155,8 @@ func GetMatchingRetryablePipeline(pipeline *tektonutils.Pipeline, retryablePipel
 			}
 			continue
 		}
-		if !urlRegex.MatchString(url) {
+		// URLs can be written with or without a trailing .git, so accept both
+		if !urlRegex.MatchString(url) && !urlRegex.MatchString(url+".git") {
 			continue
 		}
 
@@ -241,15 +255,42 @@ func extractTagArray(tagsInterface interface{}) []string {
 	return result
 }
 
-// IsDisabledByTags checks if any of the combined tags match the disable tags.
-// Returns the first matching tag and true if disabled, or empty string and false if not disabled.
-func IsDisabledByTags(combinedTags, disableTags []string) (string, bool) {
-	for _, disableTag := range disableTags {
+// MatchDisablingTags checks if any of the combined tags match the disabling tags.
+// Returns the matching tags joined by commas and true if any matched, or an empty string and false if none did.
+func MatchDisablingTags(combinedTags, disablingTags []string, logger *logr.Logger) (joinedTags string, matched bool) {
+	var matchedTags []string
+	seenTags := make(map[string]bool)
+
+	addMatch := func(tag string) {
+		if !seenTags[tag] {
+			seenTags[tag] = true
+			matchedTags = append(matchedTags, tag)
+		}
+	}
+
+	for _, disablingTag := range disablingTags {
+		// Try disablingTag as a regex with auto-anchoring, to support patterns like
+		// unresolved template variables.
+		anchoredPattern := fmt.Sprintf("^(?:%s)$", disablingTag)
+		tagRegex, err := regexp.Compile(anchoredPattern)
+		if err != nil {
+			if logger != nil {
+				logger.V(1).Info("Failed to compile disabling tag regex", "tag", disablingTag, "error", err)
+			}
+		}
+
 		for _, tag := range combinedTags {
-			if tag == disableTag {
-				return tag, true
+			// Exact match too so a literal tag always matches itself, even one that
+			// isn't valid regex syntax.
+			if tag == disablingTag || (err == nil && tagRegex.MatchString(tag)) {
+				addMatch(tag)
 			}
 		}
 	}
+
+	if len(matchedTags) > 0 {
+		return strings.Join(matchedTags, ", "), true
+	}
+
 	return "", false
 }
