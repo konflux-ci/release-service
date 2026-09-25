@@ -78,6 +78,33 @@ var _ = Describe("Git References", func() {
 		})
 	})
 
+	Describe("IsAuthenticationError", func() {
+		It("should return false for nil error", func() {
+			Expect(IsAuthenticationError(nil)).To(BeFalse())
+		})
+
+		It("should return true for HTTP 401 rejections", func() {
+			err := fmt.Errorf("remote repository access failed: authentication required")
+			Expect(IsAuthenticationError(err)).To(BeTrue())
+		})
+
+		It("should return true for HTTP 403 rejections", func() {
+			err := fmt.Errorf("remote repository access failed: authorization failed: Resource not accessible by personal access token")
+			Expect(IsAuthenticationError(err)).To(BeTrue())
+		})
+
+		It("should return false for other errors", func() {
+			err := fmt.Errorf("rate limit exceeded")
+			Expect(IsAuthenticationError(err)).To(BeFalse())
+
+			err = fmt.Errorf("connection refused")
+			Expect(IsAuthenticationError(err)).To(BeFalse())
+
+			err = fmt.Errorf("tls: failed to verify certificate: x509: certificate signed by unknown authority")
+			Expect(IsAuthenticationError(err)).To(BeFalse())
+		})
+	})
+
 	Describe("ResolveBranchToSHA", func() {
 		It("should return SHA directly if input is already a SHA", func() {
 			sha := "1234567890abcdef1234567890abcdef12345678"
