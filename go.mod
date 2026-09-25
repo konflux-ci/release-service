@@ -6,7 +6,7 @@ require (
 	github.com/conforma/crds/api v0.1.22
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/go-logr/logr v1.4.4
-	github.com/konflux-ci/application-api v0.0.0-20260727123715-2999a91451c6
+	github.com/konflux-ci/application-api v0.0.0-20260922132835-de56d0a1a17b
 	github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260915131001-86f2f3cc7b5c
 	github.com/konflux-ci/integration-service v0.0.0-20260908121035-278281fdf582
 	github.com/konflux-ci/operator-toolkit v0.0.0-20260312101100-d4e398191a68
