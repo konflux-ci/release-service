@@ -179,6 +179,27 @@ var _ = Describe("ReleasePlanAdmission type", func() {
 		})
 	})
 
+	When("GetDisablingTags method is called", func() {
+		It("should return nil when RetryInfo is nil", func() {
+			rpa := &ReleasePlanAdmission{}
+			Expect(rpa.GetDisablingTags()).To(BeNil())
+		})
+
+		It("should return nil when DisablingTags is not set", func() {
+			rpa := &ReleasePlanAdmission{}
+			rpa.Status.RetryInfo = &RetryInfo{Enabled: true}
+			Expect(rpa.GetDisablingTags()).To(BeNil())
+		})
+
+		It("should return the disabling tags when configured", func() {
+			rpa := &ReleasePlanAdmission{}
+			rpa.Status.RetryInfo = &RetryInfo{
+				DisablingTags: []string{"production", "unsafe"},
+			}
+			Expect(rpa.GetDisablingTags()).To(ConsistOf("production", "unsafe"))
+		})
+	})
+
 	When("MatchesReleasePlan method is called", func() {
 		It("should return true when RP Application is in RPA Applications", func() {
 			releasePlan := &ReleasePlan{
