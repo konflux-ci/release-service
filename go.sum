@@ -428,8 +428,8 @@ k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 h1:jVkFFVfXdXP74B/zbO3hM3hpSFD0x
 k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3/go.mod h1:M2s5JB1lIYP3jzZdorPLHXIPJzt9vv2muW5a6L9DtNM=
 knative.dev/pkg v0.0.0-20260918182429-5dc1978f0042 h1:hZ4eQYaloFYHe70C6EAjGb3N9mKLPNOwhEdQmNs6v2M=
 knative.dev/pkg v0.0.0-20260918182429-5dc1978f0042/go.mod h1:zhIH5iW5e2l3rajXrpi3u31lEUTncLniK5BhtSe4DpI=
-sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0 h1:/YpDJ4vReG7ZmzSpBGxduXgywWkJU9zHubgJG03MT+Y=
-sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0/go.mod h1:tJo1aepTXyR+8Xs3sUsGBDk4Ub2AM5dPAPKJx0mpm5c=
+sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.37.0 h1:NWrO5vJ1Dw7gy2JS/iY98JEEvtmQ3lXqNwwCzzOC1gk=
+sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.37.0/go.mod h1:x/fWe7nc0XDKUqK5XZ5nqmWKdQxvouWB7OmEAsxltiI=
 sigs.k8s.io/controller-runtime v0.23.3 h1:VjB/vhoPoA9l1kEKZHBMnQF33tdCLQKJtydy4iqwZ80=
 sigs.k8s.io/controller-runtime v0.23.3/go.mod h1:B6COOxKptp+YaUT5q4l6LqUJTRpizbgf9KSRNdQGns0=
 sigs.k8s.io/json v0.0.0-20260909141634-11ed52e25bc5 h1:k9jo7ED/fsfOcz3L1P20P5tjTNtsdQNwMOG2aKzHrl8=
