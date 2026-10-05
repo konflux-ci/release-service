@@ -22,11 +22,11 @@ coverage:
         threshold: 1%
         informational: true
     # Sets the expected status for `codecov/patch` check.
-    # We set this to be only informational hence it does not cause the check to fail.
+    # Patch coverage below 85% causes the check to fail.
     patch:
       default:
-        target: 80%
-        informational: true
+        target: 85%
+        informational: false
 
 comment:
   layout: "reach,diff,flags,files,footer"
