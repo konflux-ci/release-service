@@ -4995,6 +4995,9 @@ var _ = Describe("Release adapter", Ordered, func() {
 			resources.ReleasePlanAdmission.Spec.Pipeline.Params = []tektonutils.Param{
 				{Name: "catalogGitRevision", Value: "production"},
 			}
+			defer func() {
+				resources.ReleasePlanAdmission.Spec.Pipeline.Params = nil
+			}()
 
 			var err error
 			pipelineRun, err = adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
@@ -5005,8 +5008,6 @@ var _ = Describe("Release adapter", Ordered, func() {
 				HaveField("Name", "catalogGitRevision"),
 				HaveField("Value.StringVal", "production"),
 			)))
-
-			resources.ReleasePlanAdmission.Spec.Pipeline.Params = nil
 		})
 
 		It("does not add extra params when none are set in the ReleasePlanAdmission's Pipeline", func() {
