@@ -238,16 +238,17 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 
 		It("should set RetryInfo to disabled when pipeline doesn't match any retryable pipeline", func() {
 			// Update RPA with git resolver pipeline that doesn't match
-			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.Pipeline{
-				PipelineRef: tektonutils.PipelineRef{
-					Resolver: "git",
-					Params: []tektonutils.Param{
-						{Name: "url", Value: "https://github.com/org/repo"},
-						{Name: "revision", Value: "main"},
-						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.ParameterizedPipeline{
+				Pipeline: tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "git",
+						Params: []tektonutils.Param{
+							{Name: "url", Value: "https://github.com/org/repo"},
+							{Name: "revision", Value: "main"},
+							{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+						},
 					},
-				},
-			}
+				}}
 			Expect(k8sClient.Update(ctx, adapter.releasePlanAdmission)).To(Succeed())
 
 			rsc := &v1alpha1.ReleaseServiceConfig{
@@ -286,16 +287,17 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 
 		It("should set RetryInfo to enabled when pipeline matches retryable pipeline", func() {
 			// Update RPA with git resolver pipeline
-			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.Pipeline{
-				PipelineRef: tektonutils.PipelineRef{
-					Resolver: "git",
-					Params: []tektonutils.Param{
-						{Name: "url", Value: "https://github.com/org/repo"},
-						{Name: "revision", Value: "main"},
-						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.ParameterizedPipeline{
+				Pipeline: tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "git",
+						Params: []tektonutils.Param{
+							{Name: "url", Value: "https://github.com/org/repo"},
+							{Name: "revision", Value: "main"},
+							{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+						},
 					},
-				},
-			}
+				}}
 			Expect(k8sClient.Update(ctx, adapter.releasePlanAdmission)).To(Succeed())
 
 			maxRetries := 3
@@ -337,16 +339,17 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 
 		It("should set RetryInfo to disabled when tags match disable condition", func() {
 			// Update RPA with git resolver pipeline
-			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.Pipeline{
-				PipelineRef: tektonutils.PipelineRef{
-					Resolver: "git",
-					Params: []tektonutils.Param{
-						{Name: "url", Value: "https://github.com/org/repo"},
-						{Name: "revision", Value: "main"},
-						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.ParameterizedPipeline{
+				Pipeline: tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "git",
+						Params: []tektonutils.Param{
+							{Name: "url", Value: "https://github.com/org/repo"},
+							{Name: "revision", Value: "main"},
+							{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+						},
 					},
-				},
-			}
+				}}
 			Expect(k8sClient.Update(ctx, adapter.releasePlanAdmission)).To(Succeed())
 
 			rsc := &v1alpha1.ReleaseServiceConfig{
@@ -409,16 +412,17 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 
 		It("should copy Mitigations from RSC to RetryInfo", func() {
 			// Update RPA with git resolver pipeline
-			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.Pipeline{
-				PipelineRef: tektonutils.PipelineRef{
-					Resolver: "git",
-					Params: []tektonutils.Param{
-						{Name: "url", Value: "https://github.com/org/repo"},
-						{Name: "revision", Value: "main"},
-						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.ParameterizedPipeline{
+				Pipeline: tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "git",
+						Params: []tektonutils.Param{
+							{Name: "url", Value: "https://github.com/org/repo"},
+							{Name: "revision", Value: "main"},
+							{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+						},
 					},
-				},
-			}
+				}}
 			Expect(k8sClient.Update(ctx, adapter.releasePlanAdmission)).To(Succeed())
 
 			maxRetries := 3
@@ -465,16 +469,17 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 
 		It("should not patch when RetryInfo is unchanged", func() {
 			// Update RPA with git resolver pipeline
-			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.Pipeline{
-				PipelineRef: tektonutils.PipelineRef{
-					Resolver: "git",
-					Params: []tektonutils.Param{
-						{Name: "url", Value: "https://github.com/org/repo"},
-						{Name: "revision", Value: "main"},
-						{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+			adapter.releasePlanAdmission.Spec.Pipeline = &tektonutils.ParameterizedPipeline{
+				Pipeline: tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "git",
+						Params: []tektonutils.Param{
+							{Name: "url", Value: "https://github.com/org/repo"},
+							{Name: "revision", Value: "main"},
+							{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+						},
 					},
-				},
-			}
+				}}
 			maxRetries := 3
 			adapter.releasePlanAdmission.Status.RetryInfo = &v1alpha1.RetryInfo{
 				Enabled:    true,
@@ -527,16 +532,17 @@ var _ = Describe("ReleasePlanAdmission adapter", Ordered, func() {
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
 				Applications: []string{"application"},
 				Origin:       "default",
-				Pipeline: &tektonutils.Pipeline{
-					PipelineRef: tektonutils.PipelineRef{
-						Resolver: "bundles",
-						Params: []tektonutils.Param{
-							{Name: "bundle", Value: "quay.io/some/bundle"},
-							{Name: "name", Value: "release-pipeline"},
-							{Name: "kind", Value: "pipeline"},
+				Pipeline: &tektonutils.ParameterizedPipeline{
+					Pipeline: tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "quay.io/some/bundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
 						},
-					},
-				},
+					}},
 				Policy: "policy",
 			},
 		}

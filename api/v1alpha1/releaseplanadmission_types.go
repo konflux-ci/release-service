@@ -66,7 +66,7 @@ type ReleasePlanAdmissionSpec struct {
 
 	// Pipeline contains all the information about the managed Pipeline
 	// +optional
-	Pipeline *tektonutils.Pipeline `json:"pipeline,omitempty"`
+	Pipeline *tektonutils.ParameterizedPipeline `json:"pipeline,omitempty"`
 
 	// Policy to validate before releasing an artifact
 	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$

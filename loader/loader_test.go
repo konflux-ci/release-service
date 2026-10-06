@@ -245,16 +245,17 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
 					ComponentGroups: []string{"my-component-group"},
 					Origin:          "default",
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "bundles",
-							Params: []tektonutils.Param{
-								{Name: "bundle", Value: "testbundle"},
-								{Name: "name", Value: "release-pipeline"},
-								{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "bundles",
+								Params: []tektonutils.Param{
+									{Name: "bundle", Value: "testbundle"},
+									{Name: "name", Value: "release-pipeline"},
+									{Name: "kind", Value: "pipeline"},
+								},
 							},
-						},
-					},
+						}},
 					Policy: enterpriseContractPolicy.Name,
 				},
 			}
@@ -293,16 +294,17 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
 					ComponentGroups: []string{"cross-match-app"},
 					Origin:          "default",
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "bundles",
-							Params: []tektonutils.Param{
-								{Name: "bundle", Value: "testbundle"},
-								{Name: "name", Value: "release-pipeline"},
-								{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "bundles",
+								Params: []tektonutils.Param{
+									{Name: "bundle", Value: "testbundle"},
+									{Name: "name", Value: "release-pipeline"},
+									{Name: "kind", Value: "pipeline"},
+								},
 							},
-						},
-					},
+						}},
 					Policy: enterpriseContractPolicy.Name,
 				},
 			}
@@ -421,16 +423,17 @@ var _ = Describe("Release Adapter", Ordered, func() {
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
 					ComponentGroups: []string{"test-component-group"},
 					Origin:          "default",
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "bundles",
-							Params: []tektonutils.Param{
-								{Name: "bundle", Value: "testbundle"},
-								{Name: "name", Value: "release-pipeline"},
-								{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "bundles",
+								Params: []tektonutils.Param{
+									{Name: "bundle", Value: "testbundle"},
+									{Name: "name", Value: "release-pipeline"},
+									{Name: "kind", Value: "pipeline"},
+								},
 							},
-						},
-					},
+						}},
 					Policy: enterpriseContractPolicy.Name,
 				},
 			}
@@ -967,16 +970,17 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
 				Applications: []string{application.Name},
 				Origin:       "default",
-				Pipeline: &tektonutils.Pipeline{
-					PipelineRef: tektonutils.PipelineRef{
-						Resolver: "bundles",
-						Params: []tektonutils.Param{
-							{Name: "bundle", Value: "testbundle"},
-							{Name: "name", Value: "release-pipeline"},
-							{Name: "kind", Value: "pipeline"},
+				Pipeline: &tektonutils.ParameterizedPipeline{
+					Pipeline: tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "testbundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
 						},
-					},
-				},
+					}},
 				Policy: enterpriseContractPolicy.Name,
 			},
 		}

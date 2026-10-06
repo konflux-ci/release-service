@@ -129,16 +129,17 @@ var _ = Describe("Predicates", Ordered, func() {
 						applicationName,
 					},
 					Origin: namespace2,
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "bundles",
-							Params: []tektonutils.Param{
-								{Name: "bundle", Value: "quay.io/some/bundle"},
-								{Name: "name", Value: "release-pipeline"},
-								{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "bundles",
+								Params: []tektonutils.Param{
+									{Name: "bundle", Value: "quay.io/some/bundle"},
+									{Name: "name", Value: "release-pipeline"},
+									{Name: "kind", Value: "pipeline"},
+								},
 							},
-						},
-					},
+						}},
 					Policy: "policy",
 				},
 			}
@@ -155,16 +156,17 @@ var _ = Describe("Predicates", Ordered, func() {
 						"diff",
 					},
 					Origin: namespace2,
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "bundles",
-							Params: []tektonutils.Param{
-								{Name: "bundle", Value: "quay.io/some/bundle"},
-								{Name: "name", Value: "release-pipeline"},
-								{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "bundles",
+								Params: []tektonutils.Param{
+									{Name: "bundle", Value: "quay.io/some/bundle"},
+									{Name: "name", Value: "release-pipeline"},
+									{Name: "kind", Value: "pipeline"},
+								},
 							},
-						},
-					},
+						}},
 					Policy: "policy",
 				},
 			}
@@ -181,16 +183,17 @@ var _ = Describe("Predicates", Ordered, func() {
 						applicationName,
 					},
 					Origin: namespace2,
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "bundles",
-							Params: []tektonutils.Param{
-								{Name: "bundle", Value: "quay.io/some/bundle"},
-								{Name: "name", Value: "release-pipeline"},
-								{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "bundles",
+								Params: []tektonutils.Param{
+									{Name: "bundle", Value: "quay.io/some/bundle"},
+									{Name: "name", Value: "release-pipeline"},
+									{Name: "kind", Value: "pipeline"},
+								},
 							},
-						},
-					},
+						}},
 					Policy: "policy",
 				},
 			}
@@ -207,16 +210,17 @@ var _ = Describe("Predicates", Ordered, func() {
 						applicationName,
 					},
 					Origin: "diff",
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "bundles",
-							Params: []tektonutils.Param{
-								{Name: "bundle", Value: "quay.io/some/bundle"},
-								{Name: "name", Value: "release-pipeline"},
-								{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "bundles",
+								Params: []tektonutils.Param{
+									{Name: "bundle", Value: "quay.io/some/bundle"},
+									{Name: "name", Value: "release-pipeline"},
+									{Name: "kind", Value: "pipeline"},
+								},
 							},
-						},
-					},
+						}},
 					Policy: "policy",
 				},
 			}
@@ -233,16 +237,17 @@ var _ = Describe("Predicates", Ordered, func() {
 						applicationName,
 					},
 					Origin: namespace2,
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "bundles",
-							Params: []tektonutils.Param{
-								{Name: "bundle", Value: "quay.io/some/bundle"},
-								{Name: "name", Value: "release-pipeline"},
-								{Name: "kind", Value: "pipeline"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "bundles",
+								Params: []tektonutils.Param{
+									{Name: "bundle", Value: "quay.io/some/bundle"},
+									{Name: "name", Value: "release-pipeline"},
+									{Name: "kind", Value: "pipeline"},
+								},
 							},
-						},
-					},
+						}},
 					Policy: "policy",
 				},
 			}
@@ -480,30 +485,32 @@ var _ = Describe("Predicates", Ordered, func() {
 		It("returns true when RPA pipeline url changes", func() {
 			rpaOld := &v1alpha1.ReleasePlanAdmission{
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "git",
-							Params: []tektonutils.Param{
-								{Name: "url", Value: "https://github.com/org/repo"},
-								{Name: "revision", Value: "main"},
-								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+								Params: []tektonutils.Param{
+									{Name: "url", Value: "https://github.com/org/repo"},
+									{Name: "revision", Value: "main"},
+									{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+								},
 							},
-						},
-					},
+						}},
 				},
 			}
 			rpaNew := &v1alpha1.ReleasePlanAdmission{
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "git",
-							Params: []tektonutils.Param{
-								{Name: "url", Value: "https://github.com/org/different"},
-								{Name: "revision", Value: "main"},
-								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+								Params: []tektonutils.Param{
+									{Name: "url", Value: "https://github.com/org/different"},
+									{Name: "revision", Value: "main"},
+									{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+								},
 							},
-						},
-					},
+						}},
 				},
 			}
 			Expect(hasPipelineChanged(rpaOld, rpaNew)).To(BeTrue())
@@ -512,30 +519,32 @@ var _ = Describe("Predicates", Ordered, func() {
 		It("returns true when RPA pipeline revision changes", func() {
 			rpaOld := &v1alpha1.ReleasePlanAdmission{
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "git",
-							Params: []tektonutils.Param{
-								{Name: "url", Value: "https://github.com/org/repo"},
-								{Name: "revision", Value: "main"},
-								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+								Params: []tektonutils.Param{
+									{Name: "url", Value: "https://github.com/org/repo"},
+									{Name: "revision", Value: "main"},
+									{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+								},
 							},
-						},
-					},
+						}},
 				},
 			}
 			rpaNew := &v1alpha1.ReleasePlanAdmission{
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "git",
-							Params: []tektonutils.Param{
-								{Name: "url", Value: "https://github.com/org/repo"},
-								{Name: "revision", Value: "develop"},
-								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+								Params: []tektonutils.Param{
+									{Name: "url", Value: "https://github.com/org/repo"},
+									{Name: "revision", Value: "develop"},
+									{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+								},
 							},
-						},
-					},
+						}},
 				},
 			}
 			Expect(hasPipelineChanged(rpaOld, rpaNew)).To(BeTrue())
@@ -544,30 +553,32 @@ var _ = Describe("Predicates", Ordered, func() {
 		It("returns true when RPA pipeline pathInRepo changes", func() {
 			rpaOld := &v1alpha1.ReleasePlanAdmission{
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "git",
-							Params: []tektonutils.Param{
-								{Name: "url", Value: "https://github.com/org/repo"},
-								{Name: "revision", Value: "main"},
-								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+								Params: []tektonutils.Param{
+									{Name: "url", Value: "https://github.com/org/repo"},
+									{Name: "revision", Value: "main"},
+									{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+								},
 							},
-						},
-					},
+						}},
 				},
 			}
 			rpaNew := &v1alpha1.ReleasePlanAdmission{
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "git",
-							Params: []tektonutils.Param{
-								{Name: "url", Value: "https://github.com/org/repo"},
-								{Name: "revision", Value: "main"},
-								{Name: "pathInRepo", Value: "pipelines/different.yaml"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+								Params: []tektonutils.Param{
+									{Name: "url", Value: "https://github.com/org/repo"},
+									{Name: "revision", Value: "main"},
+									{Name: "pathInRepo", Value: "pipelines/different.yaml"},
+								},
 							},
-						},
-					},
+						}},
 				},
 			}
 			Expect(hasPipelineChanged(rpaOld, rpaNew)).To(BeTrue())
@@ -576,11 +587,12 @@ var _ = Describe("Predicates", Ordered, func() {
 		It("returns false when RPA pipeline does not change", func() {
 			rpa := &v1alpha1.ReleasePlanAdmission{
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "git",
-						},
-					},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+							},
+						}},
 				},
 			}
 			Expect(hasPipelineChanged(rpa, rpa)).To(BeFalse())
@@ -670,11 +682,12 @@ var _ = Describe("Predicates", Ordered, func() {
 			instance = RetryInfoPredicate()
 			rpaOld = &v1alpha1.ReleasePlanAdmission{
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "git",
-						},
-					},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+							},
+						}},
 				},
 			}
 			rpaNew = rpaOld.DeepCopy()

@@ -47,16 +47,17 @@ var _ = Describe("ReleasePlanAdmission webhook", func() {
 				Applications: []string{"application"},
 				Origin:       "default",
 				Environment:  "environment",
-				Pipeline: &tektonutils.Pipeline{
-					PipelineRef: tektonutils.PipelineRef{
-						Resolver: "bundles",
-						Params: []tektonutils.Param{
-							{Name: "bundle", Value: "quay.io/some/bundle"},
-							{Name: "name", Value: "release-pipeline"},
-							{Name: "kind", Value: "pipeline"},
+				Pipeline: &tektonutils.ParameterizedPipeline{
+					Pipeline: tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "quay.io/some/bundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
 						},
-					},
-				},
+					}},
 				Policy: "policy",
 			},
 		}

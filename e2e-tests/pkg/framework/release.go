@@ -251,12 +251,13 @@ func (r *ReleaseController) CreateReleasePlanAdmission(name, namespace, environm
 			Applications: applications,
 			Origin:       origin,
 			Policy:       policy,
-			Pipeline: &tektonutils.Pipeline{
-				PipelineRef:        *pipelineRef,
-				ServiceAccountName: serviceAccount,
-				MaxRetries:         maxRetries,
-				TaskRunSpecs:       taskRunSpecs,
-			},
+			Pipeline: &tektonutils.ParameterizedPipeline{
+				Pipeline: tektonutils.Pipeline{
+					PipelineRef:        *pipelineRef,
+					ServiceAccountName: serviceAccount,
+					MaxRetries:         maxRetries,
+					TaskRunSpecs:       taskRunSpecs,
+				}},
 			Data: data,
 		},
 	}

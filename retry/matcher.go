@@ -59,7 +59,7 @@ func DetermineRetryInfo(rpa *v1alpha1.ReleasePlanAdmission, matchedRPs *v1alpha1
 	}
 
 	// Try to match the pipeline against RSC retryable pipelines
-	matchedRetryable := GetMatchingRetryablePipeline(rpa.Spec.Pipeline, rsc.Spec.RetryablePipelines, logger)
+	matchedRetryable := GetMatchingRetryablePipeline(&rpa.Spec.Pipeline.Pipeline, rsc.Spec.RetryablePipelines, logger)
 	if matchedRetryable == nil {
 		return &v1alpha1.RetryInfo{
 			Enabled: false,

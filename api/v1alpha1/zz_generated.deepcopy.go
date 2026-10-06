@@ -469,7 +469,7 @@ func (in *ReleasePlanAdmissionSpec) DeepCopyInto(out *ReleasePlanAdmissionSpec) 
 	}
 	if in.Pipeline != nil {
 		in, out := &in.Pipeline, &out.Pipeline
-		*out = new(utils.Pipeline)
+		*out = new(utils.ParameterizedPipeline)
 		(*in).DeepCopyInto(*out)
 	}
 }

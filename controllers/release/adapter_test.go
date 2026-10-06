@@ -1386,16 +1386,17 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
 					Applications: []string{application.Name},
 					Origin:       "default",
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "git",
-							Params: []tektonutils.Param{
-								{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
-								{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
-								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+								Params: []tektonutils.Param{
+									{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+									{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+									{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+								},
 							},
-						},
-					},
+						}},
 					Policy: enterpriseContractPolicy.Name,
 				},
 			}
@@ -4990,6 +4991,37 @@ var _ = Describe("Release adapter", Ordered, func() {
 			}
 		})
 
+		It("passes params from the ReleasePlanAdmission's Pipeline to the PipelineRun", func() {
+			resources.ReleasePlanAdmission.Spec.Pipeline.Params = []tektonutils.Param{
+				{Name: "catalogGitRevision", Value: "production"},
+			}
+
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pipelineRun.Spec.Params).Should(ContainElement(And(
+				HaveField("Name", "catalogGitRevision"),
+				HaveField("Value.StringVal", "production"),
+			)))
+
+			resources.ReleasePlanAdmission.Spec.Pipeline.Params = nil
+		})
+
+		It("does not add extra params when none are set in the ReleasePlanAdmission's Pipeline", func() {
+			resources.ReleasePlanAdmission.Spec.Pipeline.Params = nil
+
+			var err error
+			pipelineRun, err = adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
+			Expect(pipelineRun).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, param := range pipelineRun.Spec.Params {
+				Expect(param.Name).NotTo(Equal("catalogGitRevision"))
+			}
+		})
+
 		It("contains a parameter with the json representation of the EnterpriseContractPolicy", func() {
 			var err error
 			pipelineRun, err = adapter.createManagedPipelineRun(resources, resources.ReleasePlanAdmission.Spec.Pipeline.TaskRunSpecs, resources.ReleasePlanAdmission.Spec.Pipeline.Timeouts)
@@ -5803,16 +5835,17 @@ var _ = Describe("Release adapter", Ordered, func() {
 				Spec: v1alpha1.ReleasePlanAdmissionSpec{
 					Applications: []string{application.Name},
 					Origin:       "default",
-					Pipeline: &tektonutils.Pipeline{
-						PipelineRef: tektonutils.PipelineRef{
-							Resolver: "git",
-							Params: []tektonutils.Param{
-								{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
-								{Name: "revision", Value: "master"},
-								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+					Pipeline: &tektonutils.ParameterizedPipeline{
+						Pipeline: tektonutils.Pipeline{
+							PipelineRef: tektonutils.PipelineRef{
+								Resolver: "git",
+								Params: []tektonutils.Param{
+									{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+									{Name: "revision", Value: "master"},
+									{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+								},
 							},
-						},
-					},
+						}},
 					Policy: enterpriseContractPolicy.Name,
 				},
 			}
@@ -7218,16 +7251,17 @@ var _ = Describe("Release adapter", Ordered, func() {
 						Spec: v1alpha1.ReleasePlanAdmissionSpec{
 							Applications: []string{application.Name},
 							Origin:       "default",
-							Pipeline: &tektonutils.Pipeline{
-								PipelineRef: tektonutils.PipelineRef{
-									Resolver: "cluster",
-									Params: []tektonutils.Param{
-										{Name: "name", Value: "release-pipeline"},
-										{Name: "namespace", Value: "default"},
-										{Name: "kind", Value: "pipeline"},
+							Pipeline: &tektonutils.ParameterizedPipeline{
+								Pipeline: tektonutils.Pipeline{
+									PipelineRef: tektonutils.PipelineRef{
+										Resolver: "cluster",
+										Params: []tektonutils.Param{
+											{Name: "name", Value: "release-pipeline"},
+											{Name: "namespace", Value: "default"},
+											{Name: "kind", Value: "pipeline"},
+										},
 									},
-								},
-							},
+								}},
 							Policy: enterpriseContractPolicy.Name,
 						},
 					},
@@ -7348,16 +7382,17 @@ var _ = Describe("Release adapter", Ordered, func() {
 						Spec: v1alpha1.ReleasePlanAdmissionSpec{
 							Applications: []string{application.Name},
 							Origin:       "default",
-							Pipeline: &tektonutils.Pipeline{
-								PipelineRef: tektonutils.PipelineRef{
-									Resolver: "cluster",
-									Params: []tektonutils.Param{
-										{Name: "name", Value: "release-pipeline"},
-										{Name: "namespace", Value: "default"},
-										{Name: "kind", Value: "pipeline"},
+							Pipeline: &tektonutils.ParameterizedPipeline{
+								Pipeline: tektonutils.Pipeline{
+									PipelineRef: tektonutils.PipelineRef{
+										Resolver: "cluster",
+										Params: []tektonutils.Param{
+											{Name: "name", Value: "release-pipeline"},
+											{Name: "namespace", Value: "default"},
+											{Name: "kind", Value: "pipeline"},
+										},
 									},
-								},
-							},
+								}},
 							Policy: enterpriseContractPolicy.Name,
 						},
 					},
@@ -7448,16 +7483,17 @@ var _ = Describe("Release adapter", Ordered, func() {
 						Spec: v1alpha1.ReleasePlanAdmissionSpec{
 							Applications: []string{application.Name},
 							Origin:       "default",
-							Pipeline: &tektonutils.Pipeline{
-								PipelineRef: tektonutils.PipelineRef{
-									Resolver: "cluster",
-									Params: []tektonutils.Param{
-										{Name: "name", Value: "release-pipeline"},
-										{Name: "namespace", Value: "default"},
-										{Name: "kind", Value: "pipeline"},
+							Pipeline: &tektonutils.ParameterizedPipeline{
+								Pipeline: tektonutils.Pipeline{
+									PipelineRef: tektonutils.PipelineRef{
+										Resolver: "cluster",
+										Params: []tektonutils.Param{
+											{Name: "name", Value: "release-pipeline"},
+											{Name: "namespace", Value: "default"},
+											{Name: "kind", Value: "pipeline"},
+										},
 									},
-								},
-							},
+								}},
 							Policy: enterpriseContractPolicy.Name,
 						},
 					},
@@ -8144,48 +8180,49 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
 				Applications: []string{application.Name},
 				Origin:       "default",
-				Pipeline: &tektonutils.Pipeline{
-					PipelineRef: tektonutils.PipelineRef{
-						Resolver: "git",
-						Params: []tektonutils.Param{
-							{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
-							{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
-							{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+				Pipeline: &tektonutils.ParameterizedPipeline{
+					Pipeline: tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "git",
+							Params: []tektonutils.Param{
+								{Name: "url", Value: "https://github.com/octocat/Hello-World.git"},
+								{Name: "revision", Value: "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"},
+								{Name: "pathInRepo", Value: "pipelines/release.yaml"},
+							},
 						},
-					},
-					ServiceAccountName: "service-account",
-					TaskRunSpecs: []tektonv1.PipelineTaskRunSpec{
-						{
-							PipelineTaskName: "task1",
-							ComputeResources: &corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("100m"),
-									corev1.ResourceMemory: resource.MustParse("128Mi"),
+						ServiceAccountName: "service-account",
+						TaskRunSpecs: []tektonv1.PipelineTaskRunSpec{
+							{
+								PipelineTaskName: "task1",
+								ComputeResources: &corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("100m"),
+										corev1.ResourceMemory: resource.MustParse("128Mi"),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("200m"),
+										corev1.ResourceMemory: resource.MustParse("256Mi"),
+									},
 								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("200m"),
-									corev1.ResourceMemory: resource.MustParse("256Mi"),
+							},
+							{
+								PipelineTaskName: "task2",
+								ComputeResources: &corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("200m"),
+										corev1.ResourceMemory: resource.MustParse("256Mi"),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    resource.MustParse("400m"),
+										corev1.ResourceMemory: resource.MustParse("512Mi"),
+									},
 								},
 							},
 						},
-						{
-							PipelineTaskName: "task2",
-							ComputeResources: &corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("200m"),
-									corev1.ResourceMemory: resource.MustParse("256Mi"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("400m"),
-									corev1.ResourceMemory: resource.MustParse("512Mi"),
-								},
-							},
+						Timeouts: tektonv1.TimeoutFields{
+							Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
 						},
-					},
-					Timeouts: tektonv1.TimeoutFields{
-						Pipeline: &metav1.Duration{Duration: 1 * time.Hour},
-					},
-				},
+					}},
 				Policy: enterpriseContractPolicy.Name,
 			},
 		}

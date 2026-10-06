@@ -905,16 +905,17 @@ func createTestPipeline(url, revision, pathInRepo string) *tektonutils.Pipeline 
 func createTestRPA(url, revision, pathInRepo string, data *runtime.RawExtension) *v1alpha1.ReleasePlanAdmission {
 	return &v1alpha1.ReleasePlanAdmission{
 		Spec: v1alpha1.ReleasePlanAdmissionSpec{
-			Pipeline: &tektonutils.Pipeline{
-				PipelineRef: tektonutils.PipelineRef{
-					Resolver: "git",
-					Params: []tektonutils.Param{
-						{Name: "url", Value: url},
-						{Name: "revision", Value: revision},
-						{Name: "pathInRepo", Value: pathInRepo},
+			Pipeline: &tektonutils.ParameterizedPipeline{
+				Pipeline: tektonutils.Pipeline{
+					PipelineRef: tektonutils.PipelineRef{
+						Resolver: "git",
+						Params: []tektonutils.Param{
+							{Name: "url", Value: url},
+							{Name: "revision", Value: revision},
+							{Name: "pathInRepo", Value: pathInRepo},
+						},
 					},
-				},
-			},
+				}},
 			Data: data,
 		},
 	}

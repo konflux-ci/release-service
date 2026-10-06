@@ -173,16 +173,17 @@ var _ = Describe("ReleasePlan adapter", Ordered, func() {
 			Spec: v1alpha1.ReleasePlanAdmissionSpec{
 				Applications: []string{application.Name},
 				Origin:       "default",
-				Pipeline: &tektonutils.Pipeline{
-					PipelineRef: tektonutils.PipelineRef{
-						Resolver: "bundles",
-						Params: []tektonutils.Param{
-							{Name: "bundle", Value: "quay.io/some/bundle"},
-							{Name: "name", Value: "release-pipeline"},
-							{Name: "kind", Value: "pipeline"},
+				Pipeline: &tektonutils.ParameterizedPipeline{
+					Pipeline: tektonutils.Pipeline{
+						PipelineRef: tektonutils.PipelineRef{
+							Resolver: "bundles",
+							Params: []tektonutils.Param{
+								{Name: "bundle", Value: "quay.io/some/bundle"},
+								{Name: "name", Value: "release-pipeline"},
+								{Name: "kind", Value: "pipeline"},
+							},
 						},
-					},
-				},
+					}},
 				Policy: "policy",
 			},
 		}

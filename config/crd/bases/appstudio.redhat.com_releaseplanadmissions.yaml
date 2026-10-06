@@ -151,6 +151,24 @@ spec:
                       value is used and 0 disables retries for the pipeline.
                     minimum: 0
                     type: integer
+                  params:
+                    description: Params is a slice of parameters to be passed to the
+                      Pipeline
+                    items:
+                      description: Param defines the parameters for a given resolver
+                        in PipelineRef
+                      properties:
+                        name:
+                          description: Name is the name of the parameter
+                          type: string
+                        value:
+                          description: Value is the value of the parameter
+                          type: string
+                      required:
+                      - name
+                      - value
+                      type: object
+                    type: array
                   pipelineRef:
                     description: PipelineRef is the reference to the Pipeline
                     properties:

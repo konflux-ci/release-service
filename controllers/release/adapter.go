@@ -1414,7 +1414,8 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithServiceAccount(resources.ReleasePlanAdmission.Spec.Pipeline.ServiceAccountName).
 		WithTaskRunSpecs(taskRunSpecs...).
 		WithTimeouts(utils.AdjustTimeouts(&timeouts, *a.logger), &a.releaseServiceConfig.Spec.DefaultTimeouts).
-		WithParams(resources.ReleasePlanAdmission.Spec.Pipeline.GetOciStorageParam()...)
+		WithParams(resources.ReleasePlanAdmission.Spec.Pipeline.GetOciStorageParam()...).
+		WithParams(resources.ReleasePlanAdmission.Spec.Pipeline.GetTektonParams()...)
 
 	url, revision, pathInRepo, err := resources.ReleasePlanAdmission.Spec.Pipeline.PipelineRef.GetGitResolverParams()
 	if err == nil && a.releaseServiceConfig.IsPipelineOverridden(url, revision, pathInRepo) {
