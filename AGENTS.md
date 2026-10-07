@@ -70,33 +70,7 @@ PipelineRuns are watched via `EnqueueRequestForAnnotation` — when a PipelineRu
 
 ## Trust Boundaries
 
-### Managed vs. Tenant Namespaces
-
-ReleasePlanAdmission (RPA) is an **admin-controlled** resource that lives in the **managed namespace**. It defines the managed release pipeline and is configured by release engineers with elevated privileges. ReleasePlan (RP) is a **tenant-controlled** resource that lives in the tenant namespace and is created by application teams.
-
-### Pipeline Type Constraints
-
-RPA's `Pipeline` field intentionally uses the non-parameterized `Pipeline` type (`tektonutils.Pipeline`), **not** `ParameterizedPipeline`. Managed pipelines run with elevated privileges in the managed namespace — their parameters must be system-controlled. The managed pipeline builder (`createManagedPipelineRun`) injects only admin-defined values: OCI storage configuration from the RPA's `PipelineRef`, object references (Release, ReleasePlan, Snapshot, EnterpriseContractPolicy), and service account identity. No user-supplied parameters flow into managed PipelineRuns.
-
-ReleasePlan's `TenantPipeline` and `FinalPipeline` use `ParameterizedPipeline` because the tenant already controls those pipelines — they run in the tenant's own namespace with the tenant's own service account. Allowing user-supplied params there does not cross a trust boundary.
-
-### Security-Sensitive Change Classes
-
-Any change that expands what user-supplied data flows into managed PipelineRuns is a **trust boundary violation** and requires explicit team review. This includes:
-
-- Changing RPA's `Pipeline` field from `Pipeline` to `ParameterizedPipeline`
-- Adding user-controlled parameters, labels, or annotations to managed pipeline builders
-- Allowing tenant-controlled service accounts in managed namespace operations
-- Routing tenant-supplied `Data` fields as pipeline parameters without admin validation
-
-### System-Injected Parameters
-
-The managed pipeline builder injects critical parameters that must not be overridable by user-supplied values:
-
-- **OCI storage** (`ociStorage`) — from the RPA's `PipelineRef.OciStorage`, controls where Trusted Artifacts are stored
-- **Object references** — Release, ReleasePlan, ReleasePlanAdmission, Snapshot, and ReleaseServiceConfig are serialized and passed as params
-- **Enterprise Contract policy specs** — the EC policy is passed as a JSON spec to enforce compliance
-- **Pipeline identity** — service account, workspace configuration, and timeout values are admin-controlled via the RPA
+ReleasePlanAdmission (RPA) lives in the **managed namespace** (admin-controlled); ReleasePlan lives in the tenant namespace (tenant-controlled). RPA's `Pipeline` field uses non-parameterized `tektonutils.Pipeline`, **not** `ParameterizedPipeline` — managed pipelines run with elevated privileges, so only system-controlled parameters flow in. The managed pipeline builder (`createManagedPipelineRun`) injects admin-defined values: OCI storage from `PipelineRef`, object references (Release, ReleasePlan, ReleasePlanAdmission, ReleaseServiceConfig, Snapshot), Enterprise Contract policy spec, and pipeline identity (service account, workspace, timeouts). No user-supplied parameters flow into managed PipelineRuns. Any change expanding user-supplied data into managed PipelineRuns — such as using `ParameterizedPipeline` for RPA, adding user-controlled params/labels/annotations to managed builders, allowing tenant-controlled service accounts in the managed namespace, or routing tenant-supplied `Data` as pipeline params without admin validation — is a **trust boundary violation** requiring explicit team review. Tenant pipelines (`TenantPipeline`, `FinalPipeline`) use `ParameterizedPipeline` because they run in the tenant's own namespace with the tenant's own service account.
 
 ## Pattern References
 
