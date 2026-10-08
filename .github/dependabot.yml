@@ -19,3 +19,4 @@ updates:
       day: "monday"
     commit-message:
       prefix: "chore(go): "
+    rebase-strategy: "disabled"
