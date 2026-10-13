@@ -2,5 +2,12 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "github>konflux-ci/release-service-automations//mintMaker/default.json"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/google/cel-go"],
+      "allowedVersions": "<0.32.0"
+    }
   ]
 }
