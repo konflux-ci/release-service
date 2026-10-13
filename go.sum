@@ -193,8 +193,8 @@ github.com/klauspost/cpuid/v2 v2.4.0 h1:S6Hrbc7+ywsr0r+RLapfGBHfyefhCTwEh3A0tV91
 github.com/klauspost/cpuid/v2 v2.4.0/go.mod h1:19jmZ9mjzoF//ddRSUsv0zfBTJWh3QJh9FNxZTMrGxU=
 github.com/konflux-ci/application-api v0.0.0-20260927062134-a189c1676a85 h1:/BWOJ0uG0iW4zN2lspFIR+ZgYLduijA3gqUy12sITCM=
 github.com/konflux-ci/application-api v0.0.0-20260927062134-a189c1676a85/go.mod h1:948Z+a1IbfRT0RtoHzWWSN9YEucSbMJTHaMhz7dVICc=
-github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260929141100-23124f8cc4d1 h1:bJO1UcsFTgO7RhxyZiLprjwninnM7ZYUMdw+Lo29ZIU=
-github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260929141100-23124f8cc4d1/go.mod h1:i6BCROSU0M/Fk4QhzBbnY4R6JVq0hU7jlUSSxjd8dD4=
+github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20261009063148-e4b4dacb404f h1:JVZW5quKMUMyJQOP/+aqaWnYBm51iJAO/OmS9GcGNmQ=
+github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20261009063148-e4b4dacb404f/go.mod h1:i6BCROSU0M/Fk4QhzBbnY4R6JVq0hU7jlUSSxjd8dD4=
 github.com/konflux-ci/integration-service v0.0.0-20260908121035-278281fdf582 h1:Mns75Gog894C8WQ9HlonVCqQN9spOBZUprd/jP4v4io=
 github.com/konflux-ci/integration-service v0.0.0-20260908121035-278281fdf582/go.mod h1:WloJMYPvLGvkNdLu8Xd3nrQPFA4uo7V0TfT4r9gCHmg=
 github.com/konflux-ci/operator-toolkit v0.0.0-20260921214948-0f252ff98994 h1:2kqYlCABRhsO2w91PiEksivowISBmCE0B7zTCG4c1Tk=
