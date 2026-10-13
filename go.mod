@@ -7,7 +7,7 @@ require (
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/go-logr/logr v1.4.4
 	github.com/konflux-ci/application-api v0.0.0-20260927062134-a189c1676a85
-	github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20260929141100-23124f8cc4d1
+	github.com/konflux-ci/coverport/instrumentation/go v0.0.0-20261009063148-e4b4dacb404f
 	github.com/konflux-ci/integration-service v0.0.0-20260908121035-278281fdf582
 	github.com/konflux-ci/operator-toolkit v0.0.0-20260921214948-0f252ff98994
 	github.com/onsi/ginkgo/v2 v2.33.0
@@ -42,7 +42,7 @@ require (
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
-	github.com/fxamacker/cbor/v2 v2.9.4 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.6 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
