@@ -46,6 +46,7 @@ import (
 )
 
 var (
+	apiReader client.Reader
 	cancel    context.CancelFunc
 	cfg       *rest.Config
 	ctx       context.Context
@@ -111,6 +112,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient = mgr.GetClient()
+	apiReader = mgr.GetAPIReader()
 	go func() {
 		defer GinkgoRecover()
 
