@@ -3,7 +3,7 @@ module github.com/konflux-ci/release-service
 go 1.26.0
 
 require (
-	github.com/conforma/crds/api v0.1.28
+	github.com/conforma/crds/api v0.1.35
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/go-logr/logr v1.4.4
 	github.com/konflux-ci/application-api v0.0.0-20260927062134-a189c1676a85
