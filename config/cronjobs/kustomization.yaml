@@ -1,0 +1,3 @@
+# cronjobs deployed alongside the release-service controller
+resources:
+  - remove_internal_requests.yaml
