@@ -66,6 +66,40 @@ spec:
                   - url
                   type: object
                 type: array
+              allowedGitResolvers:
+                description: |-
+                  AllowedGitResolvers is the list of git repositories and revisions allowed for pipeline references.
+                  When non-empty and the resolver is "git", only pipelines with a URL and revision matching one of
+                  these entries will be allowed. When empty, all git resolver URLs and revisions are permitted.
+                items:
+                  description: AllowedGitResolver defines an allowed git repository
+                    and optional revision restrictions.
+                  properties:
+                    revisions:
+                      description: |-
+                        Revisions is the list of allowed revisions (branches/tags/commits) for this URL.
+                        When non-empty, only pipeline references with a revision matching one of these entries
+                        will be allowed. When empty, all revisions are allowed for this URL.
+                      items:
+                        type: string
+                      type: array
+                    url:
+                      description: |-
+                        URL specifies the allowed git repository URL.
+                        Two modes are supported:
+
+                        1. Exact string match (no anchors): matches the URL exactly.
+                           Example: "https://github.com/org/repo" only matches that exact URL,
+                           not "https://github.com/org/repo.git"
+
+                        2. Regular expression (contains ^ or $): matched as a regex pattern.
+                           Example: "^https://github\\.com/org/repo(\\.git)?$" matches both
+                           "https://github.com/org/repo" and "https://github.com/org/repo.git"
+                      type: string
+                  required:
+                  - url
+                  type: object
+                type: array
               debug:
                 description: |-
                   Debug is the boolean that specifies whether or not the Release Service should run

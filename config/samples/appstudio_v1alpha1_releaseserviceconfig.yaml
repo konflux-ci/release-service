@@ -3,4 +3,25 @@ kind: ReleaseServiceConfig
 metadata:
   name: releaseserviceconfig-sample
 spec:
-  # TODO(user): Add fields here
+  # AllowedGitResolvers restricts which git repositories and revisions can be used
+  # for pipeline references. When empty, all URLs and revisions are permitted.
+  #
+  # Two matching modes:
+  # 1. Exact string match: "https://github.com/org/repo" (no ^ or $ anchors)
+  # 2. Regex pattern: "^https://github\\.com/org/repo(\\.git)?$" (starts with ^ and ends with $)
+  allowedGitResolvers:
+    # Exact string match - must match exactly (no .git suffix)
+    - url: "https://github.com/konflux-ci/release-service-catalog"
+      revisions:
+        - "main"
+        - "production"
+
+    # Exact string match - with .git suffix
+    - url: "https://github.com/konflux-ci/release-service-catalog.git"
+      revisions:
+        - "main"
+        - "production"
+
+    # Regex pattern - matches both with and without .git suffix
+    - url: "^https://gitlab\\.cee\\.redhat\\.com/signing/signing(\\.git)?$"
+      # No revisions specified - all revisions allowed for this URL pattern
