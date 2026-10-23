@@ -1089,7 +1089,3 @@ type ReleaseList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Release `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&Release{}, &ReleaseList{})
-}

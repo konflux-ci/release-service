@@ -106,7 +106,3 @@ type ReleaseServiceConfigList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ReleaseServiceConfig `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&ReleaseServiceConfig{}, &ReleaseServiceConfigList{})
-}
