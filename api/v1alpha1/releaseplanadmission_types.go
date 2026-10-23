@@ -196,7 +196,3 @@ type ReleasePlanAdmissionList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ReleasePlanAdmission `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&ReleasePlanAdmission{}, &ReleasePlanAdmissionList{})
-}
