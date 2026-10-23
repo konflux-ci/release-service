@@ -114,6 +114,24 @@ var _ = Describe("ReleasePlan webhook", func() {
 		})
 	})
 
+	When("ValidateCreate method is called directly", func() {
+		It("should return nil", func() {
+			releasePlan := &v1alpha1.ReleasePlan{}
+			warnings, err := webhook.ValidateCreate(ctx, releasePlan)
+			Expect(warnings).To(BeNil())
+			Expect(err).To(BeNil())
+		})
+	})
+
+	When("ValidateUpdate method is called directly", func() {
+		It("should return nil", func() {
+			releasePlan := &v1alpha1.ReleasePlan{}
+			warnings, err := webhook.ValidateUpdate(ctx, releasePlan, releasePlan)
+			Expect(warnings).To(BeNil())
+			Expect(err).To(BeNil())
+		})
+	})
+
 	When("a ReleasePlan is created with an application name longer than 63 characters", func() {
 		It("should be rejected", func() {
 			releasePlan.Spec.Application = "this-is-a-very-long-application-name-that-exceeds-sixty-three-chars"
