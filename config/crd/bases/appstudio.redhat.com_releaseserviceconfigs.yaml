@@ -66,6 +66,60 @@ spec:
                   - url
                   type: object
                 type: array
+              allowedGitResolvers:
+                description: |-
+                  AllowedGitResolvers is the list of git repositories and revisions allowed for managed pipeline references.
+                  This restriction applies ONLY to managed pipelines (from ReleasePlanAdmission) that run in the managed namespace.
+                  Tenant and final pipelines run in user-controlled namespaces and are not restricted by this field.
+
+                  When non-empty and the resolver is "git", only managed pipelines with a URL and revision matching one of
+                  these entries will be allowed. When empty or omitted, all git resolver URLs and revisions are permitted
+                  (backwards compatible default).
+
+                  Invalid regex patterns cause ALL validation to fail (not just the invalid entry). This prevents partial
+                  enforcement where some entries work while others silently fail. Use a validating webhook to catch
+                  invalid patterns at admission time.
+
+                  First-match semantics: entries are evaluated in order; when a URL matches, only that entry's
+                  revision list is consulted. If the URL matches but the revision does not, validation fails
+                  without checking remaining entries.
+                items:
+                  description: AllowedGitResolver defines an allowed git repository
+                    and optional revision restrictions.
+                  properties:
+                    revisions:
+                      description: |-
+                        Revisions is the list of allowed revisions (branches/tags/commits) for this URL.
+                        Supports the same two matching modes as URL:
+
+                        1. Exact string match (no anchors): "main", "production"
+                        2. Regular expression (starts with ^ and ends with $): "^release-.*$", "^v[0-9]+\\.[0-9]+$"
+
+                        When non-empty, only pipeline references with a revision matching one of these entries
+                        will be allowed. When empty, all revisions are allowed for this URL.
+                      items:
+                        type: string
+                      type: array
+                    url:
+                      description: |-
+                        URL specifies the allowed git repository URL.
+                        Two modes are supported:
+
+                        1. Exact string match (no anchors): matches the URL exactly.
+                           Example: "https://github.com/org/repo" only matches that exact URL,
+                           not "https://github.com/org/repo.git"
+
+                        2. Regular expression (starts with ^ and ends with $): matched as a regex pattern.
+                           Example: "^https://github\\.com/org/repo(\\.git)?$" matches both
+                           "https://github.com/org/repo" and "https://github.com/org/repo.git"
+
+                        Note: This differs from EmptyDirOverrides.Url which always treats patterns as regex.
+                        The hybrid approach provides safe defaults (exact match) while enabling flexible patterns.
+                      type: string
+                  required:
+                  - url
+                  type: object
+                type: array
               debug:
                 description: |-
                   Debug is the boolean that specifies whether or not the Release Service should run
