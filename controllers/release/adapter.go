@@ -2316,10 +2316,33 @@ func (a *adapter) validatePipelineSource() *controller.ValidationResult {
 				a.release.MarkValidationFailed("tried using debug only options while debug mode is disabled in the ReleaseServiceConfig")
 				return &controller.ValidationResult{Valid: false}
 			}
+			// Validate git resolver URL and revision only for managed pipelines
+			if result := a.validateGitResolverAllowed(&pipelineRef, "managed pipeline"); result != nil {
+				return result
+			}
 		}
 	}
 
 	return &controller.ValidationResult{Valid: true}
+}
+
+// validateGitResolverAllowed checks whether the git resolver URL and revision in the given PipelineRef
+// are allowed by the ReleaseServiceConfig. Returns nil if valid, or a ValidationResult if invalid.
+func (a *adapter) validateGitResolverAllowed(pipelineRef *utils.PipelineRef, pipelineType string) *controller.ValidationResult {
+	// Only validate git resolvers
+	if pipelineRef.Resolver != "git" {
+		return nil
+	}
+
+	url, revision, _, _ := pipelineRef.GetGitResolverParams()
+
+	if !a.releaseServiceConfig.IsGitResolverAllowed(url, revision) {
+		errMsg := fmt.Sprintf("the %s git resolver URL (%s) and/or revision (%s) is not in the allowed list", pipelineType, url, revision)
+		a.release.MarkValidationFailed(errMsg)
+		return &controller.ValidationResult{Valid: false}
+	}
+
+	return nil
 }
 
 // validatePipelineDefined checks that a Pipeline is defined in either the ReleasePlan or in the ReleasePlanAdmission.
