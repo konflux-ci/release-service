@@ -68,4 +68,371 @@ var _ = Describe("ReleaseServiceConfig type", func() {
 			Expect(releaseServiceConfig.IsPipelineOverridden("foo", "bar", "baz")).To(BeFalse())
 		})
 	})
+
+	When("IsGitResolverAllowed method is called", func() {
+		var releaseServiceConfig *ReleaseServiceConfig
+
+		BeforeEach(func() {
+			releaseServiceConfig = &ReleaseServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: "default",
+				},
+			}
+		})
+
+		It("should return true if AllowedGitResolvers is empty", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{}
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/any/repo",
+				"any-branch",
+			)).To(BeTrue())
+		})
+
+		It("should return true if URL and revision match an allowed entry using exact string match", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{"main", "production"},
+				},
+			}
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"main",
+			)).To(BeTrue())
+		})
+
+		It("should return false if URL has .git suffix but allowed entry does not (exact match)", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{"main"},
+				},
+			}
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog.git",
+				"main",
+			)).To(BeFalse())
+		})
+
+		It("should return true if using regex pattern that matches both with and without .git", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "^https://github\\.com/konflux-ci/release-service-catalog(\\.git)?$",
+					Revisions: []string{"main", "production"},
+				},
+			}
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"main",
+			)).To(BeTrue())
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog.git",
+				"main",
+			)).To(BeTrue())
+		})
+
+		It("should return false if URL matches but revision does not", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{"main", "production"},
+				},
+			}
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"develop",
+			)).To(BeFalse())
+		})
+
+		It("should return false if URL does not match", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{"main"},
+				},
+			}
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/unauthorized/repo",
+				"main",
+			)).To(BeFalse())
+		})
+
+		It("should return false if regex pattern does not match unintended URLs", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "^https://github\\.com/konflux-ci/foo(\\.git)?$",
+					Revisions: []string{"main"},
+				},
+			}
+			// Should not match foo.bar
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/foo.bar",
+				"main",
+			)).To(BeFalse())
+		})
+
+		It("should return true for any revision if URL matches and has no revision restrictions", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL: "https://gitlab.cee.redhat.com/signing/signing",
+					// No revisions specified
+				},
+			}
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://gitlab.cee.redhat.com/signing/signing",
+				"any-branch-name",
+			)).To(BeTrue())
+		})
+
+		It("should handle multiple allowed repositories with mixed exact and regex patterns", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{"main", "production"},
+				},
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog.git",
+					Revisions: []string{"main", "production"},
+				},
+				{
+					URL: "^https://gitlab\\.cee\\.redhat\\.com/signing/signing(\\.git)?$",
+				},
+			}
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog.git",
+				"main",
+			)).To(BeTrue())
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://gitlab.cee.redhat.com/signing/signing",
+				"feature-branch",
+			)).To(BeTrue())
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://gitlab.cee.redhat.com/signing/signing.git",
+				"feature-branch",
+			)).To(BeTrue())
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"develop",
+			)).To(BeFalse())
+		})
+
+		It("should support regex patterns for revisions", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL: "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{
+						"^release-.*$",        // All release branches
+						"^v[0-9]+\\.[0-9]+$", // Version tags like v1.0, v2.1
+						"main",                // Exact match for main
+					},
+				},
+			}
+
+			// Should match release branches
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"release-1.0",
+			)).To(BeTrue())
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"release-2.5-beta",
+			)).To(BeTrue())
+
+			// Should match version tags
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"v1.0",
+			)).To(BeTrue())
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"v2.5",
+			)).To(BeTrue())
+
+			// Should match exact string
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"main",
+			)).To(BeTrue())
+
+			// Should NOT match non-matching patterns
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"develop",
+			)).To(BeFalse())
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"feature-xyz",
+			)).To(BeFalse())
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"v1.0.1", // Doesn't match the version pattern
+			)).To(BeFalse())
+		})
+
+		It("should fail ALL requests if ANY revision regex is invalid", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL: "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{
+						"main",
+						"^[invalid(regex$", // Invalid regex
+						"production",
+					},
+				},
+			}
+
+			// Should fail even for valid exact match revisions
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"main",
+			)).To(BeFalse())
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"production",
+			)).To(BeFalse())
+		})
+
+		It("should fail closed (deny) when encountering invalid regex pattern", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "^[invalid(regex$", // Invalid regex - should fail closed
+					Revisions: []string{"main"},
+				},
+			}
+			// Should return false (deny) to fail closed on invalid regex
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"main",
+			)).To(BeFalse())
+		})
+
+		It("should fail ALL requests if ANY entry has invalid regex (prevents partial enforcement)", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{"main"},
+				},
+				{
+					URL:       "^[invalid(regex$", // Invalid regex in second entry
+					Revisions: []string{"main"},
+				},
+				{
+					URL:       "https://github.com/konflux-ci/other-repo",
+					Revisions: []string{"main"},
+				},
+			}
+			// Should fail even for URLs that would match valid entries
+			// This prevents partial enforcement where admin thinks config is working
+			// but some entries are silently broken
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/release-service-catalog",
+				"main",
+			)).To(BeFalse())
+
+			Expect(releaseServiceConfig.IsGitResolverAllowed(
+				"https://github.com/konflux-ci/other-repo",
+				"main",
+			)).To(BeFalse())
+		})
+	})
+
+	When("ValidateGitResolverPatterns method is called", func() {
+		var releaseServiceConfig *ReleaseServiceConfig
+
+		BeforeEach(func() {
+			releaseServiceConfig = &ReleaseServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: "default",
+				},
+			}
+		})
+
+		It("should return empty slice when all patterns are valid", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "^https://github\\.com/org/repo(\\.git)?$",
+					Revisions: []string{"main", "^release-.*$"},
+				},
+				{
+					URL:       "https://gitlab.com/org/repo",
+					Revisions: []string{"production"},
+				},
+			}
+
+			errors := releaseServiceConfig.ValidateGitResolverPatterns()
+			Expect(errors).To(BeEmpty())
+		})
+
+		It("should return error for invalid URL regex", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "^[invalid(regex$",
+					Revisions: []string{"main"},
+				},
+			}
+
+			errors := releaseServiceConfig.ValidateGitResolverPatterns()
+			Expect(errors).To(HaveLen(1))
+			Expect(errors[0]).To(ContainSubstring("AllowedGitResolvers[0].URL"))
+			Expect(errors[0]).To(ContainSubstring("^[invalid(regex$"))
+		})
+
+		It("should return error for invalid revision regex", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "https://github.com/org/repo",
+					Revisions: []string{"main", "^[invalid(regex$"},
+				},
+			}
+
+			errors := releaseServiceConfig.ValidateGitResolverPatterns()
+			Expect(errors).To(HaveLen(1))
+			Expect(errors[0]).To(ContainSubstring("AllowedGitResolvers[0].Revisions[1]"))
+			Expect(errors[0]).To(ContainSubstring("^[invalid(regex$"))
+		})
+
+		It("should return multiple errors when multiple patterns are invalid", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "^[invalid1$",
+					Revisions: []string{"main"},
+				},
+				{
+					URL:       "https://github.com/org/repo",
+					Revisions: []string{"^[invalid2$", "production", "^[invalid3$"},
+				},
+			}
+
+			errors := releaseServiceConfig.ValidateGitResolverPatterns()
+			Expect(errors).To(HaveLen(3))
+			Expect(errors[0]).To(ContainSubstring("AllowedGitResolvers[0].URL"))
+			Expect(errors[1]).To(ContainSubstring("AllowedGitResolvers[1].Revisions[0]"))
+			Expect(errors[2]).To(ContainSubstring("AllowedGitResolvers[1].Revisions[2]"))
+		})
+
+		It("should not validate exact string matches as regex", func() {
+			releaseServiceConfig.Spec.AllowedGitResolvers = []AllowedGitResolver{
+				{
+					URL:       "https://github.com/org/repo[invalid",
+					Revisions: []string{"branch[invalid"},
+				},
+			}
+
+			// Should not error because these aren't treated as regex (no ^ and $)
+			errors := releaseServiceConfig.ValidateGitResolverPatterns()
+			Expect(errors).To(BeEmpty())
+		})
+	})
 })

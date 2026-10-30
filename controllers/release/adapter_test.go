@@ -7303,6 +7303,235 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(result.Valid).To(BeTrue())
 			Expect(result.Err).To(BeNil())
 		})
+
+		It("returns valid when git resolver URL and revision are allowed in managed pipeline", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource: &v1alpha1.ReleasePlanAdmission{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-plan-admission",
+							Namespace: "default",
+						},
+						Spec: v1alpha1.ReleasePlanAdmissionSpec{
+							Applications: []string{application.Name},
+							Origin:       "default",
+							Pipeline: &tektonutils.Pipeline{
+								PipelineRef: tektonutils.PipelineRef{
+									Resolver: "git",
+									Params: []tektonutils.Param{
+										{Name: "url", Value: "https://github.com/konflux-ci/release-service-catalog"},
+										{Name: "revision", Value: "main"},
+										{Name: "pathInRepo", Value: "pipelines/pipeline.yaml"},
+									},
+								},
+							},
+							Policy: enterpriseContractPolicy.Name,
+						},
+					},
+				},
+			})
+			adapter.releaseServiceConfig.Spec.AllowedGitResolvers = []v1alpha1.AllowedGitResolver{
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{"main", "production"},
+				},
+			}
+
+			result := adapter.validatePipelineSource()
+			Expect(result.Valid).To(BeTrue())
+			Expect(result.Err).To(BeNil())
+		})
+
+		It("returns invalid when git resolver URL is not in the allowed list in managed pipeline", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource: &v1alpha1.ReleasePlanAdmission{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-plan-admission",
+							Namespace: "default",
+						},
+						Spec: v1alpha1.ReleasePlanAdmissionSpec{
+							Applications: []string{application.Name},
+							Origin:       "default",
+							Pipeline: &tektonutils.Pipeline{
+								PipelineRef: tektonutils.PipelineRef{
+									Resolver: "git",
+									Params: []tektonutils.Param{
+										{Name: "url", Value: "https://github.com/unauthorized/repo"},
+										{Name: "revision", Value: "main"},
+										{Name: "pathInRepo", Value: "pipelines/pipeline.yaml"},
+									},
+								},
+							},
+							Policy: enterpriseContractPolicy.Name,
+						},
+					},
+				},
+			})
+			adapter.releaseServiceConfig.Spec.AllowedGitResolvers = []v1alpha1.AllowedGitResolver{
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{"main"},
+				},
+			}
+
+			result := adapter.validatePipelineSource()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).To(BeNil())
+			Expect(adapter.release.IsValid()).To(BeFalse())
+		})
+
+		It("returns valid when git resolver URL has no revision restrictions in managed pipeline", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource: &v1alpha1.ReleasePlanAdmission{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-plan-admission",
+							Namespace: "default",
+						},
+						Spec: v1alpha1.ReleasePlanAdmissionSpec{
+							Applications: []string{application.Name},
+							Origin:       "default",
+							Pipeline: &tektonutils.Pipeline{
+								PipelineRef: tektonutils.PipelineRef{
+									Resolver: "git",
+									Params: []tektonutils.Param{
+										{Name: "url", Value: "https://gitlab.cee.redhat.com/signing/signing"},
+										{Name: "revision", Value: "any-branch"},
+										{Name: "pathInRepo", Value: "pipelines/pipeline.yaml"},
+									},
+								},
+							},
+							Policy: enterpriseContractPolicy.Name,
+						},
+					},
+				},
+			})
+			adapter.releaseServiceConfig.Spec.AllowedGitResolvers = []v1alpha1.AllowedGitResolver{
+				{
+					URL: "https://gitlab.cee.redhat.com/signing/signing",
+					// No revisions specified - all revisions allowed
+				},
+			}
+
+			result := adapter.validatePipelineSource()
+			Expect(result.Valid).To(BeTrue())
+			Expect(result.Err).To(BeNil())
+		})
+
+		It("returns valid when AllowedGitResolvers list is empty in managed pipeline", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource: &v1alpha1.ReleasePlanAdmission{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-plan-admission",
+							Namespace: "default",
+						},
+						Spec: v1alpha1.ReleasePlanAdmissionSpec{
+							Applications: []string{application.Name},
+							Origin:       "default",
+							Pipeline: &tektonutils.Pipeline{
+								PipelineRef: tektonutils.PipelineRef{
+									Resolver: "git",
+									Params: []tektonutils.Param{
+										{Name: "url", Value: "https://any-url.com/repo"},
+										{Name: "revision", Value: "any-revision"},
+										{Name: "pathInRepo", Value: "pipelines/pipeline.yaml"},
+									},
+								},
+							},
+							Policy: enterpriseContractPolicy.Name,
+						},
+					},
+				},
+			})
+			adapter.releaseServiceConfig.Spec.AllowedGitResolvers = []v1alpha1.AllowedGitResolver{}
+
+			result := adapter.validatePipelineSource()
+			Expect(result.Valid).To(BeTrue())
+			Expect(result.Err).To(BeNil())
+		})
+
+		It("skips git resolver validation for non-git resolvers in managed pipeline", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanAdmissionContextKey,
+					Resource: &v1alpha1.ReleasePlanAdmission{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-plan-admission",
+							Namespace: "default",
+						},
+						Spec: v1alpha1.ReleasePlanAdmissionSpec{
+							Applications: []string{application.Name},
+							Origin:       "default",
+							Pipeline: &tektonutils.Pipeline{
+								PipelineRef: tektonutils.PipelineRef{
+									Resolver: "bundle",
+									Params: []tektonutils.Param{
+										{Name: "bundle", Value: "quay.io/some/bundle"},
+										{Name: "name", Value: "pipeline"},
+									},
+								},
+							},
+							Policy: enterpriseContractPolicy.Name,
+						},
+					},
+				},
+			})
+			adapter.releaseServiceConfig.Spec.AllowedGitResolvers = []v1alpha1.AllowedGitResolver{
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{"main"},
+				},
+			}
+
+			result := adapter.validatePipelineSource()
+			Expect(result.Valid).To(BeTrue())
+			Expect(result.Err).To(BeNil())
+		})
+
+		It("does not validate git resolver for tenant pipelines (user-controlled)", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePlanContextKey,
+					Resource: &v1alpha1.ReleasePlan{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "release-plan",
+							Namespace: "default",
+						},
+						Spec: v1alpha1.ReleasePlanSpec{
+							TenantPipeline: &tektonutils.ParameterizedPipeline{
+								Pipeline: tektonutils.Pipeline{
+									PipelineRef: tektonutils.PipelineRef{
+										Resolver: "git",
+										Params: []tektonutils.Param{
+											{Name: "url", Value: "https://github.com/any-user-repo/pipeline"},
+											{Name: "revision", Value: "any-branch"},
+											{Name: "pathInRepo", Value: "pipelines/pipeline.yaml"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+			adapter.releaseServiceConfig.Spec.AllowedGitResolvers = []v1alpha1.AllowedGitResolver{
+				{
+					URL:       "https://github.com/konflux-ci/release-service-catalog",
+					Revisions: []string{"main"},
+				},
+			}
+
+			// Should pass - tenant pipelines are not validated
+			result := adapter.validatePipelineSource()
+			Expect(result.Valid).To(BeTrue())
+			Expect(result.Err).To(BeNil())
+		})
 	})
 
 	When("validatePipelineDefined is called", func() {
