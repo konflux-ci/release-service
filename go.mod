@@ -19,8 +19,8 @@ require (
 	go.opentelemetry.io/otel/sdk v1.47.0
 	go.opentelemetry.io/otel/trace v1.47.0
 	go.yaml.in/yaml/v2 v2.4.4
-	k8s.io/api v0.37.1
-	k8s.io/apimachinery v0.37.1
+	k8s.io/api v0.37.2
+	k8s.io/apimachinery v0.37.2
 	k8s.io/client-go v11.0.0+incompatible
 	knative.dev/pkg v0.0.0-20260918182429-5dc1978f0042
 	sigs.k8s.io/controller-runtime v0.25.2
@@ -113,7 +113,7 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	k8s.io/apiserver v0.37.1 // indirect
 	k8s.io/klog v1.0.0 // indirect
-	k8s.io/streaming v0.37.1 // indirect
+	k8s.io/streaming v0.37.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.37.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
