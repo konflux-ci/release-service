@@ -28,19 +28,21 @@ import (
 	ctrlWebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/loader"
+	"github.com/konflux-ci/release-service/metadata"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"github.com/konflux-ci/release-service/metadata"
 )
 
 // Webhook describes the data structure for the author webhook
 type Webhook struct {
 	client client.Client
+	loader loader.ObjectLoader
 	log    logr.Logger
 }
 
@@ -48,7 +50,7 @@ type Webhook struct {
 func (w *Webhook) Handle(ctx context.Context, req admission.Request) admission.Response {
 	switch req.Kind.Kind {
 	case "Release":
-		return w.handleRelease(req)
+		return w.handleRelease(ctx, req)
 	case "ReleasePlan":
 		return w.handleReleasePlan(req)
 	default:
@@ -62,6 +64,7 @@ func (w *Webhook) Handle(ctx context.Context, req admission.Request) admission.R
 // Register registers the webhook with the passed manager and log.
 func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 	w.client = mgr.GetClient()
+	w.loader = loader.NewLoader()
 	w.log = log.WithName("author")
 
 	mgr.GetWebhookServer().Register("/mutate-appstudio-redhat-com-v1alpha1-author", &ctrlWebhook.Admission{Handler: w})
@@ -72,7 +75,7 @@ func (w *Webhook) Register(mgr ctrl.Manager, log *logr.Logger) error {
 // handleRelease takes an incoming admission request and returns an admission response. Create requests
 // add an author label with the current user. Update requests are rejected if the author label is being
 // modified. All other requests are accepted without action.
-func (w *Webhook) handleRelease(req admission.Request) admission.Response {
+func (w *Webhook) handleRelease(ctx context.Context, req admission.Request) admission.Response {
 	release := &v1alpha1.Release{}
 	err := json.Unmarshal(req.Object.Raw, release)
 	if err != nil {
@@ -82,7 +85,24 @@ func (w *Webhook) handleRelease(req admission.Request) admission.Response {
 	switch req.AdmissionRequest.Operation {
 	case admissionv1.Create:
 		if release.GetLabels()[metadata.AutomatedLabel] != "true" {
-			w.setAuthorLabel(req.UserInfo.Username, release)
+			author := req.UserInfo.Username
+			// For manual releases created by a service account, use the ReleasePlan author.
+			if w.isServiceAccount(author) {
+				// get RP author, RP webhook ensures it won't be SA
+				releasePlan, err := w.loader.GetReleasePlan(ctx, w.client, release)
+				if err != nil {
+					if apierrors.IsNotFound(err) {
+						return admission.Errored(http.StatusBadRequest, errors.New("release author is a service account and no ReleasePlan was found to fetch a fallback author from"))
+					}
+					return admission.Errored(http.StatusInternalServerError,
+						errors.Wrap(err, "failed to fetch ReleasePlan for fallback author"))
+				}
+				author = releasePlan.Labels[metadata.AuthorLabel]
+				if author == "" {
+					return admission.Errored(http.StatusBadRequest, errors.New("release author is a service account and no ReleasePlan author was found to fallback to"))
+				}
+			}
+			w.setAuthorLabel(author, release)
 		}
 
 		return w.patchResponse(req.Object.Raw, release)
@@ -119,6 +139,9 @@ func (w *Webhook) handleReleasePlan(req admission.Request) admission.Response {
 	case admissionv1.Create, admissionv1.Update:
 		// Only add the current user as author if attribution is true and no author is provided
 		if releasePlan.GetLabels()[metadata.AttributionLabel] == "true" && releasePlan.GetLabels()[metadata.AuthorLabel] == "" {
+			if w.isServiceAccount(req.UserInfo.Username) {
+				return admission.Errored(http.StatusBadRequest, errors.New("releasePlan author cannot be a service account"))
+			}
 			w.setAuthorLabel(req.UserInfo.Username, releasePlan)
 		}
 	}
@@ -162,4 +185,9 @@ func (w *Webhook) sanitizeLabelValue(username string) string {
 	})
 
 	return author
+}
+
+// isServiceAccount checks if the current string depicts a service account username
+func (w *Webhook) isServiceAccount(username string) bool {
+	return strings.HasPrefix(username, "system:serviceaccount:")
 }
