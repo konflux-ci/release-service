@@ -2608,6 +2608,63 @@ var _ = Describe("Release type", func() {
 		})
 	})
 
+	When("MarkCurrentManagedPipelineAttemptFailedWithoutProgress is called", func() {
+		var release *Release
+
+		BeforeEach(func() {
+			release = &Release{}
+		})
+
+		It("should do nothing when not processing", func() {
+			release.Status.ManagedPipelineAttempts = []PipelineAttempt{{PipelineRun: "default/run-1"}}
+			release.MarkCurrentManagedPipelineAttemptFailedWithoutProgress(AttemptFailureErrorReason)
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(BeEmpty())
+			Expect(attempt.CompletionTime).To(BeNil())
+		})
+
+		It("should do nothing when there are no attempts", func() {
+			release.MarkManagedPipelineProcessing()
+			release.MarkCurrentManagedPipelineAttemptFailedWithoutProgress(AttemptFailureErrorReason)
+			Expect(release.GetCurrentManagedPipelineAttempt()).To(BeNil())
+		})
+
+		It("should mark the current attempt failed without task progress", func() {
+			release.Status.ManagedPipelineAttempts = []PipelineAttempt{{
+				PipelineRun:     "default/run-1",
+				LastTask:        "publish-data",
+				LastStep:        "push-artifacts",
+				SuccessfulTasks: 1,
+			}}
+			release.MarkCurrentManagedPipelineAttemptProcessing()
+			release.MarkCurrentManagedPipelineAttemptFailedWithoutProgress(AttemptFailureErrorReason)
+
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptFailedReason))
+			Expect(attempt.FailureReason).To(Equal(AttemptFailureErrorReason))
+			Expect(attempt.CompletionTime).NotTo(BeNil())
+			Expect(attempt.LastTask).To(Equal("publish-data"))
+			Expect(attempt.LastStep).To(Equal("push-artifacts"))
+			Expect(attempt.SuccessfulTasks).To(Equal(1))
+			Expect(release.Status.ManagedProcessing.CompletionTime).To(BeNil())
+		})
+
+		It("should not modify a finished attempt", func() {
+			release.Status.ManagedPipelineAttempts = []PipelineAttempt{{
+				PipelineRun:   "default/run-1",
+				Status:        AttemptFailedReason,
+				FailureReason: AttemptFailureOOMKillReason,
+			}}
+			release.MarkManagedPipelineProcessing()
+			release.MarkCurrentManagedPipelineAttemptFailedWithoutProgress(AttemptFailureErrorReason)
+
+			attempt := release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(AttemptFailedReason))
+			Expect(attempt.FailureReason).To(Equal(AttemptFailureOOMKillReason))
+			Expect(attempt.CompletionTime).To(BeNil())
+		})
+	})
+
 	When("MarkCurrentManagedPipelineAttemptRetryDisabled is called", func() {
 		var release *Release
 
