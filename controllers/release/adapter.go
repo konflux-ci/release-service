@@ -2316,10 +2316,47 @@ func (a *adapter) validatePipelineSource() *controller.ValidationResult {
 				a.release.MarkValidationFailed("tried using debug only options while debug mode is disabled in the ReleaseServiceConfig")
 				return &controller.ValidationResult{Valid: false}
 			}
+			// Validate git resolver URL and revision only for managed pipelines.
+			// Tenant and final pipelines run in user-controlled namespaces and are not restricted.
+			// Managed pipelines run in the managed namespace and require URL/revision validation.
+			if result := a.validateGitResolverAllowed(&pipelineRef, "managed pipeline"); result != nil {
+				return result
+			}
 		}
 	}
 
 	return &controller.ValidationResult{Valid: true}
+}
+
+// validateGitResolverAllowed checks whether the git resolver URL and revision in the given PipelineRef
+// are allowed by the ReleaseServiceConfig. Returns nil if valid, or a ValidationResult if invalid.
+func (a *adapter) validateGitResolverAllowed(pipelineRef *utils.PipelineRef, pipelineType string) *controller.ValidationResult {
+	// Only validate git resolvers
+	if pipelineRef.Resolver != "git" {
+		return nil
+	}
+
+	url, revision, _, err := pipelineRef.GetGitResolverParams()
+	if err != nil {
+		// This should not happen since we check Resolver == "git" above, but handle it defensively
+		a.release.MarkValidationFailed(fmt.Sprintf("failed to get git resolver params from %s: %v", pipelineType, err))
+		return &controller.ValidationResult{Valid: false}
+	}
+
+	if !a.releaseServiceConfig.IsGitResolverAllowed(url, revision) {
+		// Check if validation failed due to invalid regex patterns
+		if validationErrors := a.releaseServiceConfig.ValidateGitResolverPatterns(); len(validationErrors) > 0 {
+			a.logger.Error(fmt.Errorf("invalid regex patterns in ReleaseServiceConfig.AllowedGitResolvers"),
+				"Invalid regex patterns detected in ReleaseServiceConfig",
+				"errors", validationErrors)
+		}
+
+		errMsg := fmt.Sprintf("the %s git resolver URL (%s) and/or revision (%s) is not in the allowed list", pipelineType, url, revision)
+		a.release.MarkValidationFailed(errMsg)
+		return &controller.ValidationResult{Valid: false}
+	}
+
+	return nil
 }
 
 // validatePipelineDefined checks that a Pipeline is defined in either the ReleasePlan or in the ReleasePlanAdmission.
