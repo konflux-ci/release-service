@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 
 	ecapiv1alpha1 "github.com/conforma/crds/api/v1alpha1"
@@ -873,6 +875,58 @@ var _ = Describe("Release Adapter", Ordered, func() {
 			Expect(err).To(HaveOccurred())
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 			Expect(err.Error()).NotTo(ContainSubstring("kubearchive unavailable"))
+		})
+
+		It("performs a live read and returns the snapshot when the cache hasn't synced yet", func() {
+			recentRelease := release.DeepCopy()
+			recentRelease.CreationTimestamp = metav1.Now()
+
+			// Simulates a cache that hasn't synced the Snapshot yet, regardless of it existing live.
+			staleCacheClient := fake.NewClientBuilder().WithScheme(k8sClient.Scheme()).Build()
+
+			// Uses the real, exported constructor (as production code does) since the live read
+			// succeeds here and KubeArchive is never consulted, so no kaGet mock is needed.
+			raceLoader := NewLoaderWithAPIReader(apiReader)
+
+			returnedObject, err := raceLoader.GetSnapshot(ctx, staleCacheClient, recentRelease)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject.Name).To(Equal(snapshot.Name))
+		})
+
+		It("falls back to KubeArchive when the Snapshot isn't found live either", func() {
+			recentMissingRelease := release.DeepCopy()
+			recentMissingRelease.CreationTimestamp = metav1.Now()
+			recentMissingRelease.Spec.Snapshot = "archived-snapshot-recent"
+
+			raceLoader := newLoaderWithAPIReader(func(_ context.Context, _ client.Client, _ schema.GroupVersionResource, _, _ string, obj client.Object) error {
+				snap := obj.(*applicationapiv1alpha1.Snapshot)
+				snap.Name = "archived-snapshot-recent"
+				snap.Namespace = "default"
+				return nil
+			}, apiReader)
+
+			returnedObject, err := raceLoader.GetSnapshot(ctx, k8sClient, recentMissingRelease)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject.Name).To(Equal("archived-snapshot-recent"))
+		})
+
+		It("performs a live read regardless of the Release's age", func() {
+			oldRelease := release.DeepCopy()
+			oldRelease.CreationTimestamp = metav1.NewTime(time.Now().Add(-2 * time.Hour))
+
+			// Simulates a cache that hasn't synced the Snapshot yet, regardless of it existing live.
+			staleCacheClient := fake.NewClientBuilder().WithScheme(k8sClient.Scheme()).Build()
+
+			kaCalled := false
+			raceLoader := newLoaderWithAPIReader(func(_ context.Context, _ client.Client, _ schema.GroupVersionResource, _, _ string, _ client.Object) error {
+				kaCalled = true
+				return fmt.Errorf("should not be called")
+			}, apiReader)
+
+			returnedObject, err := raceLoader.GetSnapshot(ctx, staleCacheClient, oldRelease)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject.Name).To(Equal(snapshot.Name))
+			Expect(kaCalled).To(BeFalse())
 		})
 	})
 
