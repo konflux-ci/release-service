@@ -107,3 +107,14 @@ Span column values: `wait` = PipelineRun `waitDuration`, `execute` = PipelineRun
 | `delivery.tekton.dev.component` | all | Label on `PipelineRun` (wait, execute) or `Release` (validation wait); label key configurable via `TRACING_LABEL_COMPONENT` |
 | `cicd.pipeline.result` | execute, validation wait | execute: `Succeeded` condition mapped to the semconv `cicd.pipeline.result` enum (`success` / `failure` / `timeout` / `cancellation` / `error`). validation wait: always `error`. |
 | `delivery.tekton.dev.result_message` | execute, validation wait | execute: earliest failing TaskRun's `Succeeded` condition message, falling back to the PipelineRun's own condition message. validation wait: the Validated condition's message. Truncated to 1024 bytes (UTF-8 safe); omitted when empty. |
+
+## Workload label propagation
+
+Release-service copies `appstudio.openshift.io/` labels from Snapshots to Releases.
+When creating tenant, managed, final, and collector PipelineRuns, it forwards
+workload labels in that domain. For these PipelineRuns, controller-owned
+identity labels (`application`, `component`, `component-group`, `snapshot`,
+`service`, and `build-pipelinerun`) are excluded from generic propagation and
+continue to be assigned explicitly. This mechanism does not propagate annotations.
+Labels are supplied by tenants; consumers must independently enforce authorization
+and namespace boundaries when using them for scheduling or other decisions.

@@ -54,6 +54,17 @@ func GetLabelsWithPrefix(obj v1.Object, prefix string) map[string]string {
 	return filterByPrefix(obj.GetLabels(), prefix)
 }
 
+// PropagatedAppStudioLabels returns workload labels in the appstudio.openshift.io
+// domain, excluding identity labels that must be assigned by each controller.
+// Annotations are deliberately not propagated by this mechanism.
+func PropagatedAppStudioLabels(obj v1.Object) map[string]string {
+	labels := GetLabelsWithPrefix(obj, RhtapDomain+"/")
+	for _, name := range []string{"application", "component", "component-group", "snapshot", "service", "build-pipelinerun"} {
+		delete(labels, RhtapDomain+"/"+name)
+	}
+	return labels
+}
+
 // addEntries copies key/value pairs in the source map adding them into the destination map.
 // The unexported function safeCopy is used to copy, and avoids clobbering existing keys in the destination map.
 func addEntries(source, destination map[string]string) {

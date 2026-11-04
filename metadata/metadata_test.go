@@ -220,3 +220,29 @@ var _ = Describe("Metadata", func() {
 		})
 	})
 })
+
+var _ = Describe("AppStudio label propagation", func() {
+	It("copies arbitrary workload label values without sharing the source map", func() {
+		source := &v1.ObjectMeta{Labels: map[string]string{
+			"appstudio.openshift.io/example":  "value",
+			"appstudio.openshift.io/disabled": "false",
+			"appstudio.openshift.io/empty":    "",
+		}}
+		result := PropagatedAppStudioLabels(source)
+		Expect(result).To(Equal(source.Labels))
+		result["appstudio.openshift.io/example"] = "changed"
+		Expect(source.Labels["appstudio.openshift.io/example"]).To(Equal("value"))
+	})
+	It("excludes controller-owned identities and other label domains", func() {
+		source := &v1.ObjectMeta{Labels: map[string]string{
+			"example.com/workload":                        "other",
+			"appstudio.openshift.io.example.com/workload": "similar-domain",
+			"custom.appstudio.openshift.io/workload":      "custom",
+		}}
+		for _, name := range []string{"application", "component", "component-group", "snapshot", "service", "build-pipelinerun"} {
+			source.Labels[RhtapDomain+"/"+name] = "untrusted"
+		}
+		Expect(PropagatedAppStudioLabels(source)).To(BeEmpty())
+		Expect(PropagatedAppStudioLabels(&v1.ObjectMeta{})).To(BeEmpty())
+	})
+})
