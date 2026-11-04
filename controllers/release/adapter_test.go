@@ -142,6 +142,81 @@ var _ = Describe("Release adapter", Ordered, func() {
 		createResources()
 	})
 
+	DescribeTable("propagates AppStudio workload labels when creating release PipelineRuns",
+		func(pipelineType metadata.PipelineType) {
+			adapter := createReleaseAndAdapter()
+			DeferCleanup(func() { Expect(k8sClient.Delete(ctx, adapter.release)).To(Succeed()) })
+			adapter.releaseServiceConfig = releaseServiceConfig
+			adapter.release.Labels = map[string]string{
+				"appstudio.openshift.io/example":             "value",
+				"appstudio.openshift.io/disabled":            "false",
+				metadata.ApplicationNameLabel:                "untrusted",
+				metadata.ServiceNameLabel:                    "untrusted",
+				metadata.ReleaseSnapshotLabel:                "untrusted",
+				"appstudio.openshift.io/component-group":     "untrusted",
+				"appstudio.openshift.io.example.com/example": "unrelated",
+				metadata.ReleaseNamespaceLabel:               "untrusted",
+			}
+			adapter.release.Annotations = map[string]string{"appstudio.openshift.io/example": "annotation"}
+			plan := releasePlan.DeepCopy()
+			admission := releasePlanAdmission.DeepCopy()
+			plan.Spec.Collectors = &v1alpha1.Collectors{ServiceAccountName: "default"}
+			admission.Spec.Collectors = &v1alpha1.Collectors{ServiceAccountName: "default"}
+			pipeline := &tektonutils.ParameterizedPipeline{
+				Pipeline: tektonutils.Pipeline{
+					PipelineRef:        admission.Spec.Pipeline.PipelineRef,
+					ServiceAccountName: "default",
+				},
+			}
+			plan.Spec.TenantPipeline = pipeline
+			plan.Spec.FinalPipeline = pipeline
+			var run *tektonv1.PipelineRun
+			var err error
+			switch pipelineType {
+			case metadata.ManagedPipelineType:
+				resources := &loader.ProcessingResources{
+					ReleasePlan: plan, ReleasePlanAdmission: admission,
+					EnterpriseContractPolicy: enterpriseContractPolicy, Snapshot: snapshot,
+				}
+				run, err = adapter.createManagedPipelineRun(resources, nil, tektonv1.TimeoutFields{})
+			case metadata.TenantPipelineType:
+				run, err = adapter.createTenantPipelineRun(plan, snapshot)
+			case metadata.FinalPipelineType:
+				run, err = adapter.createFinalPipelineRun(plan, snapshot)
+			case metadata.ManagedCollectorsPipelineType:
+				run, err = adapter.createManagedCollectorsPipelineRun(admission)
+			case metadata.TenantCollectorsPipelineType:
+				run, err = adapter.createTenantCollectorsPipelineRun(plan, admission)
+			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(run).NotTo(BeNil())
+			DeferCleanup(func() { Expect(k8sClient.Delete(ctx, run)).To(Succeed()) })
+			// Fetch the created object: admission must see the labels on the first write.
+			saved := &tektonv1.PipelineRun{}
+			Expect(k8sClient.Get(ctx, ctrlclient.ObjectKeyFromObject(run), saved)).To(Succeed())
+			Expect(saved.Labels).To(HaveKeyWithValue("appstudio.openshift.io/example", "value"))
+			Expect(saved.Labels).To(HaveKeyWithValue("appstudio.openshift.io/disabled", "false"))
+			Expect(saved.Labels).To(HaveKeyWithValue(metadata.ServiceNameLabel, metadata.ServiceName))
+			Expect(saved.Labels).To(HaveKeyWithValue(metadata.PipelinesTypeLabel, pipelineType.String()))
+			Expect(saved.Labels).To(HaveKeyWithValue(metadata.ReleaseNamespaceLabel, adapter.release.Namespace))
+			Expect(saved.Labels).NotTo(HaveKey("appstudio.openshift.io/component-group"))
+			Expect(saved.Labels).NotTo(HaveKey("appstudio.openshift.io.example.com/example"))
+			Expect(saved.Annotations).NotTo(HaveKey("appstudio.openshift.io/example"))
+			if pipelineType == metadata.ManagedCollectorsPipelineType || pipelineType == metadata.TenantCollectorsPipelineType {
+				Expect(saved.Labels).NotTo(HaveKey(metadata.ApplicationNameLabel))
+				Expect(saved.Labels).NotTo(HaveKey(metadata.ReleaseSnapshotLabel))
+			} else {
+				Expect(saved.Labels).To(HaveKeyWithValue(metadata.ApplicationNameLabel, plan.Spec.Application))
+				Expect(saved.Labels).To(HaveKeyWithValue(metadata.ReleaseSnapshotLabel, adapter.release.Spec.Snapshot))
+			}
+		},
+		Entry("managed", metadata.ManagedPipelineType),
+		Entry("tenant", metadata.TenantPipelineType),
+		Entry("final", metadata.FinalPipelineType),
+		Entry("managed collectors", metadata.ManagedCollectorsPipelineType),
+		Entry("tenant collectors", metadata.TenantCollectorsPipelineType),
+	)
+
 	When("newAdapter is called", func() {
 		It("creates and return a new adapter", func() {
 			Expect(reflect.TypeOf(newAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
@@ -2905,9 +2980,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 					Name:      "metadata-snapshot",
 					Namespace: "default",
 					Labels: map[string]string{
-						metadata.PipelinesAsCodePrefix + "/foo": "value",
-						metadata.RhtapDomain + "/bar":           "value2",
-						"something-else":                        "value3",
+						metadata.PipelinesAsCodePrefix + "/foo":   "value",
+						metadata.RhtapDomain + "/bar":             "value2",
+						metadata.RhtapDomain + ".example.com/foo": "unrelated",
+						"something-else":                          "value3",
 					},
 					Annotations: map[string]string{
 						metadata.PipelinesAsCodePrefix + "/test": "value",

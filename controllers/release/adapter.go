@@ -699,7 +699,7 @@ func (a *adapter) EnsureApplicationMetadataIsSet() (controller.OperationResult, 
 		return controller.RequeueWithError(err)
 	}
 
-	err = toolkitmetadata.CopyLabelsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.RhtapDomain)
+	err = toolkitmetadata.CopyLabelsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.RhtapDomain+"/")
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}
@@ -1204,6 +1204,7 @@ func (a *adapter) getCollectorsPipelineRunBuilder(pipelineType metadata.Pipeline
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, metadata.SpanContextAnnotation)).
 		WithFinalizer(metadata.ReleaseFinalizer).
+		WithLabels(metadata.PropagatedAppStudioLabels(a.release)).
 		WithLabels(map[string]string{
 			metadata.PipelinesTypeLabel:    pipelineType.String(),
 			metadata.ServiceNameLabel:      metadata.ServiceName,
@@ -1346,6 +1347,7 @@ func (a *adapter) createFinalPipelineRun(releasePlan *v1alpha1.ReleasePlan, snap
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, metadata.SpanContextAnnotation)).
 		WithFinalizer(metadata.ReleaseFinalizer).
+		WithLabels(metadata.PropagatedAppStudioLabels(a.release)).
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  releasePlan.Spec.Application,
 			metadata.PipelinesTypeLabel:    metadata.FinalPipelineType.String(),
@@ -1397,6 +1399,7 @@ func (a *adapter) createManagedPipelineRun(resources *loader.ProcessingResources
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, metadata.SpanContextAnnotation)).
 		WithFinalizer(metadata.ReleaseFinalizer).
+		WithLabels(metadata.PropagatedAppStudioLabels(a.release)).
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  resources.ReleasePlan.Spec.Application,
 			metadata.PipelinesTypeLabel:    metadata.ManagedPipelineType.String(),
@@ -1452,6 +1455,7 @@ func (a *adapter) createTenantPipelineRun(releasePlan *v1alpha1.ReleasePlan, sna
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, integrationgitops.PipelinesAsCodePrefix)).
 		WithAnnotations(metadata.GetAnnotationsWithPrefix(a.release, metadata.SpanContextAnnotation)).
 		WithFinalizer(metadata.ReleaseFinalizer).
+		WithLabels(metadata.PropagatedAppStudioLabels(a.release)).
 		WithLabels(map[string]string{
 			metadata.ApplicationNameLabel:  releasePlan.Spec.Application,
 			metadata.PipelinesTypeLabel:    metadata.TenantPipelineType.String(),
