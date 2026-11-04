@@ -699,6 +699,31 @@ var _ = Describe("Release Adapter", Ordered, func() {
 		})
 	})
 
+	When("calling GetPipelineRun", func() {
+		It("returns the PipelineRun for a namespace/name reference", func() {
+			namespacedName := fmt.Sprintf("%s%c%s", tenantPipelineRun.Namespace, types.Separator, tenantPipelineRun.Name)
+			returnedObject, err := NewMockLoader().(PipelineRunGetter).GetPipelineRun(ctx, k8sClient, namespacedName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(returnedObject).NotTo(BeNil())
+			Expect(returnedObject.Name).To(Equal(tenantPipelineRun.Name))
+			Expect(returnedObject.Namespace).To(Equal(tenantPipelineRun.Namespace))
+		})
+
+		It("returns NotFound when the PipelineRun does not exist", func() {
+			returnedObject, err := loader.(PipelineRunGetter).GetPipelineRun(ctx, k8sClient, "default/missing-pipeline-run")
+			Expect(returnedObject).To(BeNil())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("returns an error when the reference is not namespace/name", func() {
+			for _, namespacedName := range []string{"", "name-only", "/name", "namespace/", "namespace/name/extra"} {
+				returnedObject, err := loader.(PipelineRunGetter).GetPipelineRun(ctx, k8sClient, namespacedName)
+				Expect(returnedObject).To(BeNil())
+				Expect(err).To(MatchError(fmt.Sprintf("invalid PipelineRun reference %q", namespacedName)))
+			}
+		})
+	})
+
 	When("calling GetReleasePipelineRun", func() {
 		It("returns an error when called with an unexpected Pipeline type", func() {
 			invalidPipelineType := metadata.PipelineType("invalid-type")

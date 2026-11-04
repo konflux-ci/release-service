@@ -57,6 +57,7 @@ import (
 // adapter holds the objects needed to reconcile a Release.
 type adapter struct {
 	client               client.Client
+	apiReader            client.Reader
 	ctx                  context.Context
 	loader               loader.ObjectLoader
 	logger               *logr.Logger
@@ -218,6 +219,10 @@ func (a *adapter) EnsureManagedCollectorsPipelineIsProcessed() (controller.Opera
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
 	}
+	pipelineRun, result, handled, err := a.failIfRecordedPipelineRunIsGone(pipelineRun, metadata.ManagedCollectorsPipelineType)
+	if handled {
+		return result, err
+	}
 
 	tenantRoleBinding, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing, "tenant")
 	if err != nil && !errors.IsNotFound(err) && !stderrors.Is(err, loader.ErrInvalidRoleBindingRef) {
@@ -349,6 +354,10 @@ func (a *adapter) EnsureManagedCollectorsPipelineIsTracked() (controller.Operati
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}
+	pipelineRun, err = a.pipelineRunForTracking(pipelineRun, metadata.ManagedCollectorsPipelineType)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
 	if pipelineRun != nil {
 		err = a.registerManagedCollectorsProcessingStatus(pipelineRun)
 		if err != nil {
@@ -369,6 +378,10 @@ func (a *adapter) EnsureTenantCollectorsPipelineIsProcessed() (controller.Operat
 	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.TenantCollectorsPipelineType)
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
+	}
+	pipelineRun, result, handled, err := a.failIfRecordedPipelineRunIsGone(pipelineRun, metadata.TenantCollectorsPipelineType)
+	if handled {
+		return result, err
 	}
 
 	tenantRoleBinding, err := a.loader.GetRoleBindingFromReleaseStatusPipelineInfo(a.ctx, a.client, &a.release.Status.CollectorsProcessing.TenantCollectorsProcessing, "tenant")
@@ -470,6 +483,10 @@ func (a *adapter) EnsureTenantCollectorsPipelineIsTracked() (controller.Operatio
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}
+	pipelineRun, err = a.pipelineRunForTracking(pipelineRun, metadata.TenantCollectorsPipelineType)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
 	if pipelineRun != nil {
 		err = a.registerTenantCollectorsProcessingStatus(pipelineRun)
 		if err != nil {
@@ -497,6 +514,10 @@ func (a *adapter) EnsureTenantPipelineIsProcessed() (controller.OperationResult,
 	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.TenantPipelineType)
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
+	}
+	pipelineRun, result, handled, err := a.failIfRecordedPipelineRunIsGone(pipelineRun, metadata.TenantPipelineType)
+	if handled {
+		return result, err
 	}
 
 	if pipelineRun == nil || !a.release.IsTenantPipelineProcessing() {
@@ -558,6 +579,10 @@ func (a *adapter) EnsureManagedPipelineIsProcessed() (controller.OperationResult
 	pipelineRun, err := a.loader.GetReleasePipelineRunAttempt(a.ctx, a.client, a.release, a.release.GetManagedPipelineRetryCount())
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
+	}
+	pipelineRun, result, handled, err := a.failIfRecordedPipelineRunIsGone(pipelineRun, metadata.ManagedPipelineType)
+	if handled {
+		return result, err
 	}
 
 	// Get RoleBinding from tenant namespace so the managed PipelineRun can access tenant resources.
@@ -634,6 +659,10 @@ func (a *adapter) EnsureFinalPipelineIsProcessed() (controller.OperationResult, 
 	if err != nil && !errors.IsNotFound(err) {
 		return controller.RequeueWithError(err)
 	}
+	pipelineRun, result, handled, err := a.failIfRecordedPipelineRunIsGone(pipelineRun, metadata.FinalPipelineType)
+	if handled {
+		return result, err
+	}
 
 	if pipelineRun == nil || !a.release.IsFinalPipelineProcessing() {
 		releasePlan, err := a.loader.GetReleasePlan(a.ctx, a.client, a.release)
@@ -670,6 +699,161 @@ func (a *adapter) EnsureFinalPipelineIsProcessed() (controller.OperationResult, 
 	}
 
 	return controller.ContinueProcessing()
+}
+
+// errRecordedPipelineRunDeleted is logged when a PipelineRun referenced from Release status
+// can no longer be found.
+var errRecordedPipelineRunDeleted = stderrors.New("recorded pipelinerun was deleted before it completed")
+
+// failIfRecordedPipelineRunIsGone fails the Release when status names a PipelineRun and an uncached
+// API get of that object returns NotFound. The manager cache only stores PipelineRuns that carry the
+// release-service label, so a cached miss does not prove deletion. A label lookup miss is not enough
+// either: the object may still exist with different labels. A label hit is accepted only when its
+// namespace/name is the one recorded on the Release, so another matching run cannot hide deletion.
+// When the API read finds the recorded object, the caller keeps using it. An empty reference means
+// one was never created.
+// Managed retries are unchanged: a failed attempt returns before this runs, and the replacement
+// attempt has no PipelineRun reference until retryManagedPipeline registers it.
+// The bool reports whether the caller should return the result instead of creating a PipelineRun.
+func (a *adapter) failIfRecordedPipelineRunIsGone(pipelineRun *tektonv1.PipelineRun, pipelineType metadata.PipelineType) (*tektonv1.PipelineRun, controller.OperationResult, bool, error) {
+	if a.recordedPipelineRunMatches(pipelineRun, pipelineType) {
+		return pipelineRun, controller.OperationResult{}, false, nil
+	}
+
+	recordedName := a.recordedPipelineRunName(pipelineType)
+	if recordedName == "" {
+		return nil, controller.OperationResult{}, false, nil
+	}
+
+	found, err := a.getRecordedPipelineRun(recordedName)
+	if err == nil {
+		return found, controller.OperationResult{}, false, nil
+	}
+	if !errors.IsNotFound(err) {
+		result, err := controller.RequeueWithError(err)
+		return nil, result, true, err
+	}
+
+	message := fmt.Sprintf("PipelineRun %s (%s) was deleted before it completed", recordedName, pipelineType)
+	a.logger.Error(errRecordedPipelineRunDeleted, "Failing Release because its PipelineRun no longer exists",
+		"PipelineRun", recordedName,
+		"PipelineType", pipelineType.String())
+
+	patch := client.MergeFrom(a.release.DeepCopy())
+	a.markPipelineProcessingFailed(pipelineType, message)
+	a.release.MarkReleaseFailed(message)
+
+	result, err := controller.RequeueOnErrorOrContinue(a.client.Status().Patch(a.ctx, a.release, patch))
+	return nil, result, true, err
+}
+
+// recordedPipelineRunReader returns the uncached API reader when the controller has one.
+// Tests that do not set it read through the adapter client, which is already uncached.
+func (a *adapter) recordedPipelineRunReader() client.Reader {
+	if a.apiReader != nil {
+		return a.apiReader
+	}
+	return a.client
+}
+
+// getRecordedPipelineRun reads a PipelineRun by the namespace/name stored on the Release.
+// The lookup is not part of ObjectLoader, so only a loader that implements PipelineRunGetter can serve it.
+func (a *adapter) getRecordedPipelineRun(namespacedName string) (*tektonv1.PipelineRun, error) {
+	getter, ok := a.loader.(loader.PipelineRunGetter)
+	if !ok {
+		return nil, fmt.Errorf("release loader does not implement PipelineRunGetter")
+	}
+	return getter.GetPipelineRun(a.ctx, a.recordedPipelineRunReader(), namespacedName)
+}
+
+// pipelineRunForTracking returns the PipelineRun an active phase should track. A label lookup hit
+// is used only when it is the object named on the Release. Otherwise the recorded name is read
+// from the API, and the caller registers status from that object. NotFound means there is nothing
+// to track.
+func (a *adapter) pipelineRunForTracking(pipelineRun *tektonv1.PipelineRun, pipelineType metadata.PipelineType) (*tektonv1.PipelineRun, error) {
+	if a.recordedPipelineRunMatches(pipelineRun, pipelineType) {
+		return pipelineRun, nil
+	}
+
+	recordedName := a.recordedPipelineRunName(pipelineType)
+	if recordedName == "" {
+		return nil, nil
+	}
+
+	found, err := a.getRecordedPipelineRun(recordedName)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
+	return found, err
+}
+
+// recordedPipelineRunMatches reports whether pipelineRun is the object named for this phase.
+// An empty recorded name means one has not been stored yet, so the labeled object is the one to use.
+func (a *adapter) recordedPipelineRunMatches(pipelineRun *tektonv1.PipelineRun, pipelineType metadata.PipelineType) bool {
+	if pipelineRun == nil {
+		return false
+	}
+	recordedName := a.recordedPipelineRunName(pipelineType)
+	if recordedName == "" {
+		return true
+	}
+	return recordedName == fmt.Sprintf("%s%c%s", pipelineRun.Namespace, types.Separator, pipelineRun.Name)
+}
+
+// recordedPipelineRunName returns the PipelineRun reference stored for the phase, or empty when
+// this phase has not created one yet.
+func (a *adapter) recordedPipelineRunName(pipelineType metadata.PipelineType) string {
+	switch pipelineType {
+	case metadata.TenantCollectorsPipelineType:
+		return a.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun
+	case metadata.ManagedCollectorsPipelineType:
+		return a.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun
+	case metadata.TenantPipelineType:
+		return a.release.Status.TenantProcessing.PipelineRun
+	case metadata.ManagedPipelineType:
+		attempt := a.release.GetCurrentManagedPipelineAttempt()
+		if attempt == nil {
+			return ""
+		}
+		return attempt.PipelineRun
+	case metadata.FinalPipelineType:
+		return a.release.Status.FinalProcessing.PipelineRun
+	default:
+		return ""
+	}
+}
+
+// markPipelineProcessingFailed marks the given phase failed. When the phase is not yet marked
+// progressing, it is marked progressing first so the failure is recorded as a terminal state.
+func (a *adapter) markPipelineProcessingFailed(pipelineType metadata.PipelineType, message string) {
+	switch pipelineType {
+	case metadata.TenantCollectorsPipelineType:
+		if !a.release.IsTenantCollectorsPipelineProcessing() {
+			a.release.MarkTenantCollectorsPipelineProcessing()
+		}
+		a.release.MarkTenantCollectorsPipelineProcessingFailed(message)
+	case metadata.ManagedCollectorsPipelineType:
+		if !a.release.IsManagedCollectorsPipelineProcessing() {
+			a.release.MarkManagedCollectorsPipelineProcessing()
+		}
+		a.release.MarkManagedCollectorsPipelineProcessingFailed(message)
+	case metadata.TenantPipelineType:
+		if !a.release.IsTenantPipelineProcessing() {
+			a.release.MarkTenantPipelineProcessing()
+		}
+		a.release.MarkTenantPipelineProcessingFailed(message)
+	case metadata.ManagedPipelineType:
+		if !a.release.IsManagedPipelineProcessing() {
+			a.release.MarkManagedPipelineProcessing()
+		}
+		a.release.MarkCurrentManagedPipelineAttemptFailedWithoutProgress(v1alpha1.AttemptFailureErrorReason)
+		a.release.MarkManagedPipelineProcessingFailed(message)
+	case metadata.FinalPipelineType:
+		if !a.release.IsFinalPipelineProcessing() {
+			a.release.MarkFinalPipelineProcessing()
+		}
+		a.release.MarkFinalPipelineProcessingFailed(message)
+	}
 }
 
 // EnsureApplicationMetadataIsSet is an operation that will ensure that all annotations and labels from the
@@ -777,6 +961,10 @@ func (a *adapter) EnsureTenantPipelineProcessingIsTracked() (controller.Operatio
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}
+	pipelineRun, err = a.pipelineRunForTracking(pipelineRun, metadata.TenantPipelineType)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
 	if pipelineRun != nil {
 		err = a.registerTenantProcessingStatus(pipelineRun)
 		if err != nil {
@@ -798,6 +986,10 @@ func (a *adapter) EnsureManagedPipelineProcessingIsTracked() (controller.Operati
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}
+	pipelineRun, err = a.pipelineRunForTracking(pipelineRun, metadata.ManagedPipelineType)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
 	if pipelineRun != nil {
 		err = a.registerManagedProcessingStatus(pipelineRun)
 		if err != nil {
@@ -816,6 +1008,10 @@ func (a *adapter) EnsureFinalPipelineProcessingIsTracked() (controller.Operation
 	}
 
 	pipelineRun, err := a.loader.GetReleasePipelineRun(a.ctx, a.client, a.release, metadata.FinalPipelineType)
+	if err != nil {
+		return controller.RequeueWithError(err)
+	}
+	pipelineRun, err = a.pipelineRunForTracking(pipelineRun, metadata.FinalPipelineType)
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}

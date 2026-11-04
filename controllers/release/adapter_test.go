@@ -76,6 +76,58 @@ func (c *createErrorClient) Create(ctx context.Context, obj ctrlclient.Object, o
 	return c.Client.Create(ctx, obj, opts...)
 }
 
+// statusPatchErrorClient fails status patches and delegates every other call.
+type statusPatchErrorClient struct {
+	ctrlclient.Client
+}
+
+func (c *statusPatchErrorClient) Status() ctrlclient.SubResourceWriter {
+	return &statusPatchErrorWriter{SubResourceWriter: c.Client.Status()}
+}
+
+type statusPatchErrorWriter struct {
+	ctrlclient.SubResourceWriter
+}
+
+func (w *statusPatchErrorWriter) Patch(ctx context.Context, obj ctrlclient.Object, patch ctrlclient.Patch, opts ...ctrlclient.SubResourcePatchOption) error {
+	return fmt.Errorf("status patch failed")
+}
+
+// notFoundPipelineRunClient makes PipelineRun gets miss, as the label-filtered cache does when
+// the object exists without the release-service label.
+type notFoundPipelineRunClient struct {
+	ctrlclient.Client
+}
+
+func (c *notFoundPipelineRunClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object, opts ...ctrlclient.GetOption) error {
+	if _, ok := obj.(*tektonv1.PipelineRun); ok {
+		return errors.NewNotFound(schema.GroupResource{Group: "tekton.dev", Resource: "pipelineruns"}, key.Name)
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+// staticPipelineRunReader returns one PipelineRun from Get and does not consult a cache.
+type staticPipelineRunReader struct {
+	pipelineRun *tektonv1.PipelineRun
+	err         error
+}
+
+func (r staticPipelineRunReader) Get(_ context.Context, _ ctrlclient.ObjectKey, obj ctrlclient.Object, _ ...ctrlclient.GetOption) error {
+	if r.err != nil {
+		return r.err
+	}
+	pipelineRun, ok := obj.(*tektonv1.PipelineRun)
+	if !ok {
+		return fmt.Errorf("unexpected object %T", obj)
+	}
+	*pipelineRun = *r.pipelineRun
+	return nil
+}
+
+func (r staticPipelineRunReader) List(context.Context, ctrlclient.ObjectList, ...ctrlclient.ListOption) error {
+	return fmt.Errorf("list is not implemented")
+}
+
 // createAfterNErrorClient wraps a client.Client and allows exactly successCount Create calls to
 // succeed before returning createErr on all subsequent calls. Used to simulate failures at
 // specific points in a sequence of creates (e.g. the 2nd or 3rd RoleBinding creation).
@@ -115,6 +167,30 @@ func (e *recordingExporter) Spans() []sdktrace.ReadOnlySpan {
 	return append([]sdktrace.ReadOnlySpan(nil), e.spans...)
 }
 
+func expectDeletedPipelineRunStopsRelease(adapter *adapter, phaseCondition, pipelineRunName string) {
+	Expect(adapter.release.IsFailed()).To(BeTrue())
+	Expect(adapter.release.HasReleaseFinished()).To(BeTrue())
+
+	phase := apimeta.FindStatusCondition(adapter.release.Status.Conditions, phaseCondition)
+	Expect(phase).NotTo(BeNil())
+	Expect(phase.Status).To(Equal(metav1.ConditionFalse))
+	Expect(phase.Reason).To(Equal("Failed"))
+	Expect(phase.Message).To(ContainSubstring("was deleted before it completed"))
+	Expect(phase.Message).To(ContainSubstring(pipelineRunName))
+
+	released := apimeta.FindStatusCondition(adapter.release.Status.Conditions, "Released")
+	Expect(released).NotTo(BeNil())
+	Expect(released.Status).To(Equal(metav1.ConditionFalse))
+	Expect(released.Reason).To(Equal("Failed"))
+	Expect(released.Message).To(Equal(phase.Message))
+}
+
+func expectNoReleasePipelineRun(adapter *adapter, pipelineType metadata.PipelineType) {
+	pipelineRun, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, pipelineType)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(pipelineRun).To(BeNil())
+}
+
 var _ = Describe("Release adapter", Ordered, func() {
 	var (
 		createReleaseAndAdapter func() *adapter
@@ -145,6 +221,167 @@ var _ = Describe("Release adapter", Ordered, func() {
 	When("newAdapter is called", func() {
 		It("creates and return a new adapter", func() {
 			Expect(reflect.TypeOf(newAdapter(ctx, k8sClient, nil, loader.NewLoader(), &ctrl.Log))).To(Equal(reflect.TypeOf(&adapter{})))
+		})
+	})
+
+	When("a recorded PipelineRun cannot be confirmed", func() {
+		var adapter *adapter
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		It("returns an empty name when the phase has not recorded a PipelineRun", func() {
+			Expect(adapter.recordedPipelineRunName(metadata.PipelineType("unknown"))).To(BeEmpty())
+			Expect(adapter.recordedPipelineRunName(metadata.ManagedPipelineType)).To(BeEmpty())
+
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun = "default/tenant-collectors"
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun = "default/managed-collectors"
+			adapter.release.Status.TenantProcessing.PipelineRun = "default/tenant"
+			adapter.release.Status.FinalProcessing.PipelineRun = "default/final"
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{
+				PipelineRun: "default/managed",
+			}}
+
+			Expect(adapter.recordedPipelineRunName(metadata.TenantCollectorsPipelineType)).To(Equal("default/tenant-collectors"))
+			Expect(adapter.recordedPipelineRunName(metadata.ManagedCollectorsPipelineType)).To(Equal("default/managed-collectors"))
+			Expect(adapter.recordedPipelineRunName(metadata.TenantPipelineType)).To(Equal("default/tenant"))
+			Expect(adapter.recordedPipelineRunName(metadata.ManagedPipelineType)).To(Equal("default/managed"))
+			Expect(adapter.recordedPipelineRunName(metadata.FinalPipelineType)).To(Equal("default/final"))
+		})
+
+		It("does not treat a label lookup hit or a missing reference as deletion", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			got, _, handled, err := adapter.failIfRecordedPipelineRunIsGone(pipelineRun, metadata.TenantPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got).To(BeIdenticalTo(pipelineRun))
+			Expect(handled).To(BeFalse())
+
+			got, _, handled, err = adapter.failIfRecordedPipelineRunIsGone(nil, metadata.TenantPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got).To(BeNil())
+			Expect(handled).To(BeFalse())
+			Expect(adapter.release.IsFailed()).To(BeFalse())
+		})
+
+		It("does not let another labeled PipelineRun hide deletion of the recorded one", func() {
+			const pipelineRunName = "default/deleted-tenant-pr"
+			adapter.release.MarkReleasing("")
+			adapter.release.Status.TenantProcessing.PipelineRun = pipelineRunName
+			other := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "survivor",
+					Namespace: "default",
+				},
+			}
+
+			got, result, handled, err := adapter.failIfRecordedPipelineRunIsGone(other, metadata.TenantPipelineType)
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(handled).To(BeTrue())
+			Expect(got).To(BeNil())
+			expectDeletedPipelineRunStopsRelease(adapter, "TenantPipelineProcessed", pipelineRunName)
+		})
+
+		It("uses the recorded PipelineRun when the label lookup returns a different one", func() {
+			adapter.apiReader = staticPipelineRunReader{
+				pipelineRun: &tektonv1.PipelineRun{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "recorded",
+						Namespace: "default",
+					},
+				},
+			}
+			adapter.release.Status.TenantProcessing.PipelineRun = "default/recorded"
+			other := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "other",
+					Namespace: "default",
+				},
+			}
+
+			got, _, handled, err := adapter.failIfRecordedPipelineRunIsGone(other, metadata.TenantPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(handled).To(BeFalse())
+			Expect(got.Name).To(Equal("recorded"))
+			Expect(adapter.release.IsFailed()).To(BeFalse())
+		})
+
+		It("requeues when the recorded PipelineRun cannot be fetched", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.PipelineRunContextKey,
+					Err:        fmt.Errorf("api unavailable"),
+				},
+			})
+			adapter.release.MarkReleasing("")
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.Status.TenantProcessing.PipelineRun = "default/deleted-tenant-pr"
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(MatchError(ContainSubstring("api unavailable")))
+			Expect(adapter.release.IsFailed()).To(BeFalse())
+			Expect(adapter.release.IsTenantPipelineProcessing()).To(BeTrue())
+			expectNoReleasePipelineRun(adapter, metadata.TenantPipelineType)
+		})
+
+		It("requeues when the failure status cannot be saved", func() {
+			adapter.client = &statusPatchErrorClient{Client: k8sClient}
+			adapter.release.MarkReleasing("")
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.Status.TenantProcessing.PipelineRun = "default/deleted-tenant-pr"
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(MatchError(ContainSubstring("status patch failed")))
+			Expect(adapter.release.IsFailed()).To(BeTrue())
+			expectNoReleasePipelineRun(adapter, metadata.TenantPipelineType)
+		})
+
+		It("marks a phase progressing before recording that its PipelineRun was deleted", func() {
+			adapter.release.MarkReleasing("")
+			message := "PipelineRun was deleted before it completed"
+
+			adapter.markPipelineProcessingFailed(metadata.TenantCollectorsPipelineType, message)
+			Expect(adapter.release.HasTenantCollectorsPipelineProcessingFinished()).To(BeTrue())
+
+			adapter.markPipelineProcessingFailed(metadata.ManagedCollectorsPipelineType, message)
+			Expect(adapter.release.HasManagedCollectorsPipelineProcessingFinished()).To(BeTrue())
+
+			adapter.markPipelineProcessingFailed(metadata.TenantPipelineType, message)
+			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
+
+			adapter.markPipelineProcessingFailed(metadata.FinalPipelineType, message)
+			Expect(adapter.release.HasFinalPipelineProcessingFinished()).To(BeTrue())
+
+			adapter.markPipelineProcessingFailed(metadata.ManagedPipelineType, message)
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.GetCurrentManagedPipelineAttempt()).To(BeNil())
+		})
+
+		It("leaves a finished managed attempt unchanged when the phase fails", func() {
+			adapter.release.MarkReleasing("")
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{
+				PipelineRun:   "default/finished-managed-pr",
+				Status:        v1alpha1.AttemptFailedReason,
+				FailureReason: v1alpha1.AttemptFailureOOMKillReason,
+			}}
+			adapter.release.MarkManagedPipelineProcessing()
+
+			adapter.markPipelineProcessingFailed(metadata.ManagedPipelineType, "gone")
+
+			attempt := adapter.release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.Status).To(Equal(v1alpha1.AttemptFailedReason))
+			Expect(attempt.FailureReason).To(Equal(v1alpha1.AttemptFailureOOMKillReason))
+			Expect(attempt.CompletionTime).To(BeNil())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
 		})
 	})
 
@@ -464,6 +701,26 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.IsFinalPipelineProcessing()).To(BeFalse())
 		})
 
+		It("should fail the Release when the recorded final PipelineRun has been deleted", func() {
+			const pipelineRunName = "default/deleted-final-pr"
+			adapter.release.MarkReleasing("")
+			adapter.release.MarkManagedPipelineProcessingSkipped()
+			adapter.release.MarkFinalPipelineProcessing()
+			adapter.release.Status.FinalProcessing.PipelineRun = pipelineRunName
+
+			result, err := adapter.EnsureFinalPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasFinalPipelineProcessingFinished()).To(BeTrue())
+			expectDeletedPipelineRunStopsRelease(adapter, "FinalPipelineProcessed", pipelineRunName)
+			expectNoReleasePipelineRun(adapter, metadata.FinalPipelineType)
+
+			result, err = adapter.EnsureFinalPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			expectNoReleasePipelineRun(adapter, metadata.FinalPipelineType)
+		})
+
 		It("should continue and mark final processing as skipped if the ReleasePlan has no Final Pipeline set", func() {
 			newReleasePlan := releasePlan.DeepCopy()
 			newReleasePlan.Spec.FinalPipeline = nil
@@ -678,6 +935,25 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).To(HaveOccurred())
 			Expect(adapter.release.IsManagedCollectorsPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should fail the Release when the recorded managed collectors PipelineRun has been deleted", func() {
+			const pipelineRunName = "default/deleted-managed-collectors-pr"
+			adapter.release.MarkTenantCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkManagedCollectorsPipelineProcessing()
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun = pipelineRunName
+
+			result, err := adapter.EnsureManagedCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasManagedCollectorsPipelineProcessingFinished()).To(BeTrue())
+			expectDeletedPipelineRunStopsRelease(adapter, "ManagedCollectorsPipelineProcessed", pipelineRunName)
+			expectNoReleasePipelineRun(adapter, metadata.ManagedCollectorsPipelineType)
+
+			result, err = adapter.EnsureManagedCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			expectNoReleasePipelineRun(adapter, metadata.ManagedCollectorsPipelineType)
 		})
 
 		It("should continue and mark managed collectors processing as skipped if the ReleasePlanAdmission has no collectors defined", func() {
@@ -1200,6 +1476,51 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.IsManagedPipelineProcessing()).To(BeFalse())
 		})
 
+		It("should fail the Release when the recorded managed PipelineRun has been deleted", func() {
+			const pipelineRunName = "default/deleted-managed-pr"
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{
+				PipelineRun: pipelineRunName,
+			}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
+			Expect(adapter.release.IsCurrentManagedPipelineAttemptFailed()).To(BeTrue())
+			Expect(adapter.release.GetCurrentManagedPipelineAttempt().FailureReason).To(Equal(v1alpha1.AttemptFailureErrorReason))
+			expectDeletedPipelineRunStopsRelease(adapter, "ManagedPipelineProcessed", pipelineRunName)
+
+			pipelineRun, getErr := adapter.loader.GetReleasePipelineRunAttempt(adapter.ctx, adapter.client, adapter.release, 0)
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(pipelineRun).To(BeNil())
+
+			result, err = adapter.EnsureManagedPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			pipelineRun, getErr = adapter.loader.GetReleasePipelineRunAttempt(adapter.ctx, adapter.client, adapter.release, 0)
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(pipelineRun).To(BeNil())
+		})
+
+		It("should leave a failed managed attempt available for retry when its PipelineRun is gone", func() {
+			adapter.release.MarkTenantPipelineProcessingSkipped()
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{
+				PipelineRun:   "default/failed-managed-pr",
+				Status:        v1alpha1.AttemptFailedReason,
+				FailureReason: v1alpha1.AttemptFailureOOMKillReason,
+			}}
+			adapter.release.MarkManagedPipelineProcessing()
+
+			result, err := adapter.EnsureManagedPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeFalse())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeFalse())
+			Expect(adapter.release.GetCurrentManagedPipelineAttempt().FailureReason).To(Equal(v1alpha1.AttemptFailureOOMKillReason))
+		})
+
 		It("should mark the Managed Pipeline Processing as Skipped if the ReleasePlanAdmission isn't found", func() {
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
@@ -1629,6 +1950,25 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).To(HaveOccurred())
 			Expect(adapter.release.IsTenantCollectorsPipelineProcessing()).To(BeFalse())
+		})
+
+		It("should fail the Release when the recorded tenant collectors PipelineRun has been deleted", func() {
+			const pipelineRunName = "default/deleted-tenant-collectors-pr"
+			adapter.release.MarkReleasing("")
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun = pipelineRunName
+
+			result, err := adapter.EnsureTenantCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasTenantCollectorsPipelineProcessingFinished()).To(BeTrue())
+			expectDeletedPipelineRunStopsRelease(adapter, "TenantCollectorsPipelineProcessed", pipelineRunName)
+			expectNoReleasePipelineRun(adapter, metadata.TenantCollectorsPipelineType)
+
+			result, err = adapter.EnsureTenantCollectorsPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			expectNoReleasePipelineRun(adapter, metadata.TenantCollectorsPipelineType)
 		})
 
 		It("should continue and mark tenant collectors processing as skipped if the ReleasePlan has no collectors defined", func() {
@@ -2097,6 +2437,80 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.release.IsTenantPipelineProcessing()).To(BeFalse())
 		})
 
+		It("should fail the Release when the recorded tenant PipelineRun has been deleted", func() {
+			const pipelineRunName = "default/deleted-tenant-pr"
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.Status.TenantProcessing.PipelineRun = pipelineRunName
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
+			expectDeletedPipelineRunStopsRelease(adapter, "TenantPipelineProcessed", pipelineRunName)
+			expectNoReleasePipelineRun(adapter, metadata.TenantPipelineType)
+
+			result, err = adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			expectNoReleasePipelineRun(adapter, metadata.TenantPipelineType)
+		})
+
+		It("should keep the Release progressing when the recorded PipelineRun exists but is absent from the label lookup", func() {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "unlabeled-",
+					Namespace:    adapter.release.Namespace,
+				},
+			}
+			Expect(adapter.client.Create(adapter.ctx, pipelineRun)).To(Succeed())
+			DeferCleanup(func() {
+				_ = adapter.client.Delete(ctx, pipelineRun)
+			})
+
+			recordedName := fmt.Sprintf("%s%c%s", pipelineRun.Namespace, types.Separator, pipelineRun.Name)
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.Status.TenantProcessing.PipelineRun = recordedName
+
+			missed, err := adapter.loader.GetReleasePipelineRun(adapter.ctx, adapter.client, adapter.release, metadata.TenantPipelineType)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(missed).To(BeNil())
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeFalse())
+			Expect(adapter.release.IsTenantPipelineProcessing()).To(BeTrue())
+			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeFalse())
+			Expect(adapter.release.Status.TenantProcessing.PipelineRun).To(Equal(recordedName))
+			expectNoReleasePipelineRun(adapter, metadata.TenantPipelineType)
+		})
+
+		It("does not fail the Release when the cached client misses a PipelineRun the API still has", func() {
+			const pipelineRunName = "default/still-there"
+			adapter.client = &notFoundPipelineRunClient{Client: k8sClient}
+			adapter.apiReader = staticPipelineRunReader{
+				pipelineRun: &tektonv1.PipelineRun{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "still-there",
+						Namespace: "default",
+					},
+				},
+			}
+			adapter.release.MarkManagedCollectorsPipelineProcessingSkipped()
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.Status.TenantProcessing.PipelineRun = pipelineRunName
+
+			result, err := adapter.EnsureTenantPipelineIsProcessed()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsFailed()).To(BeFalse())
+			Expect(adapter.release.IsTenantPipelineProcessing()).To(BeTrue())
+			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeFalse())
+			Expect(adapter.release.Status.TenantProcessing.PipelineRun).To(Equal(pipelineRunName))
+		})
+
 		It("should continue and mark tenant processing as skipped if the ReleasePlan has no Tenant Pipeline set", func() {
 			newReleasePlan := releasePlan.DeepCopy()
 			newReleasePlan.Spec.TenantPipeline = nil
@@ -2411,6 +2825,116 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(adapter.release.Status.StartTime).NotTo(BeNil())
+		})
+	})
+
+	When("active phase tracking cannot see the PipelineRun by its labels", func() {
+		var adapter *adapter
+
+		succeededPipelineRun := func(name string) *tektonv1.PipelineRun {
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: "default",
+				},
+			}
+			pipelineRun.Status.MarkSucceeded("", "")
+			return pipelineRun
+		}
+
+		AfterEach(func() {
+			_ = adapter.client.Delete(ctx, adapter.release)
+		})
+
+		BeforeEach(func() {
+			adapter = createReleaseAndAdapter()
+		})
+
+		It("registers status from the PipelineRun recorded on the Release", func() {
+			adapter.apiReader = staticPipelineRunReader{pipelineRun: succeededPipelineRun("tenant-collectors")}
+			adapter.release.MarkTenantCollectorsPipelineProcessing()
+			adapter.release.Status.CollectorsProcessing.TenantCollectorsProcessing.PipelineRun = "default/tenant-collectors"
+			result, err := adapter.EnsureTenantCollectorsPipelineIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasTenantCollectorsPipelineProcessingFinished()).To(BeTrue())
+
+			adapter.apiReader = staticPipelineRunReader{pipelineRun: succeededPipelineRun("managed-collectors")}
+			adapter.release.MarkManagedCollectorsPipelineProcessing()
+			adapter.release.Status.CollectorsProcessing.ManagedCollectorsProcessing.PipelineRun = "default/managed-collectors"
+			result, err = adapter.EnsureManagedCollectorsPipelineIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasManagedCollectorsPipelineProcessingFinished()).To(BeTrue())
+
+			adapter.apiReader = staticPipelineRunReader{pipelineRun: succeededPipelineRun("tenant")}
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.Status.TenantProcessing.PipelineRun = "default/tenant"
+			result, err = adapter.EnsureTenantPipelineProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeTrue())
+
+			adapter.apiReader = staticPipelineRunReader{pipelineRun: succeededPipelineRun("managed")}
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{
+				PipelineRun: "default/managed",
+			}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+			result, err = adapter.EnsureManagedPipelineProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeTrue())
+
+			adapter.apiReader = staticPipelineRunReader{pipelineRun: succeededPipelineRun("final")}
+			adapter.release.MarkFinalPipelineProcessing()
+			adapter.release.Status.FinalProcessing.PipelineRun = "default/final"
+			result, err = adapter.EnsureFinalPipelineProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.HasFinalPipelineProcessingFinished()).To(BeTrue())
+		})
+
+		It("requeues when the recorded PipelineRun cannot be fetched", func() {
+			adapter.apiReader = staticPipelineRunReader{err: fmt.Errorf("api unavailable")}
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.Status.TenantProcessing.PipelineRun = "default/tenant"
+
+			result, err := adapter.EnsureTenantPipelineProcessingIsTracked()
+			Expect(result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).To(MatchError(ContainSubstring("api unavailable")))
+			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeFalse())
+		})
+
+		It("does not register status from a labeled PipelineRun that is not the recorded one", func() {
+			other := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "other",
+					Namespace: "default",
+				},
+			}
+			other.Status.MarkSucceeded("", "")
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.ReleasePipelineRunContextKey,
+					Resource:   other,
+				},
+			})
+			adapter.apiReader = staticPipelineRunReader{
+				pipelineRun: &tektonv1.PipelineRun{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "recorded",
+						Namespace: "default",
+					},
+				},
+			}
+			adapter.release.MarkTenantPipelineProcessing()
+			adapter.release.Status.TenantProcessing.PipelineRun = "default/recorded"
+
+			result, err := adapter.EnsureTenantPipelineProcessingIsTracked()
+			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(adapter.release.IsTenantPipelineProcessing()).To(BeTrue())
+			Expect(adapter.release.HasTenantPipelineProcessingFinished()).To(BeFalse())
 		})
 	})
 
