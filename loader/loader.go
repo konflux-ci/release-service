@@ -26,6 +26,9 @@ import (
 // ErrInvalidRoleBindingRef is returned when PipelineInfo.RoleBindings does no parse as “namespace/name”.
 var ErrInvalidRoleBindingRef = fmt.Errorf("pipelineInfo doesn't contain a valid reference to a RoleBinding")
 
+// ObjectLoader loads Kubernetes objects for the release controllers.
+// A direct PipelineRun read is provided by PipelineRunGetter so this interface
+// does not change when that lookup is added.
 type ObjectLoader interface {
 	GetActiveReleasePlanAdmission(ctx context.Context, cli client.Client, releasePlan *v1alpha1.ReleasePlan) (*v1alpha1.ReleasePlanAdmission, error)
 	GetActiveReleasePlanAdmissionFromRelease(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*v1alpha1.ReleasePlanAdmission, error)
@@ -44,6 +47,16 @@ type ObjectLoader interface {
 	GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error)
 	GetProcessingResources(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*ProcessingResources, error)
 }
+
+// PipelineRunGetter reads one PipelineRun by its namespace/name reference.
+type PipelineRunGetter interface {
+	GetPipelineRun(ctx context.Context, cli client.Reader, namespacedName string) (*tektonv1.PipelineRun, error)
+}
+
+var (
+	_ PipelineRunGetter = (*loader)(nil)
+	_ PipelineRunGetter = (*mockLoader)(nil)
+)
 
 // KubeArchiveGetFunc is the function signature for retrieving archived
 // resources from KubeArchive, matching kubearchive.Get.
@@ -362,6 +375,21 @@ func (l *loader) GetReleasePipelineRunAttempt(ctx context.Context, cli client.Cl
 	}
 
 	return nil, err
+}
+
+// GetPipelineRun returns the PipelineRun identified by the given namespace/name string, or an error
+// including NotFound if the object cannot be retrieved.
+func (l *loader) GetPipelineRun(ctx context.Context, cli client.Reader, namespacedName string) (*tektonv1.PipelineRun, error) {
+	parts := strings.Split(namespacedName, string(types.Separator))
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return nil, fmt.Errorf("invalid PipelineRun reference %q", namespacedName)
+	}
+
+	pipelineRun := &tektonv1.PipelineRun{}
+	if err := cli.Get(ctx, types.NamespacedName{Namespace: parts[0], Name: parts[1]}, pipelineRun); err != nil {
+		return nil, err
+	}
+	return pipelineRun, nil
 }
 
 // GetReleasePlan returns the ReleasePlan referenced by the given Release. If the ReleasePlan is not found or

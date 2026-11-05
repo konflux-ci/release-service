@@ -2,6 +2,7 @@ package loader
 
 import (
 	"context"
+	"fmt"
 
 	toolkit "github.com/konflux-ci/operator-toolkit/loader"
 
@@ -21,6 +22,7 @@ const (
 	EnterpriseContractPolicyContextKey
 	MatchedReleasePlansContextKey
 	MatchedReleasePlanAdmissionContextKey
+	PipelineRunContextKey
 	PreviousReleaseContextKey
 	ProcessingResourcesContextKey
 	ReleaseContextKey
@@ -137,6 +139,18 @@ func (l *mockLoader) GetReleasePipelineRunAttempt(ctx context.Context, cli clien
 		return l.loader.GetReleasePipelineRunAttempt(ctx, cli, release, attempt)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleasePipelineRunAttemptContextKey, &tektonv1.PipelineRun{})
+}
+
+// GetPipelineRun returns the resource and error passed as values of the context.
+func (l *mockLoader) GetPipelineRun(ctx context.Context, cli client.Reader, namespacedName string) (*tektonv1.PipelineRun, error) {
+	if ctx.Value(PipelineRunContextKey) == nil {
+		getter, ok := l.loader.(PipelineRunGetter)
+		if !ok {
+			return nil, fmt.Errorf("release loader does not implement PipelineRunGetter")
+		}
+		return getter.GetPipelineRun(ctx, cli, namespacedName)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, PipelineRunContextKey, &tektonv1.PipelineRun{})
 }
 
 // GetReleasePlan returns the resource and error passed as values of the context.
