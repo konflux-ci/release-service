@@ -9,7 +9,7 @@ import (
 	ecp "github.com/conforma/crds/api/v1alpha1"
 	"github.com/devfile/library/v2/pkg/util"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	"go.yaml.in/yaml/v2"
+	"go.yaml.in/yaml/v3"
 
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
 
