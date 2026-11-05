@@ -64,7 +64,7 @@ require (
 	github.com/google/cel-go v0.31.0 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-github/v45 v45.2.0 // indirect
-	github.com/google/go-github/v88 v88.0.0 // indirect
+	github.com/google/go-github/v93 v93.0.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
