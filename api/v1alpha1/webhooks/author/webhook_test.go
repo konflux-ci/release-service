@@ -17,9 +17,11 @@ package author
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/konflux-ci/release-service/api/v1alpha1"
+	"github.com/konflux-ci/release-service/loader"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,9 +29,12 @@ import (
 
 	"github.com/konflux-ci/release-service/metadata"
 
+	toolkit "github.com/konflux-ci/operator-toolkit/loader"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -37,7 +42,7 @@ var _ = Describe("Author webhook", Ordered, func() {
 	var admissionRequest admission.Request
 	var err error
 
-	BeforeAll(func() {
+	BeforeEach(func() {
 		admissionRequest.UserInfo.Username = "admin"
 	})
 
@@ -143,6 +148,121 @@ var _ = Describe("Author webhook", Ordered, func() {
 				// The json functions replace `/` so checking the entire value does not work
 				Expect(patch.Path).To(ContainSubstring("author"))
 				Expect(patch.Value).To(Equal("admin"))
+			})
+
+			It("should add the author label from the RP if provided author is a SA and automated is false", func() {
+				mockedWebhook := &Webhook{
+					client: k8sClient,
+					loader: loader.NewMockLoader(),
+				}
+				mockedCtx := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+					{
+						ContextKey: loader.ReleasePlanContextKey,
+						Resource: &v1alpha1.ReleasePlan{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: "appstudio.redhat.com/v1alpha1",
+								Kind:       "ReleasePlan",
+							},
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "test-releaseplan",
+								Namespace: "default",
+								Labels: map[string]string{
+									metadata.AuthorLabel: "attributor",
+								},
+							},
+							Spec: v1alpha1.ReleasePlanSpec{
+								Application:            "test-application",
+								Target:                 "default",
+								ReleaseGracePeriodDays: 7,
+							},
+						},
+					},
+				})
+				release.Labels = map[string]string{
+					metadata.AutomatedLabel: "false",
+				}
+				admissionRequest.Object.Raw, err = json.Marshal(release)
+				Expect(err).NotTo(HaveOccurred())
+				admissionRequest.UserInfo.Username = "system:serviceaccount:kubeadmin"
+
+				rsp := mockedWebhook.Handle(mockedCtx, admissionRequest)
+				Expect(rsp.AdmissionResponse.Allowed).To(BeTrue())
+				Expect(len(rsp.Patches)).To(Equal(1))
+				patch := rsp.Patches[0]
+				Expect(patch.Operation).To(Equal("add"))
+				// The json functions replace `/` so checking the entire value does not work
+				Expect(patch.Path).To(ContainSubstring("author"))
+				Expect(patch.Value).To(Equal("attributor"))
+			})
+
+			DescribeTable("should report ReleasePlan lookup failures for service account authors",
+				func(lookupError error, statusCode int, message string) {
+					mockedWebhook := &Webhook{
+						client: k8sClient,
+						loader: loader.NewMockLoader(),
+					}
+					mockedCtx := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+						{
+							ContextKey: loader.ReleasePlanContextKey,
+							Err:        lookupError,
+						},
+					})
+					release.Labels = map[string]string{
+						metadata.AutomatedLabel: "false",
+					}
+					admissionRequest.Object.Raw, err = json.Marshal(release)
+					Expect(err).NotTo(HaveOccurred())
+					admissionRequest.UserInfo.Username = "system:serviceaccount:kubeadmin"
+
+					rsp := mockedWebhook.Handle(mockedCtx, admissionRequest)
+					Expect(rsp.AdmissionResponse.Allowed).To(BeFalse())
+					Expect(rsp.AdmissionResponse.Result.Code).To(Equal(int32(statusCode)))
+					Expect(rsp.AdmissionResponse.Result.Message).To(Equal(message))
+				},
+				Entry("not found", errors.NewNotFound(schema.GroupResource{}, "test-releaseplan"),
+					http.StatusBadRequest,
+					"release author is a service account and no ReleasePlan was found to fetch a fallback author from"),
+				Entry("other lookup failure", fmt.Errorf("API server connection failed"),
+					http.StatusInternalServerError,
+					"failed to fetch ReleasePlan for fallback author: API server connection failed"),
+			)
+
+			It("should return error when the author label from the RP is missing and the R author is a SA", func() {
+				mockedWebhook := &Webhook{
+					client: k8sClient,
+					loader: loader.NewMockLoader(),
+				}
+				mockedCtx := toolkit.GetMockedContext(ctx, []toolkit.MockData{
+					{
+						ContextKey: loader.ReleasePlanContextKey,
+						Resource: &v1alpha1.ReleasePlan{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: "appstudio.redhat.com/v1alpha1",
+								Kind:       "ReleasePlan",
+							},
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "test-releaseplan",
+								Namespace: "default",
+							},
+							Spec: v1alpha1.ReleasePlanSpec{
+								Application:            "test-application",
+								Target:                 "default",
+								ReleaseGracePeriodDays: 7,
+							},
+						},
+					},
+				})
+				release.Labels = map[string]string{
+					metadata.AutomatedLabel: "false",
+				}
+				admissionRequest.Object.Raw, err = json.Marshal(release)
+				Expect(err).NotTo(HaveOccurred())
+				admissionRequest.UserInfo.Username = "system:serviceaccount:kubeadmin"
+
+				rsp := mockedWebhook.Handle(mockedCtx, admissionRequest)
+				Expect(rsp.AdmissionResponse.Allowed).To(BeFalse())
+				Expect(rsp.AdmissionResponse.Result.Code).To(Equal(int32(http.StatusBadRequest)))
+				Expect(rsp.AdmissionResponse.Result.Message).To(ContainSubstring("release author is a service account and no ReleasePlan author was found to fallback to"))
 			})
 
 			It("should return error when Release object cannot be decoded", func() {
@@ -437,6 +557,21 @@ var _ = Describe("Author webhook", Ordered, func() {
 					Expect(patch.Path).To(ContainSubstring("author"))
 					Expect(patch.Value).To(Equal("admin"))
 				})
+
+				It("should reject the request if an author isn't provided and the current user is a service account", func() {
+					admissionRequest.Object.Raw, err = json.Marshal(releasePlan)
+					Expect(err).NotTo(HaveOccurred())
+					admissionRequest.OldObject.Raw, err = json.Marshal(previousReleasePlan)
+					Expect(err).NotTo(HaveOccurred())
+					admissionRequest.UserInfo.Username = "system:serviceaccount:kubeadmin"
+
+					rsp := webhook.Handle(ctx, admissionRequest)
+					Expect(rsp.AdmissionResponse.Allowed).To(BeFalse())
+					Expect(rsp.AdmissionResponse.Result).To(Equal(&metav1.Status{
+						Code:    http.StatusBadRequest,
+						Message: "releasePlan author cannot be a service account",
+					}))
+				})
 			})
 
 			When("the Attribution label goes to false to false", func() {
@@ -572,5 +707,24 @@ var _ = Describe("Author webhook", Ordered, func() {
 			Expect(str).To(Equal("abcdefghijklmnopqrstuvwxyz_abcdefghijklmnopqrstuvwxyz_123456789"))
 		})
 
+	})
+
+	When("isServiceAccount is called", func() {
+
+		It("should return true for values containing the sa prefix", func() {
+			Expect(webhook.isServiceAccount("system:serviceaccount:kubeadmin")).To(BeTrue())
+		})
+
+		It("should return false for values not containing the sa prefix", func() {
+			Expect(webhook.isServiceAccount("username")).To(BeFalse())
+		})
+
+		It("should return false for value containing the sa substring but not beginning with it", func() {
+			Expect(webhook.isServiceAccount("weird:name:system:serviceaccount")).To(BeFalse())
+		})
+
+		It("should return false for the empty string", func() {
+			Expect(webhook.isServiceAccount("")).To(BeFalse())
+		})
 	})
 })
