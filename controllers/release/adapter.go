@@ -694,7 +694,7 @@ func (a *adapter) EnsureApplicationMetadataIsSet() (controller.OperationResult, 
 	}
 
 	// Propagate annotations and labels prefixed with the RhtapDomain prefix
-	err = toolkitmetadata.CopyAnnotationsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.RhtapDomain)
+	err = toolkitmetadata.CopyAnnotationsByPrefix(&snapshot.ObjectMeta, &a.release.ObjectMeta, metadata.RhtapDomain+"/")
 	if err != nil {
 		return controller.RequeueWithError(err)
 	}
