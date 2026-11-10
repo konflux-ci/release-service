@@ -2986,9 +2986,10 @@ var _ = Describe("Release adapter", Ordered, func() {
 						"something-else":                          "value3",
 					},
 					Annotations: map[string]string{
-						metadata.PipelinesAsCodePrefix + "/test": "value",
-						metadata.RhtapDomain + "/baz":            "value2",
-						"something-else-else":                    "value3",
+						metadata.PipelinesAsCodePrefix + "/test":  "value",
+						metadata.RhtapDomain + "/baz":             "value2",
+						metadata.RhtapDomain + ".example.com/baz": "unrelated",
+						"something-else-else":                     "value3",
 					},
 				},
 				Spec: applicationapiv1alpha1.SnapshotSpec{
@@ -3007,8 +3008,14 @@ var _ = Describe("Release adapter", Ordered, func() {
 			result, err := adapter.EnsureApplicationMetadataIsSet()
 			Expect(!result.RequeueRequest && !result.CancelRequest).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(adapter.release.Labels).To(HaveLen(2))
-			Expect(adapter.release.Annotations).To(HaveLen(2))
+			Expect(adapter.release.Labels).To(Equal(map[string]string{
+				metadata.PipelinesAsCodePrefix + "/foo": "value",
+				metadata.RhtapDomain + "/bar":           "value2",
+			}))
+			Expect(adapter.release.Annotations).To(Equal(map[string]string{
+				metadata.PipelinesAsCodePrefix + "/test": "value",
+				metadata.RhtapDomain + "/baz":            "value2",
+			}))
 		})
 	})
 
