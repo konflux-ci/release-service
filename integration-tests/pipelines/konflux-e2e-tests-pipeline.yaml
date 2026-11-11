@@ -122,13 +122,6 @@ spec:
           - name: generate
             image: "quay.io/konflux-ci/release-service-utils@sha256:\
               0b35e861c83b9c1141e3a8d7a8924cc9c4ae0b09dc87938971eee66ee9b9aaaf"
-            resources:
-              requests:
-                cpu: 50m
-                memory: 64Mi
-              limits:
-                cpu: 50m
-                memory: 64Mi
             script: |
               #!/usr/bin/env bash
               set -euo pipefail
