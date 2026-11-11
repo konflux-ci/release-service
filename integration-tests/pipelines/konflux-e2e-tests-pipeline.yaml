@@ -6,7 +6,7 @@ metadata:
 spec:
   description: |-
     This pipeline runs release-service e2e tests on an ephemeral Kind cluster.
-    It provisions the cluster on AWS, deploys Konflux, runs the Ginkgo test suite
+    It provisions and hardens the cluster on IBM Cloud, deploys Konflux, runs the Ginkgo test suite
     from the e2e-tests/ directory, collects artifacts, and deprovisions the cluster.
   params:
     - name: SNAPSHOT
@@ -50,6 +50,18 @@ spec:
         ConfigMap in the pipeline namespace containing the Konflux CR to apply.
       type: string
       default: konflux-deploy-cr
+    - name: catalog-revision
+      description: Pinned integration catalog revision for IBM Tasks and their nested StepActions.
+      type: string
+      default: 2d0243d6b0ad1e6f48a2eadd7c5cc41c39b8b52f
+    - name: ibmcloud-credentials-secret
+      description: Secret containing the IBM Cloud API key and COS HMAC credentials.
+      type: string
+      default: mapt-kind-secret-ibm
+    - name: ibmcloud-backend-url
+      description: IBM COS S3 backend prefix; the unique cluster ID is appended for each run.
+      type: string
+      default: s3://konflux-mapt-state/mapt/kind
 
   tasks:
     # ──────────────────────────────────────────────────────────────────────────
@@ -89,9 +101,45 @@ spec:
     # ──────────────────────────────────────────────────────────────────────────
     # Infrastructure: provision cluster and deploy Konflux
     # ──────────────────────────────────────────────────────────────────────────
-    - name: provision-kind-cluster
+    - name: generate-cluster-id
       runAfter:
         - test-metadata
+      when:
+        - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
+          operator: in
+          values: ["false"]
+        - input: "$(tasks.test-metadata.results.pull-request-author)"
+          operator: notin
+          values: ["red-hat-konflux[bot]"]
+        - input: "$(tasks.test-metadata.results.component-name)"
+          operator: in
+          values: ["release-service"]
+      taskSpec:
+        results:
+          - name: cluster-id
+            description: Short unique identifier shared by IBM provision and deprovision.
+        steps:
+          - name: generate
+            image: "quay.io/konflux-ci/release-service-utils@sha256:\
+              0b35e861c83b9c1141e3a8d7a8924cc9c4ae0b09dc87938971eee66ee9b9aaaf"
+            computeResources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 50m
+                memory: 64Mi
+            script: |
+              #!/usr/bin/env bash
+              set -euo pipefail
+
+              # mapt prefixes the ID with "kind-"; IBM names allow at most 40 characters.
+              suffix="$(printf '%s' '$(context.pipelineRun.uid)' | sha256sum | cut -c1-16)"
+              printf 'ibm-%s' "${suffix}" > "$(results.cluster-id.path)"
+
+    - name: provision-kind-cluster
+      runAfter:
+        - generate-cluster-id
       when:
         - input: "$(tasks.check-if-e2e-irrelevant.results.result)"
           operator: in
@@ -108,18 +156,28 @@ spec:
           - name: url
             value: https://github.com/konflux-ci/tekton-integration-catalog.git
           - name: revision
-            value: main
+            value: $(params.catalog-revision)
           - name: pathInRepo
-            value: tasks/mapt-oci/kind-aws-spot/provision/0.2/kind-aws-provision.yaml
+            value: tasks/mapt-oci/kind-ibm-provision/0.4/kind-ibm-provision.yaml
       params:
-        - name: secret-aws-credentials
-          value: mapt-kind-secret
+        - name: secret-ibmcloud-credentials
+          value: $(params.ibmcloud-credentials-secret)
+        - name: catalog-revision
+          value: $(params.catalog-revision)
         - name: cluster-access-secret-name
           value: kfg-$(context.pipelineRun.name)
         - name: id
-          value: $(context.pipelineRun.name)
+          value: $(tasks.generate-cluster-id.results.cluster-id)
+        - name: backed-url
+          value: $(params.ibmcloud-backend-url)/$(tasks.generate-cluster-id.results.cluster-id)
+        - name: compute-sizes
+          value: cxf-32x64
+        - name: version
+          value: v1.37
+        - name: harden-control-plane
+          value: 'true'
         - name: tags
-          value: 'owner=konflux-devprod@redhat.com,project=Konflux,created-by=integration-pipeline,component=release-service'
+          value: 'owner=konflux-devprod,project=Konflux,created-by=integration-pipeline,component=release-service'
         - name: debug
           value: 'false'
         - name: ownerKind
@@ -130,10 +188,8 @@ spec:
           value: $(context.pipelineRun.uid)
         - name: oci-ref
           value: $(params.oci-container-repo):$(context.pipelineRun.name)
-        - name: credentials-secret-name
+        - name: oci-credentials
           value: $(params.konflux-test-infra-secret)
-        - name: spot-increase-rate
-          value: 80
 
     - name: deploy-konflux
       runAfter:
@@ -413,20 +469,26 @@ spec:
           - name: url
             value: https://github.com/konflux-ci/tekton-integration-catalog.git
           - name: revision
-            value: main
+            value: $(params.catalog-revision)
           - name: pathInRepo
-            value: tasks/mapt-oci/kind-aws-spot/deprovision/0.1/kind-aws-deprovision.yaml
+            value: tasks/mapt-oci/kind-ibm-deprovision/0.1/kind-ibm-deprovision.yaml
       params:
-        - name: secret-aws-credentials
-          value: mapt-kind-secret
+        - name: secret-ibmcloud-credentials
+          value: $(params.ibmcloud-credentials-secret)
+        - name: catalog-revision
+          value: $(params.catalog-revision)
         - name: id
-          value: $(context.pipelineRun.name)
+          value: $(tasks.generate-cluster-id.results.cluster-id)
+        - name: backed-url
+          value: $(params.ibmcloud-backend-url)/$(tasks.generate-cluster-id.results.cluster-id)
         - name: cluster-access-secret
           value: kfg-$(context.pipelineRun.name)
+        - name: pipeline-aggregate-status
+          value: $(tasks.status)
         - name: oci-container
           value: $(params.oci-container-repo):$(context.pipelineRun.name)
         - name: oci-credentials
-          value: konflux-test-infra
+          value: $(params.konflux-test-infra-secret)
 
     - name: pull-request-status-message
       when:
@@ -469,8 +531,6 @@ spec:
           value: e2e-report.xml
         - name: e2e-log-name
           value: e2e-tests.log
-        - name: cluster-provision-log-name
-          value: kind-aws-provision.log
         - name: enable-test-results-analysis
           value: "true"
         - name: artifact-browser-url
