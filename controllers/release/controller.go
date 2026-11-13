@@ -43,6 +43,7 @@ import (
 // Controller reconciles a Release object
 type Controller struct {
 	client                  client.Client
+	apiReader               client.Reader
 	log                     logr.Logger
 	MaxConcurrentReconciles int
 }
@@ -77,7 +78,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	adapter := newAdapter(ctx, c.client, release, loader.NewLoader(), &logger)
+	adapter := newAdapter(ctx, c.client, release, loader.NewLoaderWithAPIReader(c.apiReader), &logger)
 
 	return controller.ReconcileHandler([]controller.Operation{
 		adapter.EnsureFinalizersAreCalled,
@@ -109,6 +110,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 // Releases so the owner gets reconciled on changes.
 func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Cluster) error {
 	c.client = mgr.GetClient()
+	c.apiReader = mgr.GetAPIReader()
 	c.log = log.WithName("release")
 
 	return ctrl.NewControllerManagedBy(mgr).

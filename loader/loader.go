@@ -51,7 +51,8 @@ type KubeArchiveGetFunc func(ctx context.Context, cli client.Client, gvr schema.
 	namespace, name string, obj client.Object) error
 
 type loader struct {
-	kaGet KubeArchiveGetFunc
+	kaGet     KubeArchiveGetFunc
+	apiReader client.Reader
 }
 
 func NewLoader() ObjectLoader {
@@ -60,8 +61,24 @@ func NewLoader() ObjectLoader {
 	}
 }
 
+// NewLoaderWithAPIReader returns an ObjectLoader that uses apiReader to perform a live,
+// uncached read when a Snapshot lookup initially returns NotFound from the cached client,
+// guarding against the Release being reconciled before the Snapshot's informer cache has
+// synced. apiReader may be nil, in which case GetSnapshot behaves the same as a loader created
+// with NewLoader.
+func NewLoaderWithAPIReader(apiReader client.Reader) ObjectLoader {
+	return &loader{
+		kaGet:     kubearchive.Get,
+		apiReader: apiReader,
+	}
+}
+
 func newLoader(kaGet KubeArchiveGetFunc) ObjectLoader {
 	return &loader{kaGet: kaGet}
+}
+
+func newLoaderWithAPIReader(kaGet KubeArchiveGetFunc, apiReader client.Reader) ObjectLoader {
+	return &loader{kaGet: kaGet, apiReader: apiReader}
 }
 
 // GetActiveReleasePlanAdmission returns the ReleasePlanAdmission targeted by the given ReleasePlan.
@@ -379,12 +396,22 @@ func (l *loader) GetReleaseServiceConfig(ctx context.Context, cli client.Client,
 }
 
 // GetSnapshot returns the Snapshot referenced by the given Release. If the Snapshot is not found
-// in the cluster, it falls back to KubeArchive to retrieve the archived resource. If both
-// lookups fail, the original cluster error is returned.
+// in the cache, a live, uncached read is attempted first to rule out informer cache lag (e.g. a
+// Snapshot created immediately before the Release, as happens with an auto-release that has no
+// integration tests to wait on, may not have synced into the cache yet). If that also doesn't
+// find it, it falls back to KubeArchive to retrieve an archived resource. If all lookups fail,
+// the original cluster error is returned.
 func (l *loader) GetSnapshot(ctx context.Context, cli client.Client, release *v1alpha1.Release) (*applicationapiv1alpha1.Snapshot, error) {
 	snapshot := &applicationapiv1alpha1.Snapshot{}
 	err := toolkit.GetObject(release.Spec.Snapshot, release.Namespace, cli, ctx, snapshot)
 	if err != nil && apierrors.IsNotFound(err) {
+		if l.apiReader != nil {
+			key := client.ObjectKey{Namespace: release.Namespace, Name: release.Spec.Snapshot}
+			if liveErr := l.apiReader.Get(ctx, key, snapshot); liveErr == nil {
+				return snapshot, nil
+			}
+		}
+
 		kaErr := l.kaGet(ctx, cli,
 			schema.GroupVersionResource{
 				Group:    "appstudio.redhat.com",

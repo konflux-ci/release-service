@@ -17,6 +17,7 @@ limitations under the License.
 package release
 
 import (
+	"os"
 	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -24,10 +25,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/konflux-ci/release-service/api/v1alpha1"
 )
 
 var _ = Describe("Release Controller", Ordered, func() {
@@ -50,6 +54,52 @@ var _ = Describe("Release Controller", Ordered, func() {
 			result, err := controller.Reconcile(ctx, req)
 			Expect(reflect.TypeOf(result)).To(Equal(reflect.TypeOf(reconcile.Result{})))
 			Expect(err).To(BeNil())
+		})
+
+		// This Release is deliberately invalid (it references a non-existent ReleasePlan) and
+		// SERVICE_NAMESPACE is deliberately left unset, so EnsureConfigIsLoaded halts the
+		// operation chain on the very first real operation, after a single status patch and
+		// before any finalizer is added or pipeline processing is attempted. This lets the test
+		// reach the adapter construction in Reconcile (and therefore exercise the apiReader
+		// wiring) without running the full operation pipeline against the shared test env.
+		It("constructs the adapter using the configured apiReader when the release exists", func() {
+			previousServiceNamespace, hadServiceNamespace := os.LookupEnv("SERVICE_NAMESPACE")
+			Expect(os.Unsetenv("SERVICE_NAMESPACE")).To(Succeed())
+			defer func() {
+				if hadServiceNamespace {
+					os.Setenv("SERVICE_NAMESPACE", previousServiceNamespace)
+				}
+			}()
+
+			release := &v1alpha1.Release{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "coverage-",
+					Namespace:    "default",
+				},
+				Spec: v1alpha1.ReleaseSpec{
+					Snapshot:    "non-existent-snapshot",
+					ReleasePlan: "non-existent-releaseplan",
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+			defer func() {
+				Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+			}()
+
+			controller := &Controller{
+				client:    k8sClient,
+				apiReader: k8sClient,
+				log:       ctrl.Log,
+			}
+
+			req := ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      release.Name,
+					Namespace: release.Namespace,
+				},
+			}
+			_, err := controller.Reconcile(ctx, req)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
