@@ -258,6 +258,11 @@ func (in *PipelineAttempt) DeepCopyInto(out *PipelineAttempt) {
 		in, out := &in.CompletionTime, &out.CompletionTime
 		*out = (*in).DeepCopy()
 	}
+	if in.SafeToRetry != nil {
+		in, out := &in.SafeToRetry, &out.SafeToRetry
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Mitigation != nil {
 		in, out := &in.Mitigation, &out.Mitigation
 		*out = new(AppliedMitigation)

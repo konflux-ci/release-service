@@ -367,6 +367,10 @@ spec:
                       description: RetryDisabledReason is the reason retries were
                         not performed for this attempt
                       type: string
+                    safeToRetry:
+                      description: SafeToRetry indicates whether this managed pipeline
+                        attempt is safe to retry
+                      type: boolean
                     roleBindings:
                       description: RoleBindings defines the roleBindings for accessing
                         resources during the managed pipeline attempt
