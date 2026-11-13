@@ -7,6 +7,7 @@ import (
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks/release"
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks/releaseplan"
 	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks/releaseplanadmission"
+	"github.com/konflux-ci/release-service/api/v1alpha1/webhooks/releaseserviceconfig"
 )
 
 // EnabledWebhooks is a slice containing references to all the webhooks that have to be registered
@@ -15,4 +16,5 @@ var EnabledWebhooks = []webhook.Webhook{
 	&release.Webhook{},
 	&releaseplan.Webhook{},
 	&releaseplanadmission.Webhook{},
+	&releaseserviceconfig.Webhook{},
 }
