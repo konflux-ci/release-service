@@ -2214,6 +2214,14 @@ func (a *adapter) validateApplication() *controller.ValidationResult {
 
 	snapshot, err := a.loader.GetSnapshot(a.ctx, a.client, a.release)
 	if err != nil {
+		// Grace period for Snapshot NotFound: cache may lag when Snapshot and Release created simultaneously
+		if errors.IsNotFound(err) {
+			a.release.MarkValidationFailed(err.Error())
+			if a.release.CreationTimestamp.Add(5 * time.Minute).Before(time.Now()) {
+				return &controller.ValidationResult{Valid: false}
+			}
+			return &controller.ValidationResult{Err: err}
+		}
 		return a.validationError(err)
 	}
 

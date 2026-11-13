@@ -6921,7 +6921,22 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(result.Err).NotTo(HaveOccurred())
 		})
 
-		It("returns invalid if the Snapshot is not found", func() {
+		It("returns error if Snapshot is not found within grace period", func() {
+			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
+				{
+					ContextKey: loader.SnapshotContextKey,
+					Err:        errors.NewNotFound(schema.GroupResource{}, ""),
+				},
+			})
+
+			result := adapter.validateApplication()
+			Expect(result.Valid).To(BeFalse())
+			Expect(result.Err).To(HaveOccurred())
+			Expect(errors.IsNotFound(result.Err)).To(BeTrue())
+		})
+
+		It("returns invalid if Snapshot is not found after grace period", func() {
+			adapter.release.SetCreationTimestamp(metav1.Time{Time: time.Now().Add(-10 * time.Minute)})
 			adapter.ctx = toolkit.GetMockedContext(ctx, []toolkit.MockData{
 				{
 					ContextKey: loader.SnapshotContextKey,
