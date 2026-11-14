@@ -22,7 +22,7 @@ require (
 	k8s.io/api v0.37.2
 	k8s.io/apimachinery v0.37.2
 	k8s.io/client-go v11.0.0+incompatible
-	knative.dev/pkg v0.0.0-20261106011441-a8ce7f3f6f84
+	knative.dev/pkg v0.0.0-20261110182720-ae1437a8b141
 	sigs.k8s.io/controller-runtime v0.25.2
 )
 
@@ -144,7 +144,7 @@ require (
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/common v0.72.1 // indirect
 	github.com/prometheus/procfs v0.22.0 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/spf13/pflag v1.1.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0
 	golang.org/x/net v0.62.0 // indirect
