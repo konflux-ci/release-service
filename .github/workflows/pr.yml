@@ -151,7 +151,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: konflux-ci/renovate-config-validator-action@84178696a3dc01882f701fcbf0fa63d0bafb0a4b # main
+      - uses: konflux-ci/renovate-config-validator-action@ca6b202a90add38b1fc274c07507c77d2b1ce88e # main
         with:
           config_file: .github/renovate.json
   golangci-lint:
