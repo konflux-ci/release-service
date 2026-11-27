@@ -6747,7 +6747,28 @@ var _ = Describe("Release adapter", Ordered, func() {
 
 			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.IsManagedPipelineProcessedSuccessfully()).To(BeTrue())
+			Expect(adapter.release.GetCurrentManagedPipelineAttempt().SafeToRetry).To(BeNil())
 			Expect(exporter.Spans()).NotTo(BeEmpty())
+		})
+
+		It("records whether the managed pipeline is safe to retry when the failed PipelineRun reports it", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			pipelineRun.Status.MarkFailed("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+			pipelineRun.Status.Results = []tektonv1.PipelineRunResult{{
+				Name: managedPipelineRetrySafetyResultName,
+				Value: tektonv1.ParamValue{
+					Type:      tektonv1.ParamTypeString,
+					StringVal: "false",
+				},
+			}}
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+
+			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
+			Expect(adapter.release.GetCurrentManagedPipelineAttempt().SafeToRetry).NotTo(BeNil())
+			Expect(*adapter.release.GetCurrentManagedPipelineAttempt().SafeToRetry).To(BeFalse())
 		})
 
 		It("marks the attempt as failed but does not finalize the phase if the PipelineRun didn't succeed", func() {
@@ -6763,7 +6784,29 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(attempt.Status).To(Equal(v1alpha1.AttemptFailedReason))
 			Expect(adapter.release.HasManagedPipelineProcessingFinished()).To(BeFalse())
 			Expect(adapter.release.IsFailed()).To(BeFalse())
+			Expect(attempt.SafeToRetry).To(BeNil())
 			Expect(exporter.Spans()).NotTo(BeEmpty())
+		})
+
+		It("ignores a malformed retry-safety result and still marks the attempt failed", func() {
+			pipelineRun := &tektonv1.PipelineRun{}
+			pipelineRun.Status.MarkFailed("", "")
+			pipelineRun.Status.StartTime = &metav1.Time{Time: time.Now().Add(-time.Minute)}
+			pipelineRun.Status.CompletionTime = &metav1.Time{Time: time.Now()}
+			pipelineRun.Status.Results = []tektonv1.PipelineRunResult{{
+				Name: managedPipelineRetrySafetyResultName,
+				Value: tektonv1.ParamValue{
+					Type:      tektonv1.ParamTypeString,
+					StringVal: "not-a-bool",
+				},
+			}}
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{PipelineRun: "default/pr"}}
+			adapter.release.MarkCurrentManagedPipelineAttemptProcessing()
+
+			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
+			attempt := adapter.release.GetCurrentManagedPipelineAttempt()
+			Expect(attempt.SafeToRetry).To(BeNil())
+			Expect(attempt.Status).To(Equal(v1alpha1.AttemptFailedReason))
 		})
 
 		It("marks the attempt as failed if the PipelineRun is deleted while still running", func() {
@@ -6794,6 +6837,21 @@ var _ = Describe("Release adapter", Ordered, func() {
 			Expect(adapter.registerManagedProcessingStatus(pipelineRun)).To(Succeed())
 			Expect(adapter.release.GetCurrentManagedPipelineAttempt().Status).To(Equal(v1alpha1.AttemptSucceededReason))
 			Expect(exporter.Spans()).To(BeEmpty())
+		})
+
+		It("clears the managed pipeline retry-safety report when a new attempt is registered", func() {
+			isSafeToRetry := false
+			adapter.release.Status.ManagedPipelineAttempts = []v1alpha1.PipelineAttempt{{
+				PipelineRun: "default/pr",
+				SafeToRetry: &isSafeToRetry,
+			}}
+
+			pipelineRun := &tektonv1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{Name: "pr-2", Namespace: "default"},
+			}
+
+			Expect(adapter.registerManagedProcessingData(pipelineRun, nil, nil)).To(Succeed())
+			Expect(adapter.release.GetCurrentManagedPipelineAttempt().SafeToRetry).To(BeNil())
 		})
 	})
 

@@ -245,6 +245,10 @@ type PipelineAttempt struct {
 	// +optional
 	RetryDisabledReason string `json:"retryDisabledReason,omitempty"`
 
+	// SafeToRetry indicates whether this managed pipeline attempt is safe to retry
+	// +optional
+	SafeToRetry *bool `json:"safeToRetry,omitempty"`
+
 	// Mitigation defines the mitigated values applied when retrying this attempt
 	// +optional
 	Mitigation *AppliedMitigation `json:"mitigation,omitempty"`

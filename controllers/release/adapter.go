@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,6 +66,9 @@ type adapter struct {
 	syncer               *syncer.Syncer
 	validations          []controller.ValidationFunction
 }
+
+// managedPipelineRetrySafetyResultName is the managed pipeline result name used to report retry safety.
+const managedPipelineRetrySafetyResultName = "safe-to-retry"
 
 // newAdapter creates and returns an adapter instance.
 func newAdapter(ctx context.Context, client client.Client, release *v1alpha1.Release, loader loader.ObjectLoader, logger *logr.Logger) *adapter {
@@ -2131,6 +2135,17 @@ func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.Pipeline
 	if condition.IsTrue() {
 		a.release.MarkCurrentManagedPipelineAttemptProcessed()
 	} else {
+		retrySafeToRetry, err := getManagedPipelineSafeToRetry(pipelineRun)
+		if err != nil {
+			a.logger.Error(err, "failed to parse managed pipeline retry-safety result",
+				"pipelineRun", pipelineRun.Name)
+		} else if retrySafeToRetry != nil {
+			attempt := a.release.GetCurrentManagedPipelineAttempt()
+			if attempt != nil {
+				attempt.SafeToRetry = retrySafeToRetry
+			}
+		}
+
 		taskRuns, listErr := a.listTaskRunsForPipelineRun(pipelineRun)
 		if listErr != nil {
 			a.logger.Error(listErr, "failed to list TaskRuns for managed pipeline")
@@ -2168,6 +2183,25 @@ func (a *adapter) registerManagedProcessingStatus(pipelineRun *tektonv1.Pipeline
 	}
 
 	return a.patchStatusAndEmitSpans(patch, pipelineRun)
+}
+
+// getManagedPipelineSafeToRetry returns the value of the safe-to-retry result
+// from the given PipelineRun, or nil if the result is absent.
+func getManagedPipelineSafeToRetry(pipelineRun *tektonv1.PipelineRun) (*bool, error) {
+	for _, result := range pipelineRun.Status.Results {
+		if result.Name != managedPipelineRetrySafetyResultName {
+			continue
+		}
+
+		isSafeToRetry, err := strconv.ParseBool(strings.TrimSpace(result.Value.StringVal))
+		if err != nil {
+			return nil, err
+		}
+
+		return &isSafeToRetry, nil
+	}
+
+	return nil, nil
 }
 
 // registerFinalProcessingStatus updates the status of the Release being processed by monitoring the status of the
