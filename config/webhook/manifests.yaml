@@ -148,3 +148,23 @@ webhooks:
     resources:
     - releaseplanadmissions
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-appstudio-redhat-com-v1alpha1-releaseserviceconfig
+  failurePolicy: Fail
+  name: vreleaseserviceconfig.kb.io
+  rules:
+  - apiGroups:
+    - appstudio.redhat.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - releaseserviceconfigs
+  sideEffects: None
