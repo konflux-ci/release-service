@@ -43,6 +43,7 @@ import (
 // Controller reconciles a Release object
 type Controller struct {
 	client                  client.Client
+	apiReader               client.Reader
 	log                     logr.Logger
 	MaxConcurrentReconciles int
 }
@@ -78,6 +79,11 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	adapter := newAdapter(ctx, c.client, release, loader.NewLoader(), &logger)
+	// The manager client reads PipelineRuns from a label-filtered cache. NotFound there does not
+	// mean the object was deleted, so the recorded-name check uses the API reader.
+	if c.apiReader != nil {
+		adapter.apiReader = c.apiReader
+	}
 
 	return controller.ReconcileHandler([]controller.Operation{
 		adapter.EnsureFinalizersAreCalled,
@@ -109,6 +115,7 @@ func (c *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 // Releases so the owner gets reconciled on changes.
 func (c *Controller) Register(mgr ctrl.Manager, log *logr.Logger, _ cluster.Cluster) error {
 	c.client = mgr.GetClient()
+	c.apiReader = mgr.GetAPIReader()
 	c.log = log.WithName("release")
 
 	return ctrl.NewControllerManagedBy(mgr).

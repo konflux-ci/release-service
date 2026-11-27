@@ -172,7 +172,9 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
-				// we want to cache PipelineRuns only created by this operator.
+				// Cache only PipelineRuns created by this operator. A miss in this cache is not
+				// proof of deletion: the object may exist without the label. The release controller
+				// confirms a recorded PipelineRun is gone with an uncached API read.
 				&tektonv1.PipelineRun{}: {
 					Label: labels.SelectorFromSet(labels.Set{metadata.ServiceNameLabel: metadata.ServiceName}),
 				},

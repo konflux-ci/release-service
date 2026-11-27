@@ -815,6 +815,29 @@ func (r *Release) MarkCurrentManagedPipelineAttemptFailed(message, failureReason
 	)
 }
 
+// MarkCurrentManagedPipelineAttemptFailedWithoutProgress marks the current managed attempt failed
+// with the given reason when no task progress is available. Last task, last step, and the successful
+// task count are left unchanged. Metrics and the deprecated ManagedProcessing completion time are
+// left to the caller that records the phase result, so the same failure is not counted twice.
+func (r *Release) MarkCurrentManagedPipelineAttemptFailedWithoutProgress(failureReason string) {
+	if !r.IsManagedPipelineProcessing() || r.HasManagedPipelineProcessingFinished() {
+		return
+	}
+
+	if r.IsCurrentManagedPipelineAttemptDone() {
+		return
+	}
+
+	attempt := r.GetCurrentManagedPipelineAttempt()
+	if attempt == nil {
+		return
+	}
+
+	attempt.Status = AttemptFailedReason
+	attempt.FailureReason = failureReason
+	attempt.CompletionTime = &metav1.Time{Time: time.Now()}
+}
+
 // MarkCurrentManagedPipelineAttemptRetryDisabled records the reason retries were skipped for the current attempt.
 func (r *Release) MarkCurrentManagedPipelineAttemptRetryDisabled(reason string) {
 	attempt := r.GetCurrentManagedPipelineAttempt()

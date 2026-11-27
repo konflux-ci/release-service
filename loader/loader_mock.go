@@ -31,13 +31,16 @@ const (
 	ReleaseServiceConfigContextKey
 	RoleBindingContextKey
 	SnapshotContextKey
+	PipelineRunContextKey
 )
 
 type mockLoader struct {
-	loader ObjectLoader
+	loader *loader
 }
 
-func NewMockLoader() ObjectLoader {
+// NewMockLoader returns a loader that serves resources from the context.
+// The concrete type implements ObjectLoader and PipelineRunGetter.
+func NewMockLoader() *mockLoader {
 	return &mockLoader{
 		loader: NewLoader(),
 	}
@@ -137,6 +140,14 @@ func (l *mockLoader) GetReleasePipelineRunAttempt(ctx context.Context, cli clien
 		return l.loader.GetReleasePipelineRunAttempt(ctx, cli, release, attempt)
 	}
 	return toolkit.GetMockedResourceAndErrorFromContext(ctx, ReleasePipelineRunAttemptContextKey, &tektonv1.PipelineRun{})
+}
+
+// GetPipelineRun returns the resource and error passed as values of the context.
+func (l *mockLoader) GetPipelineRun(ctx context.Context, cli client.Reader, namespacedName string) (*tektonv1.PipelineRun, error) {
+	if ctx.Value(PipelineRunContextKey) == nil {
+		return l.loader.GetPipelineRun(ctx, cli, namespacedName)
+	}
+	return toolkit.GetMockedResourceAndErrorFromContext(ctx, PipelineRunContextKey, &tektonv1.PipelineRun{})
 }
 
 // GetReleasePlan returns the resource and error passed as values of the context.
