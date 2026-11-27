@@ -68,6 +68,13 @@ PipelineRuns are watched via `EnqueueRequestForAnnotation` — when a PipelineRu
 - **Metrics**: registered during reconciliation — `RegisterNewRelease()`, `RegisterCompletedRelease()`, `RegisterValidatedRelease()` with start/completion times
 - **Syncer**: copies Snapshot metadata to target namespace idempotently (ignores AlreadyExists)
 
+## Trust Boundaries
+
+- **Managed namespace (RPA)**: ReleasePlanAdmission lives in the admin-controlled managed namespace; ReleasePlan lives in the tenant namespace. RPA's `Pipeline` field uses non-parameterized `tektonutils.Pipeline`, **not** `ParameterizedPipeline` — managed pipelines run with elevated privileges, so only system-controlled parameters flow in
+- **Managed pipeline builder**: `createManagedPipelineRun` injects admin-defined values only — OCI storage from `PipelineRef`, object references (Release, ReleasePlan, ReleasePlanAdmission, ReleaseServiceConfig, Snapshot), Enterprise Contract policy spec, and pipeline identity (service account, workspace, timeouts). No user-supplied parameters flow into managed PipelineRuns
+- **Tenant pipelines**: `TenantPipeline` and `FinalPipeline` use `ParameterizedPipeline` because they run in the tenant's own namespace with the tenant's own service account
+- **Trust boundary violation**: any change expanding user-supplied data into managed PipelineRuns — such as using `ParameterizedPipeline` for RPA, adding user-controlled params/labels/annotations to managed builders, allowing tenant-controlled service accounts in the managed namespace, or routing tenant-supplied `Data` as pipeline params without admin validation — requires explicit team review
+
 ## Pattern References
 
 When making common changes, follow these existing implementations as reference:
